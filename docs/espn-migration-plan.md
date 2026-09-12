@@ -428,6 +428,46 @@ above — pulled via each league's own `/apis/v2/sports/.../standings` endpoint 
 `fetchEspnFlatStandings` already uses) and matched to `TEAM_META` by team name, reusing the same exact-
 match/alias rules `findFlatTeamKey` already relies on. All 100 teams matched with no misses.
 
+## Game Details: a live MLB boxscore off the team modal (2026-09-12)
+
+The team modal's LIVE line has always been a single line (score + period, from
+`fetchEspnScoreboard`) — this adds a drill-down to a real boxscore, wired up for MLB first as a pilot
+before touching any other sport.
+
+**UX: three structural options were mocked up and reviewed before writing any code** (a stacked
+comparison of "drill down in place," "a wider sheet stacked on top," and "a dedicated full-width game
+page" — see the chat history for the actual mockups). **Option B — a second, wider sheet stacked on top
+of the team modal — is what shipped.** It keeps the modal mental model (tap in, tap/back out) while
+giving a real batting/pitching table more room than the 400px team card allows. The team modal
+underneath stays open and dimmed, not closed — closing the sheet (back arrow, ✕, backdrop tap, or Esc)
+returns to it, not to the team list.
+
+**New data source: `fetchEspnSummary(sportLeaguePath, eventId)` in `js/espn.js`** — ESPN's
+`/apis/site/v2/sports/{sport}/{league}/summary?event={id}` endpoint, fetched only when a drafter
+actually taps "View full boxscore" (never prefetched alongside the team modal's own live line, unlike
+`fetchEspnScoreboard` which covers every game in the league in one shared request). `eventId` is now
+carried on `findEspnScoreboardLine`'s return value too — previously discarded since nothing needed it
+before this.
+
+**MLB-only for now, on purpose.** The entry point in `renderNext` (`js/live-data.js`) is gated on
+`meta.leagueKey === 'mlb'`; the parsing in `fetchEspnSummary` reads baseball's own field shapes
+(`situation.balls/strikes/outs/onFirst/onSecond/onThird`, `boxscore.players[].statistics[].labels/
+athletes`). Extending this to another sport needs that sport's own read of its real summary response,
+not just pointing `fetchEspnSummary` at a different `sportLeaguePath` — football's situation is
+down/distance/possession, basketball and soccer don't get a `situation` object back at all (see the
+per-sport mockup exploration referenced above).
+
+**Verification caveat:** this session's outbound network access couldn't reach `site.web.api.espn.com`
+at all (egress-blocked, same restriction noted earlier in this doc) — every field name above comes from
+the endpoint's documented/well-known shape (community reverse-engineering docs, e.g.
+`pseudo-r/Public-ESPN-API`), not a live payload read during this build. Every read in `fetchEspnSummary`
+is defensive (guarded, never an assumed-present chain) specifically because of this, and the whole
+feature was instead verified against a Playwright run with mocked ESPN responses matching this assumed
+shape — real screenshots, real DOM assertions, but not real ESPN data. **The first live MLB game this
+runs against for real is the actual verification pass**; if `situation` or `boxscore` come back oddly
+shaped, both are already isolated to `fetchEspnSummary`'s own defensive parsing rather than spread
+through the render code, minimizing where a fix in the JSON contract would have to be repointed to.
+
 ## Division standings for NBA/NHL/MLB (2026-09-12)
 
 NFL was the only league with a real Division-nested-under-Conference standings view

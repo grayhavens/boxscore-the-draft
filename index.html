@@ -70,6 +70,16 @@
   </div>
 </div>
 
+<!-- Game Details: stacks on top of the team modal above (Option B —
+     see docs/espn-migration-plan.md's Game Details section). Opened by
+     js/live-data.js's openGameDetail; the team modal underneath stays
+     open and dimmed, not closed. -->
+<div class="modal-overlay stacked" id="game-detail-overlay" onclick="if(event.target===this) closeGameDetail()">
+  <div class="modal modal-wide" id="game-detail-content">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
 <nav class="tab-bar">
   <button class="tab-btn active" data-view="board" onclick="switchView('board')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>

@@ -7,7 +7,7 @@ import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
-import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine } from './espn.js';
+import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary } from './espn.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
@@ -592,9 +592,10 @@ function rundownEventLine(event, rundownTeamId){
   return { isHome, own, opp, opponentName: (opponent && opponent.name) || 'TBD', period };
 }
 
-function renderNext(id, bundle){
+function renderNext(teamKey, meta, bundle){
   const el = document.getElementById('live-next');
   if(!el) return;
+  const id = meta.sportsdbId;
 
   // EPL/NFL/CFB/NBA/NHL/MLB/WNBA: live in-game state from ESPN's
   // scoreboard (js/espn.js) instead of TheRundown — see
@@ -603,10 +604,26 @@ function renderNext(id, bundle){
   // upcoming-fixture line the espnSchedule branch below would show.
   if(bundle.espnLive && bundle.espnLive.isLive){
     const line = bundle.espnLive;
+    // MLB-only for now (see fetchEspnSummary in js/espn.js) — the
+    // "Game Details" boxscore sheet. Gated on a real eventId too, not
+    // just the league, since a team whose event lookup somehow came
+    // back without one has nothing to fetch.
+    const detailHtml = (meta.leagueKey === 'mlb' && line.eventId) ? `
+      <div class="detail-link" onclick="openGameDetail('${teamKey}')">
+        <div>
+          <div class="txt">View full boxscore</div>
+          <div class="sub">Linescore, batting &amp; pitching</div>
+        </div>
+        <div class="chev">›</div>
+      </div>
+    ` : '';
     el.innerHTML = `
-      <div class="nm-left">
-        <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
-        <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
+      <div>
+        <div class="nm-left">
+          <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
+          <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
+        </div>
+        ${detailHtml}
       </div>
     `;
     return;
@@ -817,7 +834,7 @@ export function renderLiveBundle(teamKey, bundle){
   renderStats(meta, bundle);
   renderSeasonBadge(meta, bundle);
   renderForm(meta.sportsdbId, bundle);
-  renderNext(meta.sportsdbId, bundle);
+  renderNext(teamKey, meta, bundle);
   renderUpdatedAt(bundle);
 }
 
@@ -899,6 +916,7 @@ export function openTeamModal(teamKey){
 window.openTeamModal = openTeamModal;
 
 export function closeTeamModal(){
+  closeGameDetail();
   document.getElementById('modal-overlay').classList.remove('open');
   const modalContent = document.getElementById('modal-content');
   modalContent.dataset.activeTeam = '';
@@ -907,8 +925,149 @@ export function closeTeamModal(){
 }
 window.closeTeamModal = closeTeamModal;
 
+/* ---- Game Details: a wider sheet stacked on top of the team modal ----
+   Option B from the drill-down exploration — see docs/espn-migration-plan.md.
+   Fetched only when a drafter actually taps in for the box score (never
+   prefetched alongside the team modal's own live line), and only while
+   MLB has this wired up (see fetchEspnSummary in js/espn.js) — the
+   entry point above is itself gated to meta.leagueKey === 'mlb'. Body
+   scroll is already locked by openTeamModal underneath; this overlay
+   opens/closes without touching that lock. */
+
+// One out/count/runners line, e.g. "2 outs · 1-2 count · runner on 2nd" —
+// built from fetchEspnSummary's normalized situation object rather than
+// a raw ESPN field, so it degrades to fewer clauses instead of breaking
+// if a piece of it is ever missing.
+function mlbSituationText(sit){
+  if(!sit) return null;
+  const parts = [];
+  if(sit.outs !== null) parts.push(`${sit.outs} out${sit.outs === 1 ? '' : 's'}`);
+  if(sit.balls !== null && sit.strikes !== null) parts.push(`${sit.balls}-${sit.strikes} count`);
+  const bases = [];
+  if(sit.onFirst) bases.push('1st');
+  if(sit.onSecond) bases.push('2nd');
+  if(sit.onThird) bases.push('3rd');
+  parts.push(bases.length ? `runner${bases.length > 1 ? 's' : ''} on ${bases.join(' & ')}` : 'bases empty');
+  return parts.join(' · ');
+}
+
+// One batting/pitching table off a boxscore group — headers come from
+// ESPN's own `labels` array (see fetchEspnSummary) rather than a
+// hardcoded column list, so this renders correctly even if the real
+// label set/order here turns out to differ from what this was written
+// against without live access to verify it.
+function boxGroupHtml(group){
+  if(!group.rows.length) return '';
+  const headerCells = group.labels.map(l => `<th>${l}</th>`).join('');
+  const rows = group.rows.map(r => `
+    <tr><td class="name">${r.name}</td>${r.stats.map(s => `<td>${s}</td>`).join('')}</tr>
+  `).join('');
+  return `
+    <div class="modal-section-title" style="margin-top:14px;">${group.name}</div>
+    <div class="box-scroll">
+      <table class="box-table">
+        <tr><th style="text-align:left;"></th>${headerCells}</tr>
+        ${rows}
+      </table>
+    </div>
+  `;
+}
+
+function renderGameDetail(accent, summary){
+  const el = document.getElementById('game-detail-content');
+  if(!el) return;
+
+  if(!summary || summary.teams.length < 2){
+    el.innerHTML = `
+      <div class="gd-head with-back">
+        <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
+        <div class="gd-title">Boxscore</div>
+      </div>
+      <div class="modal-body"><div class="loading-note">Boxscore isn't available for this game right now — try again in a moment.</div></div>
+    `;
+    return;
+  }
+
+  const away = summary.teams.find(t => t.homeAway === 'away') || summary.teams[0];
+  const home = summary.teams.find(t => t.homeAway === 'home') || summary.teams[1];
+  const innings = Math.max(away.linescore.length, home.linescore.length, 9);
+  const inningHeaders = Array.from({ length: innings }, (_, i) => `<th>${i + 1}</th>`).join('');
+  const lineRow = team => `
+    <tr>
+      <td class="team">${team.abbr || '—'}</td>
+      ${Array.from({ length: innings }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
+      <td class="tot">${team.runs ?? '–'}</td><td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>
+    </tr>
+  `;
+
+  const situationHtml = summary.situation
+    ? `<div class="gd-situation">${mlbSituationText(summary.situation)}</div>`
+    : '';
+
+  const boxHtml = summary.boxscore.map(team => `
+    <div class="modal-section-title" style="margin-top:18px;">${team.abbr || '—'}</div>
+    ${team.groups.map(boxGroupHtml).join('')}
+  `).join('');
+
+  el.innerHTML = `
+    <div class="modal-accent" style="background:${accent};"></div>
+    <div class="gd-head with-back">
+      <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
+      <div>
+        <div class="gd-title">${away.abbr} @ ${home.abbr}</div>
+        <div class="gd-sub"><span class="live-badge">LIVE</span> ${(summary.status && summary.status.detail) || ''}</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      ${situationHtml}
+      <div class="box-scroll">
+        <table class="linescore-table">
+          <tr><th></th>${inningHeaders}<th>R</th><th>H</th><th>E</th></tr>
+          ${lineRow(away)}
+          ${lineRow(home)}
+        </table>
+      </div>
+      ${boxHtml}
+    </div>
+  `;
+}
+
+export async function openGameDetail(teamKey){
+  const meta = TEAM_META[teamKey];
+  const bundle = liveDataCache[teamKey];
+  const line = bundle && bundle.espnLive;
+  if(!meta || !line || !line.eventId) return;
+
+  const overlay = document.getElementById('game-detail-overlay');
+  const el = document.getElementById('game-detail-content');
+  if(!overlay || !el) return;
+
+  overlay.classList.add('open');
+  // Guards the fetch below the same way openLiveTeam guards the team
+  // modal's own fetch — if the sheet gets closed, or reopened for a
+  // different game, while this request is in flight, its result is
+  // stale and shouldn't paint over whatever's showing now.
+  el.dataset.activeEvent = String(line.eventId);
+  el.innerHTML = `<div class="modal-body"><div class="loading-note">Loading boxscore…</div></div>`;
+
+  const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
+  const summary = flatSchedule ? await fetchEspnSummary(flatSchedule.sportPath, line.eventId) : null;
+  if(el.dataset.activeEvent !== String(line.eventId)) return;
+  renderGameDetail(meta.accent || 'var(--accent)', summary);
+}
+window.openGameDetail = openGameDetail;
+
+export function closeGameDetail(){
+  const overlay = document.getElementById('game-detail-overlay');
+  if(overlay) overlay.classList.remove('open');
+}
+window.closeGameDetail = closeGameDetail;
+
 document.addEventListener('keydown', (e) => {
-  if(e.key === 'Escape') closeTeamModal();
+  if(e.key !== 'Escape') return;
+  const gdOverlay = document.getElementById('game-detail-overlay');
+  if(gdOverlay && gdOverlay.classList.contains('open')){ closeGameDetail(); return; }
+  closeTeamModal();
 });
 
 /* ---- Staggered background refresh ----
