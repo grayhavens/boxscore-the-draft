@@ -610,16 +610,6 @@ body{
   flex: 1;
 }
 
-/* Rows with a boxscore-link (see js/live-data.js's renderForm) push
-   just that link to the far right via its own margin-left:auto below,
-   rather than the score too — so .form-detail shouldn't also stretch
-   to fill the row here, or the score would still end up stranded next
-   to the link instead of sitting close to the opponent/meta text. */
-.form-item:has(.boxscore-link) .form-detail{
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
 .form-detail .opp{
   display: block;
 }
@@ -629,6 +619,20 @@ body{
   font-weight: 500;
   font-size: 11.5px;
   margin-top: 1px;
+}
+
+/* Right-hand column on a "Most Recent Result" row that has a
+   boxscore-link (see renderForm in js/live-data.js) — score on top,
+   the link right under it, both right-aligned as one unit at the far
+   edge of the row (.form-detail's flex:1 above pushes it there, same
+   as it already pushes a lone .form-score on a link-less row). */
+.form-right{
+  text-align: right;
+}
+
+.form-right .boxscore-link{
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .form-score{
@@ -721,7 +725,6 @@ body{
    spectrum. */
 .boxscore-link{
   flex: 0 0 auto;
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 2px;

@@ -576,8 +576,10 @@ function renderForm(teamKey, meta, bundle){
           <span class="opp">${evt.opponentName}</span>
           <span class="meta">${evt.isHome ? 'Home' : 'Away'}${evt.venueName ? ' · ' + evt.venueName : ''}</span>
         </div>
-        <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
-        ${boxscoreLinkHtml}
+        <div class="form-right">
+          <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
+          ${boxscoreLinkHtml}
+        </div>
       </div>
     `;
     return;

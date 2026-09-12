@@ -674,3 +674,20 @@ replacement rather than just being made optional:
 - **The sheet's LIVE badge.** Was unconditional (every game reaching this sheet used to be live, by
   construction). Now reads `summary.status.state === 'in'` and shows just the plain status text (e.g.
   "Final") otherwise.
+
+## Most Recent Result row: score+link as a right column (2026-09-12)
+
+Feedback that the score still looked stranded on this row — floating in the middle with an odd gap on
+both sides. Four real layout options were mocked up against the app's actual dark theme/tokens (not a
+generic sketch) before picking one: score inline with the opponent name, score+link stacked as a right
+column, the score folded into the link text itself, and a combined result+score capsule replacing the
+plain W/L pill. Picked **the stacked right column** — score on top, `.boxscore-link` right under it, both
+right-aligned as one `.form-right` block.
+
+Simpler than the previous attempt at this same row: reverted the `.form-item:has(.boxscore-link)
+.form-detail{flex:0 1 auto}` override from the last pass entirely, since `.form-detail`'s plain default
+`flex:1` already does the right thing once score+link are one block instead of two separate flex
+siblings — it pushes `.form-right` to the row's far edge exactly the way it always pushed a lone
+`.form-score` there before any of this existed. Also dropped `.boxscore-link`'s `margin-left:auto` (that
+was there to push the link alone to the edge in the old two-sibling layout; here it's nested inside
+`.form-right` and just needs `justify-content:flex-end` to stay right-aligned under the score).
