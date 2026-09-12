@@ -621,6 +621,20 @@ body{
   margin-top: 1px;
 }
 
+/* Right-hand column on a "Most Recent Result" row that has a
+   boxscore-link (see renderForm in js/live-data.js) — score on top,
+   the link right under it, both right-aligned as one unit at the far
+   edge of the row (.form-detail's flex:1 above pushes it there, same
+   as it already pushes a lone .form-score on a link-less row). */
+.form-right{
+  text-align: right;
+}
+
+.form-right .boxscore-link{
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 .form-score{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
@@ -674,31 +688,59 @@ body{
   letter-spacing: 0.4px;
 }
 
-/* ---- Game Details entry row (live MLB games only, for now — see
-   renderNext in js/live-data.js) ---- */
-.detail-link{
-  margin-top: 12px;
+/* ---- Game Details entry chip (live MLB/CFB games — see renderNext in
+   js/live-data.js) ---- Sits directly on .next-match's own row next to
+   the score/period line (that row is already a space-between flex
+   container) rather than in its own stacked card below, and reuses the
+   same accent-pill treatment as an active .toggle-btn/.filter-chip so
+   it reads as a lightweight inline action, not a separate section. */
+.boxscore-chip{
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: 11px;
-  padding: 11px 13px;
+  gap: 3px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  padding: 7px 12px;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.detail-link .txt{ font-size: 12.5px; font-weight: 700; }
-
-.detail-link .sub{
-  font-size: 10px;
-  color: var(--text-sub);
-  font-weight: 500;
-  margin-top: 1px;
+.boxscore-chip:hover{
+  background: var(--accent);
+  color: #0A0B0D;
 }
 
-.detail-link .chev{ color: var(--accent); font-size: 15px; flex: 0 0 auto; }
+/* Same Game Details sheet, off the "Most Recent Result" row instead of
+   the LIVE line (see renderForm in js/live-data.js) — a plain text
+   link rather than a pill, since that row already has a form-pill,
+   opponent, and score competing for attention; no background/border
+   at all is the "very lightweight" end of this app's chip/pill/link
+   spectrum. */
+.boxscore-link{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.boxscore-link:hover{ text-decoration: underline; }
+
+.boxscore-link .chev{ font-size: 13px; }
+
+.boxscore-chip .chev{ font-size: 13px; }
 
 /* ---- Game Details sheet — a second, wider overlay stacked on top of
    the team modal (see openGameDetail/closeGameDetail in
@@ -769,6 +811,17 @@ body{
    can't fit every inning column — the sheet itself never does (see the
    artifact-design responsive rule this app's own mockup work surfaced). */
 .box-scroll{ overflow-x: auto; }
+
+/* Reuses .standings-toggle/.toggle-btn (Standings tab's Divisions/
+   Conference switch) for the away/home team switch under the
+   linescore — same pill look, but repositioned as inline content
+   rather than a full-width section header, since .modal-body already
+   carries its own padding here. */
+.gd-team-toggle{
+  margin: 16px 0 14px;
+  padding: 0;
+  border-bottom: none;
+}
 
 .linescore-table{
   width: 100%;

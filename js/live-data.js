@@ -7,7 +7,7 @@ import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
-import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary } from './espn.js';
+import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary } from './espn.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
@@ -32,6 +32,29 @@ const FLAT_SCHEDULE_LEAGUES = {
   nhl: { sportPath: 'hockey/nhl', ensureStandings: fetchEspnNhlStandingsCached, findRow: findEspnNhlRow },
   mlb: { sportPath: 'baseball/mlb', ensureStandings: fetchEspnMlbStandingsCached, findRow: findEspnMlbRow },
   wnba: { sportPath: 'basketball/wnba', ensureStandings: fetchEspnWnbaStandingsCached, findRow: findEspnWnbaRow }
+};
+
+// Leagues wired up for the "Game Details" boxscore drill-down (see
+// openGameDetail/renderGameDetail below) — MLB first, CFB added
+// 2026-09-12. Each entry's `fetchSummary` is that sport's own summary
+// reader (js/espn.js); `linescorePeriods`/`periodLabel` describe the
+// linescore table's columns (9 innings vs. 4 quarters+OT).
+// basketball/soccer/hockey aren't here yet — no per-sport summary
+// reader has been written for them (see docs/espn-migration-plan.md's
+// Game Details section).
+const GAME_DETAIL_LEAGUES = {
+  mlb: {
+    fetchSummary: fetchEspnSummary,
+    linescorePeriods: 9,
+    periodLabel: i => String(i + 1),
+    situationText: mlbSituationText
+  },
+  cfb: {
+    fetchSummary: fetchEspnFootballSummary,
+    linescorePeriods: 4,
+    periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
+    situationText: footballSituationText
+  }
 };
 
 // Today's scoreboard for a league — one shared fetch per sportPath
@@ -496,9 +519,10 @@ function formStripHtml(recentEvents){
   `;
 }
 
-function renderForm(id, bundle){
+function renderForm(teamKey, meta, bundle){
   const el = document.getElementById('live-form');
   if(!el) return;
+  const id = meta.sportsdbId;
 
   const rStatus = bundle.rundownEvent && bundle.rundownEvent.score && bundle.rundownEvent.score.event_status;
   if(rStatus === 'STATUS_FINAL'){
@@ -533,6 +557,17 @@ function renderForm(id, bundle){
     let result = 'd', label = 'D';
     if(evt.ownScore > evt.oppScore){ result = 'w'; label = 'W'; }
     else if(evt.ownScore < evt.oppScore){ result = 'l'; label = 'L'; }
+    // Same Game Details sheet as the LIVE entry chip in renderNext, just
+    // for this team's last completed game instead of one in progress —
+    // gated the same way (a league wired up in GAME_DETAIL_LEAGUES and a
+    // real ESPN event id). Styled as a plain text link rather than a
+    // pill/chip — lighter still than the LIVE chip, since this sits
+    // amid an already-busy result row (form pill, opponent, score)
+    // rather than being the row's only secondary element.
+    const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+    const boxscoreLinkHtml = (gameDetail && evt.id) ? `
+      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${evt.id}')">View boxscore <span class="chev">›</span></div>
+    ` : '';
     el.innerHTML = `
       ${formStripHtml(recent)}
       <div class="form-item">
@@ -541,7 +576,10 @@ function renderForm(id, bundle){
           <span class="opp">${evt.opponentName}</span>
           <span class="meta">${evt.isHome ? 'Home' : 'Away'}${evt.venueName ? ' · ' + evt.venueName : ''}</span>
         </div>
-        <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
+        <div class="form-right">
+          <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
+          ${boxscoreLinkHtml}
+        </div>
       </div>
     `;
     return;
@@ -604,27 +642,26 @@ function renderNext(teamKey, meta, bundle){
   // upcoming-fixture line the espnSchedule branch below would show.
   if(bundle.espnLive && bundle.espnLive.isLive){
     const line = bundle.espnLive;
-    // MLB-only for now (see fetchEspnSummary in js/espn.js) — the
-    // "Game Details" boxscore sheet. Gated on a real eventId too, not
-    // just the league, since a team whose event lookup somehow came
-    // back without one has nothing to fetch.
-    const detailHtml = (meta.leagueKey === 'mlb' && line.eventId) ? `
-      <div class="detail-link" onclick="openGameDetail('${teamKey}')">
-        <div>
-          <div class="txt">View full boxscore</div>
-          <div class="sub">Linescore, batting &amp; pitching</div>
-        </div>
-        <div class="chev">›</div>
-      </div>
+    // Gated to leagues wired up for the "Game Details" boxscore sheet
+    // (see GAME_DETAIL_LEAGUES above) and a real eventId, not just the
+    // league, since a team whose event lookup somehow came back without
+    // one has nothing to fetch.
+    const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+    // Sits directly on #live-next's own row (it's already a
+    // space-between flex row — see .next-match in css/style.css) rather
+    // than stacked below in its own bordered card, and reuses the same
+    // accent-pill treatment as an active .toggle-btn/.filter-chip
+    // instead of a heavier surface+border box, to read as a lightweight
+    // inline action next to the score rather than a separate section.
+    const detailHtml = (gameDetail && line.eventId) ? `
+      <div class="boxscore-chip" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View live boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
-      <div>
-        <div class="nm-left">
-          <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
-          <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
-        </div>
-        ${detailHtml}
+      <div class="nm-left">
+        <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
+        <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
       </div>
+      ${detailHtml}
     `;
     return;
   }
@@ -857,7 +894,7 @@ export function renderLiveBundle(teamKey, bundle){
   if(!meta || !bundle) return;
   renderStats(meta, bundle);
   renderSeasonBadge(meta, bundle);
-  renderForm(meta.sportsdbId, bundle);
+  renderForm(teamKey, meta, bundle);
   renderNext(teamKey, meta, bundle);
   renderUpdatedAt(bundle);
 }
@@ -919,7 +956,7 @@ export function openTeamModal(teamKey){
         ${priorSeasonNoteHtml}
         <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
         <div class="form-list" id="live-form">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
-        <div class="modal-section-title">Next Match</div>
+        <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
         <div class="next-match" id="live-next">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
         <div class="updated-note" id="live-updated"></div>
         <div id="tracker-section">${tracker}</div>
@@ -952,21 +989,21 @@ window.closeTeamModal = closeTeamModal;
 /* ---- Game Details: a wider sheet stacked on top of the team modal ----
    Option B from the drill-down exploration — see docs/espn-migration-plan.md.
    Fetched only when a drafter actually taps in for the box score (never
-   prefetched alongside the team modal's own live line), and only while
-   MLB has this wired up (see fetchEspnSummary in js/espn.js) — the
-   entry point above is itself gated to meta.leagueKey === 'mlb'. Body
-   scroll is already locked by openTeamModal underneath; this overlay
-   opens/closes without touching that lock. */
+   prefetched alongside the team modal's own live line), for leagues
+   listed in GAME_DETAIL_LEAGUES above (MLB, then CFB added 2026-09-12)
+   — the entry point above is gated on the same map. Body scroll is
+   already locked by openTeamModal underneath; this overlay opens/closes
+   without touching that lock. */
 
 // One out/count/runners line, e.g. "2 outs · 1-2 count · runner on 2nd" —
-// built from fetchEspnSummary's normalized situation object rather than
-// a raw ESPN field, so it degrades to fewer clauses instead of breaking
-// if a piece of it is ever missing.
+// built from the raw situation object off bundle.espnLive.situation
+// (see findEspnScoreboardLine in js/espn.js), so it degrades to fewer
+// clauses instead of breaking if a piece of it is ever missing.
 function mlbSituationText(sit){
   if(!sit) return null;
   const parts = [];
-  if(sit.outs !== null) parts.push(`${sit.outs} out${sit.outs === 1 ? '' : 's'}`);
-  if(sit.balls !== null && sit.strikes !== null) parts.push(`${sit.balls}-${sit.strikes} count`);
+  if(sit.outs !== null && sit.outs !== undefined) parts.push(`${sit.outs} out${sit.outs === 1 ? '' : 's'}`);
+  if(sit.balls !== null && sit.balls !== undefined && sit.strikes !== null && sit.strikes !== undefined) parts.push(`${sit.balls}-${sit.strikes} count`);
   const bases = [];
   if(sit.onFirst) bases.push('1st');
   if(sit.onSecond) bases.push('2nd');
@@ -975,11 +1012,23 @@ function mlbSituationText(sit){
   return parts.join(' · ');
 }
 
-// One batting/pitching table off a boxscore group — headers come from
-// ESPN's own `labels` array (see fetchEspnSummary) rather than a
-// hardcoded column list, so this renders correctly even if the real
-// label set/order here turns out to differ from what this was written
-// against without live access to verify it.
+// Football's equivalent of mlbSituationText above — ESPN pre-formats
+// the down/distance/yard-line line as `downDistanceText` (e.g. "2nd &
+// 7 at DAL 34"), confirmed live 2026-09-12, so there's no need to
+// compose it field-by-field the way baseball's count/outs/runners
+// line has to be.
+function footballSituationText(sit){
+  if(!sit || !sit.downDistanceText) return null;
+  return sit.downDistanceText + (sit.isRedZone ? ' · Red zone' : '');
+}
+
+// One stat table off a boxscore group (batting/pitching for MLB;
+// passing/rushing/receiving/etc. for CFB) — headers come from ESPN's
+// own `labels` array (see fetchEspnSummary/fetchEspnFootballSummary in
+// js/espn.js) rather than a hardcoded column list, so this renders
+// correctly for either sport without a sport-specific branch here —
+// confirmed live 2026-09-12 that both sports' real payloads share this
+// exact shape.
 function boxGroupHtml(group){
   if(!group.rows.length) return '';
   const headerCells = group.labels.map(l => `<th>${l}</th>`).join('');
@@ -997,11 +1046,32 @@ function boxGroupHtml(group){
   `;
 }
 
-function renderGameDetail(accent, summary){
+// Which team's boxscore tables Game Details is currently showing below
+// the linescore, plus enough of the last render's own inputs to redraw
+// it when that changes — set at the end of renderGameDetail below, read
+// by setGameDetailTeam so switching teams doesn't need to re-fetch.
+let gameDetailRenderState = null; // { accent, leagueKey, summary, situation } | null
+
+// leagueKey selects the linescore column count/labels (9 numbered
+// innings for MLB, 4 quarters + OT for CFB — see GAME_DETAIL_LEAGUES)
+// and which trailing summary columns make sense: baseball has R/H/E,
+// football only has a final score (no hits/errors concept on this
+// endpoint), so that column group is skipped entirely for CFB rather
+// than showing empty H/E cells.
+//
+// selectedTeamId picks which team's boxscore tables show below the
+// shared linescore/situation — the two-team chip toggle underneath it
+// (same .standings-toggle/.toggle-btn pattern as the Standings tab's
+// Divisions/Conference switch) lets a drafter flip between them instead
+// of always scrolling past both team's full tables stacked together.
+function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId){
   const el = document.getElementById('game-detail-content');
   if(!el) return;
 
-  if(!summary || summary.teams.length < 2){
+  const gameDetail = GAME_DETAIL_LEAGUES[leagueKey];
+
+  if(!summary || summary.teams.length < 2 || !gameDetail){
+    gameDetailRenderState = null;
     el.innerHTML = `
       <div class="gd-head with-back">
         <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
@@ -1012,26 +1082,46 @@ function renderGameDetail(accent, summary){
     return;
   }
 
+  const isBaseball = leagueKey === 'mlb';
   const away = summary.teams.find(t => t.homeAway === 'away') || summary.teams[0];
   const home = summary.teams.find(t => t.homeAway === 'home') || summary.teams[1];
-  const innings = Math.max(away.linescore.length, home.linescore.length, 9);
-  const inningHeaders = Array.from({ length: innings }, (_, i) => `<th>${i + 1}</th>`).join('');
+  const periods = Math.max(away.linescore.length, home.linescore.length, gameDetail.linescorePeriods);
+  const periodHeaders = Array.from({ length: periods }, (_, i) => `<th>${gameDetail.periodLabel(i)}</th>`).join('');
   const lineRow = team => `
     <tr>
       <td class="team">${team.abbr || '—'}</td>
-      ${Array.from({ length: innings }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
-      <td class="tot">${team.runs ?? '–'}</td><td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>
+      ${Array.from({ length: periods }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
+      <td class="tot">${team.score ?? '–'}</td>${isBaseball ? `<td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>` : ''}
     </tr>
   `;
 
-  const situationHtml = summary.situation
-    ? `<div class="gd-situation">${mlbSituationText(summary.situation)}</div>`
-    : '';
+  const situationText = gameDetail.situationText(situation);
+  const situationHtml = situationText ? `<div class="gd-situation">${situationText}</div>` : '';
 
-  const boxHtml = summary.boxscore.map(team => `
-    <div class="modal-section-title" style="margin-top:18px;">${team.abbr || '—'}</div>
-    ${team.groups.map(boxGroupHtml).join('')}
-  `).join('');
+  // Default to whichever team this sheet was opened from (see
+  // openGameDetail) rather than always away/home, so tapping "View full
+  // boxscore" off a team's own modal lands on that team's own stats
+  // first — falls back to the away team if that side's id ever doesn't
+  // match either boxscore entry.
+  const activeId = summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
+    ? String(selectedTeamId)
+    : String(away.teamId);
+  const activeBox = summary.boxscore.find(t => String(t.teamId) === activeId);
+
+  const teamToggleHtml = `
+    <div class="standings-toggle gd-team-toggle">
+      <button class="toggle-btn ${String(away.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${away.teamId}')">${away.abbr}</button>
+      <button class="toggle-btn ${String(home.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${home.teamId}')">${home.abbr}</button>
+    </div>
+  `;
+  const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
+
+  // Reachable from a completed game now too (the "Most Recent Result"
+  // link, not just the LIVE entry chip), so the LIVE badge only shows
+  // when the game actually still is — otherwise just the plain status
+  // detail (e.g. "Final").
+  const isLiveNow = summary.status && summary.status.state === 'in';
+  const statusHtml = `${isLiveNow ? '<span class="live-badge">LIVE</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
 
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
@@ -1039,28 +1129,47 @@ function renderGameDetail(accent, summary){
       <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
       <div>
         <div class="gd-title">${away.abbr} @ ${home.abbr}</div>
-        <div class="gd-sub"><span class="live-badge">LIVE</span> ${(summary.status && summary.status.detail) || ''}</div>
+        <div class="gd-sub">${statusHtml}</div>
       </div>
     </div>
     <div class="modal-body">
       ${situationHtml}
       <div class="box-scroll">
         <table class="linescore-table">
-          <tr><th></th>${inningHeaders}<th>R</th><th>H</th><th>E</th></tr>
+          <tr><th></th>${periodHeaders}<th>${isBaseball ? 'R' : 'T'}</th>${isBaseball ? '<th>H</th><th>E</th>' : ''}</tr>
           ${lineRow(away)}
           ${lineRow(home)}
         </table>
       </div>
+      ${teamToggleHtml}
       ${boxHtml}
     </div>
   `;
+
+  gameDetailRenderState = { accent, leagueKey, summary, situation };
 }
 
-export async function openGameDetail(teamKey){
+// Fired by the team-toggle chips built in renderGameDetail above —
+// redraws from the last fetch's own result rather than re-fetching,
+// same as flipping Standings' Divisions/Conference toggle doesn't
+// re-hit the network either.
+function setGameDetailTeam(teamId){
+  if(!gameDetailRenderState) return;
+  const { accent, leagueKey, summary, situation } = gameDetailRenderState;
+  renderGameDetail(accent, leagueKey, summary, situation, teamId);
+}
+window.setGameDetailTeam = setGameDetailTeam;
+
+// eventId is passed in explicitly by both callers (renderNext's LIVE
+// entry chip and renderForm's "Most Recent Result" link) rather than
+// read off bundle.espnLive here, so this works the same way for a
+// currently-live game and a past completed one — bundle.espnLive only
+// ever describes today's/the current game.
+export async function openGameDetail(teamKey, eventId){
   const meta = TEAM_META[teamKey];
-  const bundle = liveDataCache[teamKey];
-  const line = bundle && bundle.espnLive;
-  if(!meta || !line || !line.eventId) return;
+  const gameDetail = GAME_DETAIL_LEAGUES[meta && meta.leagueKey];
+  const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta && meta.leagueKey];
+  if(!meta || !eventId || !gameDetail || !flatSchedule) return;
 
   const overlay = document.getElementById('game-detail-overlay');
   const el = document.getElementById('game-detail-content');
@@ -1071,19 +1180,33 @@ export async function openGameDetail(teamKey){
   // modal's own fetch — if the sheet gets closed, or reopened for a
   // different game, while this request is in flight, its result is
   // stale and shouldn't paint over whatever's showing now.
-  el.dataset.activeEvent = String(line.eventId);
+  el.dataset.activeEvent = String(eventId);
   el.innerHTML = `<div class="modal-body"><div class="loading-note">Loading boxscore…</div></div>`;
 
-  const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-  const summary = flatSchedule ? await fetchEspnSummary(flatSchedule.sportPath, line.eventId) : null;
-  if(el.dataset.activeEvent !== String(line.eventId)) return;
-  renderGameDetail(meta.accent || 'var(--accent)', summary);
+  const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
+  if(el.dataset.activeEvent !== String(eventId)) return;
+
+  // situation (down/distance, balls/strikes/etc.) only ever comes from
+  // the *current* scoreboard fetch (see fetchEspnScoreboard/
+  // findEspnScoreboardLine in js/espn.js) — meaningful only when this
+  // sheet's game is that same still-live one; a past completed game
+  // (opened from "Most Recent Result") has none to show.
+  const freshLine = liveDataCache[teamKey] && liveDataCache[teamKey].espnLive;
+  const situation = (freshLine && String(freshLine.eventId) === String(eventId)) ? freshLine.situation : null;
+
+  // Default the team-toggle to this team's own side, resolved the same
+  // way the rest of this app identifies a team's ESPN row (findRow,
+  // matched by name) rather than via bundle.espnLive's isHome — that
+  // only describes today's/the current game, not necessarily this one.
+  const row = flatSchedule.findRow(meta);
+  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id);
 }
 window.openGameDetail = openGameDetail;
 
 export function closeGameDetail(){
   const overlay = document.getElementById('game-detail-overlay');
   if(overlay) overlay.classList.remove('open');
+  gameDetailRenderState = null;
 }
 window.closeGameDetail = closeGameDetail;
 

@@ -542,3 +542,152 @@ live scores. Two real findings, both fixed:
    would be pure waste — that data doesn't move mid-game, only the score does) — `js/api.js`'s
    "Adding a new league" checklist was updated to document this as a narrow, deliberate exception rather
    than an invitation to add more polling loops.
+
+## Game Details for CFB, and two real MLB bugs found along the way (2026-09-12)
+
+Extended the "Game Details" boxscore sheet (see the entry above) from MLB-only to also cover CFB,
+using real live ESPN data this time — this session had actual internet access to `site.web.api.espn.com`
+and `site.api.espn.com` (confirmed byte-identical), unlike the session that originally built the MLB
+version, which had to write its whole parser against documented/reverse-engineered field shapes with no
+way to check them. Checking the real payloads surfaced two genuine bugs already live in the shipped MLB
+code, fixed as part of this same change since they're the same code path CFB needed to be correct anyway:
+
+1. **`situation` (balls/strikes/outs/baserunners) never populated — confirmed always `null`** on every
+   real in-progress MLB game checked. `fetchEspnSummary` (`js/espn.js`) read it off
+   `data.header.competitions[0].situation`, but that field simply isn't there on the **summary** endpoint
+   for either sport tested. The real, only place ESPN's hidden API exposes live down/distance or
+   ball/strike/baserunner state is the **scoreboard** endpoint's own per-event `situation` — confirmed
+   live for both MLB and CFB — which this app already fetches every 60s for the LIVE line anyway
+   (`fetchEspnScoreboard`/`findEspnScoreboardLine`). Fixed by threading `situation` through those two
+   functions instead (raw passthrough, not normalized — the shape is sport-specific and both consumers
+   read their own sport's fields directly) and having `openGameDetail`/`renderGameDetail`
+   (`js/live-data.js`) read it off `bundle.espnLive.situation` rather than the summary response. Real
+   upside: this is also fresher than the summary fetch (re-patched every ~20s by
+   `liveScoreboardSweepTick`, vs. only on tap for the summary itself).
+2. **Every per-inning linescore cell rendered blank.** `fetchEspnSummary` read `l.value` off each
+   `linescores[]` entry; the real field is `l.displayValue` — confirmed on both a live MLB and a live CFB
+   game. `value` doesn't exist on the object at all, so this silently produced `undefined` → the
+   `–` placeholder in every inning/quarter cell, on every game, since the feature shipped. One-line fix.
+
+**CFB's own real differences, confirmed live:**
+- Situation: football's pre-formatted `downDistanceText` (e.g. "1st & 10 at ORE 25") is simpler to render
+  than baseball's, which has to be composed field-by-field from balls/strikes/outs/onFirst/onSecond/
+  onThird — see `footballSituationText` vs. `mlbSituationText` in `js/live-data.js`. ESPN omits
+  `downDistanceText` entirely at a dead-ball moment (confirmed live during a timeout) rather than sending
+  an empty string, so this degrades to showing nothing rather than a broken/blank situation line.
+- Linescore is 4 quarters (+ OT) instead of 9 innings, and the trailing summary column is just the final
+  score — no hits/errors concept on this endpoint for football, so that whole column group is omitted
+  for CFB instead of showing two meaningless "–" cells.
+- The passing/rushing/receiving/defensive/kicking/punting boxscore tables needed no CFB-specific code at
+  all — confirmed live that `boxGroupHtml`'s generic `labels`/`athletes` reader, written for baseball's
+  batting/pitching tables, renders football's real payload correctly unchanged.
+- Added a sibling `fetchEspnFootballSummary` (`js/espn.js`) rather than overloading the MLB-only
+  `fetchEspnSummary`, matching this codebase's own convention of keeping per-sport functions separate
+  (see NFL/NBA/NHL/MLB's own separate standings fetchers) — it shares the identical boxscore-player
+  parsing via a small internal helper (`parseEspnBoxscorePlayers`) with the MLB function, since that part
+  turned out to be genuinely sport-agnostic, but keeps its own team/score/linescore fields (no
+  runs/hits/errors) since football's summary has no baseball-shaped stats to force onto. Written to be
+  reused by NFL later (same shape), though NFL itself wasn't wired up as part of this change.
+- **NDSU (the one FCS team drafted in CFB) is confirmed NOT covered by this app's scoreboard fetch.**
+  Checked live: NDSU's actual 2026 schedule is entirely FBS opponents (Air Force, Wyoming, UNLV, Nevada,
+  New Mexico, UTEP, Hawai'i, Northern Illinois, San José State — an FBS transition season), but its
+  real game against Air Force doesn't appear in `fetchEspnScoreboard('football/college-football')`'s
+  response (no `groups=` param) at all, nor in a `groups=81` (FCS) fetch. Not fixed — this degrades the
+  same way the standings gap for this exact team already does elsewhere (see `NDSU_ESPN_TEAM_ID` in
+  `js/standings-cfb.js`): no live line, no Game Details entry, for this one team only.
+
+## Game Details boxscore trimmed to core stats (2026-09-12)
+
+Feedback after the CFB rollout above: showing every stat group ESPN sends (10 groups per team for
+football — passing/rushing/receiving/fumbles/defensive/interceptions/kickReturns/puntReturns/kicking/
+punting — plus season-average columns like AVG/OBP/SLG mixed into MLB's batting/pitching rows) was
+overkill for this app's quick drill-down, compared to what a typical sports-stat site leads with.
+`parseEspnBoxscorePlayers` (`js/espn.js`) now takes a `groupColumns` map per sport (`MLB_BOX_GROUP_COLUMNS`,
+`FOOTBALL_BOX_GROUP_COLUMNS`) that drops any group not in the map entirely and narrows a kept group's
+columns to a curated whitelist, matched by ESPN's own label string (not position) so it stays correct if
+ESPN reorders its columns. Football keeps passing/rushing/receiving only (C/ATT-YDS-TD-INT,
+CAR-YDS-TD, REC-YDS-TD); MLB keeps batting/pitching with the season-average trailing columns dropped
+(AB-R-H-RBI-HR-BB-K, IP-H-R-ER-BB-K). `boxGroupHtml` (`js/live-data.js`) itself didn't need to change —
+it was already just rendering whatever labels/rows it was handed.
+
+**Real wrinkle found while wiring this up:** the group-identifying field on a player-stat block isn't
+consistent across sports — confirmed live, football sends it as `stat.name` ('passing', etc.) with no
+`type`, while MLB sends it as `stat.type` ('batting'/'pitching') with no `name` at all. The initial
+version of this filter checked `stat.name` only, which silently produced an empty boxscore for MLB
+(zero groups matched) while working fine for CFB — caught by re-testing against a real live MLB game
+before shipping, not by inspection. Fixed by resolving the group key as `stat.name || stat.type` (the
+same fallback `parseEspnBoxscorePlayers` already used for the rendered group title, just applied to the
+filter too) before checking it against `groupColumns`.
+
+## Game Details: away/home team-switch chips (2026-09-12)
+
+Follow-up feedback: even trimmed to core stats (above), showing both teams' boxscore tables stacked one
+after another was more scrolling than wanted — this app already has a chip-toggle pattern for exactly
+this kind of "pick one of a few views" choice (Standings tab's AFC/NFC/Drafted and nested Divisions/
+Conference switches, `.standings-toggle`/`.toggle-btn` in `css/style.css`, driven by
+`nflStandingsToggleHtml` in `js/standings-nfl.js`). Reused that same class pair for a two-button away/
+home switch rendered under the linescore, in `renderGameDetail` (`js/live-data.js`) — only the selected
+team's boxscore tables render below it, and clicking the other chip redraws instantly from the already-
+fetched `summary` (no re-fetch), via a small `gameDetailRenderState` module variable that
+`setGameDetailTeam` reads. `.gd-team-toggle` in `css/style.css` overrides the toggle's page-header-style
+padding/border to sit inline mid-sheet instead.
+
+Defaults to whichever team the sheet was opened *from* (e.g. tapping "View full boxscore" off Arizona's
+own team modal lands on Arizona's tables first, even when Arizona is the away team) rather than always
+defaulting to home or away — resolved in `openGameDetail` via `bundle.espnLive.isHome`, matched against
+`summary.teams`' own `homeAway` field, since neither the live bundle nor the summary otherwise carries
+"this is the team whose modal we came from" directly.
+
+## Team-modal entry point restyled as an inline chip (2026-09-12)
+
+Feedback: the "View full boxscore" entry point on the team modal's own LIVE line looked heavy — its own
+bordered/background card (`.detail-link`) stacked below the score line, rather than sitting next to it.
+Restyled as `.boxscore-chip`, a lightweight accent-tinted pill (same color treatment as an active
+`.toggle-btn`/`.filter-chip`, not a new look) placed as a direct sibling of `.nm-left` inside `#live-next`
+— that element already carries the `.next-match` class (`display:flex; justify-content:space-between`),
+so the chip lands on the same row as the score line for free once the extra wrapping `<div>` around both
+is removed, no new layout CSS needed. Copy changed from "View full boxscore" to "View live boxscore",
+and the two-line txt/sub layout (with its now-unused `GAME_DETAIL_LEAGUES[...].subtitle` per-sport
+description) is gone — a single short label fits the lightweight-pill treatment better than a card with
+room for a subtitle.
+
+## Game Details wired up to "Most Recent Result" too (2026-09-12)
+
+Extended the same sheet to the team modal's completed-game row, not just its LIVE one. `renderForm`
+(`js/live-data.js`) now takes `teamKey`/`meta` (previously just `sportsdbId`) and, in its ESPN-schedule
+branch (the MLB/CFB-covering one), adds a `.boxscore-link` — plain accent-colored text + chevron, no
+background or border at all, one step lighter than the LIVE row's `.boxscore-chip` pill — since this row
+already carries a form-pill, opponent, and score competing for attention. Labeled "View boxscore" (the
+LIVE row keeps "View live boxscore").
+
+`openGameDetail` no longer reads `bundle.espnLive` for its `eventId`/situation/default-team lookups —
+both call sites (the LIVE chip and this new link) now pass their own event id explicitly, since
+`bundle.espnLive` only ever describes today's/the current game and a "Most Recent Result" game is often a
+different, earlier one. Two things that logic used to lean on `bundle.espnLive` for needed a real
+replacement rather than just being made optional:
+- **Default team-toggle selection.** Previously resolved via `bundle.espnLive.isHome`, matched against
+  `summary.teams`' `homeAway` — meaningless for a past game `espnLive` doesn't describe. Replaced with
+  `flatSchedule.findRow(meta).id`, the same by-name ESPN-team-id lookup every other per-team identity
+  resolution in this app already uses (`liveScoreboardSweepTick`, standings row matching, etc.), matched
+  directly against `summary.boxscore`'s own `teamId` — works identically whether the game is live or
+  finished, and is simpler than the home/away detour it replaced.
+- **The sheet's LIVE badge.** Was unconditional (every game reaching this sheet used to be live, by
+  construction). Now reads `summary.status.state === 'in'` and shows just the plain status text (e.g.
+  "Final") otherwise.
+
+## Most Recent Result row: score+link as a right column (2026-09-12)
+
+Feedback that the score still looked stranded on this row — floating in the middle with an odd gap on
+both sides. Four real layout options were mocked up against the app's actual dark theme/tokens (not a
+generic sketch) before picking one: score inline with the opponent name, score+link stacked as a right
+column, the score folded into the link text itself, and a combined result+score capsule replacing the
+plain W/L pill. Picked **the stacked right column** — score on top, `.boxscore-link` right under it, both
+right-aligned as one `.form-right` block.
+
+Simpler than the previous attempt at this same row: reverted the `.form-item:has(.boxscore-link)
+.form-detail{flex:0 1 auto}` override from the last pass entirely, since `.form-detail`'s plain default
+`flex:1` already does the right thing once score+link are one block instead of two separate flex
+siblings — it pushes `.form-right` to the row's far edge exactly the way it always pushed a lone
+`.form-score` there before any of this existed. Also dropped `.boxscore-link`'s `margin-left:auto` (that
+was there to push the link alone to the edge in the old two-sibling layout; here it's nested inside
+`.form-right` and just needs `justify-content:flex-end` to stay right-aligned under the score).
