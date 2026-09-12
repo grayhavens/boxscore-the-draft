@@ -691,3 +691,39 @@ siblings — it pushes `.form-right` to the row's far edge exactly the way it al
 `.form-score` there before any of this existed. Also dropped `.boxscore-link`'s `margin-left:auto` (that
 was there to push the link alone to the edge in the old two-sibling layout; here it's nested inside
 `.form-right` and just needs `justify-content:flex-end` to stay right-aligned under the score).
+
+## Game Details for EPL: a goals/cards split instead of a linescore (2026-09-12)
+
+Extended `GAME_DETAIL_LEAGUES` to `epl`, the third sport after MLB/CFB — but soccer's summary endpoint
+has neither an innings/quarters linescore nor a batting/passing-style per-athlete boxscore, so this isn't
+just "write a third `fetchEspnXSummary`". Checked the real payload live (event 401879285, Brentford at
+Bournemouth) rather than guessing: `data.keyEvents` is a flat, chronological play-by-play array (kickoff,
+delays, goals, cards, subs, halftime, ...) with no separate boxscore section at all.
+
+**New reader — `fetchEspnSoccerSummary` (`js/espn.js`):** filters `keyEvents` down to goals and cards.
+A goal is any entry with `scoringPlay: true` — more reliable than matching `type.text` (which varies:
+"Goal", "Goal - Header", "Goal - Penalty", ...) since ESPN already resolves VAR review into that one
+boolean itself (confirmed live: a VAR-confirmed goal carries `"text": "...Goal confirmed following VAR
+Review."` and `scoringPlay: true`). A card is identified by `type.text` containing "Red" or "Yellow"
+(covers "Second Yellow Card" too). `clock.displayValue` is already formatted pitch-side (`"34'"`,
+`"45'+3'"`), and `participants[0].athlete.displayName` is the scorer or carded player for both event
+kinds. Confirmed (again) that soccer never carries a `situation` object on this endpoint either — same
+finding as MLB/CFB above — so `GAME_DETAIL_LEAGUES.epl.situationText` is just `() => null`.
+
+**New sheet body — `soccerEventsHtml` (`js/live-data.js`):** rather than force goals/cards into the
+existing linescore-table/team-toggle/box-table layout (there's no linescore to anchor a toggle under),
+`renderGameDetail` branches on `leagueKey === 'epl'` to a two-column split instead — each team's own
+goals and cards in its own column (`.gd-split`/`.gd-split-col` in `css/style.css`), minute-first, in the
+order `fetchEspnSoccerSummary` already sorted them into. No new team-toggle needed since both teams are
+already visible side by side.
+
+Card markers reuse existing color tokens rather than introducing new ones — `--accent` (already a warm
+gold) doubles as the yellow-card fill and `--live` (already "stop/alert" red) as the red-card fill,
+rendered as a small tilted rectangle (`.gd-card-chip`) rather than another circular badge so it actually
+reads as a card. The goal marker is a new hairline-stroke icon, `BALL_ICON_SVG` (`js/utils.js`), added
+alongside `CLOSE_ICON_SVG`/`CHECK_ICON_SVG`/`CHEVRON_ICON_SVG` in the same style.
+
+The existing entry points needed no changes at all: `renderNext`'s live `.boxscore-chip` and
+`renderForm`'s completed-game `.boxscore-link` (both `js/live-data.js`) were already gated purely on
+`GAME_DETAIL_LEAGUES[meta.leagueKey]` plus a real event id — adding the `epl` key to that map was enough
+to light both up for EPL teams.
