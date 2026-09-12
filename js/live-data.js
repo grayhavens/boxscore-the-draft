@@ -4,10 +4,10 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, BALL_ICON_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
-import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary } from './espn.js';
+import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
@@ -36,12 +36,15 @@ const FLAT_SCHEDULE_LEAGUES = {
 
 // Leagues wired up for the "Game Details" boxscore drill-down (see
 // openGameDetail/renderGameDetail below) — MLB first, CFB added
-// 2026-09-12. Each entry's `fetchSummary` is that sport's own summary
-// reader (js/espn.js); `linescorePeriods`/`periodLabel` describe the
-// linescore table's columns (9 innings vs. 4 quarters+OT).
-// basketball/soccer/hockey aren't here yet — no per-sport summary
-// reader has been written for them (see docs/espn-migration-plan.md's
-// Game Details section).
+// 2026-09-12, EPL added 2026-09-12. Each entry's `fetchSummary` is that
+// sport's own summary reader (js/espn.js); `linescorePeriods`/
+// `periodLabel` describe the linescore table's columns (9 innings vs. 4
+// quarters+OT) — unused for EPL, which renders a goals/cards split
+// instead of a linescore (see the `leagueKey === 'epl'` branch in
+// renderGameDetail below), so those two keys are simply omitted there.
+// basketball/hockey aren't here yet — no per-sport summary reader has
+// been written for them (see docs/espn-migration-plan.md's Game Details
+// section).
 const GAME_DETAIL_LEAGUES = {
   mlb: {
     fetchSummary: fetchEspnSummary,
@@ -54,6 +57,15 @@ const GAME_DETAIL_LEAGUES = {
     linescorePeriods: 4,
     periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
     situationText: footballSituationText
+  },
+  epl: {
+    fetchSummary: fetchEspnSoccerSummary,
+    // ESPN never sends a `situation` object for soccer (see
+    // fetchEspnScoreboard's comment in js/espn.js) — always null in
+    // practice, but renderGameDetail calls this unconditionally same as
+    // every other league, so it needs a real function rather than being
+    // omitted.
+    situationText: () => null
   }
 };
 
@@ -1083,38 +1095,12 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
   }
 
   const isBaseball = leagueKey === 'mlb';
+  const isSoccer = leagueKey === 'epl';
   const away = summary.teams.find(t => t.homeAway === 'away') || summary.teams[0];
   const home = summary.teams.find(t => t.homeAway === 'home') || summary.teams[1];
-  const periods = Math.max(away.linescore.length, home.linescore.length, gameDetail.linescorePeriods);
-  const periodHeaders = Array.from({ length: periods }, (_, i) => `<th>${gameDetail.periodLabel(i)}</th>`).join('');
-  const lineRow = team => `
-    <tr>
-      <td class="team">${team.abbr || '—'}</td>
-      ${Array.from({ length: periods }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
-      <td class="tot">${team.score ?? '–'}</td>${isBaseball ? `<td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>` : ''}
-    </tr>
-  `;
 
   const situationText = gameDetail.situationText(situation);
   const situationHtml = situationText ? `<div class="gd-situation">${situationText}</div>` : '';
-
-  // Default to whichever team this sheet was opened from (see
-  // openGameDetail) rather than always away/home, so tapping "View full
-  // boxscore" off a team's own modal lands on that team's own stats
-  // first — falls back to the away team if that side's id ever doesn't
-  // match either boxscore entry.
-  const activeId = summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
-    ? String(selectedTeamId)
-    : String(away.teamId);
-  const activeBox = summary.boxscore.find(t => String(t.teamId) === activeId);
-
-  const teamToggleHtml = `
-    <div class="standings-toggle gd-team-toggle">
-      <button class="toggle-btn ${String(away.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${away.teamId}')">${away.abbr}</button>
-      <button class="toggle-btn ${String(home.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${home.teamId}')">${home.abbr}</button>
-    </div>
-  `;
-  const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
 
   // Reachable from a completed game now too (the "Most Recent Result"
   // link, not just the LIVE entry chip), so the LIVE badge only shows
@@ -1122,6 +1108,53 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
   // detail (e.g. "Final").
   const isLiveNow = summary.status && summary.status.state === 'in';
   const statusHtml = `${isLiveNow ? '<span class="live-badge">LIVE</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
+
+  // EPL has no innings/quarters linescore or per-athlete boxscore on
+  // this endpoint (see fetchEspnSoccerSummary in js/espn.js) — the
+  // sheet's body is a goals/cards split by team instead, built by
+  // soccerEventsHtml below, rather than the linescore+toggle+box-table
+  // layout every other GAME_DETAIL_LEAGUES entry shares.
+  const bodyHtml = isSoccer ? soccerEventsHtml(summary.events || [], away, home) : (() => {
+    const periods = Math.max(away.linescore.length, home.linescore.length, gameDetail.linescorePeriods);
+    const periodHeaders = Array.from({ length: periods }, (_, i) => `<th>${gameDetail.periodLabel(i)}</th>`).join('');
+    const lineRow = team => `
+      <tr>
+        <td class="team">${team.abbr || '—'}</td>
+        ${Array.from({ length: periods }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
+        <td class="tot">${team.score ?? '–'}</td>${isBaseball ? `<td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>` : ''}
+      </tr>
+    `;
+
+    // Default to whichever team this sheet was opened from (see
+    // openGameDetail) rather than always away/home, so tapping "View full
+    // boxscore" off a team's own modal lands on that team's own stats
+    // first — falls back to the away team if that side's id ever doesn't
+    // match either boxscore entry.
+    const activeId = summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
+      ? String(selectedTeamId)
+      : String(away.teamId);
+    const activeBox = summary.boxscore.find(t => String(t.teamId) === activeId);
+
+    const teamToggleHtml = `
+      <div class="standings-toggle gd-team-toggle">
+        <button class="toggle-btn ${String(away.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${away.teamId}')">${away.abbr}</button>
+        <button class="toggle-btn ${String(home.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${home.teamId}')">${home.abbr}</button>
+      </div>
+    `;
+    const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
+
+    return `
+      <div class="box-scroll">
+        <table class="linescore-table">
+          <tr><th></th>${periodHeaders}<th>${isBaseball ? 'R' : 'T'}</th>${isBaseball ? '<th>H</th><th>E</th>' : ''}</tr>
+          ${lineRow(away)}
+          ${lineRow(home)}
+        </table>
+      </div>
+      ${teamToggleHtml}
+      ${boxHtml}
+    `;
+  })();
 
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
@@ -1134,19 +1167,46 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
     </div>
     <div class="modal-body">
       ${situationHtml}
-      <div class="box-scroll">
-        <table class="linescore-table">
-          <tr><th></th>${periodHeaders}<th>${isBaseball ? 'R' : 'T'}</th>${isBaseball ? '<th>H</th><th>E</th>' : ''}</tr>
-          ${lineRow(away)}
-          ${lineRow(home)}
-        </table>
-      </div>
-      ${teamToggleHtml}
-      ${boxHtml}
+      ${bodyHtml}
     </div>
   `;
 
   gameDetailRenderState = { accent, leagueKey, summary, situation };
+}
+
+// EPL's Game Details body (see the isSoccer branch above) — goals and
+// cards split into the two teams' own columns rather than a shared
+// chronological feed, since there's no shared linescore to anchor a
+// single-column timeline to (contrast Option B's in-modal timeline from
+// the original UI exploration, which does read as one feed). Each
+// team's own events stay in the minute order fetchEspnSoccerSummary
+// already sorted them into.
+function soccerEventsHtml(events, away, home){
+  const teamColumn = (team, isHomeCol) => {
+    const own = events.filter(e => String(e.teamId) === String(team.teamId));
+    const rows = own.length ? own.map(e => `
+      <div class="gd-event">
+        <span class="gd-event-min">${e.minute || ''}</span>
+        ${e.kind === 'goal'
+          ? `<span class="gd-ball-icon">${BALL_ICON_SVG}</span>`
+          : `<span class="gd-card-chip ${e.kind === 'red' ? 'r' : 'y'}"></span>`}
+        <span class="gd-event-who">${e.player}</span>
+      </div>
+    `).join('') : `<div class="gd-event-empty">No goals or cards</div>`;
+    return `
+      <div class="gd-split-col">
+        <div class="gd-split-head"><span class="gd-split-dot ${isHomeCol ? 'home' : 'away'}"></span>${team.abbr || '—'}</div>
+        ${rows}
+      </div>
+    `;
+  };
+
+  return `
+    <div class="gd-split">
+      ${teamColumn(away, false)}
+      ${teamColumn(home, true)}
+    </div>
+  `;
 }
 
 // Fired by the team-toggle chips built in renderGameDetail above —

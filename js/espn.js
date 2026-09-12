@@ -976,3 +976,63 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 
   return { status, teams, boxscore };
 }
+
+// Soccer's equivalent of fetchEspnSummary/fetchEspnFootballSummary above
+// — but there's no batting/passing-style per-athlete boxscore for
+// soccer on this endpoint, so this reads `keyEvents` instead: confirmed
+// live 2026-09-12 against a real completed EPL match (event 401879285,
+// Brentford at Bournemouth) that `data.keyEvents` is a flat play-by-play
+// array (kickoff/delays/goals/cards/subs/halftime, in chronological
+// order) rather than the boxscore/header split baseball and football
+// use. A goal is any entry with `scoringPlay: true` — more reliable
+// than matching on `type.text` (which varies: "Goal", "Goal - Header",
+// "Goal - Penalty", ...) since ESPN already resolves VAR review there
+// itself. A card is identified by `type.text` containing "Red" or
+// "Yellow" (also covers "Second Yellow Card"). `clock.displayValue` is
+// already formatted as ESPN shows it pitch-side (e.g. "34'", "45'+3'"),
+// and `participants[0].athlete` is the scorer or carded player — the
+// same shape for both event kinds. No `situation` object exists on this
+// endpoint for soccer either (see fetchEspnScoreboard's comment above),
+// so callers shouldn't expect one.
+//
+// Shape returned: { status: {state, detail, period, displayClock},
+// teams: [{ teamId, abbr, homeAway, score }], events: [{ teamId, minute,
+// player, kind: 'goal'|'yellow'|'red' }] } | null on any failure.
+export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
+  if(!data) return null;
+
+  const comp = data.header && Array.isArray(data.header.competitions) && data.header.competitions[0];
+  if(!comp) return null;
+
+  const status = parseEspnSummaryStatus(comp);
+
+  const competitors = Array.isArray(comp.competitors) ? comp.competitors : [];
+  const teams = competitors.map(c => ({
+    teamId: c.team && c.team.id,
+    abbr: c.team && c.team.abbreviation,
+    homeAway: c.homeAway,
+    score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null
+  }));
+
+  const events = (Array.isArray(data.keyEvents) ? data.keyEvents : [])
+    .map(e => {
+      const typeText = (e.type && e.type.text) || '';
+      const isGoal = e.scoringPlay === true;
+      const isCard = /red|yellow/i.test(typeText);
+      if(!isGoal && !isCard) return null;
+      const athlete = e.participants && e.participants[0] && e.participants[0].athlete;
+      if(!athlete) return null;
+      return {
+        teamId: e.team && e.team.id,
+        minute: (e.clock && e.clock.displayValue) || '',
+        sortValue: (e.clock && e.clock.value) || 0,
+        player: athlete.displayName || '',
+        kind: isGoal ? 'goal' : (/red/i.test(typeText) ? 'red' : 'yellow')
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.sortValue - b.sortValue);
+
+  return { status, teams, events };
+}
