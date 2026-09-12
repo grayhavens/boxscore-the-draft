@@ -1035,19 +1035,32 @@ function boxGroupHtml(group){
   `;
 }
 
+// Which team's boxscore tables Game Details is currently showing below
+// the linescore, plus enough of the last render's own inputs to redraw
+// it when that changes — set at the end of renderGameDetail below, read
+// by setGameDetailTeam so switching teams doesn't need to re-fetch.
+let gameDetailRenderState = null; // { accent, leagueKey, summary, situation } | null
+
 // leagueKey selects the linescore column count/labels (9 numbered
 // innings for MLB, 4 quarters + OT for CFB — see GAME_DETAIL_LEAGUES)
 // and which trailing summary columns make sense: baseball has R/H/E,
 // football only has a final score (no hits/errors concept on this
 // endpoint), so that column group is skipped entirely for CFB rather
 // than showing empty H/E cells.
-function renderGameDetail(accent, leagueKey, summary, situation){
+//
+// selectedTeamId picks which team's boxscore tables show below the
+// shared linescore/situation — the two-team chip toggle underneath it
+// (same .standings-toggle/.toggle-btn pattern as the Standings tab's
+// Divisions/Conference switch) lets a drafter flip between them instead
+// of always scrolling past both team's full tables stacked together.
+function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId){
   const el = document.getElementById('game-detail-content');
   if(!el) return;
 
   const gameDetail = GAME_DETAIL_LEAGUES[leagueKey];
 
   if(!summary || summary.teams.length < 2 || !gameDetail){
+    gameDetailRenderState = null;
     el.innerHTML = `
       <div class="gd-head with-back">
         <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
@@ -1074,10 +1087,23 @@ function renderGameDetail(accent, leagueKey, summary, situation){
   const situationText = gameDetail.situationText(situation);
   const situationHtml = situationText ? `<div class="gd-situation">${situationText}</div>` : '';
 
-  const boxHtml = summary.boxscore.map(team => `
-    <div class="modal-section-title" style="margin-top:18px;">${team.abbr || '—'}</div>
-    ${team.groups.map(boxGroupHtml).join('')}
-  `).join('');
+  // Default to whichever team this sheet was opened from (see
+  // openGameDetail) rather than always away/home, so tapping "View full
+  // boxscore" off a team's own modal lands on that team's own stats
+  // first — falls back to the away team if that side's id ever doesn't
+  // match either boxscore entry.
+  const activeId = summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
+    ? String(selectedTeamId)
+    : String(away.teamId);
+  const activeBox = summary.boxscore.find(t => String(t.teamId) === activeId);
+
+  const teamToggleHtml = `
+    <div class="standings-toggle gd-team-toggle">
+      <button class="toggle-btn ${String(away.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${away.teamId}')">${away.abbr}</button>
+      <button class="toggle-btn ${String(home.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${home.teamId}')">${home.abbr}</button>
+    </div>
+  `;
+  const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
 
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
@@ -1097,10 +1123,24 @@ function renderGameDetail(accent, leagueKey, summary, situation){
           ${lineRow(home)}
         </table>
       </div>
+      ${teamToggleHtml}
       ${boxHtml}
     </div>
   `;
+
+  gameDetailRenderState = { accent, leagueKey, summary, situation };
 }
+
+// Fired by the team-toggle chips built in renderGameDetail above —
+// redraws from the last fetch's own result rather than re-fetching,
+// same as flipping Standings' Divisions/Conference toggle doesn't
+// re-hit the network either.
+function setGameDetailTeam(teamId){
+  if(!gameDetailRenderState) return;
+  const { accent, leagueKey, summary, situation } = gameDetailRenderState;
+  renderGameDetail(accent, leagueKey, summary, situation, teamId);
+}
+window.setGameDetailTeam = setGameDetailTeam;
 
 export async function openGameDetail(teamKey){
   const meta = TEAM_META[teamKey];
@@ -1129,13 +1169,20 @@ export async function openGameDetail(teamKey){
   // liveScoreboardSweepTick (every ~20s) may have patched a fresher
   // bundle.espnLive in while it was in flight.
   const freshLine = liveDataCache[teamKey] && liveDataCache[teamKey].espnLive;
-  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, freshLine && freshLine.situation);
+  // Default the team-toggle to whichever side this sheet was opened
+  // from — isHome tells us which of summary.teams' two entries that is,
+  // since neither the live bundle nor the summary otherwise carries
+  // "this is the team whose modal we tapped in from" directly.
+  const defaultSide = (freshLine && freshLine.isHome) ? 'home' : 'away';
+  const defaultTeam = summary && summary.teams.find(t => t.homeAway === defaultSide);
+  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, freshLine && freshLine.situation, defaultTeam && defaultTeam.teamId);
 }
 window.openGameDetail = openGameDetail;
 
 export function closeGameDetail(){
   const overlay = document.getElementById('game-detail-overlay');
   if(overlay) overlay.classList.remove('open');
+  gameDetailRenderState = null;
 }
 window.closeGameDetail = closeGameDetail;
 

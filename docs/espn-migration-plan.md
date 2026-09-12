@@ -618,3 +618,22 @@ version of this filter checked `stat.name` only, which silently produced an empt
 before shipping, not by inspection. Fixed by resolving the group key as `stat.name || stat.type` (the
 same fallback `parseEspnBoxscorePlayers` already used for the rendered group title, just applied to the
 filter too) before checking it against `groupColumns`.
+
+## Game Details: away/home team-switch chips (2026-09-12)
+
+Follow-up feedback: even trimmed to core stats (above), showing both teams' boxscore tables stacked one
+after another was more scrolling than wanted — this app already has a chip-toggle pattern for exactly
+this kind of "pick one of a few views" choice (Standings tab's AFC/NFC/Drafted and nested Divisions/
+Conference switches, `.standings-toggle`/`.toggle-btn` in `css/style.css`, driven by
+`nflStandingsToggleHtml` in `js/standings-nfl.js`). Reused that same class pair for a two-button away/
+home switch rendered under the linescore, in `renderGameDetail` (`js/live-data.js`) — only the selected
+team's boxscore tables render below it, and clicking the other chip redraws instantly from the already-
+fetched `summary` (no re-fetch), via a small `gameDetailRenderState` module variable that
+`setGameDetailTeam` reads. `.gd-team-toggle` in `css/style.css` overrides the toggle's page-header-style
+padding/border to sit inline mid-sheet instead.
+
+Defaults to whichever team the sheet was opened *from* (e.g. tapping "View full boxscore" off Arizona's
+own team modal lands on Arizona's tables first, even when Arizona is the away team) rather than always
+defaulting to home or away — resolved in `openGameDetail` via `bundle.espnLive.isHome`, matched against
+`summary.teams`' own `homeAway` field, since neither the live bundle nor the summary otherwise carries
+"this is the team whose modal we came from" directly.

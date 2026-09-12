@@ -770,6 +770,17 @@ body{
    artifact-design responsive rule this app's own mockup work surfaced). */
 .box-scroll{ overflow-x: auto; }
 
+/* Reuses .standings-toggle/.toggle-btn (Standings tab's Divisions/
+   Conference switch) for the away/home team switch under the
+   linescore — same pill look, but repositioned as inline content
+   rather than a full-width section header, since .modal-body already
+   carries its own padding here. */
+.gd-team-toggle{
+  margin: 16px 0 14px;
+  padding: 0;
+  border-bottom: none;
+}
+
 .linescore-table{
   width: 100%;
   border-collapse: collapse;
