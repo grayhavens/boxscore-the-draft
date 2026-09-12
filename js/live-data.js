@@ -956,7 +956,7 @@ export function openTeamModal(teamKey){
         ${priorSeasonNoteHtml}
         <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
         <div class="form-list" id="live-form">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
-        <div class="modal-section-title">Next Match</div>
+        <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
         <div class="next-match" id="live-next">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
         <div class="updated-note" id="live-updated"></div>
         <div id="tracker-section">${tracker}</div>
