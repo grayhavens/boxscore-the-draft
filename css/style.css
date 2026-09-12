@@ -674,31 +674,36 @@ body{
   letter-spacing: 0.4px;
 }
 
-/* ---- Game Details entry row (live MLB games only, for now — see
-   renderNext in js/live-data.js) ---- */
-.detail-link{
-  margin-top: 12px;
+/* ---- Game Details entry chip (live MLB/CFB games — see renderNext in
+   js/live-data.js) ---- Sits directly on .next-match's own row next to
+   the score/period line (that row is already a space-between flex
+   container) rather than in its own stacked card below, and reuses the
+   same accent-pill treatment as an active .toggle-btn/.filter-chip so
+   it reads as a lightweight inline action, not a separate section. */
+.boxscore-chip{
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: 11px;
-  padding: 11px 13px;
+  gap: 3px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  padding: 7px 12px;
   cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.detail-link .txt{ font-size: 12.5px; font-weight: 700; }
-
-.detail-link .sub{
-  font-size: 10px;
-  color: var(--text-sub);
-  font-weight: 500;
-  margin-top: 1px;
+.boxscore-chip:hover{
+  background: var(--accent);
+  color: #0A0B0D;
 }
 
-.detail-link .chev{ color: var(--accent); font-size: 15px; flex: 0 0 auto; }
+.boxscore-chip .chev{ font-size: 13px; }
 
 /* ---- Game Details sheet — a second, wider overlay stacked on top of
    the team modal (see openGameDetail/closeGameDetail in

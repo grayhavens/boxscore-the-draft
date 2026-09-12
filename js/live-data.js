@@ -37,22 +37,20 @@ const FLAT_SCHEDULE_LEAGUES = {
 // Leagues wired up for the "Game Details" boxscore drill-down (see
 // openGameDetail/renderGameDetail below) — MLB first, CFB added
 // 2026-09-12. Each entry's `fetchSummary` is that sport's own summary
-// reader (js/espn.js) and `subtitle` is the entry row's second line;
-// `linescorePeriods`/`periodLabel` describe the linescore table's
-// columns (9 innings vs. 4 quarters+OT). basketball/soccer/hockey
-// aren't here yet — no per-sport summary reader has been written for
-// them (see docs/espn-migration-plan.md's Game Details section).
+// reader (js/espn.js); `linescorePeriods`/`periodLabel` describe the
+// linescore table's columns (9 innings vs. 4 quarters+OT).
+// basketball/soccer/hockey aren't here yet — no per-sport summary
+// reader has been written for them (see docs/espn-migration-plan.md's
+// Game Details section).
 const GAME_DETAIL_LEAGUES = {
   mlb: {
     fetchSummary: fetchEspnSummary,
-    subtitle: 'Linescore, batting & pitching',
     linescorePeriods: 9,
     periodLabel: i => String(i + 1),
     situationText: mlbSituationText
   },
   cfb: {
     fetchSummary: fetchEspnFootballSummary,
-    subtitle: 'Linescore, passing, rushing & more',
     linescorePeriods: 4,
     periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
     situationText: footballSituationText
@@ -634,23 +632,21 @@ function renderNext(teamKey, meta, bundle){
     // league, since a team whose event lookup somehow came back without
     // one has nothing to fetch.
     const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+    // Sits directly on #live-next's own row (it's already a
+    // space-between flex row — see .next-match in css/style.css) rather
+    // than stacked below in its own bordered card, and reuses the same
+    // accent-pill treatment as an active .toggle-btn/.filter-chip
+    // instead of a heavier surface+border box, to read as a lightweight
+    // inline action next to the score rather than a separate section.
     const detailHtml = (gameDetail && line.eventId) ? `
-      <div class="detail-link" onclick="openGameDetail('${teamKey}')">
-        <div>
-          <div class="txt">View full boxscore</div>
-          <div class="sub">${gameDetail.subtitle}</div>
-        </div>
-        <div class="chev">›</div>
-      </div>
+      <div class="boxscore-chip" onclick="openGameDetail('${teamKey}')">View live boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
-      <div>
-        <div class="nm-left">
-          <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
-          <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
-        </div>
-        ${detailHtml}
+      <div class="nm-left">
+        <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
+        <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
       </div>
+      ${detailHtml}
     `;
     return;
   }

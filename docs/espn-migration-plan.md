@@ -637,3 +637,16 @@ own team modal lands on Arizona's tables first, even when Arizona is the away te
 defaulting to home or away — resolved in `openGameDetail` via `bundle.espnLive.isHome`, matched against
 `summary.teams`' own `homeAway` field, since neither the live bundle nor the summary otherwise carries
 "this is the team whose modal we came from" directly.
+
+## Team-modal entry point restyled as an inline chip (2026-09-12)
+
+Feedback: the "View full boxscore" entry point on the team modal's own LIVE line looked heavy — its own
+bordered/background card (`.detail-link`) stacked below the score line, rather than sitting next to it.
+Restyled as `.boxscore-chip`, a lightweight accent-tinted pill (same color treatment as an active
+`.toggle-btn`/`.filter-chip`, not a new look) placed as a direct sibling of `.nm-left` inside `#live-next`
+— that element already carries the `.next-match` class (`display:flex; justify-content:space-between`),
+so the chip lands on the same row as the score line for free once the extra wrapping `<div>` around both
+is removed, no new layout CSS needed. Copy changed from "View full boxscore" to "View live boxscore",
+and the two-line txt/sub layout (with its now-unused `GAME_DETAIL_LEAGUES[...].subtitle` per-sport
+description) is gone — a single short label fits the lightweight-pill treatment better than a card with
+room for a subtitle.
