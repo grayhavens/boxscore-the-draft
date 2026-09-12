@@ -542,3 +542,56 @@ live scores. Two real findings, both fixed:
    would be pure waste — that data doesn't move mid-game, only the score does) — `js/api.js`'s
    "Adding a new league" checklist was updated to document this as a narrow, deliberate exception rather
    than an invitation to add more polling loops.
+
+## Game Details for CFB, and two real MLB bugs found along the way (2026-09-12)
+
+Extended the "Game Details" boxscore sheet (see the entry above) from MLB-only to also cover CFB,
+using real live ESPN data this time — this session had actual internet access to `site.web.api.espn.com`
+and `site.api.espn.com` (confirmed byte-identical), unlike the session that originally built the MLB
+version, which had to write its whole parser against documented/reverse-engineered field shapes with no
+way to check them. Checking the real payloads surfaced two genuine bugs already live in the shipped MLB
+code, fixed as part of this same change since they're the same code path CFB needed to be correct anyway:
+
+1. **`situation` (balls/strikes/outs/baserunners) never populated — confirmed always `null`** on every
+   real in-progress MLB game checked. `fetchEspnSummary` (`js/espn.js`) read it off
+   `data.header.competitions[0].situation`, but that field simply isn't there on the **summary** endpoint
+   for either sport tested. The real, only place ESPN's hidden API exposes live down/distance or
+   ball/strike/baserunner state is the **scoreboard** endpoint's own per-event `situation` — confirmed
+   live for both MLB and CFB — which this app already fetches every 60s for the LIVE line anyway
+   (`fetchEspnScoreboard`/`findEspnScoreboardLine`). Fixed by threading `situation` through those two
+   functions instead (raw passthrough, not normalized — the shape is sport-specific and both consumers
+   read their own sport's fields directly) and having `openGameDetail`/`renderGameDetail`
+   (`js/live-data.js`) read it off `bundle.espnLive.situation` rather than the summary response. Real
+   upside: this is also fresher than the summary fetch (re-patched every ~20s by
+   `liveScoreboardSweepTick`, vs. only on tap for the summary itself).
+2. **Every per-inning linescore cell rendered blank.** `fetchEspnSummary` read `l.value` off each
+   `linescores[]` entry; the real field is `l.displayValue` — confirmed on both a live MLB and a live CFB
+   game. `value` doesn't exist on the object at all, so this silently produced `undefined` → the
+   `–` placeholder in every inning/quarter cell, on every game, since the feature shipped. One-line fix.
+
+**CFB's own real differences, confirmed live:**
+- Situation: football's pre-formatted `downDistanceText` (e.g. "1st & 10 at ORE 25") is simpler to render
+  than baseball's, which has to be composed field-by-field from balls/strikes/outs/onFirst/onSecond/
+  onThird — see `footballSituationText` vs. `mlbSituationText` in `js/live-data.js`. ESPN omits
+  `downDistanceText` entirely at a dead-ball moment (confirmed live during a timeout) rather than sending
+  an empty string, so this degrades to showing nothing rather than a broken/blank situation line.
+- Linescore is 4 quarters (+ OT) instead of 9 innings, and the trailing summary column is just the final
+  score — no hits/errors concept on this endpoint for football, so that whole column group is omitted
+  for CFB instead of showing two meaningless "–" cells.
+- The passing/rushing/receiving/defensive/kicking/punting boxscore tables needed no CFB-specific code at
+  all — confirmed live that `boxGroupHtml`'s generic `labels`/`athletes` reader, written for baseball's
+  batting/pitching tables, renders football's real payload correctly unchanged.
+- Added a sibling `fetchEspnFootballSummary` (`js/espn.js`) rather than overloading the MLB-only
+  `fetchEspnSummary`, matching this codebase's own convention of keeping per-sport functions separate
+  (see NFL/NBA/NHL/MLB's own separate standings fetchers) — it shares the identical boxscore-player
+  parsing via a small internal helper (`parseEspnBoxscorePlayers`) with the MLB function, since that part
+  turned out to be genuinely sport-agnostic, but keeps its own team/score/linescore fields (no
+  runs/hits/errors) since football's summary has no baseball-shaped stats to force onto. Written to be
+  reused by NFL later (same shape), though NFL itself wasn't wired up as part of this change.
+- **NDSU (the one FCS team drafted in CFB) is confirmed NOT covered by this app's scoreboard fetch.**
+  Checked live: NDSU's actual 2026 schedule is entirely FBS opponents (Air Force, Wyoming, UNLV, Nevada,
+  New Mexico, UTEP, Hawai'i, Northern Illinois, San José State — an FBS transition season), but its
+  real game against Air Force doesn't appear in `fetchEspnScoreboard('football/college-football')`'s
+  response (no `groups=` param) at all, nor in a `groups=81` (FCS) fetch. Not fixed — this degrades the
+  same way the standings gap for this exact team already does elsewhere (see `NDSU_ESPN_TEAM_ID` in
+  `js/standings-cfb.js`): no live line, no Game Details entry, for this one team only.

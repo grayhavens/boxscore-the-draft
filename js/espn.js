@@ -738,7 +738,18 @@ export async function fetchEspnScoreboard(sportLeaguePath){
       state: statusType ? statusType.state : null,
       detail: statusType ? statusType.shortDetail : null,
       completed: !!(statusType && statusType.completed),
-      competitors
+      competitors,
+      // Raw passthrough, not normalized — shape is sport-specific
+      // (baseball: balls/strikes/outs/onFirst/onSecond/onThird; football:
+      // down/distance/downDistanceText/isRedZone; basketball/soccer don't
+      // send one at all). Confirmed live 2026-09-12 that this is the ONLY
+      // place ESPN's hidden API exposes live down/distance or ball/strike
+      // state — the summary endpoint's header.competitions[0] never
+      // carries it (checked against real in-progress MLB and CFB games),
+      // despite fetchEspnSummary having shipped assuming otherwise. See
+      // openGameDetail/renderGameDetail in js/live-data.js, which read
+      // this off bundle.espnLive.situation instead.
+      situation: comp.situation || null
     };
   }).filter(Boolean) : [];
 
@@ -772,8 +783,49 @@ export function findEspnScoreboardLine(events, espnTeamId){
     // Carried through so a caller can drill into fetchEspnSummary below
     // for this exact game — previously discarded since nothing needed
     // it before the Game Details view (js/live-data.js's openGameDetail).
-    eventId: event.id
+    eventId: event.id,
+    // Raw per-game situation (down/distance, balls/strikes/baserunners,
+    // etc. depending on sport) — see the comment on fetchEspnScoreboard
+    // above for why this, not fetchEspnSummary, is the real source for
+    // it. null for a scheduled/final game or a sport ESPN sends none for.
+    situation: event.situation || null
   };
+}
+
+// Shared by fetchEspnSummary and fetchEspnFootballSummary below — the
+// per-athlete stat tables (batting/pitching for baseball, passing/
+// rushing/receiving/etc. for football) turn out to be identically
+// shaped across both sports in real payloads (confirmed live
+// 2026-09-12), keyed off ESPN's own `labels`/`athletes` rather than a
+// hardcoded column list, so this renders correctly even if the real
+// label set/order for a given sport differs from what this was written
+// against.
+function parseEspnBoxscorePlayers(data){
+  const playerBlocks = (data.boxscore && Array.isArray(data.boxscore.players)) ? data.boxscore.players : [];
+  return playerBlocks.map(block => ({
+    teamId: block.team && block.team.id,
+    abbr: block.team && block.team.abbreviation,
+    groups: (Array.isArray(block.statistics) ? block.statistics : []).map(stat => ({
+      name: stat.name || stat.type || '',
+      labels: Array.isArray(stat.labels) ? stat.labels : [],
+      rows: (Array.isArray(stat.athletes) ? stat.athletes : []).map(a => ({
+        name: (a.athlete && a.athlete.displayName) || '',
+        stats: Array.isArray(a.stats) ? a.stats : []
+      })).filter(r => r.name)
+    })).filter(g => g.rows.length)
+  }));
+}
+
+// Shared status-block read off data.header.competitions[0] — identical
+// for every sport's summary response.
+function parseEspnSummaryStatus(comp){
+  const statusType = comp.status && comp.status.type;
+  return statusType ? {
+    state: statusType.state,
+    detail: statusType.shortDetail,
+    period: comp.status.period,
+    displayClock: comp.status.displayClock
+  } : null;
 }
 
 // One game's live boxscore — the "Game Details" drill-down off the team
@@ -782,27 +834,22 @@ export function findEspnScoreboardLine(events, espnTeamId){
 // league), this is per-event — only fetched when a drafter actually
 // taps in for more, not on every background refresh tick.
 //
-// MLB-only for now (see FLAT_SCHEDULE_LEAGUES.mlb in js/live-data.js).
-// The shape read here — situation.balls/strikes/outs/onFirst/onSecond/
-// onThird, boxscore.players[].statistics[].labels/athletes — is
-// baseball's own; other sports carry a differently-shaped situation
-// object (football's down/distance/possession) or none at all
-// (basketball, soccer — see docs/espn-migration-plan.md's Game Details
-// section), so extending this to another sport needs its own read of
-// that sport's real response, not just pointing this at a new
-// sportLeaguePath.
+// Baseball-only (MLB) — the runs/hits/errors fields here are baseball's
+// own; football's equivalent is fetchEspnFootballSummary below (shared
+// by CFB and, eventually, NFL, since both carry the same shape).
 //
-// Every field below is read defensively (missing-key guards throughout,
-// never an assumed-present chain) since this endpoint's exact shape
-// hasn't been checked against a live payload — this app's outbound
-// network access couldn't reach ESPN's API while this was built (see
-// docs/espn-migration-plan.md). Treat the first live game this runs
-// against as the real verification pass, not this code.
+// Does NOT read `situation` (balls/strikes/outs/baserunners) — confirmed
+// live 2026-09-12 that ESPN's summary endpoint never carries it on
+// header.competitions[0] (checked against several real in-progress MLB
+// games, always null), despite this function originally shipping with
+// code that read it from here. The real source is the scoreboard
+// endpoint's own per-event `situation` — see fetchEspnScoreboard/
+// findEspnScoreboardLine above — which openGameDetail/renderGameDetail
+// (js/live-data.js) now read off bundle.espnLive.situation instead.
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, homeAway, runs, hits, errors, linescore:
-// [n, ...] }], situation: {balls, strikes, outs, onFirst, onSecond,
-// onThird} | null, boxscore: [{ teamId, abbr, groups: [{ name, labels:
+// teams: [{ teamId, abbr, homeAway, score, hits, errors, linescore:
+// [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
 // [...], rows: [{name, stats: [...]}] }] }] } | null on any failure.
 export async function fetchEspnSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
@@ -811,15 +858,9 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
   const comp = data.header && Array.isArray(data.header.competitions) && data.header.competitions[0];
   if(!comp) return null;
 
-  const statusType = comp.status && comp.status.type;
-  const status = statusType ? {
-    state: statusType.state,
-    detail: statusType.shortDetail,
-    period: comp.status.period,
-    displayClock: comp.status.displayClock
-  } : null;
+  const status = parseEspnSummaryStatus(comp);
 
-  // Team-level runs/hits/errors sometimes ride on the competitor object
+  // Team-level hits/errors sometimes ride on the competitor object
   // directly, sometimes only on boxscore.teams[]'s own statistics array —
   // this checks the competitor first and falls back to the other shape
   // rather than assuming one.
@@ -837,41 +878,53 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
       teamId,
       abbr: c.team && c.team.abbreviation,
       homeAway: c.homeAway,
-      runs: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
+      score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
       hits: c.hits !== undefined ? c.hits : boxTeamStat(teamId, 'hits'),
       errors: c.errors !== undefined ? c.errors : boxTeamStat(teamId, 'errors'),
-      linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.value) : []
+      // `value` doesn't exist on a real linescore entry — confirmed live
+      // 2026-09-12 the field is `displayValue` (e.g. {displayValue:'2',
+      // hits:2, errors:0}), so this was silently rendering every
+      // per-inning cell blank before this fix.
+      linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
     };
   });
 
-  const rawSituation = comp.situation;
-  const situation = rawSituation ? {
-    balls: rawSituation.balls ?? null,
-    strikes: rawSituation.strikes ?? null,
-    outs: rawSituation.outs ?? null,
-    onFirst: !!rawSituation.onFirst,
-    onSecond: !!rawSituation.onSecond,
-    onThird: !!rawSituation.onThird
-  } : null;
+  const boxscore = parseEspnBoxscorePlayers(data);
 
-  const playerBlocks = (data.boxscore && Array.isArray(data.boxscore.players)) ? data.boxscore.players : [];
-  const boxscore = playerBlocks.map(block => ({
-    teamId: block.team && block.team.id,
-    abbr: block.team && block.team.abbreviation,
-    // labels come straight off ESPN's own response rather than a
-    // hardcoded column list — same "don't assume the exact field set"
-    // approach as the rest of this function, and it means a table
-    // renders correctly even if ESPN's real column order/count here
-    // turns out to differ from what this was written against.
-    groups: (Array.isArray(block.statistics) ? block.statistics : []).map(stat => ({
-      name: stat.name || stat.type || '',
-      labels: Array.isArray(stat.labels) ? stat.labels : [],
-      rows: (Array.isArray(stat.athletes) ? stat.athletes : []).map(a => ({
-        name: (a.athlete && a.athlete.displayName) || '',
-        stats: Array.isArray(a.stats) ? a.stats : []
-      })).filter(r => r.name)
-    })).filter(g => g.rows.length)
+  return { status, teams, boxscore };
+}
+
+// Football's equivalent of fetchEspnSummary above — shared by CFB and,
+// eventually, NFL, since ESPN's football summary/boxscore shape is the
+// same for both (see the sibling-function note in
+// docs/espn-migration-plan.md's Game Details section for why this is
+// its own function rather than an overload of the baseball one: no
+// runs/hits/errors concept, a quarters-not-innings linescore, and no
+// meaningful `situation` on this endpoint either — same as baseball,
+// see fetchEspnSummary's comment above).
+//
+// Shape returned: { status: {state, detail, period, displayClock},
+// teams: [{ teamId, abbr, homeAway, score, linescore: [n, ...] }],
+// boxscore: [{ teamId, abbr, groups: [...] }] } | null on any failure.
+export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
+  if(!data) return null;
+
+  const comp = data.header && Array.isArray(data.header.competitions) && data.header.competitions[0];
+  if(!comp) return null;
+
+  const status = parseEspnSummaryStatus(comp);
+
+  const competitors = Array.isArray(comp.competitors) ? comp.competitors : [];
+  const teams = competitors.map(c => ({
+    teamId: c.team && c.team.id,
+    abbr: c.team && c.team.abbreviation,
+    homeAway: c.homeAway,
+    score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
+    linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
   }));
 
-  return { status, teams, situation, boxscore };
+  const boxscore = parseEspnBoxscorePlayers(data);
+
+  return { status, teams, boxscore };
 }
