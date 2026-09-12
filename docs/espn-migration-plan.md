@@ -497,3 +497,48 @@ the way:
   now carries its own explicit `conferenceAbbr` field (set directly from the caller's own division map,
   not parsed off the display name), so `computeDivisionStandings(conferenceAbbr)` filters on that field
   instead of string-matching a name.
+
+## Polling-cadence review (2026-09-12)
+
+Requested audit of whether the background refresh loop (`js/live-data.js`) is still calling ESPN
+efficiently now that it backs almost the entire app, and whether the cadence actually keeps up with
+live scores. Two real findings, both fixed:
+
+1. **`LIVE_TEAM_KEYS` was silently excluding ~117 of this app's 210 drafted teams from the background
+   refresh rotation entirely.** The filter only included a team if it had a `sportsdbId` or
+   `rundownTeamId` set — correct back when those ids were the only way to fetch a team's live data, but
+   stale since the second migration wave: NBA/NHL/MLB/WNBA teams (every one but Josh's own 21) resolve
+   real ESPN data by **name**, through `FLAT_SCHEDULE_LEAGUES`, with no id field involved at all (see
+   "Bonus fix" in "SportsDB fully deprecated" above, which fixed this same class of bug for
+   `fetchTeamBundle`/`openTeamModal` but missed that `LIVE_TEAM_KEYS` gated the rotation on the exact
+   same stale condition). Net effect: those ~117 teams' board-row pills only ever got a real value if
+   someone happened to open that team's modal — never proactively, never automatically refreshed after
+   that. Fixed by adding `!!FLAT_SCHEDULE_LEAGUES[meta.leagueKey]` to the filter, which grows the
+   rotation from 93 to 183 teams (the ~27 College Basketball teams with no ESPN integration and no
+   legacy id correctly stay excluded — there's genuinely no data source for them yet).
+
+2. **The refresh cycle's length was still being derived from a TheSportsDB rate-limit budget
+   (`SPORTSDB_CALLS_PER_TEAM_TICK`/`SPORTSDB_RATE_BUDGET_PER_MIN`) that no longer describes reality.**
+   Per "SportsDB fully deprecated" above, nothing in normal operation calls TheSportsDB anymore, and
+   ESPN has no observed rate limit — so the formula's own justification was gone, even though the
+   5-minute floor it produced (`MIN_REFRESH_CYCLE_MS`) happened to still bind at both the old team count
+   (93) and the new one (183). Removed the stale budget formula/constants; `MIN_REFRESH_CYCLE_MS` is now
+   documented as a plain product choice (how fresh does a full schedule re-fetch need to be), not a
+   rate-limit calculation.
+
+   Separately, that 5-minute-per-team rotation was never really what kept live scores current in the
+   first place — with 183 teams sharing one cycle, any single team's turn only comes up roughly once
+   every 5 minutes, which is far slower than "the score just changed." Added `liveScoreboardSweepTick`
+   (`js/live-data.js`), a second, narrow, fast loop (every `LIVE_SWEEP_INTERVAL_MS` = 20s) that re-reads
+   the same shared per-league scoreboard the rotation already uses (`fetchEspnScoreboardCached`, still
+   cached 60s, so this adds no real request volume — same 7 requests/minute ceiling regardless of team
+   count) and patches just the live/final score line into every team's already-cached bundle at once,
+   independent of whose turn it is in the slower rotation. Also extended `renderRowStatus` to show a
+   just-finished final score immediately off that same patch (previously it only special-cased the
+   *live* state, so a game that ended between two of a team's rotation turns would sit on stale "LIVE"
+   or blank text for up to 5 minutes before the schedule-based fallback caught up). See
+   `liveScoreboardSweepTick`'s own header comment in `js/live-data.js` for why this is a second loop
+   rather than just shortening the rotation above (re-fetching every team's full schedule every 20s
+   would be pure waste — that data doesn't move mid-game, only the score does) — `js/api.js`'s
+   "Adding a new league" checklist was updated to document this as a narrow, deliberate exception rather
+   than an invitation to add more polling loops.
