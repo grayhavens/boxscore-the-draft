@@ -703,6 +703,14 @@ export function renderRowStatus(teamKey, bundle){
   const meta = TEAM_META[teamKey];
   const id = meta.sportsdbId;
 
+  // CFB/EPL/NFL show the next match regardless of when it falls, rather
+  // than only for today's game — see UPCOMING_CHIP_LEAGUES in js/api.js.
+  // Every other league keeps "today's game, else last result". Hoisted
+  // above the espnLive checks below (it used to live further down,
+  // right before its first use) so the completed-game branch can also
+  // read it.
+  const showsUpcoming = UPCOMING_CHIP_LEAGUES.includes(meta.leagueKey);
+
   // EPL/NFL/CFB/NBA/NHL/MLB/WNBA: live in-game state from ESPN's
   // scoreboard instead of TheRundown — see findEspnScoreboardLine in
   // js/espn.js. Same priority-over-everything-else idea as renderNext.
@@ -710,6 +718,26 @@ export function renderRowStatus(teamKey, bundle){
     el.textContent = `LIVE ${bundle.espnLive.own}-${bundle.espnLive.opp}`;
     el.className = 'row-status live';
     return;
+  }
+
+  // A game that just ended, seen here before the next full per-team
+  // refresh gets around to re-fetching bundle.espnSchedule (which is
+  // what the fallback further down reads) — see liveScoreboardSweepTick
+  // below, which patches bundle.espnLive in place every ~20s off the
+  // same shared scoreboard fetch that drives the LIVE branch above, so
+  // a final score shows immediately rather than sitting on "LIVE" (or
+  // blank) until this team's turn comes up in the slower rotation.
+  // Skipped for the always-show-next-match leagues, same as the
+  // schedule-based last-result fallback below.
+  if(bundle.espnLive && bundle.espnLive.completed && !showsUpcoming){
+    const { own, opp } = bundle.espnLive;
+    if(own !== null && opp !== null){
+      let cls = 'd', label = 'D';
+      if(own > opp){ cls = 'w'; label = 'W'; } else if(own < opp){ cls = 'l'; label = 'L'; }
+      el.textContent = `${label} ${own}-${opp}`;
+      el.className = 'row-status ' + cls;
+      return;
+    }
   }
 
   const rEvt = bundle.rundownEvent;
@@ -741,12 +769,8 @@ export function renderRowStatus(teamKey, bundle){
     }
   }
 
-  // CFB/EPL/NFL show the next match regardless of when it falls, rather
-  // than only for today's game — see UPCOMING_CHIP_LEAGUES in js/api.js.
-  // Every other league keeps "today's game, else last result", since a
-  // nightly slate makes "next match" far less interesting than a look
-  // back at how last night went.
-  const showsUpcoming = UPCOMING_CHIP_LEAGUES.includes(meta.leagueKey);
+  // showsUpcoming (CFB/EPL/NFL always show next match rather than last
+  // result) is computed near the top of this function now — see there.
 
   // EPL/NBA/NHL/MLB/WNBA: real schedule data from ESPN (js/espn.js)
   // instead of TheSportsDB's eventsnext — see fetchEspnTeamSchedule.
@@ -922,36 +946,41 @@ document.addEventListener('keydown', (e) => {
    turn comes up, it updates live and the "Last updated" time ticks
    forward right in front of you.
 
-   The cycle length (how often any given team refreshes) is dynamic,
-   not a fixed number — it's derived from how many teams are actually
-   live and TheSportsDB's premium rate limit, so it stays safe as more
-   leagues get wired up over time instead of needing to be manually
-   retuned:
-     - Each tick costs SPORTSDB_CALLS_PER_TEAM_TICK calls (last result
-       + next fixture — team info is on its own day-long cache, see
-       fetchTeamInfoCached, and standings are a shared 15-min cache,
-       see fetchEplStandingsTable, so neither adds meaningfully here).
-     - We budget up to SPORTSDB_RATE_BUDGET_PER_MIN of the real
-       100/min premium ceiling for this steady loop, leaving the rest
-       as headroom for those occasional extra calls.
-     - The cycle never goes faster than MIN_REFRESH_CYCLE_MS even if
-       the budget would allow it — there's no real benefit to
-       refreshing scores more often than that for a casual dashboard.
-   At today's team count this comes out to the 5-minute floor with
-   plenty of budget to spare; the formula only stretches the cycle out
-   once there are enough teams that 5 minutes would actually risk the
-   rate limit — worked out around 225 teams at 2 calls/tick, comfortably
-   past even a fully-wired 210-team roster. */
-const SPORTSDB_CALLS_PER_TEAM_TICK = 2;
-const SPORTSDB_RATE_BUDGET_PER_MIN = 90;
+   This full-bundle rotation is no longer what keeps live scores
+   current — see liveScoreboardSweepTick below for that; this loop's
+   job is now just the slower-moving parts of a team's bundle (full
+   schedule/last-result/next-match, and the one-time initial fetch for
+   a team that's never been fetched at all). MIN_REFRESH_CYCLE_MS is
+   sized for that, not for a rate limit: per
+   docs/espn-migration-plan.md ("SportsDB fully deprecated"),
+   TheSportsDB makes zero calls in normal operation today, and ESPN's
+   hidden API has no observed rate limit at all, so there's no metered
+   budget left to derive this cycle length from the way there used to
+   be. The one real per-team cost still on a shared daily quota is
+   TheRundown, for College Basketball only (RUNDOWN_SPORT_ID's mcbb
+   entry, via fetchRundownEventForTeam) — but that rides one
+   day-cache per league+date (rundownDayCache in js/api.js), so its
+   cost doesn't scale with how many CBB teams are in the rotation. */
 const MIN_REFRESH_CYCLE_MS = 5 * 60 * 1000;
 
-const LIVE_TEAM_KEYS = Object.keys(TEAM_META).filter(k => TEAM_META[k].sportsdbId || TEAM_META[k].rundownTeamId);
-const REFRESH_CYCLE_MS = Math.max(
-  MIN_REFRESH_CYCLE_MS,
-  (LIVE_TEAM_KEYS.length * SPORTSDB_CALLS_PER_TEAM_TICK / SPORTSDB_RATE_BUDGET_PER_MIN) * 60 * 1000
-);
-export const REFRESH_STEP_MS = LIVE_TEAM_KEYS.length ? REFRESH_CYCLE_MS / LIVE_TEAM_KEYS.length : REFRESH_CYCLE_MS;
+// Every team ESPN can resolve real data for (any team in a
+// FLAT_SCHEDULE_LEAGUES league — matched by name, not by an id field,
+// see fetchTeamBundle above) belongs in the rotation, plus the small
+// legacy set that still resolves via sportsdbId/rundownTeamId (mostly
+// just College Basketball's 3 mapped teams at this point). This used
+// to be gated on sportsdbId/rundownTeamId alone, which was correct
+// back when only teams with one of those ids had any live source at
+// all — but it left ~117 of this app's 210 drafted teams (every
+// NBA/NHL/MLB/WNBA team besides Josh's own, which resolve through
+// ESPN's flat standings by name instead) permanently out of this
+// rotation: never proactively refreshed, only ever fetched once if
+// someone happened to open that team's modal. Fixed as part of the
+// 2026-09-12 ESPN-cadence review.
+const LIVE_TEAM_KEYS = Object.keys(TEAM_META).filter(k => {
+  const meta = TEAM_META[k];
+  return !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey] || meta.sportsdbId || meta.rundownTeamId;
+});
+export const REFRESH_STEP_MS = LIVE_TEAM_KEYS.length ? MIN_REFRESH_CYCLE_MS / LIVE_TEAM_KEYS.length : MIN_REFRESH_CYCLE_MS;
 let refreshCursor = 0;
 
 export async function backgroundRefreshTick(){
@@ -965,4 +994,62 @@ export async function backgroundRefreshTick(){
   if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
     renderLiveBundle(teamKey, bundle);
   }
+}
+
+/* ---- Fast live-scoreboard sweep ----
+   backgroundRefreshTick above cycles through one team's full bundle
+   (a real per-team schedule fetch) every REFRESH_STEP_MS, so with 183
+   teams now in the rotation any single team's turn only comes up
+   roughly once every 5 minutes — fine for "last result"/"next match",
+   far too slow for "the score just changed." This sweep closes that
+   gap cheaply instead of just shortening MIN_REFRESH_CYCLE_MS (which
+   would mean re-fetching all 183 teams' full schedules 15x more
+   often for no reason — that data doesn't move mid-game): it re-reads
+   the same shared, already-cached-per-league scoreboard
+   (fetchEspnScoreboardCached/ESPN_SCOREBOARD_TTL_MS above) every
+   LIVE_SWEEP_INTERVAL_MS and patches just the live/final score line
+   into whatever bundle each team already has cached, for every team
+   at once. Real network cost stays at 7 requests/min (one per
+   FLAT_SCHEDULE_LEAGUES sportPath, throttled further by the 60s cache
+   above so most sweeps hit no network at all) regardless of how often
+   this runs or how many teams are drafted — the per-league scoreboard
+   already covers every team in it in one response.
+
+   Only patches a team that already has a cached bundle (from a prior
+   backgroundRefreshTick or an opened modal) — a team with no bundle
+   yet yields no row-status element worth patching in place, and its
+   own turn in the slower rotation above will populate it soon
+   regardless (LIVE_TEAM_KEYS is 183 teams over a 5-minute cycle, so
+   at most ~1.6s away at any given moment). */
+export const LIVE_SWEEP_INTERVAL_MS = 20 * 1000;
+const FLAT_SCHEDULE_SPORT_PATHS = [...new Set(Object.values(FLAT_SCHEDULE_LEAGUES).map(cfg => cfg.sportPath))];
+
+function applyLiveScoreboardPatch(teamKey, espnLive){
+  const cached = liveDataCache[teamKey];
+  if(!cached) return;
+  cached.espnLive = espnLive;
+  renderRowStatus(teamKey, cached);
+  if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
+    renderLiveBundle(teamKey, cached);
+  }
+}
+
+export async function liveScoreboardSweepTick(){
+  const scoreboards = await Promise.all(FLAT_SCHEDULE_SPORT_PATHS.map(fetchEspnScoreboardCached));
+  const bySportPath = {};
+  FLAT_SCHEDULE_SPORT_PATHS.forEach((sportPath, i) => { bySportPath[sportPath] = scoreboards[i]; });
+
+  LIVE_TEAM_KEYS.forEach(teamKey => {
+    const meta = TEAM_META[teamKey];
+    const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
+    if(!flatSchedule) return; // e.g. College Basketball — no ESPN scoreboard to sweep
+    const scoreboard = bySportPath[flatSchedule.sportPath];
+    if(!scoreboard) return;
+    // Same by-name resolution fetchTeamBundle's ESPN branch uses — needs
+    // that league's standings cache warm, which board.js's boot sequence
+    // already kicks off for every league regardless of this sweep.
+    const row = flatSchedule.findRow(meta);
+    if(!row) return;
+    applyLiveScoreboardPatch(teamKey, findEspnScoreboardLine(scoreboard.events, row.id));
+  });
 }

@@ -70,12 +70,28 @@ export const RUNDOWN_LIVE_STATUSES = new Set(['STATUS_IN_PROGRESS', 'STATUS_HALF
       let each team fetch and store its own copy of the same
       league-wide payload; that's what turns "add 27 more CFB teams"
       into "27 more calls" instead of zero.
-   2. Data that's genuinely per-team (last result, next fixture) rides
-      the existing staggered refresh loop (LIVE_TEAM_KEYS /
-      backgroundRefreshTick) — don't add a second polling loop. If it
-      adds calls to the per-tick SportsDB budget, bump
-      SPORTSDB_CALLS_PER_TEAM_TICK so REFRESH_CYCLE_MS keeps stretching
-      out correctly as the roster grows.
+   2. Data that's genuinely per-team and slow-moving (full schedule,
+      last result, next fixture) rides the existing staggered refresh
+      loop (LIVE_TEAM_KEYS/backgroundRefreshTick) — don't add a second
+      loop for this. The one deliberate exception is
+      liveScoreboardSweepTick (js/live-data.js): a fast, separate loop
+      that re-patches just the live/final score line across every team
+      at once, off the same per-league scoreboard cache the rotation
+      already shares — added because that one field (unlike everything
+      else here) genuinely needs to update faster than "once per team's
+      turn in a 5-minute cycle" to feel live, and re-fetching every
+      team's full schedule that often would be pure waste. If you're
+      tempted to add a second loop for anything else, it almost
+      certainly belongs in the existing rotation instead — this
+      exception is narrow on purpose.
+      Note: the old "bump SPORTSDB_CALLS_PER_TEAM_TICK so REFRESH_CYCLE_MS
+      keeps stretching out" advice that used to live here is gone along
+      with those constants — per docs/espn-migration-plan.md ("SportsDB
+      fully deprecated"), nothing in normal operation calls TheSportsDB
+      anymore, and ESPN has no observed rate limit, so there's no metered
+      per-tick budget left to protect. MIN_REFRESH_CYCLE_MS in
+      js/live-data.js is now a plain product choice, not a budget
+      calculation — see its own comment before changing it.
    3. Anything that should survive a reload goes in its own per-entity
       localStorage key (prefix + id), not one growing blob — mirror
       LIVE_DATA_CACHE_PREFIX / TEAM_INFO_CACHE_PREFIX in js/live-data.js.

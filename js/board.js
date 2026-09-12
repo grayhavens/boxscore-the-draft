@@ -55,7 +55,7 @@ import {
   wnbaStandingsToggleHtml, getWnbaStandingsMode, wnbaConferences
 } from './standings-wnba.js';
 import { renderOverallStandings, setObMode } from './overall.js';
-import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache } from './live-data.js';
+import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
@@ -610,6 +610,13 @@ fetchEspnWnbaStandingsCached();
 
 backgroundRefreshTick();
 setInterval(backgroundRefreshTick, REFRESH_STEP_MS);
+
+// Keeps live scores/final results current in between backgroundRefreshTick's
+// slower per-team rotation — see liveScoreboardSweepTick's own header
+// comment in js/live-data.js for why this is a separate, faster loop
+// instead of just shortening the rotation above.
+liveScoreboardSweepTick();
+setInterval(liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS);
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
