@@ -674,6 +674,137 @@ body{
   letter-spacing: 0.4px;
 }
 
+/* ---- Game Details entry row (live MLB games only, for now — see
+   renderNext in js/live-data.js) ---- */
+.detail-link{
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 11px;
+  padding: 11px 13px;
+  cursor: pointer;
+}
+
+.detail-link .txt{ font-size: 12.5px; font-weight: 700; }
+
+.detail-link .sub{
+  font-size: 10px;
+  color: var(--text-sub);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.detail-link .chev{ color: var(--accent); font-size: 15px; flex: 0 0 auto; }
+
+/* ---- Game Details sheet — a second, wider overlay stacked on top of
+   the team modal (see openGameDetail/closeGameDetail in
+   js/live-data.js). Reuses .modal-overlay/.modal's own bottom-sheet
+   behavior at mobile widths; only the desktop max-width differs. ---- */
+.modal-overlay.stacked{ z-index: 310; }
+
+.modal.modal-wide{ max-width: 560px; }
+
+.gd-head{
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 18px 22px 14px;
+  position: relative;
+}
+
+.gd-head.with-back{ padding-left: 50px; }
+
+.gd-back{
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-sub);
+  cursor: pointer;
+  padding: 0;
+  font-size: 17px;
+}
+
+.gd-back:hover{ color: var(--text); background: rgba(255,255,255,0.1); }
+
+.gd-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.2px;
+}
+
+.gd-sub{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.gd-situation{
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Only the linescore/box tables scroll horizontally if a narrow phone
+   can't fit every inning column — the sheet itself never does (see the
+   artifact-design responsive rule this app's own mockup work surfaced). */
+.box-scroll{ overflow-x: auto; }
+
+.linescore-table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.linescore-table th, .linescore-table td{
+  padding: 6px 5px;
+  text-align: center;
+  color: var(--text-sub);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.linescore-table th{ font-weight: 700; color: var(--text-mute); font-size: 9.5px; letter-spacing: 0.3px; }
+.linescore-table td.team{ text-align: left; font-weight: 700; color: var(--text); }
+.linescore-table td.tot{ font-weight: 700; color: var(--text); }
+
+.box-table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.box-table th, .box-table td{
+  padding: 6px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.box-table th{ color: var(--text-mute); font-weight: 700; font-size: 9px; letter-spacing: 0.3px; }
+.box-table td.name{ text-align: left; color: var(--text); font-weight: 600; }
+.box-table td{ color: var(--text-sub); }
+
 .scoring-list{
   display: flex;
   flex-direction: column;
