@@ -595,3 +595,26 @@ code, fixed as part of this same change since they're the same code path CFB nee
   response (no `groups=` param) at all, nor in a `groups=81` (FCS) fetch. Not fixed — this degrades the
   same way the standings gap for this exact team already does elsewhere (see `NDSU_ESPN_TEAM_ID` in
   `js/standings-cfb.js`): no live line, no Game Details entry, for this one team only.
+
+## Game Details boxscore trimmed to core stats (2026-09-12)
+
+Feedback after the CFB rollout above: showing every stat group ESPN sends (10 groups per team for
+football — passing/rushing/receiving/fumbles/defensive/interceptions/kickReturns/puntReturns/kicking/
+punting — plus season-average columns like AVG/OBP/SLG mixed into MLB's batting/pitching rows) was
+overkill for this app's quick drill-down, compared to what a typical sports-stat site leads with.
+`parseEspnBoxscorePlayers` (`js/espn.js`) now takes a `groupColumns` map per sport (`MLB_BOX_GROUP_COLUMNS`,
+`FOOTBALL_BOX_GROUP_COLUMNS`) that drops any group not in the map entirely and narrows a kept group's
+columns to a curated whitelist, matched by ESPN's own label string (not position) so it stays correct if
+ESPN reorders its columns. Football keeps passing/rushing/receiving only (C/ATT-YDS-TD-INT,
+CAR-YDS-TD, REC-YDS-TD); MLB keeps batting/pitching with the season-average trailing columns dropped
+(AB-R-H-RBI-HR-BB-K, IP-H-R-ER-BB-K). `boxGroupHtml` (`js/live-data.js`) itself didn't need to change —
+it was already just rendering whatever labels/rows it was handed.
+
+**Real wrinkle found while wiring this up:** the group-identifying field on a player-stat block isn't
+consistent across sports — confirmed live, football sends it as `stat.name` ('passing', etc.) with no
+`type`, while MLB sends it as `stat.type` ('batting'/'pitching') with no `name` at all. The initial
+version of this filter checked `stat.name` only, which silently produced an empty boxscore for MLB
+(zero groups matched) while working fine for CFB — caught by re-testing against a real live MLB game
+before shipping, not by inspection. Fixed by resolving the group key as `stat.name || stat.type` (the
+same fallback `parseEspnBoxscorePlayers` already used for the rendered group title, just applied to the
+filter too) before checking it against `groupColumns`.

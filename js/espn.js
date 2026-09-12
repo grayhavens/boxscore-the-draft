@@ -794,27 +794,75 @@ export function findEspnScoreboardLine(events, espnTeamId){
 
 // Shared by fetchEspnSummary and fetchEspnFootballSummary below — the
 // per-athlete stat tables (batting/pitching for baseball, passing/
-// rushing/receiving/etc. for football) turn out to be identically
-// shaped across both sports in real payloads (confirmed live
-// 2026-09-12), keyed off ESPN's own `labels`/`athletes` rather than a
-// hardcoded column list, so this renders correctly even if the real
-// label set/order for a given sport differs from what this was written
-// against.
-function parseEspnBoxscorePlayers(data){
+// rushing/receiving/etc. for football) are identically shaped across
+// both sports in real payloads (confirmed live 2026-09-12): a group per
+// `stat.name` with its own `labels`/`athletes`.
+//
+// `groupColumns` curates this down to what a typical sports-site
+// boxscore actually leads with, rather than passing ESPN's full
+// response straight through — a real CFB summary carries 8-10 groups
+// per team (passing/rushing/receiving/fumbles/defensive/interceptions/
+// kickReturns/puntReturns/kicking/punting) and MLB's batting/pitching
+// tables carry season-average trailing columns (AVG/OBP/SLG/ERA) mixed
+// in with the game's own stats — all real, but too much for this app's
+// quick drill-down (see docs/espn-migration-plan.md's Game Details
+// section). It's `{ [groupName]: [wantedLabel, ...] }`: a group whose
+// name isn't a key is dropped entirely; a kept group's columns are
+// narrowed to the listed labels, in that order (matched by ESPN's own
+// label string, not by position, so this stays correct even if ESPN
+// reorders its own columns) — a label ESPN doesn't send is just
+// skipped rather than showing an empty column.
+function parseEspnBoxscorePlayers(data, groupColumns){
   const playerBlocks = (data.boxscore && Array.isArray(data.boxscore.players)) ? data.boxscore.players : [];
   return playerBlocks.map(block => ({
     teamId: block.team && block.team.id,
     abbr: block.team && block.team.abbreviation,
-    groups: (Array.isArray(block.statistics) ? block.statistics : []).map(stat => ({
-      name: stat.name || stat.type || '',
-      labels: Array.isArray(stat.labels) ? stat.labels : [],
-      rows: (Array.isArray(stat.athletes) ? stat.athletes : []).map(a => ({
-        name: (a.athlete && a.athlete.displayName) || '',
-        stats: Array.isArray(a.stats) ? a.stats : []
-      })).filter(r => r.name)
-    })).filter(g => g.rows.length)
+    // The group-identifying field itself differs by sport, confirmed
+    // live 2026-09-12 — football sends it as `stat.name` ('passing',
+    // etc.) with no `type`; baseball sends it as `stat.type`
+    // ('batting'/'pitching') with no `name` at all. Reading `name ||
+    // type` matches the fallback this function already used for the
+    // rendered group title, just applied to the filter key too.
+    groups: (Array.isArray(block.statistics) ? block.statistics : [])
+      .map(stat => ({ stat, key: stat.name || stat.type || '' }))
+      .filter(({ key }) => Object.prototype.hasOwnProperty.call(groupColumns, key))
+      .map(({ stat, key }) => {
+        const labels = Array.isArray(stat.labels) ? stat.labels : [];
+        const keepIdx = groupColumns[key].map(l => labels.indexOf(l)).filter(i => i !== -1);
+        return {
+          name: key,
+          labels: keepIdx.map(i => labels[i]),
+          rows: (Array.isArray(stat.athletes) ? stat.athletes : []).map(a => ({
+            name: (a.athlete && a.athlete.displayName) || '',
+            stats: keepIdx.map(i => (Array.isArray(a.stats) ? a.stats[i] : undefined))
+          })).filter(r => r.name)
+        };
+      })
+      .filter(g => g.rows.length)
   }));
 }
+
+// Core columns only — see parseEspnBoxscorePlayers' comment above for
+// why these are curated rather than passed through. Chosen to match
+// what a typical broadcast/quick-view box score leads with: at-bat
+// outcome counts for batting, innings/runs/walks/strikeouts for
+// pitching — not the season-average columns (AVG/OBP/SLG/ERA) ESPN
+// mixes into the same row.
+const MLB_BOX_GROUP_COLUMNS = {
+  batting: ['AB', 'R', 'H', 'RBI', 'HR', 'BB', 'K'],
+  pitching: ['IP', 'H', 'R', 'ER', 'BB', 'K']
+};
+
+// Skill-position groups only (passing/rushing/receiving) — drops
+// defensive/kicking/punting/return stats entirely, and each kept
+// group's columns are trimmed to the count/yards/touchdowns a
+// quick-view box score leads with (dropping per-attempt averages and
+// long-play columns).
+const FOOTBALL_BOX_GROUP_COLUMNS = {
+  passing: ['C/ATT', 'YDS', 'TD', 'INT'],
+  rushing: ['CAR', 'YDS', 'TD'],
+  receiving: ['REC', 'YDS', 'TD']
+};
 
 // Shared status-block read off data.header.competitions[0] — identical
 // for every sport's summary response.
@@ -889,7 +937,7 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
     };
   });
 
-  const boxscore = parseEspnBoxscorePlayers(data);
+  const boxscore = parseEspnBoxscorePlayers(data, MLB_BOX_GROUP_COLUMNS);
 
   return { status, teams, boxscore };
 }
@@ -924,7 +972,7 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
     linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
   }));
 
-  const boxscore = parseEspnBoxscorePlayers(data);
+  const boxscore = parseEspnBoxscorePlayers(data, FOOTBALL_BOX_GROUP_COLUMNS);
 
   return { status, teams, boxscore };
 }
