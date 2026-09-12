@@ -1310,6 +1310,13 @@ function applyLiveScoreboardPatch(teamKey, espnLive){
   const cached = liveDataCache[teamKey];
   if(!cached) return;
   cached.espnLive = espnLive;
+  // This sweep re-confirms freshness (off a scoreboard fetch that's at
+  // most ESPN_SCOREBOARD_TTL_MS old) far more often than the full
+  // per-team bundle refresh does, so "Last updated" should track it too —
+  // otherwise the modal's own clock sits stuck on the last full refresh
+  // (up to MIN_REFRESH_CYCLE_MS stale) while the score right above it is
+  // visibly live.
+  cached.fetchedAt = new Date();
   renderRowStatus(teamKey, cached);
   if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
     renderLiveBundle(teamKey, cached);
