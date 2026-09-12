@@ -650,3 +650,27 @@ is removed, no new layout CSS needed. Copy changed from "View full boxscore" to 
 and the two-line txt/sub layout (with its now-unused `GAME_DETAIL_LEAGUES[...].subtitle` per-sport
 description) is gone — a single short label fits the lightweight-pill treatment better than a card with
 room for a subtitle.
+
+## Game Details wired up to "Most Recent Result" too (2026-09-12)
+
+Extended the same sheet to the team modal's completed-game row, not just its LIVE one. `renderForm`
+(`js/live-data.js`) now takes `teamKey`/`meta` (previously just `sportsdbId`) and, in its ESPN-schedule
+branch (the MLB/CFB-covering one), adds a `.boxscore-link` — plain accent-colored text + chevron, no
+background or border at all, one step lighter than the LIVE row's `.boxscore-chip` pill — since this row
+already carries a form-pill, opponent, and score competing for attention. Labeled "View boxscore" (the
+LIVE row keeps "View live boxscore").
+
+`openGameDetail` no longer reads `bundle.espnLive` for its `eventId`/situation/default-team lookups —
+both call sites (the LIVE chip and this new link) now pass their own event id explicitly, since
+`bundle.espnLive` only ever describes today's/the current game and a "Most Recent Result" game is often a
+different, earlier one. Two things that logic used to lean on `bundle.espnLive` for needed a real
+replacement rather than just being made optional:
+- **Default team-toggle selection.** Previously resolved via `bundle.espnLive.isHome`, matched against
+  `summary.teams`' `homeAway` — meaningless for a past game `espnLive` doesn't describe. Replaced with
+  `flatSchedule.findRow(meta).id`, the same by-name ESPN-team-id lookup every other per-team identity
+  resolution in this app already uses (`liveScoreboardSweepTick`, standings row matching, etc.), matched
+  directly against `summary.boxscore`'s own `teamId` — works identically whether the game is live or
+  finished, and is simpler than the home/away detour it replaced.
+- **The sheet's LIVE badge.** Was unconditional (every game reaching this sheet used to be live, by
+  construction). Now reads `summary.status.state === 'in'` and shows just the plain status text (e.g.
+  "Final") otherwise.

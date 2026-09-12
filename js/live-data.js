@@ -519,9 +519,10 @@ function formStripHtml(recentEvents){
   `;
 }
 
-function renderForm(id, bundle){
+function renderForm(teamKey, meta, bundle){
   const el = document.getElementById('live-form');
   if(!el) return;
+  const id = meta.sportsdbId;
 
   const rStatus = bundle.rundownEvent && bundle.rundownEvent.score && bundle.rundownEvent.score.event_status;
   if(rStatus === 'STATUS_FINAL'){
@@ -556,6 +557,17 @@ function renderForm(id, bundle){
     let result = 'd', label = 'D';
     if(evt.ownScore > evt.oppScore){ result = 'w'; label = 'W'; }
     else if(evt.ownScore < evt.oppScore){ result = 'l'; label = 'L'; }
+    // Same Game Details sheet as the LIVE entry chip in renderNext, just
+    // for this team's last completed game instead of one in progress —
+    // gated the same way (a league wired up in GAME_DETAIL_LEAGUES and a
+    // real ESPN event id). Styled as a plain text link rather than a
+    // pill/chip — lighter still than the LIVE chip, since this sits
+    // amid an already-busy result row (form pill, opponent, score)
+    // rather than being the row's only secondary element.
+    const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+    const boxscoreLinkHtml = (gameDetail && evt.id) ? `
+      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${evt.id}')">View boxscore <span class="chev">›</span></div>
+    ` : '';
     el.innerHTML = `
       ${formStripHtml(recent)}
       <div class="form-item">
@@ -565,6 +577,7 @@ function renderForm(id, bundle){
           <span class="meta">${evt.isHome ? 'Home' : 'Away'}${evt.venueName ? ' · ' + evt.venueName : ''}</span>
         </div>
         <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
+        ${boxscoreLinkHtml}
       </div>
     `;
     return;
@@ -639,7 +652,7 @@ function renderNext(teamKey, meta, bundle){
     // instead of a heavier surface+border box, to read as a lightweight
     // inline action next to the score rather than a separate section.
     const detailHtml = (gameDetail && line.eventId) ? `
-      <div class="boxscore-chip" onclick="openGameDetail('${teamKey}')">View live boxscore <span class="chev">›</span></div>
+      <div class="boxscore-chip" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View live boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
       <div class="nm-left">
@@ -879,7 +892,7 @@ export function renderLiveBundle(teamKey, bundle){
   if(!meta || !bundle) return;
   renderStats(meta, bundle);
   renderSeasonBadge(meta, bundle);
-  renderForm(meta.sportsdbId, bundle);
+  renderForm(teamKey, meta, bundle);
   renderNext(teamKey, meta, bundle);
   renderUpdatedAt(bundle);
 }
@@ -1101,13 +1114,20 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
   `;
   const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
 
+  // Reachable from a completed game now too (the "Most Recent Result"
+  // link, not just the LIVE entry chip), so the LIVE badge only shows
+  // when the game actually still is — otherwise just the plain status
+  // detail (e.g. "Final").
+  const isLiveNow = summary.status && summary.status.state === 'in';
+  const statusHtml = `${isLiveNow ? '<span class="live-badge">LIVE</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
+
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
     <div class="gd-head with-back">
       <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
       <div>
         <div class="gd-title">${away.abbr} @ ${home.abbr}</div>
-        <div class="gd-sub"><span class="live-badge">LIVE</span> ${(summary.status && summary.status.detail) || ''}</div>
+        <div class="gd-sub">${statusHtml}</div>
       </div>
     </div>
     <div class="modal-body">
@@ -1138,12 +1158,16 @@ function setGameDetailTeam(teamId){
 }
 window.setGameDetailTeam = setGameDetailTeam;
 
-export async function openGameDetail(teamKey){
+// eventId is passed in explicitly by both callers (renderNext's LIVE
+// entry chip and renderForm's "Most Recent Result" link) rather than
+// read off bundle.espnLive here, so this works the same way for a
+// currently-live game and a past completed one — bundle.espnLive only
+// ever describes today's/the current game.
+export async function openGameDetail(teamKey, eventId){
   const meta = TEAM_META[teamKey];
-  const bundle = liveDataCache[teamKey];
-  const line = bundle && bundle.espnLive;
   const gameDetail = GAME_DETAIL_LEAGUES[meta && meta.leagueKey];
-  if(!meta || !line || !line.eventId || !gameDetail) return;
+  const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta && meta.leagueKey];
+  if(!meta || !eventId || !gameDetail || !flatSchedule) return;
 
   const overlay = document.getElementById('game-detail-overlay');
   const el = document.getElementById('game-detail-content');
@@ -1154,24 +1178,26 @@ export async function openGameDetail(teamKey){
   // modal's own fetch — if the sheet gets closed, or reopened for a
   // different game, while this request is in flight, its result is
   // stale and shouldn't paint over whatever's showing now.
-  el.dataset.activeEvent = String(line.eventId);
+  el.dataset.activeEvent = String(eventId);
   el.innerHTML = `<div class="modal-body"><div class="loading-note">Loading boxscore…</div></div>`;
 
-  const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-  const summary = flatSchedule ? await gameDetail.fetchSummary(flatSchedule.sportPath, line.eventId) : null;
-  if(el.dataset.activeEvent !== String(line.eventId)) return;
-  // Re-read situation off the live cache rather than the closed-over
-  // `line` above — the fetch just awaited can take a moment, and
-  // liveScoreboardSweepTick (every ~20s) may have patched a fresher
-  // bundle.espnLive in while it was in flight.
+  const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
+  if(el.dataset.activeEvent !== String(eventId)) return;
+
+  // situation (down/distance, balls/strikes/etc.) only ever comes from
+  // the *current* scoreboard fetch (see fetchEspnScoreboard/
+  // findEspnScoreboardLine in js/espn.js) — meaningful only when this
+  // sheet's game is that same still-live one; a past completed game
+  // (opened from "Most Recent Result") has none to show.
   const freshLine = liveDataCache[teamKey] && liveDataCache[teamKey].espnLive;
-  // Default the team-toggle to whichever side this sheet was opened
-  // from — isHome tells us which of summary.teams' two entries that is,
-  // since neither the live bundle nor the summary otherwise carries
-  // "this is the team whose modal we tapped in from" directly.
-  const defaultSide = (freshLine && freshLine.isHome) ? 'home' : 'away';
-  const defaultTeam = summary && summary.teams.find(t => t.homeAway === defaultSide);
-  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, freshLine && freshLine.situation, defaultTeam && defaultTeam.teamId);
+  const situation = (freshLine && String(freshLine.eventId) === String(eventId)) ? freshLine.situation : null;
+
+  // Default the team-toggle to this team's own side, resolved the same
+  // way the rest of this app identifies a team's ESPN row (findRow,
+  // matched by name) rather than via bundle.espnLive's isHome — that
+  // only describes today's/the current game, not necessarily this one.
+  const row = flatSchedule.findRow(meta);
+  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id);
 }
 window.openGameDetail = openGameDetail;
 
