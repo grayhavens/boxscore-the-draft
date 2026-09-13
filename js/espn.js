@@ -864,6 +864,48 @@ const FOOTBALL_BOX_GROUP_COLUMNS = {
   receiving: ['REC', 'YDS', 'TD']
 };
 
+// Shared by fetchEspnSummary/fetchEspnFootballSummary/fetchEspnSoccerSummary
+// below — the same summary response also carries a recap article (one
+// hero photo) and a `videos[]` reel (full-game highlights plus a few
+// individual clips), confirmed live 2026-09-13 across NFL/CFB/MLB/EPL —
+// same shape every time, so this is shared rather than duplicated per
+// sport. Nothing here maps a specific clip to a specific play: ESPN
+// doesn't key `videos[]` to `scoringPlays`/`keyEvents` by id, so this
+// only ever surfaces "highlights for this game" as a whole, not a clip
+// for any one score.
+// A clip's own URLs expire — `timeRestrictions.expirationDate` ranges
+// from ~48h (in-game reaction clips) out to ~a year (studio analysis) —
+// so this skips any clip already past its own expiration rather than
+// linking to one ESPN itself would already refuse to serve, and picks
+// the first surviving one (usually the full-game highlight reel, first
+// in ESPN's own ordering every case checked live).
+// Uses `links.web.href` (ESPN's own watch page) rather than the raw
+// CDN `links.source.href` mp4 — a plain link-out, not an embedded
+// player.
+function parseEspnGameMedia(data){
+  const article = data && data.article;
+  const images = article && Array.isArray(article.images) ? article.images : [];
+  const photoUrl = images.length ? images[0].url : null;
+  // article (type "Recap") only exists once ESPN has actually published
+  // a post-game writeup — confirmed live: a still-in-progress game's
+  // summary carries no `article` at all yet, so these stay null until
+  // the game ends. description is AP wire copy and leads with a dateline
+  // dash ("— The Bengals...") that only makes sense mid-paragraph, not
+  // as the first thing under a headline, so that's stripped here.
+  const recapHeadline = article ? ((article.headline || '').trim() || null) : null;
+  const recapSummary = article ? ((article.description || '').replace(/^[—-]\s*/, '').trim() || null) : null;
+
+  const now = Date.now();
+  const videos = Array.isArray(data && data.videos) ? data.videos : [];
+  const video = videos.find(v => {
+    const exp = v.timeRestrictions && v.timeRestrictions.expirationDate;
+    return !exp || new Date(exp).getTime() > now;
+  });
+  const highlightUrl = (video && video.links && video.links.web) ? video.links.web.href : null;
+
+  return { photoUrl, recapHeadline, recapSummary, highlightUrl };
+}
+
 // Shared status-block read off data.header.competitions[0] — identical
 // for every sport's summary response.
 function parseEspnSummaryStatus(comp){
@@ -898,7 +940,8 @@ function parseEspnSummaryStatus(comp){
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, hits, errors, linescore:
 // [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
-// [...], rows: [{name, stats: [...]}] }] }] } | null on any failure.
+// [...], rows: [{name, stats: [...]}] }] }], media: { photoUrl,
+// recapHeadline, recapSummary, highlightUrl } } | null on any failure.
 export async function fetchEspnSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -946,8 +989,9 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
   });
 
   const boxscore = parseEspnBoxscorePlayers(data, MLB_BOX_GROUP_COLUMNS);
+  const media = parseEspnGameMedia(data);
 
-  return { status, teams, boxscore };
+  return { status, teams, boxscore, media };
 }
 
 // Football's equivalent of fetchEspnSummary above — shared by CFB and,
@@ -961,7 +1005,8 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 //
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, linescore: [n, ...] }],
-// boxscore: [{ teamId, abbr, groups: [...] }] } | null on any failure.
+// boxscore: [{ teamId, abbr, groups: [...] }], media: { photoUrl,
+// recapHeadline, recapSummary, highlightUrl } } | null on any failure.
 export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -986,8 +1031,9 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   }));
 
   const boxscore = parseEspnBoxscorePlayers(data, FOOTBALL_BOX_GROUP_COLUMNS);
+  const media = parseEspnGameMedia(data);
 
-  return { status, teams, boxscore };
+  return { status, teams, boxscore, media };
 }
 
 // Soccer's equivalent of fetchEspnSummary/fetchEspnFootballSummary above
@@ -1010,7 +1056,8 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 //
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, homeAway, score }], events: [{ teamId, minute,
-// player, kind: 'goal'|'yellow'|'red' }] } | null on any failure.
+// player, kind: 'goal'|'yellow'|'red' }], media: { photoUrl, recapHeadline,
+// recapSummary, highlightUrl } } | null on any failure.
 export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -1048,5 +1095,7 @@ export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
     .filter(Boolean)
     .sort((a, b) => a.sortValue - b.sortValue);
 
-  return { status, teams, events };
+  const media = parseEspnGameMedia(data);
+
+  return { status, teams, events, media };
 }
