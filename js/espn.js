@@ -896,7 +896,7 @@ function parseEspnSummaryStatus(comp){
 // (js/live-data.js) now read off bundle.espnLive.situation instead.
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, homeAway, score, hits, errors, linescore:
+// teams: [{ teamId, abbr, name, location, mascot, homeAway, score, hits, errors, linescore:
 // [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
 // [...], rows: [{name, stats: [...]}] }] }] } | null on any failure.
 export async function fetchEspnSummary(sportLeaguePath, eventId){
@@ -925,6 +925,14 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
     return {
       teamId,
       abbr: c.team && c.team.abbreviation,
+      name: espnTeamName(c.team),
+      // location ("New York") and mascot ("Mets") split out separately
+      // from the pre-joined `name` above — the Game Details header picks
+      // one or the other per league (see GAME_DETAIL_LEAGUES.titleName
+      // in js/live-data.js: MLB/NHL/NBA want mascot-only, CFB wants
+      // location-only, NFL/EPL keep the full joined name).
+      location: c.team && c.team.location,
+      mascot: c.team && c.team.name,
       homeAway: c.homeAway,
       score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
       hits: c.hits !== undefined ? c.hits : boxTeamStat(teamId, 'hits'),
@@ -952,7 +960,7 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 // see fetchEspnSummary's comment above).
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, homeAway, score, linescore: [n, ...] }],
+// teams: [{ teamId, abbr, name, location, mascot, homeAway, score, linescore: [n, ...] }],
 // boxscore: [{ teamId, abbr, groups: [...] }] } | null on any failure.
 export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
@@ -967,6 +975,11 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   const teams = competitors.map(c => ({
     teamId: c.team && c.team.id,
     abbr: c.team && c.team.abbreviation,
+    name: espnTeamName(c.team),
+    // See fetchEspnSummary's comment above — location/mascot split out
+    // for the Game Details header's per-league title format.
+    location: c.team && c.team.location,
+    mascot: c.team && c.team.name,
     homeAway: c.homeAway,
     score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
     linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
@@ -996,7 +1009,7 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 // so callers shouldn't expect one.
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, homeAway, score }], events: [{ teamId, minute,
+// teams: [{ teamId, abbr, name, homeAway, score }], events: [{ teamId, minute,
 // player, kind: 'goal'|'yellow'|'red' }] } | null on any failure.
 export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
@@ -1011,6 +1024,7 @@ export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const teams = competitors.map(c => ({
     teamId: c.team && c.team.id,
     abbr: c.team && c.team.abbreviation,
+    name: espnTeamName(c.team),
     homeAway: c.homeAway,
     score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null
   }));

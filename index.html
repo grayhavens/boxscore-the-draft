@@ -21,8 +21,11 @@
     <div class="page-header">
       <div class="page-header-top">
         <img class="app-logo" src="icons/logo-header.png" alt="">
-        <h1>Boxscore</h1>
-        <select class="draft-team-picker" id="draft-team-picker" onchange="setDraftTeam(this.value)"></select>
+        <h1>Teams</h1>
+        <div class="picker-wrap">
+          <select class="draft-team-picker" id="draft-team-picker" onchange="setDraftTeam(this.value)"></select>
+          <span class="picker-chevron">&#9662;</span>
+        </div>
       </div>
       <div class="page-sub" id="team-tally">The Draft &middot; &mdash; leagues &middot; &mdash; teams</div>
     </div>
@@ -32,7 +35,10 @@
 
   <div id="view-standings" class="view">
     <div class="page-header">
-      <h1>Standings</h1>
+      <div class="page-header-top">
+        <img class="app-logo" src="icons/logo-header.png" alt="">
+        <h1>Standings</h1>
+      </div>
       <div class="page-sub">Real league standings &mdash; Person breakdown by drafted team win totals</div>
     </div>
     <div id="standings-content"></div>
@@ -41,6 +47,7 @@
   <div id="view-overall" class="view">
     <div class="page-header">
       <div class="page-header-top">
+        <img class="app-logo" src="icons/logo-header.png" alt="">
         <h1>Overall</h1>
         <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
              js/overall.js. Remove this control (and that block) once the

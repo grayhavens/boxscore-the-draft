@@ -125,10 +125,28 @@ export function setDraftTeam(id){
 }
 window.setDraftTeam = setDraftTeam;
 
+// The picker has no visible box (see .picker-wrap's underline-only
+// style) so a native select's default "size to the widest option"
+// width leaves a dead gap after short names like "Collin" — measure
+// the selected name itself and size the element to just that.
+let pickerMeasureCanvas = null;
+function sizeDraftTeamPicker(el){
+  const text = el.selectedOptions[0] ? el.selectedOptions[0].textContent : '';
+  if(!pickerMeasureCanvas) pickerMeasureCanvas = document.createElement('canvas');
+  const ctx = pickerMeasureCanvas.getContext('2d');
+  ctx.font = "700 15px 'Manrope', sans-serif";
+  el.style.width = `${Math.ceil(ctx.measureText(text).width) + 2}px`;
+}
+
 function renderDraftTeamPicker(){
   const el = document.getElementById('draft-team-picker');
   if(!el) return;
   el.innerHTML = DRAFT_TEAMS.map(d => `<option value="${d.id}" ${d.id === currentDraftTeamId ? 'selected' : ''}>${d.name}</option>`).join('');
+  sizeDraftTeamPicker(el);
+  // Manrope may still be loading on first paint, which throws off the
+  // canvas measurement above (falls back to a system font) — re-measure
+  // once it's actually ready.
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => sizeDraftTeamPicker(el));
 }
 
 // ---- Board rendering ----
@@ -171,7 +189,7 @@ export function renderBoard(){
             <div class="team-name">${meta.name}</div>
             <div class="team-sub">${subHtml}</div>
           </div>
-          <div class="row-status" id="row-status-${teamKey}"></div>
+          <div class="status-slot" id="row-status-${teamKey}"></div>
         </div>
       `;
     }).join('');

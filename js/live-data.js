@@ -34,6 +34,20 @@ const FLAT_SCHEDULE_LEAGUES = {
   wnba: { sportPath: 'basketball/wnba', ensureStandings: fetchEspnWnbaStandingsCached, findRow: findEspnWnbaRow }
 };
 
+// Game Details header title (see renderGameDetail below) picks one of
+// three name styles per league, via each GAME_DETAIL_LEAGUES entry's
+// `titleName` below — college programs go by school alone (no mascot:
+// "Ohio State", not "Ohio State Buckeyes"), same-metro pro leagues go
+// by mascot alone (no city: "Mets"/"Yankees", not "New York Mets"/"New
+// York Yankees" — the city tells two teams apart but adds nothing once
+// they're already side by side), and everyone else keeps the full
+// "Location Mascot" name. Falls back through location/mascot/name/abbr
+// at each step in case ESPN ever omits one (same defensiveness as
+// espnTeamName in js/espn.js).
+const titleNameLocation = team => (team && (team.location || team.mascot || team.name || team.abbr)) || '';
+const titleNameMascot = team => (team && (team.mascot || team.location || team.name || team.abbr)) || '';
+const titleNameFull = team => (team && (team.name || team.abbr)) || '';
+
 // Leagues wired up for the "Game Details" boxscore drill-down (see
 // openGameDetail/renderGameDetail below) — MLB first, CFB added
 // 2026-09-12, EPL added 2026-09-12, NFL added 2026-09-12 (reuses CFB's
@@ -46,25 +60,29 @@ const FLAT_SCHEDULE_LEAGUES = {
 // renderGameDetail below), so those two keys are simply omitted there.
 // basketball/hockey aren't here yet — no per-sport summary reader has
 // been written for them (see docs/espn-migration-plan.md's Game Details
-// section).
+// section) — when they are, they're pro leagues sharing metro areas
+// same as MLB, so they should use titleNameMascot too.
 const GAME_DETAIL_LEAGUES = {
   mlb: {
     fetchSummary: fetchEspnSummary,
     linescorePeriods: 9,
     periodLabel: i => String(i + 1),
-    situationText: mlbSituationText
+    situationText: mlbSituationText,
+    titleName: titleNameMascot
   },
   cfb: {
     fetchSummary: fetchEspnFootballSummary,
     linescorePeriods: 4,
     periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
-    situationText: footballSituationText
+    situationText: footballSituationText,
+    titleName: titleNameLocation
   },
   nfl: {
     fetchSummary: fetchEspnFootballSummary,
     linescorePeriods: 4,
     periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
-    situationText: footballSituationText
+    situationText: footballSituationText,
+    titleName: titleNameFull
   },
   epl: {
     fetchSummary: fetchEspnSoccerSummary,
@@ -73,7 +91,8 @@ const GAME_DETAIL_LEAGUES = {
     // practice, but renderGameDetail calls this unconditionally same as
     // every other league, so it needs a real function rather than being
     // omitted.
-    situationText: () => null
+    situationText: () => null,
+    titleName: titleNameFull
   }
 };
 
@@ -669,17 +688,17 @@ function renderNext(teamKey, meta, bundle){
     const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
     // Sits directly on #live-next's own row (it's already a
     // space-between flex row — see .next-match in css/style.css) rather
-    // than stacked below in its own bordered card, and reuses the same
-    // accent-pill treatment as an active .toggle-btn/.filter-chip
-    // instead of a heavier surface+border box, to read as a lightweight
-    // inline action next to the score rather than a separate section.
+    // than stacked below in its own bordered card. Same plain
+    // .boxscore-link treatment (and "View boxscore" wording) as the
+    // "Most Recent Result" row below, rather than its own heavier pill —
+    // one CTA style for "open Game Details" everywhere it appears.
     const detailHtml = (gameDetail && line.eventId) ? `
-      <div class="boxscore-chip" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View live boxscore <span class="chev">›</span></div>
+      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
       <div class="nm-left">
         <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
-        <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
+        <div class="nm-when"><span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ${line.own}-${line.opp} · ${line.period}</div>
       </div>
       ${detailHtml}
     `;
@@ -694,7 +713,7 @@ function renderNext(teamKey, meta, bundle){
     el.innerHTML = `
       <div class="nm-left">
         <div class="nm-teams">${line.isHome ? 'vs' : 'at'} ${line.opponentName}</div>
-        <div class="nm-when"><span class="live-badge">LIVE</span> ${line.own}-${line.opp} · ${line.period}</div>
+        <div class="nm-when"><span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ${line.own}-${line.opp} · ${line.period}</div>
       </div>
     `;
     return;
@@ -759,16 +778,39 @@ function renderUpdatedAt(bundle){
   el.textContent = `Last updated: ${formatUpdatedAt(bundle.fetchedAt)}`;
 }
 
-// Compact date label for the "next match" row-status pill — "Today
-// 6:00 PM" for a game today, otherwise a short weekday + time
-// ("Sat 11:30 AM") since there's no room in the pill for a full date.
-function formatChipUpcoming(d){
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if(d.toDateString() === new Date().toDateString()) return 'Today ' + time;
-  return d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + time;
+// Compact date label for the "next match" status slot — split into a
+// small label ("Today"/"Sat") and the time value, painted as the two
+// stacked lines of .status-slot (see paintStatusSlot below) rather
+// than one combined string.
+function formatChipUpcomingParts(d){
+  const value = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const label = d.toDateString() === new Date().toDateString()
+    ? 'Today'
+    : d.toLocaleDateString('en-US', { weekday: 'short' });
+  return { label, value };
 }
 
-// Board-row pill: reuses whatever the modal fetch already pulled
+// Paints the board row's right-hand status column: a small uppercase
+// label over a bolder value (see .status-slot/.meta-label/.meta-value
+// in css/style.css) instead of the single-line colored pill this used
+// to be. `live`/`linkable` add the pulsing dot and, where this game's
+// Game Details sheet is reachable, the chevron + click-through.
+function paintStatusSlot(el, { label, value, valueClass, live, linkable, onClick }){
+  el.className = 'status-slot' + (linkable ? ' live-block' : '');
+  const dotHtml = live ? '<span class="dot pulse"></span>' : '';
+  const chevHtml = linkable ? '<span class="chev">&rsaquo;</span>' : '';
+  const valClass = 'meta-value' + (valueClass ? ' ' + valueClass : '');
+  el.innerHTML = `<span class="meta-label${live ? ' live' : ''}">${dotHtml}${label}</span><span class="${valClass}">${value}${chevHtml}</span>`;
+  el.onclick = linkable ? onClick : null;
+}
+
+function clearStatusSlot(el){
+  el.className = 'status-slot';
+  el.innerHTML = '';
+  el.onclick = null;
+}
+
+// Board-row status: reuses whatever the modal fetch already pulled
 // (last result / next fixture) rather than fetching anything extra,
 // so it stays inside the same 30 req/min budget described in js/api.js.
 export function renderRowStatus(teamKey, bundle){
@@ -789,8 +831,21 @@ export function renderRowStatus(teamKey, bundle){
   // scoreboard instead of TheRundown — see findEspnScoreboardLine in
   // js/espn.js. Same priority-over-everything-else idea as renderNext.
   if(bundle.espnLive && bundle.espnLive.isLive){
-    el.textContent = `LIVE ${bundle.espnLive.own}-${bundle.espnLive.opp}`;
-    el.className = 'row-status live';
+    // Tapping the value jumps straight to the Game Details boxscore
+    // sheet instead of the team modal underneath it — but only where
+    // that sheet actually exists (GAME_DETAIL_LEAGUES) and this live
+    // game has a real ESPN eventId to fetch it with. Everywhere else
+    // the slot has no handler of its own, so the click bubbles up to
+    // the row's openTeamModal exactly like before.
+    const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+    const eventId = bundle.espnLive.eventId;
+    paintStatusSlot(el, {
+      label: 'Live',
+      value: `${bundle.espnLive.own}-${bundle.espnLive.opp}`,
+      live: true,
+      linkable: !!(gameDetail && eventId),
+      onClick: (e) => { e.stopPropagation(); openGameDetail(teamKey, eventId); }
+    });
     return;
   }
 
@@ -808,8 +863,7 @@ export function renderRowStatus(teamKey, bundle){
     if(own !== null && opp !== null){
       let cls = 'd', label = 'D';
       if(own > opp){ cls = 'w'; label = 'W'; } else if(own < opp){ cls = 'l'; label = 'L'; }
-      el.textContent = `${label} ${own}-${opp}`;
-      el.className = 'row-status ' + cls;
+      paintStatusSlot(el, { label: 'Final', value: `${label} ${own}-${opp}`, valueClass: cls });
       return;
     }
   }
@@ -819,8 +873,7 @@ export function renderRowStatus(teamKey, bundle){
 
   if(isRundownEventLive(rEvt)){
     const line = rundownEventLine(rEvt, bundle.rundownTeamId);
-    el.textContent = `LIVE ${line.own}-${line.opp}`;
-    el.className = 'row-status live';
+    paintStatusSlot(el, { label: 'Live', value: `${line.own}-${line.opp}`, live: true });
     return;
   }
 
@@ -830,15 +883,13 @@ export function renderRowStatus(teamKey, bundle){
     const line = rundownEventLine(rEvt, bundle.rundownTeamId);
     let cls = 'd', label = 'D';
     if(line.own > line.opp){ cls = 'w'; label = 'W'; } else if(line.own < line.opp){ cls = 'l'; label = 'L'; }
-    el.textContent = `${label} ${line.own}-${line.opp}`;
-    el.className = 'row-status ' + cls;
+    paintStatusSlot(el, { label: 'Final', value: `${label} ${line.own}-${line.opp}`, valueClass: cls });
     return;
   }
   if(bundle.rundownOnly && rStatus === 'STATUS_SCHEDULED' && rEvt.event_date){
     const d = new Date(rEvt.event_date);
     if(!isNaN(d.getTime())){
-      el.textContent = formatChipUpcoming(d);
-      el.className = 'row-status next';
+      paintStatusSlot(el, formatChipUpcomingParts(d));
       return;
     }
   }
@@ -857,8 +908,7 @@ export function renderRowStatus(teamKey, bundle){
     if(nextEvt){
       const d = new Date(nextEvt.date);
       if(!isNaN(d.getTime()) && (showsUpcoming || d.toDateString() === new Date().toDateString())){
-        el.textContent = formatChipUpcoming(d);
-        el.className = 'row-status next';
+        paintStatusSlot(el, formatChipUpcomingParts(d));
         return;
       }
     }
@@ -868,13 +918,11 @@ export function renderRowStatus(teamKey, bundle){
         let cls = 'd', label = 'D';
         if(lastEvt.ownScore > lastEvt.oppScore){ cls = 'w'; label = 'W'; }
         else if(lastEvt.ownScore < lastEvt.oppScore){ cls = 'l'; label = 'L'; }
-        el.textContent = `${label} ${lastEvt.ownScore}-${lastEvt.oppScore}`;
-        el.className = 'row-status ' + cls;
+        paintStatusSlot(el, { label: 'Final', value: `${label} ${lastEvt.ownScore}-${lastEvt.oppScore}`, valueClass: cls });
         return;
       }
     }
-    el.textContent = '';
-    el.className = 'row-status';
+    clearStatusSlot(el);
     return;
   }
 
@@ -882,8 +930,7 @@ export function renderRowStatus(teamKey, bundle){
   if(nextEvt && nextEvt.strTimestamp){
     const d = new Date(nextEvt.strTimestamp.includes('Z') ? nextEvt.strTimestamp : nextEvt.strTimestamp + 'Z');
     if(!isNaN(d.getTime()) && (showsUpcoming || d.toDateString() === new Date().toDateString())){
-      el.textContent = formatChipUpcoming(d);
-      el.className = 'row-status next';
+      paintStatusSlot(el, formatChipUpcomingParts(d));
       return;
     }
   }
@@ -898,15 +945,13 @@ export function renderRowStatus(teamKey, bundle){
         const ownN = parseInt(own, 10), oppN = parseInt(opp, 10);
         let cls = 'd', label = 'D';
         if(ownN > oppN){ cls = 'w'; label = 'W'; } else if(ownN < oppN){ cls = 'l'; label = 'L'; }
-        el.textContent = `${label} ${ownN}-${oppN}`;
-        el.className = 'row-status ' + cls;
+        paintStatusSlot(el, { label: 'Final', value: `${label} ${ownN}-${oppN}`, valueClass: cls });
         return;
       }
     }
   }
 
-  el.textContent = '';
-  el.className = 'row-status';
+  clearStatusSlot(el);
 }
 
 export function renderLiveBundle(teamKey, bundle){
@@ -1111,11 +1156,13 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
   const situationHtml = situationText ? `<div class="gd-situation">${situationText}</div>` : '';
 
   // Reachable from a completed game now too (the "Most Recent Result"
-  // link, not just the LIVE entry chip), so the LIVE badge only shows
+  // link, not just the LIVE entry chip), so the LIVE tag only shows
   // when the game actually still is — otherwise just the plain status
-  // detail (e.g. "Final").
+  // detail (e.g. "Final"). Same pulsing-dot treatment as the Teams tab's
+  // row status (see .status-slot/.dot in css/style.css) rather than the
+  // old solid green pill, so "live" reads the same everywhere.
   const isLiveNow = summary.status && summary.status.state === 'in';
-  const statusHtml = `${isLiveNow ? '<span class="live-badge">LIVE</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
+  const statusHtml = `${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
 
   // EPL has no innings/quarters linescore or per-athlete boxscore on
   // this endpoint (see fetchEspnSoccerSummary in js/espn.js) — the
@@ -1169,7 +1216,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
     <div class="gd-head with-back">
       <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
       <div>
-        <div class="gd-title">${away.abbr} @ ${home.abbr}</div>
+        <div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>
         <div class="gd-sub">${statusHtml}</div>
       </div>
     </div>
