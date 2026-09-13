@@ -42,6 +42,31 @@
 
 html{ background: var(--bg); }
 
+/* This app runs as an installed iOS PWA with a translucent status bar
+   (apple-mobile-web-app-status-bar-style: black-translucent, in
+   index.html) — the notch/status-bar strip is real page content, not
+   opaque OS chrome, so anything that scrolls to the top of the
+   document is visible right through it. body's own top padding
+   (env(safe-area-inset-top), below) normally keeps content clear of
+   that strip, but .standings-filter-row's sticky positioning
+   (top: env(safe-area-inset-top), further down this file) leaves that
+   exact strip briefly unmanaged during iOS's scroll-repaint of a
+   sticky element — a stale row from just before it can flash through
+   for a frame. A `position: fixed` cover can't be affected by that
+   scroll-repaint at all (it isn't part of the scrolling layer), so it
+   guarantees that strip always shows solid background regardless of
+   what the sticky element underneath is doing mid-scroll. */
+.safe-area-top{
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--bg);
+  z-index: 1000;
+  pointer-events: none;
+}
+
 body{
   background: var(--bg);
   color: var(--text);
@@ -510,6 +535,11 @@ body{
     box-shadow: 0 -24px 64px rgba(0,0,0,0.55);
     padding-bottom: env(safe-area-inset-bottom);
     animation: sheet-up 0.22s ease-out;
+    /* Swipe-to-dismiss (see enableSheetSwipeToDismiss in js/utils.js)
+       drives transform directly while dragging (transition: none) and
+       clears it on release, falling back to this for the snap-back/
+       dismiss animation. */
+    transition: transform 0.25s ease;
   }
 
   .modal::before{
@@ -1386,7 +1416,21 @@ body{
    that gap on iOS Safari, which also never fully repaints a plain
    `position: sticky` element as its own layer during scroll — the
    translateZ(0) below forces that, which is the standard fix for
-   content flashing/bleeding through a sticky bar on iOS. */
+   content flashing/bleeding through a sticky bar on iOS.
+   That alone still isn't enough during fast/momentum scrolling: iOS
+   can lose the paint-order race and let the row a division section
+   ends on (e.g. AL East's last-place team) render above this bar for
+   a frame instead of behind it — reported as a whole row briefly
+   floating above the filter pills, overlapping the status bar. Two
+   more layers of defense against that: `isolation` scopes this
+   element's z-index to its own stacking context instead of leaving it
+   to compete with whatever stacking contexts the row cards above
+   happen to create, and `will-change` promotes it to a persistent
+   compositor layer up front rather than one iOS decides to allocate
+   (or not) only once scrolling starts. See also .safe-area-top further
+   up this file, which independently covers the notch/status-bar strip
+   itself — a `position: fixed` layer that can't be affected by any of
+   this scroll-repaint business at all — as a last line of defense. */
 .standings-filter-row{
   position: sticky;
   top: env(safe-area-inset-top);
@@ -1396,6 +1440,8 @@ body{
   background: var(--bg);
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+  will-change: transform;
+  isolation: isolate;
 }
 
 .standings-toggle{

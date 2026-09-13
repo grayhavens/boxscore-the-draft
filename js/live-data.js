@@ -4,7 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, BALL_ICON_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
@@ -1338,6 +1338,9 @@ export function closeGameDetail(){
   gameDetailRenderState = null;
 }
 window.closeGameDetail = closeGameDetail;
+
+enableSheetSwipeToDismiss(document.getElementById('modal-content'), closeTeamModal);
+enableSheetSwipeToDismiss(document.getElementById('game-detail-content'), closeGameDetail);
 
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
