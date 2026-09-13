@@ -245,14 +245,15 @@ body{
 
 /* MLB/WNBA-only heads-up (see PRIOR_SEASON_DISPLAY_LEAGUES in
    js/data.js): the records below are real, but they're last season's
-   — drafted teams don't start scoring until '27. Lives as a third line
-   inside .league-tab.standings-league-tab's own column/gap, same
-   italic/muted treatment as .no-live-note so it reads as an aside
-   rather than an error. */
+   — drafted teams don't start scoring until '27. Called out in bold
+   accent gold (not the muted/italic treatment of .no-live-note) since
+   this is easy to misread as live scoring if skimmed. Lives as a third
+   line inside .league-tab.standings-league-tab's own column/gap, and
+   as a note above the modal body in the team modal. */
 .prior-season-note{
   font-size: 11.5px;
-  font-style: italic;
-  color: var(--text-sub);
+  font-weight: 700;
+  color: var(--accent);
   line-height: 1.4;
   margin-bottom: 14px;
 }

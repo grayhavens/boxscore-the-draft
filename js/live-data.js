@@ -318,6 +318,15 @@ function seasonStatus(meta, bundle){
 function renderSeasonBadge(meta, bundle){
   const el = document.getElementById('season-badge');
   if(!el) return;
+  // MLB/WNBA: this badge would just be reporting on the '26 season
+  // that doesn't count towards drafted points (see priorSeasonNoteHtml
+  // in openTeamModal below) — showing "In-Season" here reads as if the
+  // team is live for scoring purposes, so skip the badge entirely.
+  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
   const status = seasonStatus(meta, bundle);
   el.style.display = status ? 'inline-block' : 'none';
   el.innerHTML = status ? `<span class="season-badge ${status.cls}">${status.label}</span>` : '';
