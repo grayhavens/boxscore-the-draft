@@ -1,16 +1,16 @@
 /* ============================================================
-   Shared engine behind every "flat" (conference/league-grouped) ESPN
-   standings view — NBA, NHL, MLB, and WNBA all follow the identical
-   shape once fetched (see fetchEspnFlatStandings in js/espn.js): pick a
-   conference/league or "Person". NBA/NHL/MLB additionally nest a real
-   Divisions view under each conference (an optional fetchDivisionStandings
-   passed into createFlatStandingsBoard — see js/standings-nba.js/-nhl.js/
-   -mlb.js), same Division-vs-Conference sub-toggle idea NFL pioneered
-   in js/standings-nfl.js, generalized here once 3 of these 4 leagues
-   needed it too. WNBA has no real divisions (a single unified
-   conference table), so it simply omits that option — this board
-   behaves exactly as it did before division support existed for any
-   league that doesn't pass it.
+   Shared engine behind every conference-grouped ESPN standings view —
+   NBA, NHL, and MLB all follow the identical shape once fetched (see
+   fetchEspnFlatStandings in js/espn.js): pick a conference/league or
+   "Person", with a real Divisions view nested under each conference
+   (an optional fetchDivisionStandings passed into
+   createFlatStandingsBoard — see js/standings-nba.js/-nhl.js/-mlb.js),
+   same Division-vs-Conference sub-toggle idea NFL pioneered in
+   js/standings-nfl.js. WNBA used to be the 4th league here too, but has
+   no real conference/division structure worth keeping for a fantasy
+   standings view — it moved to its own single flat league-wide ranking
+   (js/standings-wnba.js, structured like EPL's) instead of sharing this
+   module's per-conference machinery.
 
    Matching an ESPN row back to a drafted team uses an EXACT match
    (after normalizeTeamName), not the looser substring rule
@@ -20,29 +20,30 @@
    matched to the Nets. EPL/CFB's substring cases are all whole-word
    prefixes ("Newcastle" in "Newcastle United"), which happen not to
    collide with any other drafted club's name, but nothing here
-   guarantees that in general, so this module doesn't risk it. Checked
-   live (2026-09-12) against all 120 NBA/NHL/MLB/WNBA drafted teams:
-   ESPN's team.name (the plain nickname, e.g. "Cavaliers") matches this
-   app's own TEAM_META name exactly in every case but one — "Blazers"
-   vs "Trail Blazers" — a one-line alias in TEAM_NAME_ALIASES
-   (js/utils.js) instead of a bespoke table here. (Dallas' TEAM_META
-   name is "Mavericks" — ESPN's own nickname — rather than the app's
-   original shorter "Mavs", which needed the same kind of alias until
-   the name itself was changed to match.)
+   guarantees that in general, so this module doesn't risk it (see
+   findFlatTeamKey below, exported for js/standings-wnba.js's own use
+   too). Checked live (2026-09-12) against all 120 NBA/NHL/MLB/WNBA
+   drafted teams: ESPN's team.name (the plain nickname, e.g.
+   "Cavaliers") matches this app's own TEAM_META name exactly in every
+   case but one — "Blazers" vs "Trail Blazers" — a one-line alias in
+   TEAM_NAME_ALIASES (js/utils.js) instead of a bespoke table here.
+   (Dallas' TEAM_META name is "Mavericks" — ESPN's own nickname —
+   rather than the app's original shorter "Mavs", which needed the same
+   kind of alias until the name itself was changed to match.)
 
    Each createFlatStandingsBoard(...) call below builds one league's
    cache, fetch-with-cache, toggle state, and render functions — see
-   js/standings-nba.js/standings-nhl.js/standings-mlb.js/
-   standings-wnba.js for the thin per-league config each passes in
-   (just what's genuinely sport-specific: the fetch function, the two
-   conference/league labels, and how a record renders/sorts/combines).
+   js/standings-nba.js/standings-nhl.js/standings-mlb.js for the thin
+   per-league config each passes in (just what's genuinely
+   sport-specific: the fetch function, the two conference/league
+   labels, and how a record renders/sorts/combines).
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { normalizeTeamName, teamBadgeHtml, abbrFromName } from './utils.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 
-function findFlatTeamKey(leagueKey, realName){
+export function findFlatTeamKey(leagueKey, realName){
   const target = normalizeTeamName(realName);
   const teams = LEAGUES.find(l => l.key === leagueKey).teams;
   return teams.find(teamKey => normalizeTeamName(TEAM_META[teamKey].name) === target) || null;
@@ -56,7 +57,7 @@ export function createFlatStandingsBoard(opts){
     sortConference, // (a, b) => number — orders one conference's teams
     combinedInit, // () => fresh per-drafter accumulator, e.g. { wins: 0, losses: 0 }
     combinedAccumulate, // (bucket, row) => void — adds one team's row into a drafter's bucket
-    combinedLabel, // (bucket) => "41-30 · .577" style string for the Person view
+    combinedLabel, // (bucket) => { primary: "41-30", secondary: "58% WIN" | "" } for the Drafted view's two-tier record
     combinedSort, // (a, b) => number — orders the Person view (found/not-found already handled)
     // Optional — only NBA/NHL/MLB pass this (WNBA has no real divisions
     // to nest under; see js/standings-wnba.js). () => Promise<[{
@@ -325,21 +326,24 @@ export function createFlatStandingsBoard(opts){
     if(row.found === 0) note = 'No data yet';
     else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;
 
-    // Same "currently leading, not locked in" idea as every other
-    // league's combined-record bonus tag (see EPL/CFB/NFL's own
-    // renderXByDrafterRow) — pays out once the season actually ends.
-    const bonus = LEAGUE_SCORING[leagueKey].bonus;
-    const isLeader = row.found > 0 && rank === 1 && bonus;
-    const leaderTagHtml = isLeader ? `<span class="provisional-tag">+${bonus.pts} provisional</span>` : '';
+    // Two-tier: the raw record as the bold line, the league's own
+    // derived stat (points or win%) called out underneath — see
+    // .person-record-chip in css/style.css.
+    const recordHtml = row.found > 0
+      ? (() => {
+          const { primary, secondary } = combinedLabel(row);
+          return `<span class="person-record-primary">${primary}</span>${secondary ? `<span class="person-record-secondary">${secondary}</span>` : ''}`;
+        })()
+      : `<span class="person-record-primary">&mdash;</span>`;
 
     return `
       <div class="standings-row">
         <div class="standings-rank">${row.found > 0 ? rank : '—'}</div>
         <div class="team-main">
-          <div class="team-name">${row.name}${leaderTagHtml}</div>
+          <div class="team-name">${row.name}</div>
           <div class="team-sub">${teamsLabel}${note ? ' &middot; ' + note : ''}</div>
         </div>
-        <div class="person-record-chip">${row.found > 0 ? combinedLabel(row) : '&mdash;'}</div>
+        <div class="person-record-chip">${recordHtml}</div>
       </div>
     `;
   }

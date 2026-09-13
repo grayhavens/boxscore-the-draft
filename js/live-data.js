@@ -793,10 +793,12 @@ function formatChipUpcomingParts(d){
 // Paints the board row's right-hand status column: a small uppercase
 // label over a bolder value (see .status-slot/.meta-label/.meta-value
 // in css/style.css) instead of the single-line colored pill this used
-// to be. `live`/`linkable` add the pulsing dot and, where this game's
-// Game Details sheet is reachable, the chevron + click-through.
+// to be. `live` adds the pulsing dot; `linkable` (a live game or a
+// just-finished result, either with a real Game Details sheet behind
+// it) adds the chevron + click-through — see the .linkable/.live CSS
+// for how the two combine differently on hover.
 function paintStatusSlot(el, { label, value, valueClass, live, linkable, onClick }){
-  el.className = 'status-slot' + (linkable ? ' live-block' : '');
+  el.className = 'status-slot' + (linkable ? ' linkable' : '') + (live ? ' live' : '');
   const dotHtml = live ? '<span class="dot pulse"></span>' : '';
   const chevHtml = linkable ? '<span class="chev">&rsaquo;</span>' : '';
   const valClass = 'meta-value' + (valueClass ? ' ' + valueClass : '');
@@ -821,10 +823,11 @@ export function renderRowStatus(teamKey, bundle){
 
   // CFB/EPL/NFL show the next match regardless of when it falls, rather
   // than only for today's game — see UPCOMING_CHIP_LEAGUES in js/api.js.
-  // Every other league keeps "today's game, else last result". Hoisted
-  // above the espnLive checks below (it used to live further down,
-  // right before its first use) so the completed-game branch can also
-  // read it.
+  // Every other league keeps "today's game, else last result". Only
+  // read by the schedule-based branches further down now — the
+  // espnLive-completed branch right below shows today's final for every
+  // league, this one included, before falling back to "next match" once
+  // the shared scoreboard fetch itself moves on to a new game.
   const showsUpcoming = UPCOMING_CHIP_LEAGUES.includes(meta.leagueKey);
 
   // EPL/NFL/CFB/NBA/NHL/MLB/WNBA: live in-game state from ESPN's
@@ -856,14 +859,25 @@ export function renderRowStatus(teamKey, bundle){
   // same shared scoreboard fetch that drives the LIVE branch above, so
   // a final score shows immediately rather than sitting on "LIVE" (or
   // blank) until this team's turn comes up in the slower rotation.
-  // Skipped for the always-show-next-match leagues, same as the
-  // schedule-based last-result fallback below.
-  if(bundle.espnLive && bundle.espnLive.completed && !showsUpcoming){
-    const { own, opp } = bundle.espnLive;
+  // Applies to the always-show-next-match leagues too now — today's
+  // final score takes priority over jumping straight to next week's
+  // fixture, same as it already does for every other league; it only
+  // fades back to "next match" once the shared scoreboard fetch itself
+  // rolls over to a new game for this team. Clicking the result opens
+  // Game Details, same gating/handler as the LIVE branch above.
+  if(bundle.espnLive && bundle.espnLive.completed){
+    const { own, opp, eventId } = bundle.espnLive;
     if(own !== null && opp !== null){
       let cls = 'd', label = 'D';
       if(own > opp){ cls = 'w'; label = 'W'; } else if(own < opp){ cls = 'l'; label = 'L'; }
-      paintStatusSlot(el, { label: 'Final', value: `${label} ${own}-${opp}`, valueClass: cls });
+      const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+      paintStatusSlot(el, {
+        label: 'Final',
+        value: `${label} ${own}-${opp}`,
+        valueClass: cls,
+        linkable: !!(gameDetail && eventId),
+        onClick: (e) => { e.stopPropagation(); openGameDetail(teamKey, eventId); }
+      });
       return;
     }
   }

@@ -8,7 +8,7 @@
    worker's own /sportsdb/table route. No worker proxy needed here
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings } from './board.js';
@@ -211,23 +211,21 @@ export function renderEplByDrafterRow(row, rank){
   if(row.found === 0) note = 'No data yet';
   else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;
 
-  // The league bonus (LEAGUE_SCORING.epl.bonus — "highest combined
-  // record") goes to whoever's on top when the season actually ends.
-  // Flagging it for whoever's CURRENTLY #1 here is the same
-  // not-locked-in idea as the per-team rank rules, just applied to
-  // this cross-drafter ranking instead of a single team's table spot.
-  const bonus = LEAGUE_SCORING.epl.bonus;
-  const isLeader = row.found > 0 && rank === 1 && bonus;
-  const leaderTagHtml = isLeader ? `<span class="provisional-tag">+${bonus.pts} provisional</span>` : '';
+  // Two-tier: the real W-D-L record as the bold line, the league points
+  // it's worth called out underneath — see .person-record-chip in
+  // css/style.css.
+  const recordHtml = row.found > 0
+    ? `<span class="person-record-primary">${row.win}-${row.draw}-${row.loss}</span><span class="person-record-secondary">${row.points} PTS</span>`
+    : `<span class="person-record-primary">&mdash;</span>`;
 
   return `
     <div class="standings-row">
       <div class="standings-rank">${row.found > 0 ? rank : '—'}</div>
       <div class="team-main">
-        <div class="team-name">${row.name}${leaderTagHtml}</div>
+        <div class="team-name">${row.name}</div>
         <div class="team-sub">${teamsLabel}${note ? ' &middot; ' + note : ''}</div>
       </div>
-      <div class="person-record-chip">${row.found > 0 ? `${row.win}-${row.draw}-${row.loss} &middot; ${row.points} pts` : '&mdash;'}</div>
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }

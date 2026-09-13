@@ -8,9 +8,11 @@
    standings), so unlike EPL/CFB/NFL this isn't replacing a shakier
    existing source, it's turning on a tab that previously just said "No
    data available."
-   Shares its cache/toggle/render engine with NHL/MLB/WNBA — see
+   Shares its cache/toggle/render engine with NHL/MLB — see
    createFlatStandingsBoard in js/standings-flat.js for what's generic
-   and what's sport-specific below.
+   and what's sport-specific below. (WNBA used to be the 4th league
+   here too; it now has its own flat, EPL-style module instead — see
+   js/standings-wnba.js.)
    ============================================================ */
 import { fetchEspnNbaStandings, fetchEspnNbaDivisionStandings } from './espn.js';
 import { createFlatStandingsBoard } from './standings-flat.js';
@@ -46,7 +48,10 @@ const board = createFlatStandingsBoard({
   },
   combinedLabel: row => {
     const pct = winPct(row);
-    return `${row.wins}-${row.losses}${pct !== null ? ` &middot; ${Math.round(pct * 100)}%` : ''}`;
+    return {
+      primary: `${row.wins}-${row.losses}`,
+      secondary: pct !== null ? `${Math.round(pct * 100)}% WIN` : ''
+    };
   },
   combinedSort: (a, b) => {
     const pa = winPct(a) ?? -1, pb = winPct(b) ?? -1;

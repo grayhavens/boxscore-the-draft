@@ -27,7 +27,7 @@
    given refresh. In normal operation every CFB team, NDSU included,
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { fetchJSON, teamBadgeHtml, abbrFromName } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
@@ -439,22 +439,20 @@ export function renderCfbByDrafterRow(row, rank){
   if(row.found === 0) note = 'No data yet';
   else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;
 
-  // Same "currently leading, not locked in" idea as EPL's league-bonus
-  // tag — the CFB bonus (best combined win percentage) only pays out
-  // once the season actually ends. Purely a visual indicator here, same
-  // as EPL's — doesn't feed into any point total on its own.
-  const bonus = LEAGUE_SCORING.cfb.bonus;
-  const isLeader = row.found > 0 && rank === 1 && bonus;
-  const leaderTagHtml = isLeader ? `<span class="provisional-tag">+${bonus.pts} provisional</span>` : '';
+  // Two-tier: the raw W-L record as the bold line, win% called out
+  // underneath — see .person-record-chip in css/style.css.
+  const recordHtml = row.found > 0
+    ? `<span class="person-record-primary">${row.wins}-${row.losses}</span>${row.pct !== null ? `<span class="person-record-secondary">${Math.round(row.pct * 100)}% WIN</span>` : ''}`
+    : `<span class="person-record-primary">&mdash;</span>`;
 
   return `
     <div class="standings-row">
       <div class="standings-rank">${row.found > 0 ? rank : '—'}</div>
       <div class="team-main">
-        <div class="team-name">${row.name}${leaderTagHtml}</div>
+        <div class="team-name">${row.name}</div>
         <div class="team-sub">${teamsLabel}${note ? ' &middot; ' + note : ''}</div>
       </div>
-      <div class="person-record-chip">${row.found > 0 ? `${row.wins}-${row.losses}${row.pct !== null ? ` &middot; ${Math.round(row.pct * 100)}%` : ''}` : '&mdash;'}</div>
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }

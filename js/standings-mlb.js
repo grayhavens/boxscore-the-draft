@@ -40,7 +40,10 @@ const board = createFlatStandingsBoard({
   },
   combinedLabel: row => {
     const pct = winPct(row);
-    return `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}${pct !== null ? ` &middot; ${Math.round(pct * 100)}%` : ''}`;
+    return {
+      primary: `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`,
+      secondary: pct !== null ? `${Math.round(pct * 100)}% WIN` : ''
+    };
   },
   combinedSort: (a, b) => {
     const pa = winPct(a) ?? -1, pb = winPct(b) ?? -1;

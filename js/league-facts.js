@@ -28,7 +28,7 @@ import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS } from './data.js';
 import { fetchJSON, CLOSE_ICON_SVG, CHECK_ICON_SVG, CHEVRON_ICON_SVG, lockBodyScroll } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
-import { renderStandings } from './board.js';
+import { renderStandings, LEAGUE_FULL_LABELS } from './board.js';
 
 const ACHIEVEMENTS_KEY = 'teamDashboardAchievements';
 const LEAGUE_FACTS_KEY = 'teamDashboardLeagueFacts';
@@ -381,9 +381,9 @@ function renderTrackerSection(teamKey){
 // One place to mark league-wide facts (cup winners, who got relegated,
 // etc.) instead of hunting down each drafted team individually — pick
 // the real club from the dropdown and whoever drafted it gets credited.
-// Rank-based rules (rankAuto) show a "Live" tag instead of a picker
-// since they're read straight off the standings table above. Lives in
-// its own modal (the "Results" chip) rather than inline on Standings.
+// Rank-based rules (rankAuto) have no picker at all since they're read
+// straight off the standings table above. Lives in its own modal (the
+// "Results" chip) rather than inline on Standings.
 function leagueFactRowHtml(league, rule){
   const selected = getLeagueRuleTeams(league.key, rule);
   const isAuto = !!rule.rankAuto;
@@ -414,7 +414,6 @@ function leagueFactRowHtml(league, rule){
     <div class="fact-row">
       <div class="fact-row-top">
         <div class="fact-label">${rule.label}</div>
-        ${isAuto ? '<div class="fact-auto-tag">Live</div>' : ''}
         <div class="fact-pts ${rule.pts >= 0 ? 'pos' : 'neg'}">${rule.pts >= 0 ? '+' : ''}${rule.pts}</div>
       </div>
       <div class="fact-chips">${chipsHtml}</div>
@@ -436,7 +435,7 @@ export function openLeagueResultsModal(leagueKey){
     <div class="modal-accent" style="background:${data.accent};"></div>
     <div class="modal-head">
       <div>
-        <h2>${data.name} Results</h2>
+        <h2>${LEAGUE_FULL_LABELS[leagueKey] || data.name} Results</h2>
         <div class="modal-sub">Mark who won what — credit flows to whoever drafted them</div>
       </div>
       <button class="modal-close" onclick="closeTeamModal()">${CLOSE_ICON_SVG}</button>
