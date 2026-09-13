@@ -36,8 +36,10 @@ const FLAT_SCHEDULE_LEAGUES = {
 
 // Leagues wired up for the "Game Details" boxscore drill-down (see
 // openGameDetail/renderGameDetail below) — MLB first, CFB added
-// 2026-09-12, EPL added 2026-09-12. Each entry's `fetchSummary` is that
-// sport's own summary reader (js/espn.js); `linescorePeriods`/
+// 2026-09-12, EPL added 2026-09-12, NFL added 2026-09-12 (reuses CFB's
+// football reader/linescore/situation text as-is — ESPN's football
+// summary shape is the same for both). Each entry's `fetchSummary` is
+// that sport's own summary reader (js/espn.js); `linescorePeriods`/
 // `periodLabel` describe the linescore table's columns (9 innings vs. 4
 // quarters+OT) — unused for EPL, which renders a goals/cards split
 // instead of a linescore (see the `leagueKey === 'epl'` branch in
@@ -53,6 +55,12 @@ const GAME_DETAIL_LEAGUES = {
     situationText: mlbSituationText
   },
   cfb: {
+    fetchSummary: fetchEspnFootballSummary,
+    linescorePeriods: 4,
+    periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
+    situationText: footballSituationText
+  },
+  nfl: {
     fetchSummary: fetchEspnFootballSummary,
     linescorePeriods: 4,
     periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),

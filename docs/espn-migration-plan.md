@@ -727,3 +727,26 @@ The existing entry points needed no changes at all: `renderNext`'s live `.boxsco
 `renderForm`'s completed-game `.boxscore-link` (both `js/live-data.js`) were already gated purely on
 `GAME_DETAIL_LEAGUES[meta.leagueKey]` plus a real event id — adding the `epl` key to that map was enough
 to light both up for EPL teams.
+
+## Game Details for NFL: finally wiring up the function CFB already wrote for it (2026-09-12)
+
+Extended `GAME_DETAIL_LEAGUES` to `nfl`. The CFB entry above already flagged that
+`fetchEspnFootballSummary` (`js/espn.js`) was written to be reused by NFL later, "same shape" — this
+change is that reuse: `nfl`'s entry in `GAME_DETAIL_LEAGUES` (`js/live-data.js`) is `fetchSummary:
+fetchEspnFootballSummary`, `linescorePeriods: 4`, the same quarters+OT `periodLabel`, and the same
+`footballSituationText`, copied verbatim from `cfb`'s entry rather than introducing anything
+NFL-specific — ESPN's football summary endpoint shape (linescore, `situation.downDistanceText`, and the
+passing/rushing/receiving boxscore groups) doesn't distinguish NFL from CFB. `nfl` was already present in
+`FLAT_SCHEDULE_LEAGUES` (`sportPath: 'football/nfl'`) and `fetchEspnScoreboard`/`findEspnScoreboardLine`,
+so the live-in-game path (`renderNext`'s `.boxscore-chip`) and completed-game path (`renderForm`'s
+`.boxscore-link`) both light up for NFL teams from this one map entry, same as every prior league added
+here.
+
+Verified end-to-end against a real completed game (Texas A&M's boxscore sheet, since the 2026 NFL season
+itself hadn't kicked off yet at the time of this change — every drafted NFL team was still 0-0
+pre-Week-1) to confirm the shared render path (`renderGameDetail`, `boxGroupHtml`, the away/home toggle,
+the linescore table) still renders correctly unchanged; since `nfl`'s config is byte-for-byte the same
+shape as `cfb`'s and reuses the identical reader, there's no NFL-specific code left to verify once real
+NFL games start — only worth a quick spot-check against a live NFL payload the first time this actually
+gets used in-season, the same way CFB's own addition caught the two real MLB bugs (see above) that
+guessing from docs alone had missed.
