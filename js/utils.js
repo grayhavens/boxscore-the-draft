@@ -76,6 +76,76 @@ export function unlockBodyScroll(){
   window.scrollTo(0, lockedScrollY);
 }
 
+// ---- Bottom-sheet swipe-to-dismiss ----
+// The mobile sheet's drag handle (.modal::before in css/style.css) is
+// otherwise just a visual affordance with nothing behind it — this is
+// what actually makes dragging it down close the sheet. Only active at
+// the same breakpoint the CSS turns .modal into a bottom sheet; on
+// desktop it's a centered dialog with no "down" to drag toward.
+const SHEET_BREAKPOINT = '(max-width: 700px)';
+const SHEET_DISMISS_DISTANCE = 90;   // px dragged down before it counts as a dismiss
+const SHEET_DISMISS_VELOCITY = 0.5;  // or a flick faster than this (px/ms), regardless of distance
+
+export function enableSheetSwipeToDismiss(sheetEl, closeFn){
+  if(!sheetEl || sheetEl.dataset.swipeBound) return;
+  sheetEl.dataset.swipeBound = '1';
+
+  let dragging = false, startY = 0, startTime = 0, sheetHeight = 0;
+
+  const reset = () => {
+    dragging = false;
+    sheetEl.style.transition = '';
+    sheetEl.style.transform = '';
+  };
+
+  sheetEl.addEventListener('touchstart', (e) => {
+    if(e.touches.length !== 1 || !window.matchMedia(SHEET_BREAKPOINT).matches) return;
+    // Only hijack the gesture once scrolled to the top — otherwise this
+    // is the user scrolling the sheet's own content, not dragging it.
+    if(sheetEl.scrollTop > 0) return;
+    dragging = true;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    sheetHeight = sheetEl.getBoundingClientRect().height;
+    sheetEl.style.transition = 'none';
+  }, { passive: true });
+
+  sheetEl.addEventListener('touchmove', (e) => {
+    if(!dragging) return;
+    if(e.touches.length !== 1){ reset(); return; }
+    const delta = e.touches[0].clientY - startY;
+    if(delta <= 0){
+      // Back toward (or past) the resting position — let it scroll
+      // content normally instead of fighting it.
+      sheetEl.style.transform = '';
+      return;
+    }
+    e.preventDefault();
+    sheetEl.style.transform = `translateY(${delta}px)`;
+  }, { passive: false });
+
+  const onTouchEnd = (e) => {
+    if(!dragging) return;
+    dragging = false;
+    sheetEl.style.transition = '';
+    const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : startY;
+    const delta = endY - startY;
+    const velocity = delta / Math.max(1, Date.now() - startTime);
+    if(delta > 0 && (delta > SHEET_DISMISS_DISTANCE || velocity > SHEET_DISMISS_VELOCITY)){
+      sheetEl.style.transform = `translateY(${sheetHeight}px)`;
+      sheetEl.addEventListener('transitionend', function onEnd(){
+        sheetEl.removeEventListener('transitionend', onEnd);
+        sheetEl.style.transform = '';
+        closeFn();
+      });
+    } else {
+      sheetEl.style.transform = '';
+    }
+  };
+  sheetEl.addEventListener('touchend', onTouchEnd);
+  sheetEl.addEventListener('touchcancel', reset);
+}
+
 // A few real club names don't match our shorthand roster names
 // (e.g. "Man City" vs the API's "Manchester City") — normalize both
 // sides before comparing so "Drafted by" still finds the right owner.
