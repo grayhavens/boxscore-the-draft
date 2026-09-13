@@ -9,7 +9,6 @@
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { updateUrlParam, lockBodyScroll, CLOSE_ICON_SVG, teamBadgeHtml } from './utils.js';
 import { LEAGUE_FACTS_LEAGUES, migrateAchievementsToFacts } from './league-facts.js';
-import { UPCOMING_CHIP_LEAGUES } from './api.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
   renderStandingsRow, eplStandingsToggleHtml, fetchEplStandingsTable, loadEplStandingsCache,
@@ -50,9 +49,9 @@ import {
   computeMlbDivisionStandings, renderMlbGroupHeader, getMlbConferenceSubMode
 } from './standings-mlb.js';
 import {
-  espnWnbaStandingsCache, loadEspnWnbaStandingsCache, fetchEspnWnbaStandingsCached, renderAllWnbaCardRecords,
-  computeWnbaConferenceStandings, renderWnbaStandingsRow, computeWnbaDrafterCombined, renderWnbaByDrafterRow,
-  wnbaStandingsToggleHtml, getWnbaStandingsMode, wnbaConferences
+  espnWnbaStandingsCache, wnbaStandingsMode, computeWnbaDrafterCombined, renderWnbaByDrafterRow,
+  renderWnbaStandingsRow, wnbaStandingsToggleHtml, fetchEspnWnbaStandingsCached, loadEspnWnbaStandingsCache,
+  renderAllWnbaCardRecords
 } from './standings-wnba.js';
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
@@ -196,12 +195,9 @@ export function renderBoard(){
 
     return `
       <div class="league" id="league-${league.key}">
-        <div class="league-tab board-league-tab">
-          <div class="league-tab-left">
-            <div>${LEAGUE_FULL_LABELS[league.key] || league.label}</div>
-            <span class="n">${league.season}</span>
-          </div>
-          <span class="n">${UPCOMING_CHIP_LEAGUES.includes(league.key) ? 'Upcoming' : 'Last Result'}</span>
+        <div class="league-tab">
+          <div>${LEAGUE_FULL_LABELS[league.key] || league.label}</div>
+          <span class="n">${league.season}</span>
         </div>
         ${teamsHtml}
       </div>
@@ -268,8 +264,8 @@ export function openLeagueModal(leagueKey){
     <div class="modal-accent" style="background:${data.accent};"></div>
     <div class="modal-head">
       <div>
-        <h2>${data.name}</h2>
-        <div class="modal-sub">${data.full}</div>
+        <h2>${LEAGUE_FULL_LABELS[leagueKey] || data.name}</h2>
+        <div class="modal-sub">Draft scoring rules</div>
       </div>
       <button class="modal-close" onclick="closeTeamModal()">${CLOSE_ICON_SVG}</button>
     </div>
@@ -285,9 +281,13 @@ export function openLeagueModal(leagueKey){
 window.openLeagueModal = openLeagueModal;
 
 // Spelled out in both the Teams tab's section headers and the
-// Standings header — the filter chips and modal titles still keep the
-// short LEAGUES[].label as-is (see FILTER_CHIP_LABELS below).
-const LEAGUE_FULL_LABELS = {
+// Standings header — the filter chips still keep the short
+// LEAGUES[].label as-is (see FILTER_CHIP_LABELS below). Also used by
+// the Scoring and Results modal headers (js/league-facts.js's
+// openLeagueResultsModal imports this back from here) so every "EPL"/
+// "College FB"/"College BB" data.name reads as its full name wherever
+// a modal titles itself after the league.
+export const LEAGUE_FULL_LABELS = {
   epl: 'English Premier League',
   cfb: 'College Football',
   mcbb: "Men's College Basketball"
@@ -302,9 +302,16 @@ const FILTER_CHIP_LABELS = {
   mcbb: 'CBB'
 };
 
+// Ghost-icon Scoring/Results buttons on each Standings league header (see
+// leagueBlockHtml below) — a small icon rather than a background/border
+// is what marks these as actions now, so they read as lightweight
+// buttons rather than pills.
+const SCORING_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>';
+const RESULTS_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h10"></path></svg>';
+
 function leagueBlockHtml(league, bodyHtml){
   const resultsChipHtml = LEAGUE_FACTS_LEAGUES.includes(league.key)
-    ? `<div class="scoring-chip" onclick="openLeagueResultsModal('${league.key}')">Results</div>`
+    ? `<div class="scoring-chip" onclick="openLeagueResultsModal('${league.key}')">${RESULTS_ICON_SVG}Results</div>`
     : '';
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
@@ -323,7 +330,7 @@ function leagueBlockHtml(league, bodyHtml){
         </div>
         <div class="league-tab-chips">
           <div class="league-tab-chips-left">
-            <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">Scoring</div>
+            <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">${SCORING_ICON_SVG}Scoring</div>
             ${resultsChipHtml}
           </div>
           <span class="n">${league.season}</span>
@@ -559,12 +566,26 @@ export function renderStandings(){
       computeDivisionStandings: computeMlbDivisionStandings, renderGroupHeader: renderMlbGroupHeader,
       getConferenceSubMode: getMlbConferenceSubMode
     });
-    if(league.key === 'wnba') return renderFlatLeagueBlock(league, {
-      cache: espnWnbaStandingsCache, fetchCached: fetchEspnWnbaStandingsCached, getMode: getWnbaStandingsMode,
-      conferences: wnbaConferences, computeConferenceStandings: computeWnbaConferenceStandings,
-      renderStandingsRow: renderWnbaStandingsRow, computeDrafterCombined: computeWnbaDrafterCombined,
-      renderByDrafterRow: renderWnbaByDrafterRow, toggleHtml: wnbaStandingsToggleHtml
-    });
+    if(league.key === 'wnba'){
+      // Flat league-wide ranking, same shape as EPL's block above — no
+      // conference split (see js/standings-wnba.js's header comment for
+      // why it no longer shares NBA/NHL/MLB's js/standings-flat.js
+      // machinery).
+      let bodyHtml;
+      if(espnWnbaStandingsCache.table){
+        const rowsHtml = wnbaStandingsMode === 'byDrafter'
+          ? computeWnbaDrafterCombined().map((row, i) => renderWnbaByDrafterRow(row, i + 1)).join('')
+          : espnWnbaStandingsCache.table.map((row, i) => renderWnbaStandingsRow(row, i + 1)).join('');
+        bodyHtml = wnbaStandingsToggleHtml() + rowsHtml;
+        fetchEspnWnbaStandingsCached(); // no-op if already fresh; quietly refreshes in the background if stale
+      } else if(espnWnbaStandingsCache.error){
+        bodyHtml = `<div class="no-live-note">No data available.</div>`;
+      } else {
+        fetchEspnWnbaStandingsCached();
+        bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+      }
+      return leagueBlockHtml(league, bodyHtml);
+    }
 
     return leagueBlockHtml(league, `<div class="no-live-note">No data available.</div>`);
   }).join('');

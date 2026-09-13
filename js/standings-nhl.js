@@ -35,7 +35,7 @@ const board = createFlatStandingsBoard({
     bucket.otLosses += row.otLosses || 0;
     bucket.points += row.points || 0;
   },
-  combinedLabel: row => `${row.wins}-${row.losses}-${row.otLosses} &middot; ${row.points} pts`,
+  combinedLabel: row => ({ primary: `${row.wins}-${row.losses}-${row.otLosses}`, secondary: `${row.points} PTS` }),
   combinedSort: (a, b) => b.points - a.points
 });
 

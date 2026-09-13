@@ -33,7 +33,7 @@
    specifically so the cheap flat data everything else needs doesn't pay
    for the expensive division fetch every time.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings } from './board.js';
@@ -415,25 +415,20 @@ export function renderNflByDrafterRow(row, rank){
   if(row.found === 0) note = 'No data yet';
   else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;
 
-  // Same "currently leading, not locked in" idea as EPL/CFB's league-bonus
-  // tag — the NFL bonus (best combined win percentage) only pays out once
-  // the season actually ends.
-  const bonus = LEAGUE_SCORING.nfl.bonus;
-  const isLeader = row.found > 0 && rank === 1 && bonus;
-  const leaderTagHtml = isLeader ? `<span class="provisional-tag">+${bonus.pts} provisional</span>` : '';
-
-  const recordLabel = row.found > 0
-    ? `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}${row.pct !== null ? ` &middot; ${Math.round(row.pct * 100)}%` : ''}`
-    : '&mdash;';
+  // Two-tier: the raw W-L(-T) record as the bold line, win% called out
+  // underneath — see .person-record-chip in css/style.css.
+  const recordHtml = row.found > 0
+    ? `<span class="person-record-primary">${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}</span>${row.pct !== null ? `<span class="person-record-secondary">${Math.round(row.pct * 100)}% WIN</span>` : ''}`
+    : `<span class="person-record-primary">&mdash;</span>`;
 
   return `
     <div class="standings-row">
       <div class="standings-rank">${row.found > 0 ? rank : '—'}</div>
       <div class="team-main">
-        <div class="team-name">${row.name}${leaderTagHtml}</div>
+        <div class="team-name">${row.name}</div>
         <div class="team-sub">${teamsLabel}${note ? ' &middot; ' + note : ''}</div>
       </div>
-      <div class="person-record-chip">${recordLabel}</div>
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }

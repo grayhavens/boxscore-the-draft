@@ -208,11 +208,11 @@ body{
 /* Standings-only header layout: the title gets its own top line (it
    can run long, e.g. "English Premier League"), and the season sits
    on the second line alongside the Scoring/Results chips instead of
-   next to the title — same fix as the Teams-tab header (see
-   .league-tab.board-league-tab above): a small/muted .n label paired
-   with the bold title line read as mismatched, so it moved down to
-   share a line with something the same size/weight instead — see
-   leagueBlockHtml in js/board.js. */
+   next to the title, since a small/muted .n label paired with the
+   bold title line read as mismatched there — see leagueBlockHtml in
+   js/board.js. The Teams tab keeps title and season on one line (see
+   renderBoard in js/board.js) since it has no chips row to share the
+   season with. */
 .league-tab.standings-league-tab{
   flex-direction: column;
   align-items: stretch;
@@ -244,23 +244,6 @@ body{
   gap: 8px;
 }
 
-/* Teams-tab header layout: title with the season directly beneath it
-   on the left (wraps onto a second line for the longer league names,
-   e.g. "National Football League"), the Upcoming/Last Result column
-   label on its own on the right — bottom-aligned against the season
-   line (both small/muted .n text) rather than the bold title line, so
-   it doesn't read as paired with the title despite the size/weight
-   mismatch — see renderBoard in js/board.js. */
-.league-tab.board-league-tab{
-  align-items: flex-end;
-}
-
-.board-league-tab .league-tab-left{
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-}
 
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
@@ -268,6 +251,20 @@ body{
   font-weight: 600;
   color: var(--text-mute);
   letter-spacing: 0.2px;
+}
+
+/* Standings header only: the season sits on the same row as the ghost
+   Scoring/Results buttons (see .scoring-chip above), so it's sized/
+   weighted/colored to match them instead of the smaller/dimmer default
+   above — otherwise the two ends of one row read as two different
+   scales. Scoped to .league-tab-chips rather than changed on .n itself
+   so the Teams tab header (season paired with the bold title instead)
+   keeps its own proportions. */
+.league-tab-chips .n{
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  letter-spacing: normal;
 }
 
 /* MLB/WNBA-only heads-up (see PRIOR_SEASON_DISPLAY_LEAGUES in
@@ -346,26 +343,33 @@ body{
   margin-top: 1px;
 }
 
+/* Ghost icon buttons — invisible until hovered, so they read as a
+   lightweight in-context action (open the Scoring/Results modal) rather
+   than a persistent pill competing with the season label on the same
+   row (see .league-tab-chips .n below, styled to match). Negative
+   margin cancels the button's own left padding so its icon/text sits
+   flush with the card's edge, same as any other unpadded header text. */
 .scoring-chip{
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: -9px;
   font-family: 'Manrope', sans-serif;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  color: var(--text-mute);
-  background: rgba(255,255,255,0.06);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
-  padding: 6px 13px;
+  color: var(--text-sub);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 9px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .scoring-chip:hover{
-  background: var(--accent-soft);
+  background: var(--surface-2);
   color: var(--accent);
-  border-color: var(--accent-border);
 }
 
 @media (max-width: 1100px){
@@ -433,10 +437,17 @@ body{
 .meta-value.l{ color: var(--loss); }
 .meta-value.d{ color: var(--draw); }
 
-.status-slot.live-block{ cursor: pointer; }
-.status-slot.live-block .meta-value{ display: flex; align-items: center; gap: 3px; }
-.status-slot.live-block .chev{ color: var(--text-mute); font-size: 12px; }
-.status-slot.live-block:hover .meta-value{ color: var(--live); }
+/* Clickable status slots (both a live game and a just-finished result
+   can open Game Details — see paintStatusSlot in js/live-data.js) share
+   the cursor/chevron layout, but hover differently: a live score turning
+   red on hover reinforces "live", while a finished W/L/D already has its
+   own result color (see .meta-value.w/.l/.d above) — underlining it
+   instead reads as "clickable" without implying a color change. */
+.status-slot.linkable{ cursor: pointer; }
+.status-slot.linkable .meta-value{ display: flex; align-items: center; gap: 3px; }
+.status-slot.linkable .chev{ color: var(--text-mute); font-size: 12px; }
+.status-slot.linkable.live:hover .meta-value{ color: var(--live); }
+.status-slot.linkable:not(.live):hover .meta-value{ text-decoration: underline; }
 
 /* Small pulsing dot next to the LIVE label — the only motion on the
    board, so it's what actually reads as "in progress" at a glance. */
@@ -1217,19 +1228,6 @@ body{
   font-weight: 600;
 }
 
-.fact-auto-tag{
-  flex: 0 0 auto;
-  font-family: 'Manrope', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: var(--win);
-  background: var(--win-soft);
-  border-radius: 20px;
-  padding: 2px 7px;
-}
-
 .fact-pts{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
@@ -1495,35 +1493,50 @@ body{
 
 .standings-group-header + .standings-row{ border-top: none; }
 
-/* Person view's real W-D-L record chip — its own color (not the gold
-   used by the League view's "drafted by" chip below, or the "Person"
-   toggle) so all three don't read as the same signal. */
+/* Drafted view's combined-record stat — no pill (see the Standings-tab
+   exploration: same move away from pills as .drafted-by-chip below and
+   the Teams tab's status column), two-tier instead: the real W-D-L/W-L
+   record as the bold primary line, the derived stat (league points or
+   win%) called out separately underneath in the same "record" blue-gray
+   (not the gold drafted-by tag, nor the win/loss colors) so it still
+   reads as its own signal. */
 .person-record-chip{
   margin-left: auto;
   flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   white-space: nowrap;
-  padding: 4px 10px;
-  border-radius: 999px;
+}
+.person-record-primary{
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.person-record-secondary{
+  font-family: 'Manrope', sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
   color: var(--record);
-  background: var(--record-soft);
-  border: 1px solid var(--record-border);
 }
 
+/* Plain text now, not a pill — see the Standings-tab drafted-by-tag
+   exploration: reads as an attribution ("owned by Collin") rather than
+   a filter chip, and matches the Teams tab's move away from pills for
+   this same kind of always-on-every-row label. */
 .drafted-by-chip{
   margin-left: auto;
   flex: 0 0 auto;
-  font-size: 11px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.1px;
+  letter-spacing: -0.1px;
   white-space: nowrap;
-  padding: 4px 10px;
-  border-radius: 999px;
   color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
 }
 
 /* ---- Overall view (cross-drafter leaderboard) ----
