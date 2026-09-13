@@ -154,7 +154,7 @@ export function renderStandingsRow(leagueKey, row){
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
-        <div class="team-name">${row.teamName}</div>
+        <div class="team-name">${meta.name}</div>
         <div class="team-sub">${row.wins}-${row.draws}-${row.losses} &middot; ${row.points} pts</div>
       </div>
       ${draftedByHtml}

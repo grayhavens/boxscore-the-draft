@@ -1026,7 +1026,7 @@ export function openTeamModal(teamKey){
     <div class="modal-head">
       ${teamBadgeHtml(meta)}
       <div>
-        <h2>${meta.name}</h2>
+        <h2>${meta.fullName || meta.name}</h2>
         <div class="modal-sub">${meta.sub}${hasLive ? ' <span id="season-badge" style="display:none;"></span>' : ''}${meta.leagueKey === 'epl' ? '<span id="zone-tag" style="display:none;"></span>' : ''}</div>
       </div>
       <button class="modal-close" onclick="closeTeamModal()">&times;</button>
@@ -1043,7 +1043,7 @@ export function openTeamModal(teamKey){
       </div>
     ` : `
       <div class="modal-body">
-        <div class="no-live-note">Live results for ${meta.name} aren't hooked up yet — showing placeholder space here for now.</div>
+        <div class="no-live-note">Live results for ${meta.fullName || meta.name} aren't hooked up yet — showing placeholder space here for now.</div>
         <div id="tracker-section">${tracker}</div>
       </div>
     `}
