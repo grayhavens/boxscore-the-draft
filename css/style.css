@@ -28,7 +28,7 @@
   --record-soft: rgba(154,165,181,0.16);
   --record-border: rgba(154,165,181,0.38);
   --badge-surface: #E9E6DE;
-  --nav-h: 74px;
+  --nav-h: 58px;
   /* Body's own horizontal padding — pulled into a variable so
      .standings-filter-row (see below) can bleed its sticky background
      out to the real screen edges instead of stopping at this inset,
@@ -93,23 +93,43 @@ body{
   font-weight: 500;
 }
 
-.draft-team-picker{
+.picker-wrap{
+  position: relative;
+  display: flex;
+  align-items: center;
   margin-left: auto;
+  border-bottom: 2px solid var(--accent);
+  padding: 0 18px 4px 0;
+  max-width: 100%;
+}
+
+.draft-team-picker{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: 999px;
-  padding: 7px 14px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
   cursor: pointer;
   max-width: 100%;
 }
 
 .draft-team-picker option{
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text);
+}
+
+.picker-chevron{
+  position: absolute;
+  right: 2px;
+  bottom: 6px;
+  color: var(--text-sub);
+  font-size: 11px;
+  pointer-events: none;
 }
 
 /* ---- League filter chips (mobile jump-nav) ---- */
@@ -376,32 +396,64 @@ body{
   min-width: 0;
 }
 
-.row-status{
+/* Right-hand status column: a small uppercase label over a bolder
+   value (day/LIVE/FINAL over time/score) rather than a colored pill —
+   see renderRowStatus in js/live-data.js. */
+.status-slot{
   flex: 0 0 auto;
   margin-left: auto;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  padding: 4px 9px;
-  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   white-space: nowrap;
 }
 
-.row-status.w{ background: var(--win-soft); color: var(--win); }
-.row-status.l{ background: var(--loss-soft); color: var(--loss); }
-.row-status.d{ background: var(--draw-soft); color: var(--draw); }
-.row-status.next{
-  background: rgba(255,255,255,0.06);
-  color: var(--text-sub);
+.meta-label{
   font-family: 'Manrope', sans-serif;
-  font-weight: 700;
-  font-size: 10.5px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
   text-transform: uppercase;
+  color: var(--text-mute);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.row-status.live{
-  background: var(--live-soft);
-  color: var(--live);
+.meta-label.live{ color: var(--live); }
+
+.meta-value{
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.meta-value.w{ color: var(--win); }
+.meta-value.l{ color: var(--loss); }
+.meta-value.d{ color: var(--draw); }
+
+.status-slot.live-block{ cursor: pointer; }
+.status-slot.live-block .meta-value{ display: flex; align-items: center; gap: 3px; }
+.status-slot.live-block .chev{ color: var(--text-mute); font-size: 12px; }
+.status-slot.live-block:hover .meta-value{ color: var(--live); }
+
+/* Small pulsing dot next to the LIVE label — the only motion on the
+   board, so it's what actually reads as "in progress" at a glance. */
+.dot{
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dot.pulse{ animation: status-dot-pulse 1.4s ease-in-out infinite; }
+@keyframes status-dot-pulse{
+  0%, 100%{ opacity: 1; }
+  50%{ opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce){
+  .dot.pulse{ animation: none; }
 }
 
 /* ---- Modal ---- */
@@ -688,41 +740,11 @@ body{
   letter-spacing: 0.4px;
 }
 
-/* ---- Game Details entry chip (live MLB/CFB games — see renderNext in
-   js/live-data.js) ---- Sits directly on .next-match's own row next to
-   the score/period line (that row is already a space-between flex
-   container) rather than in its own stacked card below, and reuses the
-   same accent-pill treatment as an active .toggle-btn/.filter-chip so
-   it reads as a lightweight inline action, not a separate section. */
-.boxscore-chip{
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: 999px;
-  padding: 7px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.boxscore-chip:hover{
-  background: var(--accent);
-  color: #0A0B0D;
-}
-
-/* Same Game Details sheet, off the "Most Recent Result" row instead of
-   the LIVE line (see renderForm in js/live-data.js) — a plain text
-   link rather than a pill, since that row already has a form-pill,
-   opponent, and score competing for attention; no background/border
-   at all is the "very lightweight" end of this app's chip/pill/link
-   spectrum. */
+/* Same Game Details sheet off both the LIVE line and the "Most Recent
+   Result" row (see renderNext/renderForm in js/live-data.js) — a plain
+   text link rather than a pill, so it reads as a lightweight inline
+   action next to an already-busy row (score/period, or form-pill +
+   opponent + score) instead of competing with it as its own chip. */
 .boxscore-link{
   flex: 0 0 auto;
   display: flex;
@@ -739,8 +761,6 @@ body{
 .boxscore-link:hover{ text-decoration: underline; }
 
 .boxscore-link .chev{ font-size: 13px; }
-
-.boxscore-chip .chev{ font-size: 13px; }
 
 /* ---- Game Details sheet — a second, wider overlay stacked on top of
    the team modal (see openGameDetail/closeGameDetail in
@@ -795,6 +815,19 @@ body{
   color: var(--text-sub);
   font-weight: 600;
   margin-top: 3px;
+}
+
+/* Game Details header's live indicator — same pulsing-dot treatment as
+   the Teams tab's .status-slot .meta-label.live, in place of the old
+   solid green .live-badge pill, so "live" reads the same everywhere. */
+.gd-live-tag{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--live);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .gd-situation{
@@ -1281,26 +1314,9 @@ body{
 }
 
 /* ---- Live data additions ---- */
-.live-badge{
-  display:inline-block;
-  font-family: 'Manrope', sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  color: var(--win);
-  background: var(--win-soft);
-  border-radius: 20px;
-  padding: 2px 7px;
-  vertical-align: middle;
-}
-
-.live-badge.err{
-  color: var(--loss);
-  background: var(--loss-soft);
-}
 
 /* Modal-head season-phase badge (see seasonStatus/renderSeasonBadge in
-   js/live-data.js) — same soft-badge shape as .live-badge, one tint
+   js/live-data.js) — same soft-badge shape as .zone-tag below, one tint
    per phase so Pre/In/Post-Season and Season Complete read apart at a
    glance without needing the label alone to carry it. */
 .season-badge{
@@ -1323,7 +1339,8 @@ body{
    Relegation) — color and background come from ESPN's own note.color
    per team (see softZoneTint/renderStats in js/live-data.js): a
    low-alpha tint of that color behind full-strength text, same
-   soft-badge look as .live-badge, rather than a solid pastel fill. */
+   soft-badge look as .season-badge above, rather than a solid pastel
+   fill. */
 .zone-tag{
   display: inline-block;
   font-family: 'Manrope', sans-serif;
@@ -2079,15 +2096,15 @@ body{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
 }
 
-.tab-btn svg{ width: 22px; height: 22px; }
+.tab-btn svg{ width: 19px; height: 19px; }
 
 .tab-label{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.1px;
 }
 
