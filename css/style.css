@@ -231,13 +231,11 @@ body{
 }
 
 /* Standings-only header layout: the title gets its own top line (it
-   can run long, e.g. "English Premier League"), and the season sits
-   on the second line alongside the Scoring/Results chips instead of
-   next to the title, since a small/muted .n label paired with the
-   bold title line read as mismatched there — see leagueBlockHtml in
-   js/board.js. The Teams tab keeps title and season on one line (see
-   renderBoard in js/board.js) since it has no chips row to share the
-   season with. */
+   can run long, e.g. "English Premier League") with the season
+   right-aligned alongside it, and the Scoring/Results chips sit on
+   their own line below — see leagueBlockHtml in js/board.js. The
+   Teams tab keeps the same title/season pairing on one line (see
+   renderBoard in js/board.js) since it has no separate chips row. */
 .league-tab.standings-league-tab{
   flex-direction: column;
   align-items: stretch;
@@ -254,38 +252,16 @@ body{
 .league-tab-chips{
   display:flex;
   align-items:center;
-  justify-content: space-between;
   gap: 8px;
 }
 
-/* Scoring + Results grouped together so space-between above only
-   splits "chips" from "season" — without this wrapper, a league with
-   both chips gave space-between three items to spread out, which
-   pushed Results away from Scoring into the middle of the row instead
-   of keeping the two chips together on the left. */
-.league-tab-chips-left{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-}
-
-
+/* Sized/weighted/colored to match the Scoring/Results ghost buttons
+   (see .scoring-chip below) rather than the smaller/dimmer default a
+   plain .n label would otherwise get, since the season sits on the
+   same header row as those buttons on both the Teams and Standings
+   tabs (see leagueBlockHtml/renderBoard in js/board.js). */
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-mute);
-  letter-spacing: 0.2px;
-}
-
-/* Standings header only: the season sits on the same row as the ghost
-   Scoring/Results buttons (see .scoring-chip above), so it's sized/
-   weighted/colored to match them instead of the smaller/dimmer default
-   above — otherwise the two ends of one row read as two different
-   scales. Scoped to .league-tab-chips rather than changed on .n itself
-   so the Teams tab header (season paired with the bold title instead)
-   keeps its own proportions. */
-.league-tab-chips .n{
   font-size: 11.5px;
   font-weight: 700;
   color: var(--text-sub);
@@ -294,14 +270,24 @@ body{
 
 /* MLB/WNBA-only heads-up (see PRIOR_SEASON_DISPLAY_LEAGUES in
    js/data.js): the records below are real, but they're last season's
-   — drafted teams don't start scoring until '27. Called out in bold
-   accent gold (not the muted/italic treatment of .no-live-note) since
-   this is easy to misread as live scoring if skimmed. Lives as a third
-   line inside .league-tab.standings-league-tab's own column/gap, and
-   as a note above the modal body in the team modal. */
+   — drafted teams don't start scoring until '27. Boxed as a contained
+   callout (same accent-soft/accent-border banner treatment as
+   .ob-sim-banner) rather than bare bold text, so it reads as a
+   pronounced but self-contained aside instead of shouting inline with
+   the surrounding content — easy to misread as live scoring if
+   skimmed. Lives as a third line inside .league-tab.standings-league-
+   tab's own column/gap, and as a note above the modal body in the
+   team modal. */
 .prior-season-note{
-  font-size: 11.5px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--accent);
   line-height: 1.4;
   margin-bottom: 14px;
@@ -371,10 +357,9 @@ body{
 
 /* Ghost icon buttons — invisible until hovered, so they read as a
    lightweight in-context action (open the Scoring/Results modal) rather
-   than a persistent pill competing with the season label on the same
-   row (see .league-tab-chips .n below, styled to match). Negative
-   margin cancels the button's own left padding so its icon/text sits
-   flush with the card's edge, same as any other unpadded header text. */
+   than a persistent pill. Negative margin cancels the button's own
+   left padding so its icon/text sits flush with the card's edge, same
+   as any other unpadded header text. */
 .scoring-chip{
   flex: 0 0 auto;
   display: flex;
