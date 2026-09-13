@@ -29,13 +29,6 @@ export function formatKickoff(iso){
   return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 }
 
-export function formatUpdatedAt(date){
-  if(!date) return '';
-  // Uses the viewer's own clock, shown in Central time either way
-  // (CST or CDT, whichever is actually in effect).
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago', timeZoneName: 'short' });
-}
-
 // Mirrors the drafter/league/data-mode/tab selections into the URL's
 // query string (?team=, ?league=, ?data=, ?view=) via
 // history.replaceState — no reload, no new back-button entries — so a

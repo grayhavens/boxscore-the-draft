@@ -150,6 +150,19 @@ function renderDraftTeamPicker(){
 
 // ---- Board rendering ----
 
+// Which league the Teams view is isolated to — same "All" + per-league
+// chip row as standingsFilterKey/setStandingsFilter below, just scoped
+// to the Board instead. Not persisted/URL-mirrored since the drafter
+// picker already is; resets to "All" each time the view re-renders
+// from a fresh load.
+let boardFilterKey = 'all';
+
+export function setBoardFilter(key){
+  boardFilterKey = key;
+  renderBoard();
+}
+window.setBoardFilter = setBoardFilter;
+
 export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
@@ -157,11 +170,19 @@ export function renderBoard(){
 
   renderDraftTeamPicker();
 
-  chipsEl.innerHTML = LEAGUES.map(l => `<div class="filter-chip" onclick="scrollToLeague('${l.key}')">${FILTER_CHIP_LABELS[l.key] || l.label}</div>`).join('');
+  chipsEl.innerHTML = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
+    const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
+    return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
+  }).join('');
 
-  leaguesEl.innerHTML = LEAGUES.map(league => {
+  // The header tally always reflects the whole roster, not just the
+  // filtered-to league, so it stays put as chips are clicked.
+  for(const league of LEAGUES) totalTeams += teamsForCurrentDraftTeam(league).length;
+
+  const shownLeagues = boardFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === boardFilterKey);
+
+  leaguesEl.innerHTML = shownLeagues.map(league => {
     const leagueTeams = teamsForCurrentDraftTeam(league);
-    totalTeams += leagueTeams.length;
     const teamsHtml = leagueTeams.map(teamKey => {
       const meta = TEAM_META[teamKey];
       const cfbRecordHtml = league.key === 'cfb' ? `<span class="cfb-record" id="cfb-record-${teamKey}"></span>` : '';
@@ -224,12 +245,6 @@ export function renderBoard(){
   renderAllWnbaCardRecords();
 }
 
-export function scrollToLeague(key){
-  const el = document.getElementById('league-' + key);
-  if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-window.scrollToLeague = scrollToLeague;
-
 // ---- League scoring reference modal ----
 
 export function openLeagueModal(leagueKey){
@@ -290,7 +305,7 @@ window.openLeagueModal = openLeagueModal;
 export const LEAGUE_FULL_LABELS = {
   epl: 'English Premier League',
   cfb: 'College Football',
-  mcbb: "Men's College Basketball"
+  mcbb: 'College Basketball'
 };
 
 // Shortened further still for the filter chip row only — the Teams

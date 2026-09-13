@@ -1049,7 +1049,7 @@ body{
    trackerSectionHtml's `expanded` flag decides whether tracker-body
    renders at all, so there's no hidden-but-present markup to fight
    with in CSS. Sits under its own top margin (see #tracker-section
-   below) so it doesn't crowd the "Last updated" line right above it. */
+   below) so it doesn't crowd the Next Match/Game section right above it. */
 .tracker-head{
   display: flex;
   align-items: center;
@@ -1394,14 +1394,6 @@ body{
   font-size: 13px;
   color: var(--text-sub);
   padding: 4px 0;
-}
-
-.updated-note{
-  font-size: 10.5px;
-  color: var(--text-mute);
-  text-align: right;
-  margin-top: 10px;
-  letter-spacing: 0.1px;
 }
 
 /* ---- Standings view (real per-league tables) ---- */

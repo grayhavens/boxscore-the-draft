@@ -4,7 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatUpdatedAt, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
@@ -781,12 +781,6 @@ function renderNext(teamKey, meta, bundle){
   `;
 }
 
-function renderUpdatedAt(bundle){
-  const el = document.getElementById('live-updated');
-  if(!el || !bundle || !bundle.fetchedAt) return;
-  el.textContent = `Last updated: ${formatUpdatedAt(bundle.fetchedAt)}`;
-}
-
 // Compact date label for the "next match" status slot — split into a
 // small label ("Today"/"Sat") and the time value, painted as the two
 // stacked lines of .status-slot (see paintStatusSlot below) rather
@@ -984,7 +978,6 @@ export function renderLiveBundle(teamKey, bundle){
   renderSeasonBadge(meta, bundle);
   renderForm(teamKey, meta, bundle);
   renderNext(teamKey, meta, bundle);
-  renderUpdatedAt(bundle);
 }
 
 async function openLiveTeam(teamKey){
@@ -1046,7 +1039,6 @@ export function openTeamModal(teamKey){
         <div class="form-list" id="live-form">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
         <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
         <div class="next-match" id="live-next">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
-        <div class="updated-note" id="live-updated"></div>
         <div id="tracker-section">${tracker}</div>
       </div>
     ` : `
@@ -1366,8 +1358,7 @@ document.addEventListener('keydown', (e) => {
    than a spike. Every tick also paints that team's board-row pill
    (last result / today's fixture) from the same fetch — no extra
    requests for that. If a team's modal happens to be open when its
-   turn comes up, it updates live and the "Last updated" time ticks
-   forward right in front of you.
+   turn comes up, it updates live right in front of you.
 
    This full-bundle rotation is no longer what keeps live scores
    current — see liveScoreboardSweepTick below for that; this loop's
@@ -1453,10 +1444,9 @@ function applyLiveScoreboardPatch(teamKey, espnLive){
   cached.espnLive = espnLive;
   // This sweep re-confirms freshness (off a scoreboard fetch that's at
   // most ESPN_SCOREBOARD_TTL_MS old) far more often than the full
-  // per-team bundle refresh does, so "Last updated" should track it too —
-  // otherwise the modal's own clock sits stuck on the last full refresh
-  // (up to MIN_REFRESH_CYCLE_MS stale) while the score right above it is
-  // visibly live.
+  // per-team bundle refresh does, so fetchedAt should track it too —
+  // otherwise it sits stuck on the last full refresh (up to
+  // MIN_REFRESH_CYCLE_MS stale) while the score is visibly live.
   cached.fetchedAt = new Date();
   renderRowStatus(teamKey, cached);
   if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
