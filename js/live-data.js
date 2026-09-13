@@ -8,6 +8,7 @@ import { fetchJSON, ordinal, formatKickoff, teamBadgeHtml, lockBodyScroll, unloc
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
+import { fetchMlbTopPlay } from './mlb-stats.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
@@ -1130,7 +1131,7 @@ function boxGroupHtml(group){
 // the linescore, plus enough of the last render's own inputs to redraw
 // it when that changes — set at the end of renderGameDetail below, read
 // by setGameDetailTeam so switching teams doesn't need to re-fetch.
-let gameDetailRenderState = null; // { accent, leagueKey, summary, situation } | null
+let gameDetailRenderState = null; // { accent, leagueKey, summary, situation, mlbTopPlay } | null
 
 // leagueKey selects the linescore column count/labels (9 numbered
 // innings for MLB, 4 quarters + OT for CFB — see GAME_DETAIL_LEAGUES)
@@ -1144,7 +1145,7 @@ let gameDetailRenderState = null; // { accent, leagueKey, summary, situation } |
 // (same .standings-toggle/.toggle-btn pattern as the Standings tab's
 // Divisions/Conference switch) lets a drafter flip between them instead
 // of always scrolling past both team's full tables stacked together.
-function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId){
+function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, mlbTopPlay){
   const el = document.getElementById('game-detail-content');
   if(!el) return;
 
@@ -1192,6 +1193,27 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
       ${media.highlightUrl ? `<a class="boxscore-link gd-highlights-link" href="${media.highlightUrl}" target="_blank" rel="noopener noreferrer">Watch highlights <span class="chev">›</span></a>` : ''}
     </div>
   ` : '';
+
+  // MLB-only — see js/mlb-stats.js for how this is resolved (a real
+  // playId->guid join against MLB's own Stats API, not a text/headline
+  // guess) and openGameDetail below for where it's fetched. Unlike
+  // ESPN's media block above (a link-out — ESPN's own clips don't map
+  // to a specific play), this is one exact, curated clip, so it's
+  // embedded directly: a plain tap-to-play <video>, never autoplay.
+  const topPlayHtml = (leagueKey === 'mlb' && mlbTopPlay && mlbTopPlay.videoUrl) ? (() => {
+    const inningLabel = (mlbTopPlay.halfInning && mlbTopPlay.inning)
+      ? `${mlbTopPlay.halfInning === 'top' ? 'Top' : 'Bottom'} ${ordinal(mlbTopPlay.inning)}`
+      : null;
+    return `
+      <div class="gd-topplay">
+        <div class="modal-section-title">Top Play${inningLabel ? ' · ' + inningLabel : ''}</div>
+        <video class="gd-topplay-video" controls preload="none" playsinline ${mlbTopPlay.thumbnailUrl ? `poster="${mlbTopPlay.thumbnailUrl}"` : ''}>
+          <source src="${mlbTopPlay.videoUrl}" type="video/mp4">
+        </video>
+        ${mlbTopPlay.headline ? `<div class="gd-topplay-caption">${mlbTopPlay.headline}</div>` : ''}
+      </div>
+    `;
+  })() : '';
 
   // Reachable from a completed game now too (the "Most Recent Result"
   // link, not just the LIVE entry chip), so the LIVE tag only shows
@@ -1260,12 +1282,13 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
     </div>
     <div class="modal-body">
       ${mediaHtml}
+      ${topPlayHtml}
       ${situationHtml}
       ${bodyHtml}
     </div>
   `;
 
-  gameDetailRenderState = { accent, leagueKey, summary, situation };
+  gameDetailRenderState = { accent, leagueKey, summary, situation, mlbTopPlay };
 }
 
 // EPL's Game Details body (see the isSoccer branch above) — goals and
@@ -1309,8 +1332,8 @@ function soccerEventsHtml(events, away, home){
 // re-hit the network either.
 function setGameDetailTeam(teamId){
   if(!gameDetailRenderState) return;
-  const { accent, leagueKey, summary, situation } = gameDetailRenderState;
-  renderGameDetail(accent, leagueKey, summary, situation, teamId);
+  const { accent, leagueKey, summary, situation, mlbTopPlay } = gameDetailRenderState;
+  renderGameDetail(accent, leagueKey, summary, situation, teamId, mlbTopPlay);
 }
 window.setGameDetailTeam = setGameDetailTeam;
 
@@ -1340,6 +1363,22 @@ export async function openGameDetail(teamKey, eventId){
   const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
   if(el.dataset.activeEvent !== String(eventId)) return;
 
+  // MLB-only: resolve the same game on MLB's own Stats API (by team
+  // name + start time, then join scoring plays to clips by GUID — see
+  // js/mlb-stats.js) and fetch its Top Play clip. Awaited here rather
+  // than rendered progressively after the fact, so this sheet only
+  // ever paints once — the extra ~1-2 requests only happen for MLB
+  // games, and only when a drafter actually opens Game Details, same
+  // on-demand cost profile as the boxscore fetch itself.
+  const mlbTopPlay = (meta.leagueKey === 'mlb' && summary && summary.teams.length === 2)
+    ? await fetchMlbTopPlay(
+        summary.date,
+        (summary.teams.find(t => t.homeAway === 'away') || {}).name,
+        (summary.teams.find(t => t.homeAway === 'home') || {}).name
+      )
+    : null;
+  if(el.dataset.activeEvent !== String(eventId)) return;
+
   // situation (down/distance, balls/strikes/etc.) only ever comes from
   // the *current* scoreboard fetch (see fetchEspnScoreboard/
   // findEspnScoreboardLine in js/espn.js) — meaningful only when this
@@ -1353,7 +1392,7 @@ export async function openGameDetail(teamKey, eventId){
   // matched by name) rather than via bundle.espnLive's isHome — that
   // only describes today's/the current game, not necessarily this one.
   const row = flatSchedule.findRow(meta);
-  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id);
+  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, mlbTopPlay);
 }
 window.openGameDetail = openGameDetail;
 
