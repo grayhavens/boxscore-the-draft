@@ -941,7 +941,7 @@ function parseEspnSummaryStatus(comp){
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, hits, errors, linescore:
 // [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
 // [...], rows: [{name, stats: [...]}] }] }], media: { photoUrl,
-// recapHeadline, recapSummary, highlightUrl } } | null on any failure.
+// recapHeadline, recapSummary, highlightUrl }, date } | null on any failure.
 export async function fetchEspnSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -990,8 +990,15 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 
   const boxscore = parseEspnBoxscorePlayers(data, MLB_BOX_GROUP_COLUMNS);
   const media = parseEspnGameMedia(data);
+  // MLB-only: js/mlb-stats.js's fetchMlbTopPlay needs this to resolve
+  // the same real game on MLB's own Stats API (matched by team name +
+  // closest start time — see that file's comment for why) — confirmed
+  // live this and MLB's own gameDate agree to the minute for the same
+  // game. Not read by anything for football/soccer, so not added to
+  // fetchEspnFootballSummary/fetchEspnSoccerSummary below.
+  const date = comp.date || null;
 
-  return { status, teams, boxscore, media };
+  return { status, teams, boxscore, media, date };
 }
 
 // Football's equivalent of fetchEspnSummary above — shared by CFB and,

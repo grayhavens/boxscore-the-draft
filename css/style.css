@@ -900,6 +900,30 @@ body{
 
 .gd-highlights-link{ margin-top: 8px; text-decoration: none; }
 
+/* MLB-only Top Play clip — see the topPlayHtml block in renderGameDetail
+   (js/live-data.js). A real embedded player (unlike .gd-photo/
+   .gd-highlights-link above), since this is one specific curated clip
+   rather than ESPN's whole-game reel — tap-to-play only, background
+   stays plain black until then so it doesn't visually compete with the
+   photo above it. */
+.gd-topplay{ margin-bottom: 16px; }
+
+.gd-topplay-video{
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: #000;
+}
+
+.gd-topplay-caption{
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-top: 6px;
+}
+
 /* Only the linescore/box tables scroll horizontally if a narrow phone
    can't fit every inning column — the sheet itself never does (see the
    artifact-design responsive rule this app's own mockup work surfaced). */
