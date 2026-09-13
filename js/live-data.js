@@ -1018,7 +1018,7 @@ export function openTeamModal(teamKey){
   // doesn't start scoring until the '27 season actually begins. See
   // PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js.
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)
-    ? `<div class="prior-season-note">Showing the '26 season, still in progress — this record won't count towards drafted team point totals until the '27 season.</div>`
+    ? `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`
     : '';
 
   modalContent.innerHTML = `

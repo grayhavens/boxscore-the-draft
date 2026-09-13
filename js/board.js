@@ -334,7 +334,7 @@ function leagueBlockHtml(league, bodyHtml){
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)
-    ? `<div class="prior-season-note">Showing the '26 season, still in progress — these results won't count towards drafted team point totals until the '27 season.</div>`
+    ? `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`
     : '';
 
   return `
@@ -342,13 +342,11 @@ function leagueBlockHtml(league, bodyHtml){
       <div class="league-tab standings-league-tab">
         <div class="league-tab-top">
           <div class="league-tab-left">${headerLabel}</div>
+          <span class="n">${league.season}</span>
         </div>
         <div class="league-tab-chips">
-          <div class="league-tab-chips-left">
-            <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">${SCORING_ICON_SVG}Scoring</div>
-            ${resultsChipHtml}
-          </div>
-          <span class="n">${league.season}</span>
+          <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">${SCORING_ICON_SVG}Scoring</div>
+          ${resultsChipHtml}
         </div>
         ${priorSeasonNoteHtml}
       </div>
