@@ -84,12 +84,12 @@ export function fetchEplStandingsTable(){
   return eplStandingsPromise;
 }
 
-// ESPN's full club names ("Manchester City", "Manchester United") match
-// this app's abbreviated meta.name ("Man City", "Man United") via
-// findDraftedTeamByName as-is — normalizeTeamName (js/utils.js) already
-// carries a 'man city'/'man united' alias for exactly this mismatch, so
-// no EPL-specific override table is needed here, unlike CFB/NFL's own
-// name/abbreviation overrides.
+// ESPN's full club names match this app's own meta.name directly via
+// findDraftedTeamByName — no EPL-specific override table is needed
+// here, unlike CFB/NFL's own name/abbreviation overrides. (The
+// 'man city'/'man united' aliases in normalizeTeamName, js/utils.js,
+// are now dead weight kept for any stray shorthand references, since
+// meta.name uses the full club names too.)
 export function findEplTeamKeyByEspnName(espnTeamName){
   return findDraftedTeamByName('epl', espnTeamName);
 }
@@ -154,7 +154,7 @@ export function renderStandingsRow(leagueKey, row){
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
-        <div class="team-name">${row.teamName}</div>
+        <div class="team-name">${meta.name}</div>
         <div class="team-sub">${row.wins}-${row.draws}-${row.losses} &middot; ${row.points} pts</div>
       </div>
       ${draftedByHtml}
