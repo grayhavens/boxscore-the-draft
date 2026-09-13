@@ -1170,6 +1170,29 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
   const situationText = gameDetail.situationText(situation);
   const situationHtml = situationText ? `<div class="gd-situation">${situationText}</div>` : '';
 
+  // A recap photo + AP headline/summary + a link out to ESPN's own
+  // highlights reel — see parseEspnGameMedia in js/espn.js for where
+  // these come from (the same summary payload already fetched above,
+  // no extra request). The headline/summary is what turns the photo
+  // from a bare image into an actual recap card; it only exists once
+  // ESPN's published a post-game writeup, so a still-live game shows
+  // just the highlights link (if any clips exist yet) with no card.
+  // Deliberately just a hero image and a plain link-out, not an
+  // embedded video player: ESPN's clips don't map to any one play, and
+  // an in-app player would be exactly the clutter this sheet doesn't
+  // need.
+  const media = summary.media || {};
+  const mediaHtml = (media.photoUrl || media.recapHeadline || media.highlightUrl) ? `
+    <div class="gd-media">
+      ${media.photoUrl ? `<img class="gd-photo" src="${media.photoUrl}" alt="" loading="lazy">` : ''}
+      ${media.recapHeadline ? `
+        <div class="gd-recap-headline">${media.recapHeadline}</div>
+        ${media.recapSummary ? `<div class="gd-recap-summary">${media.recapSummary}</div>` : ''}
+      ` : ''}
+      ${media.highlightUrl ? `<a class="boxscore-link gd-highlights-link" href="${media.highlightUrl}" target="_blank" rel="noopener noreferrer">Watch highlights <span class="chev">›</span></a>` : ''}
+    </div>
+  ` : '';
+
   // Reachable from a completed game now too (the "Most Recent Result"
   // link, not just the LIVE entry chip), so the LIVE tag only shows
   // when the game actually still is — otherwise just the plain status
@@ -1236,6 +1259,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId)
       </div>
     </div>
     <div class="modal-body">
+      ${mediaHtml}
       ${situationHtml}
       ${bodyHtml}
     </div>
