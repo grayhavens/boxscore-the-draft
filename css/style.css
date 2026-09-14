@@ -476,6 +476,51 @@ body{
   .dot.pulse{ animation: none; }
 }
 
+/* ---- Live Now: game card ----
+   Two team columns flanking a center score/status, built from the
+   same .badge/owner-tag/.meta-label pieces as everywhere else, just
+   recomposed for a game instead of a roster row (see js/live-now.js).
+   Both columns always reserve the same badge → name → owner slots so
+   badges line up even when only one side is a drafted team — the
+   other side's owner slot renders empty (see .gc-owner.placeholder). */
+.game-card{ display:grid; grid-template-columns: 1fr 82px 1fr; align-items:center; gap:4px; padding:16px 14px; position:relative; }
+.game-card + .game-card{ border-top:1px solid rgba(255,255,255,0.06); }
+.game-card.clickable{ cursor: pointer; transition: background 0.15s ease; }
+.game-card.clickable:hover{ background: rgba(255,255,255,0.03); }
+.game-card.clickable:active{ background: rgba(255,255,255,0.05); }
+
+.gc-side{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; min-width:0; }
+/* Sized down from the Teams-tab row's 44px badge — two of these now
+   share a row with a center score column, unlike a single roster row. */
+.gc-side .badge{ width:42px; height:42px; flex:0 0 42px; font-size:12.5px; }
+.gc-name{ font-weight:700; font-size:13.5px; line-height:1.18; letter-spacing:-0.1px; max-width:100%; }
+/* Same plain-text drafted-by treatment as the Standings tab's
+   .drafted-by-chip (js/standings-*.js) — gold text, no pill — just
+   without that class's own margin-left:auto/flex layout rules, which
+   are for its original horizontal-row context, not this centered
+   column. */
+.gc-owner{ font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:700; letter-spacing:-0.1px; white-space:nowrap; color:var(--accent); }
+.gc-owner.placeholder{ visibility:hidden; }
+
+.gc-center{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.gc-center .meta-value{ font-size:17px; }
+
+.gc-chev{ position:absolute; top:16px; right:12px; color:var(--text-mute); font-size:13px; }
+
+/* ---- Live Now: empty state + "Next up" preview ---- */
+.empty-panel{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding: 40px 20px 26px; color: var(--text-sub); }
+.empty-ball{ font-size:34px; opacity:0.5; }
+.empty-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:17px; color:var(--text); }
+.empty-sub{ font-size:12.5px; line-height:1.5; max-width:270px; }
+.next-up{ width:100%; margin-top:22px; text-align:left; }
+.next-up-label{ font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--text-mute); padding:0 2px 8px; }
+
+@media (max-width: 420px){
+  .game-card{ grid-template-columns: 1fr 68px 1fr; padding:14px 10px; }
+  .gc-side .badge{ width:36px; height:36px; flex:0 0 36px; }
+  .gc-name{ font-size:12.5px; }
+}
+
 /* ---- Modal ---- */
 .modal-overlay{
   display: none;

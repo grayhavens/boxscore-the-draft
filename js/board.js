@@ -55,13 +55,14 @@ import {
 } from './standings-wnba.js';
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
+import { renderLiveNow } from './live-now.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.11-4';
+const APP_VERSION = '2026.09.13-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -86,7 +87,7 @@ function applyUrlState(){
   if(hasData) setObMode(data);
 
   const explicitView = params.get('view');
-  const view = (explicitView === 'board' || explicitView === 'standings' || explicitView === 'overall')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   if(view) switchView(view);
@@ -615,6 +616,7 @@ export function switchView(view){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   updateUrlParam('view', view === 'board' ? null : view);
+  if(view === 'live-now') renderLiveNow();
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();
 }
@@ -660,15 +662,34 @@ fetchEspnNhlStandingsCached();
 fetchEspnMlbStandingsCached();
 fetchEspnWnbaStandingsCached();
 
-backgroundRefreshTick();
-setInterval(backgroundRefreshTick, REFRESH_STEP_MS);
+// Both ticks below already patch the Teams tab's own row-status pills
+// and an open team modal in place (see js/live-data.js) — Live Now
+// needs the same treatment, since it's a second screen reading the
+// exact same liveDataCache rather than its own fetch loop. Cheap to
+// just re-run its render whenever it's the active view: it's a sweep
+// over already-cached data, not a fetch.
+function isLiveNowActive(){
+  const el = document.getElementById('view-live-now');
+  return !!el && el.classList.contains('active');
+}
+
+async function backgroundRefreshAndPaint(){
+  await backgroundRefreshTick();
+  if(isLiveNowActive()) renderLiveNow();
+}
+backgroundRefreshAndPaint();
+setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 
 // Keeps live scores/final results current in between backgroundRefreshTick's
 // slower per-team rotation — see liveScoreboardSweepTick's own header
 // comment in js/live-data.js for why this is a separate, faster loop
 // instead of just shortening the rotation above.
-liveScoreboardSweepTick();
-setInterval(liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS);
+async function liveSweepAndPaint(){
+  await liveScoreboardSweepTick();
+  if(isLiveNowActive()) renderLiveNow();
+}
+liveSweepAndPaint();
+setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
