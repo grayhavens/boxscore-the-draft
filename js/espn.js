@@ -901,9 +901,17 @@ function parseEspnGameMedia(data){
     const exp = v.timeRestrictions && v.timeRestrictions.expirationDate;
     return !exp || new Date(exp).getTime() > now;
   });
-  const highlightUrl = (video && video.links && video.links.web) ? video.links.web.href : null;
+  // Generic linkUrl/linkLabel rather than a video-specific field name —
+  // MLB's equivalent (deriveMlbRecap in js/mlb-stats.js) points at an
+  // article, not a video (MLB games already get real embedded clips via
+  // Top Plays, so a second link to yet another video would be
+  // redundant), and renderGameDetail (js/live-data.js) renders whichever
+  // source's own label off one shared template rather than assuming
+  // every league's link is "Watch highlights".
+  const linkUrl = (video && video.links && video.links.web) ? video.links.web.href : null;
+  const linkLabel = 'Watch highlights';
 
-  return { photoUrl, recapHeadline, recapSummary, highlightUrl };
+  return { photoUrl, recapHeadline, recapSummary, linkUrl, linkLabel };
 }
 
 // Shared status-block read off data.header.competitions[0] — identical
@@ -941,7 +949,7 @@ function parseEspnSummaryStatus(comp){
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, hits, errors, linescore:
 // [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
 // [...], rows: [{name, stats: [...]}] }] }], media: { photoUrl,
-// recapHeadline, recapSummary, highlightUrl }, date } | null on any failure.
+// recapHeadline, recapSummary, linkUrl, linkLabel }, date } | null on any failure.
 export async function fetchEspnSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -1013,7 +1021,7 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, linescore: [n, ...] }],
 // boxscore: [{ teamId, abbr, groups: [...] }], media: { photoUrl,
-// recapHeadline, recapSummary, highlightUrl } } | null on any failure.
+// recapHeadline, recapSummary, linkUrl, linkLabel } } | null on any failure.
 export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -1064,7 +1072,7 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, homeAway, score }], events: [{ teamId, minute,
 // player, kind: 'goal'|'yellow'|'red' }], media: { photoUrl, recapHeadline,
-// recapSummary, highlightUrl } } | null on any failure.
+// recapSummary, linkUrl, linkLabel } } | null on any failure.
 export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
