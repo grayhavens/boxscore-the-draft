@@ -900,12 +900,15 @@ body{
 
 .gd-highlights-link{ margin-top: 8px; text-decoration: none; }
 
-/* MLB-only Top Play clip — see the topPlayHtml block in renderGameDetail
+/* MLB-only Top Plays — see the topPlayHtml block in renderGameDetail
    (js/live-data.js). A real embedded player (unlike .gd-photo/
-   .gd-highlights-link above), since this is one specific curated clip
+   .gd-highlights-link above), since these are specific curated clips
    rather than ESPN's whole-game reel — tap-to-play only, background
    stays plain black until then so it doesn't visually compete with the
-   photo above it. */
+   photo above it. Up to 3 clips share this ONE player (switched via the
+   thumbnail rail below it) rather than stacking a video per clip, so
+   the sheet's height cost stays the same as a single clip regardless of
+   how many plays are available. */
 .gd-topplay{ margin-bottom: 16px; }
 
 .gd-topplay-video{
@@ -922,6 +925,78 @@ body{
   font-weight: 600;
   color: var(--text-sub);
   margin-top: 6px;
+}
+
+.gd-topplay-rail{
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.gd-topplay-thumb{
+  flex: 1 1 0;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  background-color: var(--surface-2);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.55;
+}
+
+.gd-topplay-thumb:hover{ opacity: 0.8; }
+
+.gd-topplay-thumb.active{
+  opacity: 1;
+  border-color: var(--accent);
+}
+
+/* MLB-only decisions line (W/L/SV) — see the decisionsHtml block in
+   renderGameDetail (js/live-data.js). Sits right under the linescore,
+   same spot a real broadcast box score puts it. Small inline badges
+   reuse the app's existing win/loss color tokens (same ones the
+   "Most Recent Result" form ticker already uses) rather than
+   introducing a new color pairing. */
+.gd-decisions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 14px;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.gd-decision{ display: inline-flex; align-items: center; gap: 5px; }
+
+.gd-decision b{
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--bg);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.gd-decision b.win{ background: var(--win); }
+.gd-decision b.loss{ background: var(--loss); }
+.gd-decision b.save{ background: var(--accent); }
+
+.gd-decision-record{ color: var(--text-mute); }
+
+/* MLB-only venue/attendance/duration footer — see the gameInfoHtml
+   block in renderGameDetail. Deliberately the least visually prominent
+   thing in the sheet (smallest size, muted color, sits after the full
+   boxscore) — informational, not something worth competing for
+   attention with the plays/stats above it. */
+.gd-gameinfo{
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  font-size: 11px;
+  color: var(--text-mute);
+  text-align: center;
 }
 
 /* Only the linescore/box tables scroll horizontally if a narrow phone
