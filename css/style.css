@@ -20,13 +20,11 @@
   --draw: #B8A369;
   --draw-soft: rgba(184,163,105,0.16);
   --live: #E5484D;
-  --live-soft: rgba(229,72,77,0.16);
   --provisional: #7C9CD9;
   --provisional-soft: rgba(124,156,217,0.16);
   --provisional-border: rgba(124,156,217,0.38);
   --record: #9AA5B5;
   --record-soft: rgba(154,165,181,0.16);
-  --record-border: rgba(154,165,181,0.38);
   --badge-surface: #E9E6DE;
   --nav-h: 58px;
   /* Body's own horizontal padding — pulled into a variable so
@@ -748,23 +746,6 @@ body{
   color: var(--text-mute);
   font-weight: 500;
   margin-top: 1px;
-}
-
-.next-match .nm-prob{
-  text-align: right;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 16px;
-  white-space: nowrap;
-}
-
-.next-match .nm-prob .lbl{
-  font-family: 'Manrope', sans-serif;
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text-mute);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
 }
 
 /* Same Game Details sheet off both the LIVE line and the "Most Recent
