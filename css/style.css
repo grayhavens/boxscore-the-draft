@@ -834,15 +834,60 @@ body{
   letter-spacing: -0.2px;
 }
 
+/* Space Grotesk + uppercase/letter-spacing to match .gd-title above it
+   and .gd-score-row below it (see that rule's comment) — previously
+   plain Manrope body text sitting directly between two Space Grotesk
+   elements, which read as an unrelated leftover rather than part of
+   the same header block. Same small-caps-label treatment this app
+   already uses for section headers elsewhere (.modal-section-title:
+   "TOP PLAYS", "BATTING", etc.), so "FINAL/OT" reads as a label
+   introducing the score rather than a mismatched status string. */
 .gd-sub{
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: 'Space Grotesk', sans-serif;
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
   color: var(--text-sub);
-  font-weight: 600;
-  margin-top: 3px;
+  margin-top: 4px;
 }
+
+/* Header score row (Option A) — sits right under the status line, so
+   the score is visible the instant the sheet opens rather than buried
+   below the recap card/Top Plays/situation once scrolled past. A team
+   ahead on the scoreboard gets --text (full brightness) + bold; behind
+   or tied stays --text-mute, same "winner reads brighter" convention
+   the team modal's own form-ticker dots already use elsewhere. */
+.gd-score-row{
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 5px;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.gd-score-team{
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+  letter-spacing: 0.2px;
+}
+
+.gd-score-team b{
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.gd-score-team.win{ color: var(--text); }
+
+.gd-score-sep{ color: var(--text-mute); font-size: 13px; }
 
 /* Game Details header's live indicator — same pulsing-dot treatment as
    the Teams tab's .status-slot .meta-label.live, in place of the old

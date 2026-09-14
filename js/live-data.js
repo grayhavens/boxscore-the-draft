@@ -1254,6 +1254,26 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   const isLiveNow = summary.status && summary.status.state === 'in';
   const statusHtml = `${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
 
+  // The score itself — previously only visible after scrolling down to
+  // the linescore table, buried below the recap card/Top Plays/
+  // situation that have all landed above it since. Every league's
+  // summary.teams already carries `score` (not just MLB's), so this is
+  // header-level, not MLB-specific. A team with a higher score than its
+  // opponent is 'win'; a tie (soccer draws are common; a rare old NFL
+  // tie is possible too) is neither, styled neutrally rather than
+  // forced into a false win/loss.
+  const awayScore = away.score, homeScore = home.score;
+  const hasScore = awayScore !== null && awayScore !== undefined && homeScore !== null && homeScore !== undefined;
+  const awayWon = hasScore && awayScore > homeScore;
+  const homeWon = hasScore && homeScore > awayScore;
+  const scoreRowHtml = hasScore ? `
+    <div class="gd-score-row">
+      <span class="gd-score-team${awayWon ? ' win' : ''}">${away.abbr || away.name}<b>${awayScore}</b></span>
+      <span class="gd-score-sep">–</span>
+      <span class="gd-score-team${homeWon ? ' win' : ''}">${home.abbr || home.name}<b>${homeScore}</b></span>
+    </div>
+  ` : '';
+
   // MLB-only — the classic boxscore "W/L/SV" line, sourced from
   // js/mlb-stats.js's fetchMlbGameExtras (liveData.decisions cross-
   // referenced against each pitcher's own season line, both already
@@ -1340,6 +1360,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
       <div>
         <div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>
         <div class="gd-sub">${statusHtml}</div>
+        ${scoreRowHtml}
       </div>
     </div>
     <div class="modal-body">
