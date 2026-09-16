@@ -127,16 +127,18 @@ body{
 }
 
 /* Same ghost-button language as .scoring-chip below — invisible fill
-   until touched — mirrored here (rather than reused directly) because
-   that class cancels its OWN left padding to sit flush against a
-   left-aligned row; this one is the rightmost thing in its row, so it
-   cancels the other side instead. */
+   until touched. Sits in .page-header-top right before the identity
+   circle (js/identity.js): margin-left:auto pushes this chip (and the
+   circle after it) to the row's right edge as one cluster; the sibling
+   rule below cancels .picker-hit's OWN margin-left:auto so the two
+   don't each grab their own share of the leftover space and end up
+   pushed apart instead of clustered together. */
 .scope-chip{
   flex: 0 0 auto;
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-right: -9px;
   font-family: 'Manrope', sans-serif;
   font-size: 12px;
   font-weight: 700;
@@ -152,6 +154,21 @@ body{
 .scope-chip:hover{ background: var(--surface-2); color: var(--accent); }
 
 .scope-chip svg{ width: 12px; height: 12px; }
+
+/* When the scope chip precedes it (Scores tab only — see index.html),
+   .picker-hit gives up its own margin-left:auto so the chip's auto
+   margin is the only one absorbing space; otherwise flexbox splits the
+   leftover space between both auto margins and pushes the two apart
+   instead of clustering them. Every other tab has no .scope-chip, so
+   .picker-hit's default margin-left:auto (above) still applies there. */
+.scope-chip + .picker-hit{ margin-left: 0; }
+
+/* Same fix, same reason, for the Overall tab's Real/Simulated toggle
+   (.ob-mode already had its own margin-left:auto from before the
+   identity circle existed) — without this, both it and .picker-hit's
+   auto margin split the row's leftover space and get pushed apart
+   instead of clustering together on the right. */
+.ob-mode + .picker-hit{ margin-left: 0; }
 
 /* Identity control (js/identity.js) — an outline-only initials circle,
    idle/hover language borrowed from .modal-close below (transparent
@@ -871,8 +888,14 @@ body{
   background: radial-gradient(120% 140% at 50% -20%, rgba(229, 72, 77, 0.10), var(--surface) 62%);
 }
 
-.tg-card.clickable{ cursor: pointer; transition: background 0.15s ease; }
-.tg-card.clickable:hover{ background: rgba(255, 255, 255, 0.03); }
+/* The click target is the whole .tg-row (rail/time-gutter included, see
+   gameHtml in js/live-now.js), not just this card, so the "Final" or
+   "7:40 PM" text off to the side opens Game Details too, not only the
+   two team lines — the hover highlight stays on just the card, though,
+   since that's the part that visually reads as "this game". */
+.tg-card{ transition: background 0.15s ease; }
+.tg-row.clickable{ cursor: pointer; }
+.tg-row.clickable:hover .tg-card{ background: rgba(255, 255, 255, 0.03); }
 
 .tg-side{
   display: flex;
