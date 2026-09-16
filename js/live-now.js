@@ -186,10 +186,11 @@ function railHtml(game){
   return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
 }
 
-// Name and badge both open the team modal — the row's two real
-// targets, each its own <button> (not a click handler on the whole
-// row) so the card itself stays free for the Game Details drill-down
-// the old view's .game-card.clickable already had.
+// The badge is the one carve-out from the row's own click-to-open-
+// Game-Details behavior (gameHtml's onclick, on .tg-row) — everything
+// else in the card, including the team name, bubbles up to that. Only
+// the badge button stops propagation, so tapping the crest still opens
+// that team's modal instead.
 function sideHtml(side, dim){
   const nameClass = `tg-name${dim ? ' dim' : ''}`;
   const scoreClass = `tg-score${dim ? ' dim' : ''}`;
@@ -203,17 +204,17 @@ function sideHtml(side, dim){
       </div>
     `;
   }
-  const open = `onclick="event.stopPropagation(); openTeamModal('${side.teamKey}')"`;
+  const openTeam = `onclick="event.stopPropagation(); openTeamModal('${side.teamKey}')"`;
   // Same rule as the Teams tab: the star only appears once a team is
   // actually favorited, not as an empty toggle on every row.
   const favHtml = side.isFav ? favoriteStarHtml(side.teamKey) : '';
   return `
     <div class="tg-side">
-      <button type="button" class="tg-badge-btn" ${open} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
-      <button type="button" class="tg-label" ${open}>
+      <button type="button" class="tg-badge-btn" ${openTeam} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
+      <div class="tg-label">
         <span class="${nameClass}">${side.meta.name}</span>
         <span class="tg-owner">${side.owner}</span>
-      </button>
+      </div>
       ${favHtml}
       <span class="${scoreClass}">${score}</span>
     </div>
