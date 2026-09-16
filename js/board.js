@@ -55,7 +55,7 @@ import {
 } from './standings-wnba.js';
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
-import { renderLiveNow } from './live-now.js';
+import { renderLiveNow, resetTodayDay } from './live-now.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
@@ -616,7 +616,7 @@ export function switchView(view){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   updateUrlParam('view', view === 'board' ? null : view);
-  if(view === 'live-now') renderLiveNow();
+  if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();
 }

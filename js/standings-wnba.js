@@ -10,7 +10,7 @@
    by win%).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings } from './board.js';
@@ -214,10 +214,13 @@ export function renderWnbaByDrafterRow(row, rank){
 }
 
 export function wnbaStandingsToggleHtml(){
+  const segments = [
+    { key: 'table', label: 'League' },
+    { key: 'byDrafter', label: 'Drafted' }
+  ];
   return `
     <div class="standings-toggle">
-      <button class="toggle-btn ${wnbaStandingsMode === 'table' ? 'active' : ''}" onclick="setWnbaStandingsMode('table')">League</button>
-      <button class="toggle-btn ${wnbaStandingsMode === 'byDrafter' ? 'active' : ''}" onclick="setWnbaStandingsMode('byDrafter')">Drafted</button>
+      ${segmentedControlHtml(segments, wnbaStandingsMode, 'setWnbaStandingsMode')}
     </div>
   `;
 }

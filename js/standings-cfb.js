@@ -28,7 +28,7 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings } from './board.js';
@@ -387,10 +387,13 @@ export function setCfbStandingsMode(mode){
 window.setCfbStandingsMode = setCfbStandingsMode;
 
 export function cfbStandingsToggleHtml(){
+  const segments = [
+    { key: 'ranking', label: 'AP Top 25' },
+    { key: 'byDrafter', label: 'Drafted' }
+  ];
   return `
     <div class="standings-toggle">
-      <button class="toggle-btn ${cfbStandingsMode === 'ranking' ? 'active' : ''}" onclick="setCfbStandingsMode('ranking')">AP Top 25</button>
-      <button class="toggle-btn ${cfbStandingsMode === 'byDrafter' ? 'active' : ''}" onclick="setCfbStandingsMode('byDrafter')">Drafted</button>
+      ${segmentedControlHtml(segments, cfbStandingsMode, 'setCfbStandingsMode')}
     </div>
   `;
 }

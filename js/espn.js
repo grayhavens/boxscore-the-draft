@@ -720,11 +720,14 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
 // leagues/{league}/seasons/{year}/types listing) — so the modal-head
 // season badge (see seasonStatusLabel in js/live-data.js) piggybacks
 // on this same request instead of needing its own.
-// Shape returned: { events: [{ id, state, detail, completed,
-// competitors: [{ teamId, teamName, homeAway, score }] }], season:
-// { type, year } | null }
-export async function fetchEspnScoreboard(sportLeaguePath){
-  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/scoreboard`);
+// Shape returned: { events: [{ id, date, state, detail, completed,
+// competitors: [{ teamId, teamName, teamNickname, abbreviation,
+// homeAway, score }] }], season: { type, year } | null }
+export async function fetchEspnScoreboard(sportLeaguePath, dates){
+  // ESPN's scoreboard defaults to today; `?dates=YYYYMMDD` returns that
+  // day's slate instead — same response shape, verified against both.
+  const query = dates ? `?dates=${dates}` : '';
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/scoreboard${query}`);
   if(!data) return null;
 
   const events = Array.isArray(data.events) ? data.events.map(event => {
@@ -734,11 +737,16 @@ export async function fetchEspnScoreboard(sportLeaguePath){
     const competitors = (comp.competitors || []).map(c => ({
       teamId: c.team && c.team.id,
       teamName: espnTeamName(c.team),
+      // Bare nickname ("Padres") — matches TEAM_META.name exactly, the
+      // same convention findFlatTeamKey (js/standings-flat.js) uses.
+      teamNickname: c.team && c.team.name,
+      abbreviation: c.team && c.team.abbreviation,
       homeAway: c.homeAway,
       score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null
     }));
     return {
       id: event.id,
+      date: event.date || null,
       state: statusType ? statusType.state : null,
       detail: statusType ? statusType.shortDetail : null,
       completed: !!(statusType && statusType.completed),

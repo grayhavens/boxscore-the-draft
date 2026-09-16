@@ -25,7 +25,7 @@ import { trackerSectionHtml } from './league-facts.js';
 // club's ESPN team id by name — ESPN's ids don't line up with
 // TheSportsDB's sportsdbId), and `sportPath` is ESPN's own sport/league
 // slug for the schedule URL.
-const FLAT_SCHEDULE_LEAGUES = {
+export const FLAT_SCHEDULE_LEAGUES = {
   epl: { sportPath: 'soccer/eng.1', ensureStandings: fetchEplStandingsTable, findRow: findEspnEplRow },
   nfl: { sportPath: 'football/nfl', ensureStandings: fetchEspnNflStandingsCached, findRow: findEspnNflRow },
   cfb: { sportPath: 'football/college-football', ensureStandings: fetchEspnCfbRecordsCached, findRow: findEspnCfbRow },
@@ -1192,9 +1192,12 @@ let gameDetailRenderState = null; // { accent, leagueKey, summary, situation, se
 //
 // selectedTeamId picks which team's boxscore tables show below the
 // shared linescore/situation — the two-team chip toggle underneath it
-// (same .standings-toggle/.toggle-btn pattern as the Standings tab's
-// Divisions/Conference switch) lets a drafter flip between them instead
-// of always scrolling past both team's full tables stacked together.
+// (plain .standings-toggle/.toggle-btn pills, unlike the Standings
+// tab's own toggles, which moved to the sliding .seg control — see
+// segmentedControlHtml in js/utils.js — this one stays a simple static
+// pair since it's just a same-page focus switch, not a persisted view
+// mode) lets a drafter flip between them instead of always scrolling
+// past both team's full tables stacked together.
 function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, mlb){
   const el = document.getElementById('game-detail-content');
   if(!el) return;

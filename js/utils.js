@@ -193,6 +193,32 @@ export function abbrFromName(name){
   return (name || '').toUpperCase().slice(0, 3);
 }
 
+// Generic sliding segmented control — one shared implementation for
+// every mutually-exclusive-view picker in the app (the Scores tab's
+// Live/Upcoming/All, and every Standings tab's League/Drafted or
+// Conference/Drafted toggle, plus the Divisions/Conference sub-toggle)
+// instead of N separately hand-rolled ports of the same sliding-thumb
+// interaction. Soft accent fill (.seg-btn.active/.seg-thumb) rather
+// than a solid one — a full-width bar of solid gold read as louder/
+// more button-like than anything else on the page.
+// segments: [{ key, label }]. onClickFnName is the global (window.*)
+// handler each caller already registers for its own state, called with
+// the clicked segment's key — this only builds markup, callers still
+// own their own mode state and re-render.
+export function segmentedControlHtml(segments, activeKey, onClickFnName){
+  const idx = Math.max(0, segments.findIndex(s => s.key === activeKey));
+  const thumbStyle = `width:calc((100% - 6px) / ${segments.length}); transform: translateX(${idx * 100}%);`;
+  const buttons = segments.map(s =>
+    `<button type="button" class="seg-btn${s.key === activeKey ? ' active' : ''}" onclick="${onClickFnName}('${s.key}')">${s.label}</button>`
+  ).join('');
+  return `
+    <div class="seg">
+      <span class="seg-thumb" style="${thumbStyle}"></span>
+      ${buttons}
+    </div>
+  `;
+}
+
 export const CLOSE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6L18 18"></path><path d="M18 6L6 18"></path></svg>';
 export const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#0A0B0D" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>';
 export const CHEVRON_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>';
