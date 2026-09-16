@@ -231,12 +231,18 @@ function gameHtml(game){
   const clickable = !!(GAME_DETAIL_LEAGUES[game.leagueKey] && game.id);
   const onClick = clickable ? ` onclick="openGameDetail('${anyDrafted.teamKey}','${game.id}')"` : '';
 
+  // onclick sits on the whole row, not just the card, so the time-gutter
+  // rail (the clock/LIVE/Final label off to the side) opens Game
+  // Details too — a tap anywhere on the row's real estate should work,
+  // not just the two team lines. The badge/name buttons inside each
+  // side (and the favorite star) still stopPropagation, so they keep
+  // opening the team modal / toggling a favorite instead.
   return `
-    <div class="tg-row">
+    <div class="tg-row${clickable ? ' clickable' : ''}"${onClick}>
       ${railHtml(game)}
       <span class="tg-line"></span>
       <span class="tg-node ${game.state}"></span>
-      <div class="tg-card ${game.state}${clickable ? ' clickable' : ''}"${onClick}>
+      <div class="tg-card ${game.state}">
         ${sideHtml(game.away, awayDim)}
         ${sideHtml(game.home, homeDim)}
       </div>
