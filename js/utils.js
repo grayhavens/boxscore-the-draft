@@ -29,6 +29,17 @@ export function formatKickoff(iso){
   return d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 }
 
+// Date-only sibling of formatKickoff above (weekday + month + day, no
+// time/timezone) — used where a time or status is already shown right
+// alongside it (the Game Details header's date line in js/live-data.js)
+// so the two together don't repeat the same clock time twice.
+export function formatDateShort(iso){
+  if(!iso) return '';
+  const d = new Date(iso.includes('Z') ? iso : iso + 'Z');
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 // Mirrors the drafter/league/data-mode/tab selections into the URL's
 // query string (?team=, ?league=, ?data=, ?view=) via
 // history.replaceState — no reload, no new back-button entries — so a
