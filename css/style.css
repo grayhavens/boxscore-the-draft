@@ -116,65 +116,82 @@ body{
   font-weight: 500;
 }
 
-/* The visible picker (.picker-wrap) is sized tight to the selected
-   name's text (see sizeDraftTeamPicker in js/board.js), which made for
-   a tiny, easy-to-miss tap target on mobile — worse still, the chevron
-   and its padding sat outside the <select> itself, so tapping the
-   chevron did nothing at all. Wrapping it in a <label for> (clicking
-   anywhere in a label opens/focuses its associated control, chevron
-   included) and padding that label out further, then canceling the
-   padding with a matching negative margin so the visible pill doesn't
-   move or grow, gives a much larger, fully-working tap target without
-   changing how the picker looks.
-   margin-left stays auto (not part of the cancellation) so it keeps
-   doing its job of pushing the whole thing flush right in
-   .page-header-top; the safe-area page padding (--page-pad, 16-24px)
-   comfortably absorbs the other sides' negative overhang. */
+/* Identity control (js/identity.js) — an outline-only initials circle,
+   idle/hover language borrowed from .modal-close below (transparent
+   until touched, a faint surface tint on hover) rather than a filled,
+   colored badge, so it reads as a quiet corner control rather than a
+   decoration competing with real team crests. Present in every view's
+   header now (not just Teams', like the old <select> picker this
+   replaced), opening the switcher sheet (#identity-sheet-overlay in
+   index.html) instead of a native dropdown, since the sheet needs to
+   show full names + which one is currently active — more than a
+   dropdown option list can carry on its own. */
 .picker-hit{
+  flex: 0 0 auto;
+  margin-left: auto;
   display: flex;
   align-items: center;
-  margin: -12px -12px -12px auto;
-  padding: 12px;
-  max-width: 100%;
-  cursor: pointer;
-}
-
-.picker-wrap{
-  position: relative;
-  display: flex;
-  align-items: center;
-  border-bottom: 2px solid var(--accent);
-  padding: 0 18px 4px 0;
-  max-width: 100%;
-}
-
-.draft-team-picker{
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  font-family: 'Manrope', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  background: transparent;
+  background: none;
   border: none;
-  padding: 2px 0;
   cursor: pointer;
-  max-width: 100%;
+  padding: 3px;
+  border-radius: 999px;
 }
 
-.draft-team-picker option{
-  background: var(--surface-2);
+.id-circle{
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1.5px solid var(--hairline-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  color: var(--text-sub);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.picker-hit:hover .id-circle{
+  background: rgba(255,255,255,0.06);
   color: var(--text);
 }
 
-.picker-chevron{
-  position: absolute;
-  right: 2px;
-  bottom: 6px;
-  color: var(--text-sub);
-  font-size: 11px;
-  pointer-events: none;
+/* Shown under a view's header while it's displaying someone else's
+   board via a ?team= link (a "peek" — see setDraftTeam's comment in
+   js/board.js) rather than your own. Reuses .prior-season-note's
+   accent-callout language below so it reads as "worth noticing" without
+   implying an error. */
+.peek-banner{
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.peek-banner.show{ display: flex; }
+
+.peek-banner button{
+  flex: 0 0 auto;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
 }
 
 /* ---- League filter chips (mobile jump-nav) ---- */
@@ -430,6 +447,33 @@ body{
   flex: 1;
   min-width: 0;
 }
+
+/* Favorite toggle (js/favorites.js) — sits between the team's own
+   info and its status column. Same idle/hover language as .id-circle
+   above: transparent until touched, filled gold only once favorited,
+   never a background/border pill. */
+.favorite-star{
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-mute);
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.favorite-star svg{ width: 18px; height: 18px; }
+
+.favorite-star:hover{ background: rgba(255,255,255,0.06); color: var(--text-sub); }
+
+.favorite-star.active{ color: var(--accent); }
+
+.favorite-star:active{ transform: scale(1.18); }
 
 /* Right-hand status column: a small uppercase label over a bolder
    value (day/LIVE/FINAL over time/score) rather than a colored pill —
@@ -1000,6 +1044,78 @@ body{
 .modal-close svg{ width: 14px; height: 14px; }
 
 .modal-close:hover{ color: var(--text); background: rgba(255,255,255,0.1); }
+
+/* Team modal head: the favorite star sits beside .modal-close (see
+   openTeamModal in js/live-data.js) — this wrapper takes over the
+   absolute corner positioning so .modal-close can drop its own
+   (still used standalone everywhere else the class appears, e.g. the
+   League Scoring modal in js/board.js's openLeagueModal). */
+.modal-actions{
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modal-actions .modal-close{ position: static; top: auto; right: auto; }
+
+/* ---- Identity switcher sheet (js/identity.js) ---- */
+.sheet-title-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 10px;
+}
+
+.sheet-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+
+.sheet-row{
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 12px 22px;
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14.5px;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.sheet-row:hover{ background: rgba(255,255,255,0.03); }
+
+.sheet-row.active{ color: var(--accent); font-weight: 700; }
+
+.sheet-row + .sheet-row{ border-top: 1px solid rgba(255,255,255,0.06); }
+
+/* Same empty-ring/filled-check swap as .tracker-check in
+   js/league-facts.js's achievement tracker — reused here for "current
+   identity" instead of a colored avatar. */
+.sheet-check{
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheet-check svg{ width: 11px; height: 11px; }
+
+.sheet-row.active .sheet-check{ background: var(--accent); border-color: transparent; }
 
 .stat-strip{
   display: flex;
@@ -1764,23 +1880,7 @@ body{
 
 .tracker-item.readonly{ cursor: default; }
 
-.tracker-manage-link{
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px 2px 2px;
-  border: none;
-  border-top: 1px solid rgba(255,255,255,0.055);
-  background: none;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent);
-  text-align: left;
-  cursor: pointer;
-}
-
-/* ---- League Facts (EPL achievements, marked from the Results modal) ---- */
+/* ---- League Facts (marked from the admin page, js/admin.js) ---- */
 .league-facts-list{
   display: flex;
   flex-direction: column;
@@ -1887,6 +1987,134 @@ body{
   border-radius: 10px;
   padding: 8px 10px;
 }
+
+/* ---- Scoring admin page (js/admin.js) ---- */
+.admin-gate{
+  max-width: 320px;
+  margin: 48px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.admin-gate-title{
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 4px;
+}
+
+.admin-gate-input{
+  width: 100%;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.admin-gate-error{
+  font-size: 12px;
+  color: var(--loss);
+}
+
+.admin-gate-btn{
+  min-height: 44px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-toolbar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.admin-logout{
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  font-family: 'Manrope', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-height: 36px;
+  cursor: pointer;
+}
+.admin-logout:hover{ color: var(--text-sub); }
+
+.admin-league{
+  border-top: 2px solid var(--hairline-strong);
+  padding-top: 16px;
+  margin-top: 22px;
+}
+.admin-league:first-of-type{ margin-top: 0; }
+
+.admin-league-title{
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0 0 14px;
+}
+
+.admin-adj-list{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-adj-row{
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-adj-team{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-adj-pts, .admin-adj-note{
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 7px 8px;
+  min-width: 0;
+}
+
+.admin-adj-save{
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
 
 /* ---- Live data additions ---- */
 

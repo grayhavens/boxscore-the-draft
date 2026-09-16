@@ -16,6 +16,7 @@ import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisio
 import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
 import { trackerSectionHtml } from './league-facts.js';
+import { favoriteStarHtml } from './favorites.js';
 
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
@@ -1054,7 +1055,6 @@ export function openTeamModal(teamKey){
 
   const modalContent = document.getElementById('modal-content');
   modalContent.dataset.activeTeam = teamKey;
-  modalContent.dataset.activeLeagueResults = '';
 
   // A team also has live data if its league is in FLAT_SCHEDULE_LEAGUES
   // (see fetchTeamBundle) — that path matches by name/nickname, not
@@ -1080,7 +1080,10 @@ export function openTeamModal(teamKey){
         <h2>${meta.fullName || meta.name}</h2>
         <div class="modal-sub">${meta.sub}${hasLive ? ' <span id="season-badge" style="display:none;"></span>' : ''}${meta.leagueKey === 'epl' ? '<span id="zone-tag" style="display:none;"></span>' : ''}</div>
       </div>
-      <button class="modal-close" onclick="closeTeamModal()">&times;</button>
+      <div class="modal-actions">
+        ${favoriteStarHtml(teamKey)}
+        <button class="modal-close" onclick="closeTeamModal()">&times;</button>
+      </div>
     </div>
     ${hasLive ? `
       <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>'}</div>
@@ -1112,7 +1115,6 @@ export function closeTeamModal(){
   document.getElementById('modal-overlay').classList.remove('open');
   const modalContent = document.getElementById('modal-content');
   modalContent.dataset.activeTeam = '';
-  modalContent.dataset.activeLeagueResults = '';
   unlockBodyScroll();
 }
 window.closeTeamModal = closeTeamModal;
