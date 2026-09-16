@@ -45,7 +45,13 @@
           <span class="id-circle"></span>
         </button>
       </div>
-      <div class="page-sub" id="live-now-sub">Loading today's slate&hellip;</div>
+      <div class="page-sub-row">
+        <div class="page-sub" id="live-now-sub">Loading today's slate&hellip;</div>
+        <button class="scope-chip" onclick="openTodayScopeSheet()">
+          <span id="today-scope-label">All teams</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+      </div>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="live-now-controls"></div>
@@ -134,6 +140,20 @@
       <button class="modal-close" onclick="closeIdentitySheet()">&times;</button>
     </div>
     <div id="identity-sheet-rows"></div>
+  </div>
+</div>
+
+<!-- Scores tab scope filter — which teams' games to show (see js/live-now.js). -->
+<div class="modal-overlay" id="today-scope-sheet-overlay" onclick="if(event.target===this) closeTodayScopeSheet()">
+  <div class="modal" id="today-scope-sheet-content">
+    <div class="sheet-title-row">
+      <div>
+        <div class="sheet-title">Show which teams?</div>
+        <div class="sheet-title-sub">Tap any combination — Drafted and Favorites can both be on.</div>
+      </div>
+      <button class="modal-close" onclick="closeTodayScopeSheet()">&times;</button>
+    </div>
+    <div id="today-scope-sheet-rows"></div>
   </div>
 </div>
 
