@@ -10,10 +10,10 @@ import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
 import { fetchMlbGameExtras } from './mlb-stats.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
-import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
-import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
-import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisionLabel, fetchEspnNhlDivisionStandingsCached } from './standings-nhl.js';
-import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
+import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, nflDivisionRank, nflConferenceRank, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
+import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, nbaDivisionRank, nbaConferenceRank, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
+import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisionLabel, nhlDivisionRank, nhlConferenceRank, fetchEspnNhlDivisionStandingsCached } from './standings-nhl.js';
+import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
 import { trackerSectionHtml } from './league-facts.js';
 
@@ -466,10 +466,12 @@ export function renderStats(meta, bundle){
     if(row){
       const recordLabel = `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`;
       fetchEspnNflDivisionStandingsCached();
+      const confRank = nflConferenceRank(meta);
+      const divRank = nflDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num">${recordLabel}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nflDivisionLabel(meta) || '—'}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${recordLabel}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${nflDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -487,10 +489,12 @@ export function renderStats(meta, bundle){
     if(record){
       const row = findEspnNbaRow(meta);
       fetchEspnNbaDivisionStandingsCached();
+      const confRank = nbaConferenceRank(meta);
+      const divRank = nbaDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num">${record}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nbaDivisionLabel(meta) || '—'}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${nbaDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -500,11 +504,13 @@ export function renderStats(meta, bundle){
     if(record){
       const row = findEspnNhlRow(meta);
       fetchEspnNhlDivisionStandingsCached();
+      const confRank = nhlConferenceRank(meta);
+      const divRank = nhlDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num">${row.wins}-${row.losses}-${row.otLosses || 0}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num">${row.points}</div><div class="lbl">Points</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nhlDivisionLabel(meta) || '—'}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.wins}-${row.losses}-${row.otLosses || 0}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.points}</div><div class="lbl">Points</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${nhlDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -514,10 +520,12 @@ export function renderStats(meta, bundle){
     if(record){
       const row = findEspnMlbRow(meta);
       fetchEspnMlbDivisionStandingsCached();
+      const leagueRank = mlbConferenceRank(meta);
+      const divRank = mlbDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num">${record}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">League</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${mlbDivisionLabel(meta) || '—'}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${leagueRank ? ` &middot; #${leagueRank}` : ''}</div><div class="lbl">League</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${mlbDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -527,7 +535,7 @@ export function renderStats(meta, bundle){
     if(record){
       const row = findEspnWnbaRow(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
         <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
       `;
       return;

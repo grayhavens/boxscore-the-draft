@@ -59,6 +59,7 @@ export const mlbRecordLabel = board.cardRecordLabel;
 export const renderAllMlbCardRecords = board.renderAllCardRecords;
 export const findEspnMlbRow = board.findRowForMeta;
 export const computeMlbConferenceStandings = board.computeConferenceStandings;
+export const mlbConferenceRank = board.conferenceRank;
 export const renderMlbStandingsRow = board.renderStandingsRow;
 export const computeMlbDrafterCombined = board.computeDrafterCombined;
 export const renderMlbByDrafterRow = board.renderByDrafterRow;
@@ -73,3 +74,4 @@ export const computeMlbDivisionStandings = board.computeDivisionStandings;
 export const renderMlbGroupHeader = board.renderGroupHeader;
 export function getMlbConferenceSubMode(){ return board.getConferenceSubMode(); }
 export const mlbDivisionLabel = board.divisionLabel;
+export const mlbDivisionRank = board.divisionRank;

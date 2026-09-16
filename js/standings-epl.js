@@ -206,7 +206,7 @@ export function computeEplDrafterCombined(){
 }
 
 export function renderEplByDrafterRow(row, rank){
-  const teamsLabel = row.teamNames.join(' & ');
+  const teamsLabel = row.teamNames.join(' · ');
   let note = '';
   if(row.found === 0) note = 'No data yet';
   else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;

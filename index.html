@@ -25,10 +25,12 @@
       <div class="page-header-top">
         <img class="app-logo" src="icons/logo-header.png" alt="">
         <h1>Teams</h1>
-        <div class="picker-wrap">
-          <select class="draft-team-picker" id="draft-team-picker" onchange="setDraftTeam(this.value)"></select>
-          <span class="picker-chevron">&#9662;</span>
-        </div>
+        <label class="picker-hit" for="draft-team-picker">
+          <div class="picker-wrap">
+            <select class="draft-team-picker" id="draft-team-picker" onchange="setDraftTeam(this.value)"></select>
+            <span class="picker-chevron">&#9662;</span>
+          </div>
+        </label>
       </div>
       <div class="page-sub" id="team-tally">The Draft &middot; &mdash; leagues &middot; &mdash; teams</div>
     </div>
