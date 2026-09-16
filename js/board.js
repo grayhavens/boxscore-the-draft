@@ -56,6 +56,9 @@ import {
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
+import { renderAdminPage } from './admin.js';
+import { currentProfileId, paintIdentityChrome } from './identity.js';
+import { favoriteStarHtml } from './favorites.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
@@ -87,67 +90,43 @@ function applyUrlState(){
   if(hasData) setObMode(data);
 
   const explicitView = params.get('view');
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   if(view) switchView(view);
 }
 
 // ---- Draft team selection ----
-// Which drafter's roster is currently shown on the Board/Standings
-// views. Persisted in localStorage so a reload stays on the same
-// person, and mirrored into the URL's ?team= param (see applyUrlState
-// above) so it's also bookmarkable/shareable across browsers/devices.
-const CURRENT_DRAFT_TEAM_KEY = 'teamDashboardCurrentDraftTeam';
-
-function loadCurrentDraftTeam(){
-  try {
-    const saved = localStorage.getItem(CURRENT_DRAFT_TEAM_KEY);
-    if(saved && DRAFT_TEAMS.some(d => d.id === saved)) return saved;
-  } catch (e){}
-  return DRAFT_TEAMS[0].id;
-}
-
-export let currentDraftTeamId = loadCurrentDraftTeam();
+// Which drafter's roster is currently DISPLAYED on the Board/Standings
+// views — not necessarily who you are. Defaults to your own profile
+// (js/identity.js), but a ?team= URL param can temporarily "peek" at
+// someone else's board (see setDraftTeam below) without changing who
+// you are or who gets credited when you favorite a team.
+export let currentDraftTeamId = currentProfileId;
 
 function teamsForCurrentDraftTeam(league){
   return league.teams.filter(teamKey => TEAM_META[teamKey].draftTeamId === currentDraftTeamId);
 }
 
+// Deliberately not persisted to localStorage — that's the difference
+// between this and a real identity switch. A ?team= link only changes
+// what's displayed for this page view; reloading or picking your own
+// profile again always lands back on your own board. See
+// js/identity.js's chooseProfile, which calls this too (to keep the
+// display in sync) alongside actually changing who you are.
 export function setDraftTeam(id){
   if(!DRAFT_TEAMS.some(d => d.id === id)) return;
   currentDraftTeamId = id;
-  try { localStorage.setItem(CURRENT_DRAFT_TEAM_KEY, id); } catch (e){}
-  updateUrlParam('team', id);
+  // Keep the URL clean (no ?team=) for the common case of viewing your
+  // own board; only set it while genuinely peeking, so the param's
+  // bookmarkable/shareable role stays legible.
+  updateUrlParam('team', id === currentProfileId ? null : id);
   renderBoard();
   const standingsView = document.getElementById('view-standings');
   if(standingsView && standingsView.classList.contains('active')) renderStandings();
+  paintIdentityChrome(id);
 }
 window.setDraftTeam = setDraftTeam;
-
-// The picker has no visible box (see .picker-wrap's underline-only
-// style) so a native select's default "size to the widest option"
-// width leaves a dead gap after short names like "Collin" — measure
-// the selected name itself and size the element to just that.
-let pickerMeasureCanvas = null;
-function sizeDraftTeamPicker(el){
-  const text = el.selectedOptions[0] ? el.selectedOptions[0].textContent : '';
-  if(!pickerMeasureCanvas) pickerMeasureCanvas = document.createElement('canvas');
-  const ctx = pickerMeasureCanvas.getContext('2d');
-  ctx.font = "700 15px 'Manrope', sans-serif";
-  el.style.width = `${Math.ceil(ctx.measureText(text).width) + 2}px`;
-}
-
-function renderDraftTeamPicker(){
-  const el = document.getElementById('draft-team-picker');
-  if(!el) return;
-  el.innerHTML = DRAFT_TEAMS.map(d => `<option value="${d.id}" ${d.id === currentDraftTeamId ? 'selected' : ''}>${d.name}</option>`).join('');
-  sizeDraftTeamPicker(el);
-  // Manrope may still be loading on first paint, which throws off the
-  // canvas measurement above (falls back to a system font) — re-measure
-  // once it's actually ready.
-  if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => sizeDraftTeamPicker(el));
-}
 
 // ---- Board rendering ----
 
@@ -168,8 +147,6 @@ export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
   let totalTeams = 0;
-
-  renderDraftTeamPicker();
 
   chipsEl.innerHTML = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
@@ -210,6 +187,7 @@ export function renderBoard(){
             <div class="team-name">${meta.name}</div>
             <div class="team-sub">${subHtml}</div>
           </div>
+          ${favoriteStarHtml(teamKey)}
           <div class="status-slot" id="row-status-${teamKey}"></div>
         </div>
       `;
@@ -274,7 +252,6 @@ export function openLeagueModal(leagueKey){
 
   const modalContent = document.getElementById('modal-content');
   modalContent.dataset.activeTeam = '';
-  modalContent.dataset.activeLeagueResults = '';
 
   modalContent.innerHTML = `
     <div class="modal-accent" style="background:${data.accent};"></div>
@@ -299,10 +276,9 @@ window.openLeagueModal = openLeagueModal;
 // Spelled out in both the Teams tab's section headers and the
 // Standings header — the filter chips still keep the short
 // LEAGUES[].label as-is (see FILTER_CHIP_LABELS below). Also used by
-// the Scoring and Results modal headers (js/league-facts.js's
-// openLeagueResultsModal imports this back from here) so every "EPL"/
-// "College FB"/"College BB" data.name reads as its full name wherever
-// a modal titles itself after the league.
+// the Scoring modal header and the admin page (js/admin.js) so every
+// "EPL"/"College FB"/"College BB" data.name reads as its full name
+// wherever a header titles itself after the league.
 export const LEAGUE_FULL_LABELS = {
   epl: 'English Premier League',
   cfb: 'College Football',
@@ -310,25 +286,24 @@ export const LEAGUE_FULL_LABELS = {
 };
 
 // Shortened further still for the filter chip row only — the Teams
-// tab's league jump-to chips and the Standings tab's league filter
-// chips. Every other use of a league's label (Board section headers,
-// the Standings header above, modal titles) keeps LEAGUES[].label.
-const FILTER_CHIP_LABELS = {
+// tab's league jump-to chips, the Standings tab's league filter chips,
+// and the admin page's (js/admin.js). Every other use of a league's
+// label (Board section headers, the Standings header above, modal
+// titles) keeps LEAGUES[].label.
+export const FILTER_CHIP_LABELS = {
   cfb: 'CFB',
   mcbb: 'CBB'
 };
 
-// Ghost-icon Scoring/Results buttons on each Standings league header (see
+// Ghost-icon Scoring button on each Standings league header (see
 // leagueBlockHtml below) — a small icon rather than a background/border
-// is what marks these as actions now, so they read as lightweight
-// buttons rather than pills.
+// is what marks this as an action now, so it reads as a lightweight
+// button rather than a pill. The old per-league "Results" chip moved to
+// the dedicated, password-gated admin page (js/admin.js) — see the
+// "Manage Scoring" link at the bottom of the Overall tab.
 const SCORING_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>';
-const RESULTS_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h10"></path></svg>';
 
 function leagueBlockHtml(league, bodyHtml){
-  const resultsChipHtml = LEAGUE_FACTS_LEAGUES.includes(league.key)
-    ? `<div class="scoring-chip" onclick="openLeagueResultsModal('${league.key}')">${RESULTS_ICON_SVG}Results</div>`
-    : '';
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
   // still worth showing — but drafted teams don't start scoring until
@@ -347,7 +322,6 @@ function leagueBlockHtml(league, bodyHtml){
         </div>
         <div class="league-tab-chips">
           <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">${SCORING_ICON_SVG}Scoring</div>
-          ${resultsChipHtml}
         </div>
         ${priorSeasonNoteHtml}
       </div>
@@ -619,6 +593,7 @@ export function switchView(view){
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();
+  if(view === 'admin') renderAdminPage();
 }
 window.switchView = switchView;
 
@@ -644,6 +619,7 @@ loadEspnMlbDivisionCache();
 loadEspnWnbaStandingsCache();
 loadTeamInfoCache();
 renderBoard();
+paintIdentityChrome(currentDraftTeamId);
 applyUrlState();
 
 // renderBoard() already repaints row-status pills and CFB/EPL/NFL

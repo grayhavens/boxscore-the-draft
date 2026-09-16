@@ -8,7 +8,7 @@
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
 import { updateUrlParam } from './utils.js';
-import { getLeagueRuleTeams, isAchieved } from './league-facts.js';
+import { getLeagueRuleTeams, getTeamAdjustment } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 
 // League color for the mix bar / legend dots. Deliberately NOT each
@@ -47,26 +47,21 @@ function obPtsClass(n){
   return n > 0 ? 'pos' : (n < 0 ? 'neg' : 'zero');
 }
 
-/* ---- The two seams a new league's scoring model plugs into ----
+/* ---- The seam a new league's scoring model plugs into ----
 
-   1. obRuleTeams(league, rule): who satisfies a rule right now.
-      Today: EPL reads the shared facts + live table; every other
-      league reads its per-team checklist. When another league moves
-      to a facts/live model, either define a global
-        getLeagueRuleTeams(leagueKey, rule) -> [teamKey, ...]
-      (picked up automatically, no change here) or add a case below.
+   obIsProvisional(rule): whether a rule's points can still move. Any
+   rule carrying `rankAuto` (derived from a standings table) or an
+   explicit `live: true` in LEAGUE_SCORING counts as provisional —
+   league-agnostic, so tagging a new rule in js/data.js is all it takes
+   for it to show up as provisional everywhere in this view.
 
-   2. obIsProvisional(rule): whether a rule's points can still move.
-      Any rule carrying `rankAuto` (derived from a standings table) or
-      an explicit `live: true` in LEAGUE_SCORING counts as provisional —
-      league-agnostic, so tagging a new rule in js/data.js is all it
-      takes for it to show up as provisional everywhere in this view.
+   Who satisfies a rule right now comes from getLeagueRuleTeams
+   (js/league-facts.js) directly — every league is on that shared
+   facts/live model now.
 */
 
 function obRuleTeams(league, rule){
-  const teams = getLeagueRuleTeams(league.key, rule);
-  if(Array.isArray(teams)) return teams;
-  return league.teams.filter(teamKey => isAchieved(teamKey, rule.label));
+  return getLeagueRuleTeams(league.key, rule) || [];
 }
 
 function obIsProvisional(rule){
@@ -227,6 +222,24 @@ function obDrafterAwards(draftTeamId){
           pts: rule.pts,
           provisional: obIsProvisional(rule)
         });
+      });
+    });
+    // Manual point adjustments — a flat delta an admin set for whatever a
+    // rule can't express. Always confirmed, never provisional: an admin
+    // decided them, they don't move with a live table.
+    league.teams.forEach(teamKey => {
+      const meta = TEAM_META[teamKey];
+      if(!meta || meta.draftTeamId !== draftTeamId) return;
+      const adj = getTeamAdjustment(teamKey);
+      if(!adj || !adj.pts) return;
+      awards.push({
+        leagueKey: league.key,
+        leagueLabel: league.label,
+        teamKey,
+        teamName: meta.name,
+        label: adj.note || 'Manual adjustment',
+        pts: adj.pts,
+        provisional: false
       });
     });
   });

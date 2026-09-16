@@ -11,17 +11,29 @@
       server-side as a secret and forwards a small allowlist of
       read-only requests to TheRundown on the dashboard's behalf.
 
-   2. LEAGUE FACTS STORE — the "who won the FA Cup" style facts
-      marked from the Results modal need to be visible to everyone
-      looking at the dashboard, not just saved in one person's
-      browser (localStorage can't do that). This stores one JSON
-      blob per league in Workers KV and hands it back to whoever
-      asks. There's deliberately no auth on writes — this is a
-      friend-group scoring app, not anything sensitive — so anyone
-      who finds the endpoint could overwrite it. Add a shared secret
-      here later if that ever becomes an actual problem.
+   2. LEAGUE FACTS STORE — the "who won the FA Cup" style facts and
+      manual point adjustments marked from the dashboard's admin page
+      need to be visible to everyone looking at the dashboard, not
+      just saved in one person's browser (localStorage can't do
+      that). This stores one JSON blob per league (two flavors: facts
+      and adjustments) in Workers KV and hands it back to whoever
+      asks. Reads (GET) stay open to anyone — every drafter needs to
+      see current facts/adjustments. Writes (PUT) require the
+      X-Admin-Password header to match the ADMIN_PASSWORD secret —
+      basic, shared-secret protection appropriate for a friend-group
+      app, not real per-user auth.
 
-   3. THESPORTSDB PROXY — once on the premium tier, the API key is a
+   3. FAVORITES STORE — a lightweight sibling to League Facts above:
+      one JSON array of team keys per drafter (js/favorites.js), so a
+      favorited team follows that drafter across devices instead of
+      living in one browser's localStorage. Unlike League Facts/
+      Adjustments, writes are deliberately left open, no
+      X-Admin-Password — a drafter's own favorites list isn't shared
+      scoring data, so it doesn't need the same protection, and
+      requiring the admin password just to star a team would be the
+      wrong trust tier for it.
+
+   4. THESPORTSDB PROXY — once on the premium tier, the API key is a
       real paid credential (unlike the free "123" key, which is
       public and meant to be embedded client-side) and must never
       ship in client-side JS either. Forwards a small allowlist of
@@ -50,6 +62,7 @@
      npx wrangler login
      npx wrangler secret put THERUNDOWN_API_KEY
      npx wrangler secret put SPORTSDB_API_KEY
+     npx wrangler secret put ADMIN_PASSWORD
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
@@ -80,6 +93,11 @@ const ALLOWED_ORIGIN_SUFFIX = '.boxscorethedraft.pages.dev';
 // than accepting any string) keeps the KV keyspace bounded.
 const KNOWN_LEAGUES = ['epl', 'nfl', 'nba', 'nhl', 'mlb', 'wnba', 'cfb', 'mcbb'];
 
+// Drafter ids allowed to have a favorites blob — mirrors DRAFT_TEAMS in
+// js/data.js. Same purpose as KNOWN_LEAGUES above: bounds the KV
+// keyspace to real values instead of accepting any string.
+const KNOWN_DRAFT_TEAM_IDS = ['josh', 'isaac', 'drew', 'douglas', 'collin', 'erichylok', 'patrick', 'peter', 'ericprister', 'donny'];
+
 function isAllowedOrigin(origin){
   return ALLOWED_ORIGINS.includes(origin) ||
     (origin.startsWith('https://') && origin.endsWith(ALLOWED_ORIGIN_SUFFIX));
@@ -89,7 +107,7 @@ function corsHeaders(origin){
   return {
     'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Password',
     'Vary': 'Origin'
   };
 }
@@ -99,6 +117,17 @@ function json(data, status, headers){
     status,
     headers: { ...headers, 'Content-Type': 'application/json' }
   });
+}
+
+// Basic shared-secret check for every write (PUT) to the League Facts
+// store, and for /admin/verify — see the header comment's LEAGUE FACTS
+// STORE section for why this is deliberately simple rather than real
+// per-user auth. env.ADMIN_PASSWORD is unset in any environment that
+// hasn't run `wrangler secret put ADMIN_PASSWORD` yet; treat that as
+// "nothing can authorize" rather than silently allowing every write.
+function isAuthorized(request, env){
+  const supplied = request.headers.get('X-Admin-Password');
+  return !!env.ADMIN_PASSWORD && supplied === env.ADMIN_PASSWORD;
 }
 
 /* ---- Adding a new league or upstream endpoint: keep this scalable ----
@@ -289,15 +318,73 @@ async function handleSportsDb(request, url, env, headers, ctx){
   return new Response('Not found', { status: 404, headers });
 }
 
-async function handleLeagueFacts(request, env, leagueKey, headers){
+// Shared by handleLeagueFacts and handleAdjustments — both are "one JSON
+// object per league, in the LEAGUE_FACTS KV namespace, GET public / PUT
+// password-gated", just under a different key prefix and PUT body shape.
+async function handleKvBlob(request, env, leagueKey, headers, kvKeyPrefix, validateBody){
   if(!KNOWN_LEAGUES.includes(leagueKey)){
     return new Response('Not found', { status: 404, headers });
   }
-  const kvKey = `facts:${leagueKey}`;
+  const kvKey = `${kvKeyPrefix}:${leagueKey}`;
 
   if(request.method === 'GET'){
     const stored = await env.LEAGUE_FACTS.get(kvKey, 'json');
     return json(stored || {}, 200, headers);
+  }
+
+  if(request.method === 'PUT'){
+    if(!isAuthorized(request, env)){
+      return new Response('Unauthorized', { status: 401, headers });
+    }
+    let body;
+    try {
+      body = await request.json();
+    } catch (e){
+      return new Response('Invalid JSON body', { status: 400, headers });
+    }
+    if(!body || typeof body !== 'object' || Array.isArray(body) || !validateBody(body)){
+      return new Response('Expected a JSON object', { status: 400, headers });
+    }
+    await env.LEAGUE_FACTS.put(kvKey, JSON.stringify(body));
+    return json(body, 200, headers);
+  }
+
+  return new Response('Method not allowed', { status: 405, headers });
+}
+
+// Expected shape: { [ruleLabel]: [teamKey, ...] }. The client (which
+// knows each rule's exclusive/rankAuto behavior) computes the full
+// object and PUTs it wholesale — this just stores whatever it's given,
+// so keep the validation limited to "is this the shape we expect".
+function handleLeagueFacts(request, env, leagueKey, headers){
+  return handleKvBlob(request, env, leagueKey, headers, 'facts', () => true);
+}
+
+// Expected shape: { [teamKey]: { pts: number, note: string } } — a flat
+// manual point delta per team for whatever a rule can't express, plus a
+// short note so a future viewer knows why. Same wholesale-PUT contract
+// as facts above.
+function handleAdjustments(request, env, leagueKey, headers){
+  return handleKvBlob(request, env, leagueKey, headers, 'adjustments', body =>
+    Object.values(body).every(v => v && typeof v === 'object' && typeof v.pts === 'number')
+  );
+}
+
+// Open GET/PUT, unlike handleKvBlob above — see the header comment's
+// FAVORITES STORE section for why this deliberately skips the
+// X-Admin-Password gate. Expected PUT body: a plain array of team keys
+// (js/data.js's TEAM_META keys); the client computes the full list and
+// PUTs it wholesale, so validation here is just "is this the shape we
+// expect", same discipline as every other KV write in this file.
+async function handleFavorites(request, env, draftTeamId, headers){
+  if(!KNOWN_DRAFT_TEAM_IDS.includes(draftTeamId)){
+    return new Response('Not found', { status: 404, headers });
+  }
+  const kvKey = `favorites:${draftTeamId}`;
+
+  if(request.method === 'GET'){
+    const stored = await env.LEAGUE_FACTS.get(kvKey, 'json');
+    return json(Array.isArray(stored) ? stored : [], 200, headers);
   }
 
   if(request.method === 'PUT'){
@@ -307,12 +394,8 @@ async function handleLeagueFacts(request, env, leagueKey, headers){
     } catch (e){
       return new Response('Invalid JSON body', { status: 400, headers });
     }
-    // Expected shape: { [ruleLabel]: [teamKey, ...] }. The client (which
-    // knows each rule's exclusive/rankAuto behavior) computes the full
-    // object and PUTs it wholesale — this just stores whatever it's given,
-    // so keep the validation limited to "is this the shape we expect".
-    if(!body || typeof body !== 'object' || Array.isArray(body)){
-      return new Response('Expected a JSON object', { status: 400, headers });
+    if(!Array.isArray(body) || !body.every(k => typeof k === 'string')){
+      return new Response('Expected an array of team keys', { status: 400, headers });
     }
     await env.LEAGUE_FACTS.put(kvKey, JSON.stringify(body));
     return json(body, 200, headers);
@@ -331,8 +414,21 @@ export default {
       return new Response(null, { headers });
     }
 
+    if(url.pathname === '/admin/verify'){
+      if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+      return isAuthorized(request, env)
+        ? json({ ok: true }, 200, headers)
+        : new Response('Unauthorized', { status: 401, headers });
+    }
+
     const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
     if(factsMatch) return handleLeagueFacts(request, env, factsMatch[1], headers);
+
+    const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
+    if(adjustmentsMatch) return handleAdjustments(request, env, adjustmentsMatch[1], headers);
+
+    const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
+    if(favoritesMatch) return handleFavorites(request, env, favoritesMatch[1], headers);
 
     if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
 

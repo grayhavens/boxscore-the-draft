@@ -15,6 +15,64 @@ export async function fetchJSON(url){
   }
 }
 
+// ---- Admin password (scoring adjustments gate) ----
+// Cached client-side once verified against the worker's /admin/verify
+// route (see js/admin.js) — this is a "very basic" shared-secret gate
+// appropriate for a friend-group app, not real per-user auth. Read by
+// js/league-facts.js too, since a fact/adjustment write needs the same
+// header the admin page already verified.
+const ADMIN_PASSWORD_KEY = 'teamDashboardAdminPassword';
+
+export function loadAdminPassword(){
+  try {
+    return localStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  } catch (e){
+    return '';
+  }
+}
+
+export function saveAdminPassword(password){
+  try {
+    localStorage.setItem(ADMIN_PASSWORD_KEY, password);
+  } catch (e){
+    // localStorage unavailable — the password just won't be remembered.
+  }
+}
+
+export function clearAdminPassword(){
+  try {
+    localStorage.removeItem(ADMIN_PASSWORD_KEY);
+  } catch (e){}
+}
+
+// GET with the admin password attached — used only for /admin/verify,
+// where a 401 is an expected "wrong password" outcome, not a failure to
+// log. { ok, status } lets the caller tell "wrong password" (401) apart
+// from "worker unreachable" (status 0).
+export async function fetchAuthedJSON(url, password){
+  try {
+    const res = await fetch(url, { headers: { 'X-Admin-Password': password } });
+    return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
+  } catch (e){
+    return { ok: false, status: 0, data: null };
+  }
+}
+
+// PUT with the admin password attached and a JSON body — the write
+// counterpart to fetchAuthedJSON, used for every facts/adjustments save.
+export async function putAuthedJSON(url, password, body){
+  try {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify(body)
+    });
+    return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
+  } catch (e){
+    return { ok: false, status: 0, data: null };
+  }
+}
+
 // Baseball-style win percentage — three decimals, no leading zero
 // below 1.000 (.540, not 0.540) — used wherever a league's Standings
 // "Person" combined-record view calls out a win% (NBA/NHL/MLB's
