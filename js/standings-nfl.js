@@ -34,7 +34,7 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -371,19 +371,25 @@ export function setNflConferenceSubMode(subMode){
 window.setNflConferenceSubMode = setNflConferenceSubMode;
 
 export function nflStandingsToggleHtml(){
+  const topSegments = [
+    { key: 'afc', label: 'AFC' },
+    { key: 'nfc', label: 'NFC' },
+    { key: 'byDrafter', label: 'Drafted' }
+  ];
   const topRow = `
     <div class="standings-toggle">
-      <button class="toggle-btn ${nflStandingsMode === 'afc' ? 'active' : ''}" onclick="setNflStandingsMode('afc')">AFC</button>
-      <button class="toggle-btn ${nflStandingsMode === 'nfc' ? 'active' : ''}" onclick="setNflStandingsMode('nfc')">NFC</button>
-      <button class="toggle-btn ${nflStandingsMode === 'byDrafter' ? 'active' : ''}" onclick="setNflStandingsMode('byDrafter')">Drafted</button>
+      ${segmentedControlHtml(topSegments, nflStandingsMode, 'setNflStandingsMode')}
     </div>
   `;
   if(nflStandingsMode === 'byDrafter') return topRow;
 
+  const subSegments = [
+    { key: 'division', label: 'Divisions' },
+    { key: 'full', label: 'Conference' }
+  ];
   const subRow = `
     <div class="standings-toggle standings-subtoggle">
-      <button class="toggle-btn ${nflConferenceSubMode === 'division' ? 'active' : ''}" onclick="setNflConferenceSubMode('division')">Divisions</button>
-      <button class="toggle-btn ${nflConferenceSubMode === 'full' ? 'active' : ''}" onclick="setNflConferenceSubMode('full')">Conference</button>
+      ${segmentedControlHtml(subSegments, nflConferenceSubMode, 'setNflConferenceSubMode')}
     </div>
   `;
   return topRow + subRow;

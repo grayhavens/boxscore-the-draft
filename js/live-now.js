@@ -31,7 +31,7 @@
 import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, segmentedControlHtml } from './utils.js';
 
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
@@ -164,7 +164,7 @@ function railHtml(game){
   if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail}</div></div>`;
   if(game.state === 'final') return `<div class="tg-rail"><div class="tg-rail-top">${game.detail.replace('Final', 'F')}</div></div>`;
   const t = timeLabel(game.date);
-  return `<div class="tg-rail"><div class="tg-rail-top">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot">${t.slice(-2)}</div></div>`;
+  return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
 }
 
 // Name and badge both open the team modal — the row's two real
@@ -260,8 +260,11 @@ function dayLabel(){
 }
 
 function controlsHtml(liveCount){
-  const thumb = filterKey === 'live' ? '0%' : filterKey === 'upcoming' ? '100%' : '200%';
-  const seg = (key, label) => `<button type="button" class="tg-seg-btn${filterKey === key ? ' active' : ''}" onclick="setTodayFilter('${key}')">${label}</button>`;
+  const segments = [
+    { key: 'live', label: `Live${liveCount ? ' &middot; ' + liveCount : ''}` },
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'all', label: 'All' }
+  ];
   return `
     <div class="tg-daynav">
       <button type="button" class="tg-arrow" onclick="stepTodayDay(-1)" aria-label="Previous day">&lsaquo;</button>
@@ -272,12 +275,7 @@ function controlsHtml(liveCount){
       </div>
       <button type="button" class="tg-arrow" onclick="stepTodayDay(1)" aria-label="Next day">&rsaquo;</button>
     </div>
-    <div class="tg-seg">
-      <span class="tg-seg-thumb" style="transform: translateX(${thumb})"></span>
-      ${seg('live', `Live${liveCount ? ' &middot; ' + liveCount : ''}`)}
-      ${seg('upcoming', 'Upcoming')}
-      ${seg('all', 'All')}
-    </div>
+    ${segmentedControlHtml(segments, filterKey, 'setTodayFilter')}
   `;
 }
 

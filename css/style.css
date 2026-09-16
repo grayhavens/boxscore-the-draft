@@ -572,14 +572,20 @@ body{
   margin-top: 3px;
 }
 
-/* ---- Live / Upcoming / All ----
-   A sliding segmented control rather than the .filter-chip row the old
-   view used: these three are mutually exclusive states of the same
-   list, not a jump-nav across leagues, and the thumb's movement is
-   what makes that read. Solid accent (like .filter-chip.active) rather
-   than .toggle-btn's accent-soft, since this is the primary control on
-   the page. */
-.tg-seg{
+/* ---- Generic sliding segmented control (js/utils.js's
+   segmentedControlHtml) ----
+   Shared by the Scores tab's Live/Upcoming/All and every Standings tab
+   toggle (League/Drafted, Conference/Drafted, Divisions/Conference) —
+   one implementation instead of N hand-rolled ports of the same
+   sliding-thumb interaction. Soft accent fill rather than
+   .filter-chip.active's solid fill — a full-width bar of solid gold
+   read as louder/more button-like than anything else on the page; this
+   keeps the sliding interaction at the same visual weight as the rest
+   of the app's controls. Segment count is arbitrary (2 for a plain
+   League/Drafted toggle, 3 for e.g. NFL's AFC/NFC/Drafted) — the
+   thumb's width/position are set inline per-render since this CSS has
+   no fixed segment count to divide by. */
+.seg{
   position: relative;
   display: flex;
   background: var(--surface);
@@ -589,22 +595,23 @@ body{
   margin-bottom: 6px;
 }
 
-.tg-seg-thumb{
+.seg-thumb{
   position: absolute;
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 6px) / 3);
+  box-sizing: border-box;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
   transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce){
-  .tg-seg-thumb{ transition: none; }
+  .seg-thumb{ transition: none; }
 }
 
-.tg-seg-btn{
+.seg-btn{
   position: relative;
   flex: 1;
   border: none;
@@ -618,7 +625,16 @@ body{
   min-height: 44px;
 }
 
-.tg-seg-btn.active{ color: var(--bg); }
+.seg-btn.active{ color: var(--accent); }
+
+/* Standings tab context: .seg drops into the existing
+   .standings-toggle/.standings-subtoggle wrapper (which already
+   supplies this card's own padding/border-bottom/nested-row rules —
+   see those classes below), replacing the flex row of separate
+   .toggle-btn pills that used to live directly inside it. flex:1 makes
+   the control fill that row the same way the old button row did;
+   margin-bottom is the wrapper's job here, not the control's own. */
+.standings-toggle .seg{ flex: 1; margin-bottom: 0; }
 
 /* ---- Section headers (Live now, then one per league) ---- */
 .tg-section{ margin-bottom: 8px; }
@@ -673,6 +689,15 @@ body{
 
 .tg-rail-top.live{ color: var(--live); }
 
+/* Scheduled time only (not live/final) — matches the blue
+   .tg-node.pre dot: bigger and bolder than the quieter final/live
+   labels since a scheduled game's kickoff time is this rail's whole
+   point, not a secondary detail. */
+.tg-rail-top.pre{
+  font-size: 15px;
+  color: var(--provisional);
+}
+
 .tg-rail-bot{
   font-family: 'Manrope', sans-serif;
   font-size: 9.5px;
@@ -681,6 +706,14 @@ body{
   text-transform: uppercase;
   color: var(--text-mute);
   margin-top: 3px;
+}
+
+.tg-rail-bot.pre{
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--provisional);
+  opacity: 0.75;
 }
 
 /* The spine. Runs the full height of each row so consecutive games

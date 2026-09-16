@@ -39,7 +39,7 @@
    labels, and how a record renders/sorts/combines).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { normalizeTeamName, teamBadgeHtml, abbrFromName } from './utils.js';
+import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 
@@ -396,21 +396,24 @@ export function createFlatStandingsBoard(opts){
   }
 
   function toggleHtml(){
-    const buttons = conferences.map(c =>
-      `<button class="toggle-btn ${mode === c.mode ? 'active' : ''}" onclick="${setModeGlobalName}('${c.mode}')">${c.label}</button>`
-    ).join('');
+    const topSegments = [
+      ...conferences.map(c => ({ key: c.mode, label: c.label })),
+      { key: 'byDrafter', label: 'Drafted' }
+    ];
     const topRow = `
       <div class="standings-toggle">
-        ${buttons}
-        <button class="toggle-btn ${mode === 'byDrafter' ? 'active' : ''}" onclick="${setModeGlobalName}('byDrafter')">Drafted</button>
+        ${segmentedControlHtml(topSegments, mode, setModeGlobalName)}
       </div>
     `;
     if(!hasDivisions || mode === 'byDrafter') return topRow;
 
+    const subSegments = [
+      { key: 'division', label: 'Divisions' },
+      { key: 'full', label: 'Conference' }
+    ];
     const subRow = `
       <div class="standings-toggle standings-subtoggle">
-        <button class="toggle-btn ${conferenceSubMode === 'division' ? 'active' : ''}" onclick="${setSubModeGlobalName}('division')">Divisions</button>
-        <button class="toggle-btn ${conferenceSubMode === 'full' ? 'active' : ''}" onclick="${setSubModeGlobalName}('full')">Conference</button>
+        ${segmentedControlHtml(subSegments, conferenceSubMode, setSubModeGlobalName)}
       </div>
     `;
     return topRow + subRow;

@@ -720,9 +720,9 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
 // leagues/{league}/seasons/{year}/types listing) — so the modal-head
 // season badge (see seasonStatusLabel in js/live-data.js) piggybacks
 // on this same request instead of needing its own.
-// Shape returned: { events: [{ id, state, detail, completed,
-// competitors: [{ teamId, teamName, homeAway, score }] }], season:
-// { type, year } | null }
+// Shape returned: { events: [{ id, date, state, detail, completed,
+// competitors: [{ teamId, teamName, teamNickname, abbreviation,
+// homeAway, score }] }], season: { type, year } | null }
 export async function fetchEspnScoreboard(sportLeaguePath, dates){
   // ESPN's scoreboard defaults to today; `?dates=YYYYMMDD` returns that
   // day's slate instead — same response shape, verified against both.
@@ -746,6 +746,7 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
     }));
     return {
       id: event.id,
+      date: event.date || null,
       state: statusType ? statusType.state : null,
       detail: statusType ? statusType.shortDetail : null,
       completed: !!(statusType && statusType.completed),

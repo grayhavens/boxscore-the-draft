@@ -9,7 +9,7 @@
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal } from './utils.js';
+import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
@@ -231,10 +231,13 @@ export function renderEplByDrafterRow(row, rank){
 }
 
 export function eplStandingsToggleHtml(){
+  const segments = [
+    { key: 'table', label: 'League' },
+    { key: 'byDrafter', label: 'Drafted' }
+  ];
   return `
     <div class="standings-toggle">
-      <button class="toggle-btn ${eplStandingsMode === 'table' ? 'active' : ''}" onclick="setEplStandingsMode('table')">League</button>
-      <button class="toggle-btn ${eplStandingsMode === 'byDrafter' ? 'active' : ''}" onclick="setEplStandingsMode('byDrafter')">Drafted</button>
+      ${segmentedControlHtml(segments, eplStandingsMode, 'setEplStandingsMode')}
     </div>
   `;
 }
