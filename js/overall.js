@@ -493,7 +493,7 @@ function obSyncModeToggle(){
   });
 }
 
-const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing simulated results for preview &mdash; switch Data to Real for live standings.</div>`;
+const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; switch data to Real for live standings.</div>`;
 
 export function renderOverallStandings(){
   const container = document.getElementById('overall-content');
