@@ -46,6 +46,7 @@ export const nhlRecordLabel = board.cardRecordLabel;
 export const renderAllNhlCardRecords = board.renderAllCardRecords;
 export const findEspnNhlRow = board.findRowForMeta;
 export const computeNhlConferenceStandings = board.computeConferenceStandings;
+export const nhlConferenceRank = board.conferenceRank;
 export const renderNhlStandingsRow = board.renderStandingsRow;
 export const computeNhlDrafterCombined = board.computeDrafterCombined;
 export const renderNhlByDrafterRow = board.renderByDrafterRow;
@@ -60,3 +61,4 @@ export const computeNhlDivisionStandings = board.computeDivisionStandings;
 export const renderNhlGroupHeader = board.renderGroupHeader;
 export function getNhlConferenceSubMode(){ return board.getConferenceSubMode(); }
 export const nhlDivisionLabel = board.divisionLabel;
+export const nhlDivisionRank = board.divisionRank;

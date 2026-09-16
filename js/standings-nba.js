@@ -67,6 +67,7 @@ export const nbaRecordLabel = board.cardRecordLabel;
 export const renderAllNbaCardRecords = board.renderAllCardRecords;
 export const findEspnNbaRow = board.findRowForMeta;
 export const computeNbaConferenceStandings = board.computeConferenceStandings;
+export const nbaConferenceRank = board.conferenceRank;
 export const renderNbaStandingsRow = board.renderStandingsRow;
 export const computeNbaDrafterCombined = board.computeDrafterCombined;
 export const renderNbaByDrafterRow = board.renderByDrafterRow;
@@ -81,3 +82,4 @@ export const computeNbaDivisionStandings = board.computeDivisionStandings;
 export const renderNbaGroupHeader = board.renderGroupHeader;
 export function getNbaConferenceSubMode(){ return board.getConferenceSubMode(); }
 export const nbaDivisionLabel = board.divisionLabel;
+export const nbaDivisionRank = board.divisionRank;

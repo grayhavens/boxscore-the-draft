@@ -157,6 +157,20 @@ export function createFlatStandingsBoard(opts){
     return rows.sort(sortConference);
   }
 
+  // This team's 1-based rank within its own conference — shown next to
+  // the Conference stat cell (js/live-data.js) so "East"/"AL" also reads
+  // as "#2". Same idea as nflConferenceRank in js/standings-nfl.js;
+  // reuses findRowForMeta + computeConferenceStandings rather than
+  // re-deriving the row lookup, so it stays in lockstep with whatever
+  // those already return.
+  function conferenceRank(meta){
+    const row = findRowForMeta(meta);
+    if(!row || !row.conferenceAbbr) return null;
+    const standings = computeConferenceStandings(row.conferenceAbbr);
+    const idx = standings.indexOf(row);
+    return idx === -1 ? null : idx + 1;
+  }
+
   // ---- Division standings (optional — only wired up when the caller passed fetchDivisionStandings) ----
   // Same shape/cadence as espnNflDivisionCache in js/standings-nfl.js,
   // kept as its own cache (separate from the flat one above) so the
@@ -255,6 +269,22 @@ export function createFlatStandingsBoard(opts){
     return div ? div.shortName : null;
   }
 
+  // This team's 1-based rank within its own division — shown next to
+  // the Division stat cell so "Atlantic" also reads as "#1". Sorts the
+  // one division's teams directly (same sortConference rule
+  // computeDivisionStandings uses) rather than going through that
+  // function, since only one division is needed here, not every
+  // division in the conference at once.
+  function divisionRank(meta){
+    const div = findDivisionForMeta(meta);
+    if(!div) return null;
+    const teamKey = teamKeyFor(meta);
+    if(!teamKey) return null;
+    const sorted = [...div.teams].sort(sortConference);
+    const idx = sorted.findIndex(t => findFlatTeamKey(leagueKey, t.teamNickname) === teamKey);
+    return idx === -1 ? null : idx + 1;
+  }
+
   function renderGroupHeader(label){
     return `<div class="standings-group-header">${label}</div>`;
   }
@@ -321,7 +351,7 @@ export function createFlatStandingsBoard(opts){
   }
 
   function renderByDrafterRow(row, rank){
-    const teamsLabel = row.teamNames.join(' & ');
+    const teamsLabel = row.teamNames.join(' · ');
     let note = '';
     if(row.found === 0) note = 'No data yet';
     else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;
@@ -399,11 +429,11 @@ export function createFlatStandingsBoard(opts){
     cache, isFresh, load, fetchCached,
     cardRecordLabel, renderCardRecord, renderAllCardRecords, findRowForMeta,
     getMode: () => mode, conferences,
-    computeConferenceStandings, renderStandingsRow,
+    computeConferenceStandings, conferenceRank, renderStandingsRow,
     computeDrafterCombined, renderByDrafterRow,
     toggleHtml,
     hasDivisions, divisionCache, loadDivisionCache, fetchDivisionCached,
-    computeDivisionStandings, findDivisionForMeta, divisionLabel, renderGroupHeader,
+    computeDivisionStandings, findDivisionForMeta, divisionLabel, divisionRank, renderGroupHeader,
     getConferenceSubMode: () => conferenceSubMode
   };
 }

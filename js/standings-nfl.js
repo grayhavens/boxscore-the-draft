@@ -284,6 +284,35 @@ export function nflDivisionLabel(meta){
   return div ? div.division.replace(/^(AFC|NFC)\s+/, '') : null;
 }
 
+// This team's 1-based rank within its own 4-team division, by the same
+// win%-then-name ordering computeNflDivisionStandings uses — shown next
+// to the Division stat cell (js/live-data.js) so "East" also reads as
+// "#1". Sorted here directly off findNflDivisionForMeta's division
+// rather than via computeNflDivisionStandings (which returns every
+// division in a conference at once) since only one division is needed.
+export function nflDivisionRank(meta){
+  const div = findNflDivisionForMeta(meta);
+  if(!div || !meta.badgeText) return null;
+  const sorted = [...div.teams].sort((a, b) => {
+    const pa = a.winPercent ?? -1, pb = b.winPercent ?? -1;
+    if(pb !== pa) return pb - pa;
+    return a.teamName.localeCompare(b.teamName);
+  });
+  const idx = sorted.findIndex(t => (NFL_ESPN_ABBR_OVERRIDES[t.abbreviation] || t.abbreviation) === meta.badgeText);
+  return idx === -1 ? null : idx + 1;
+}
+
+// This team's 1-based rank within its own 16-team conference, by the
+// same ordering computeNflConferenceStandings uses — shown next to the
+// Conference stat cell so "AFC" also reads as "#2".
+export function nflConferenceRank(meta){
+  const row = findEspnNflRow(meta);
+  if(!row || !row.conferenceAbbr || !meta.badgeText) return null;
+  const standings = computeNflConferenceStandings(row.conferenceAbbr);
+  const idx = standings.findIndex(r => (NFL_ESPN_ABBR_OVERRIDES[r.abbreviation] || r.abbreviation) === meta.badgeText);
+  return idx === -1 ? null : idx + 1;
+}
+
 export function renderNflStandingsRow(row, rank){
   const teamKey = findNflTeamKeyByEspnAbbr(row.abbreviation);
   // Same idea as CFB's renderCfbRankingRow: an undrafted team has no
@@ -410,7 +439,7 @@ export function computeNflDrafterCombined(){
 }
 
 export function renderNflByDrafterRow(row, rank){
-  const teamsLabel = row.teamNames.join(' & ');
+  const teamsLabel = row.teamNames.join(' · ');
   let note = '';
   if(row.found === 0) note = 'No data yet';
   else if(row.found < row.total) note = `${row.found} of ${row.total} teams reporting`;

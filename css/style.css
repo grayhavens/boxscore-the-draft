@@ -116,11 +116,33 @@ body{
   font-weight: 500;
 }
 
+/* The visible picker (.picker-wrap) is sized tight to the selected
+   name's text (see sizeDraftTeamPicker in js/board.js), which made for
+   a tiny, easy-to-miss tap target on mobile — worse still, the chevron
+   and its padding sat outside the <select> itself, so tapping the
+   chevron did nothing at all. Wrapping it in a <label for> (clicking
+   anywhere in a label opens/focuses its associated control, chevron
+   included) and padding that label out further, then canceling the
+   padding with a matching negative margin so the visible pill doesn't
+   move or grow, gives a much larger, fully-working tap target without
+   changing how the picker looks.
+   margin-left stays auto (not part of the cancellation) so it keeps
+   doing its job of pushing the whole thing flush right in
+   .page-header-top; the safe-area page padding (--page-pad, 16-24px)
+   comfortably absorbs the other sides' negative overhang. */
+.picker-hit{
+  display: flex;
+  align-items: center;
+  margin: -12px -12px -12px auto;
+  padding: 12px;
+  max-width: 100%;
+  cursor: pointer;
+}
+
 .picker-wrap{
   position: relative;
   display: flex;
   align-items: center;
-  margin-left: auto;
   border-bottom: 2px solid var(--accent);
   padding: 0 18px 4px 0;
   max-width: 100%;
