@@ -15,6 +15,15 @@ export async function fetchJSON(url){
   }
 }
 
+// Baseball-style win percentage — three decimals, no leading zero
+// below 1.000 (.540, not 0.540) — used wherever a league's Standings
+// "Person" combined-record view calls out a win% (NBA/NHL/MLB's
+// combinedLabel, NFL/CFB/WNBA's renderByPersonRow).
+export function formatWinPct(pct){
+  const s = pct.toFixed(3);
+  return pct >= 1 ? s : s.slice(1);
+}
+
 export function ordinal(n){
   n = parseInt(n, 10);
   if(isNaN(n)) return '—';

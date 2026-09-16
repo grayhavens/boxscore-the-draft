@@ -28,7 +28,7 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings } from './board.js';
@@ -357,9 +357,18 @@ export function renderCfbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const draftedByHtml = teamKey
-    ? `<div class="drafted-by-chip">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
+  const ownerHtml = teamKey
+    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
     : '';
+  // Same two-tier record treatment as the Drafted view's row (see
+  // .person-record-chip in css/style.css and renderCfbByDrafterRow
+  // below) — the raw W-L record as the bold line, win% called out
+  // underneath.
+  const parsedRecord = parseWinLossRecord(rank.record);
+  const pct = parsedRecord && (parsedRecord.wins + parsedRecord.losses) > 0
+    ? parsedRecord.wins / (parsedRecord.wins + parsedRecord.losses)
+    : null;
+  const recordHtml = `<span class="person-record-primary">${rank.record || ''}</span>${pct !== null ? `<span class="person-record-secondary">${formatWinPct(pct)}</span>` : ''}`;
 
   return `
     <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
@@ -367,9 +376,9 @@ export function renderCfbRankingRow(rank){
       ${teamBadgeHtml(meta)}
       <div class="team-main">
         <div class="team-name">${meta.name}</div>
-        <div class="team-sub">${rank.record || ''}</div>
+        ${ownerHtml}
       </div>
-      ${draftedByHtml}
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }
@@ -445,7 +454,7 @@ export function renderCfbByDrafterRow(row, rank){
   // Two-tier: the raw W-L record as the bold line, win% called out
   // underneath — see .person-record-chip in css/style.css.
   const recordHtml = row.found > 0
-    ? `<span class="person-record-primary">${row.wins}-${row.losses}</span>${row.pct !== null ? `<span class="person-record-secondary">${Math.round(row.pct * 100)}% WIN</span>` : ''}`
+    ? `<span class="person-record-primary">${row.wins}-${row.losses}</span>${row.pct !== null ? `<span class="person-record-secondary">${formatWinPct(row.pct)}</span>` : ''}`
     : `<span class="person-record-primary">&mdash;</span>`;
 
   return `

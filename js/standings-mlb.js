@@ -10,6 +10,7 @@
    ============================================================ */
 import { fetchEspnMlbStandings, fetchEspnMlbDivisionStandings } from './espn.js';
 import { createFlatStandingsBoard } from './standings-flat.js';
+import { formatWinPct } from './utils.js';
 
 function winPct(b){
   const total = b.wins + b.losses + b.ties;
@@ -42,7 +43,7 @@ const board = createFlatStandingsBoard({
     const pct = winPct(row);
     return {
       primary: `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`,
-      secondary: pct !== null ? `${Math.round(pct * 100)}% WIN` : ''
+      secondary: pct !== null ? formatWinPct(pct) : ''
     };
   },
   combinedSort: (a, b) => {

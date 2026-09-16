@@ -10,7 +10,7 @@
    by win%).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings } from './board.js';
@@ -126,9 +126,13 @@ export function renderWnbaStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const draftedByHtml = teamKey
-    ? `<div class="drafted-by-chip">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
+  const ownerHtml = teamKey
+    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
     : '';
+  // Same two-tier record treatment as the Drafted view's row below —
+  // the raw W-L record as the bold line, win% called out underneath.
+  const rowPct = winPct(row);
+  const recordHtml = `<span class="person-record-primary">${row.wins}-${row.losses}</span>${rowPct !== null ? `<span class="person-record-secondary">${formatWinPct(rowPct)}</span>` : ''}`;
 
   return `
     <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
@@ -136,9 +140,9 @@ export function renderWnbaStandingsRow(row, rank){
       ${teamBadgeHtml(meta)}
       <div class="team-main">
         <div class="team-name">${meta.name}</div>
-        <div class="team-sub">${row.wins}-${row.losses}</div>
+        ${ownerHtml}
       </div>
-      ${draftedByHtml}
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }
@@ -198,7 +202,7 @@ export function renderWnbaByDrafterRow(row, rank){
   // underneath — see .person-record-chip in css/style.css.
   const pct = winPct(row);
   const recordHtml = row.found > 0
-    ? `<span class="person-record-primary">${row.wins}-${row.losses}</span>${pct !== null ? `<span class="person-record-secondary">${Math.round(pct * 100)}% WIN</span>` : ''}`
+    ? `<span class="person-record-primary">${row.wins}-${row.losses}</span>${pct !== null ? `<span class="person-record-secondary">${formatWinPct(pct)}</span>` : ''}`
     : `<span class="person-record-primary">&mdash;</span>`;
 
   return `

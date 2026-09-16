@@ -57,7 +57,7 @@ export function createFlatStandingsBoard(opts){
     sortConference, // (a, b) => number — orders one conference's teams
     combinedInit, // () => fresh per-drafter accumulator, e.g. { wins: 0, losses: 0 }
     combinedAccumulate, // (bucket, row) => void — adds one team's row into a drafter's bucket
-    combinedLabel, // (bucket) => { primary: "41-30", secondary: "58% WIN" | "" } for the Drafted view's two-tier record
+    combinedLabel, // (bucket) => { primary: "41-30", secondary: ".578" | "" } for the Drafted view's two-tier record
     combinedSort, // (a, b) => number — orders the Person view (found/not-found already handled)
     // Optional — only NBA/NHL/MLB pass this (WNBA has no real divisions
     // to nest under; see js/standings-wnba.js). () => Promise<[{
@@ -304,9 +304,15 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    const draftedByHtml = teamKey
-      ? `<div class="drafted-by-chip">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
+    const ownerHtml = teamKey
+      ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
       : '';
+    // Same two-tier record treatment as the Drafted view's row (see
+    // .person-record-chip) — combinedLabel works unchanged on a single
+    // ESPN row, not just an aggregated per-drafter bucket, since both
+    // shapes carry the same wins/losses(/otLosses) fields.
+    const { primary, secondary } = combinedLabel(row);
+    const recordHtml = `<span class="person-record-primary">${primary}</span>${secondary ? `<span class="person-record-secondary">${secondary}</span>` : ''}`;
 
     return `
       <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
@@ -314,9 +320,9 @@ export function createFlatStandingsBoard(opts){
         ${teamBadgeHtml(meta)}
         <div class="team-main">
           <div class="team-name">${meta.name}</div>
-          <div class="team-sub">${recordLabel(row)}</div>
+          ${ownerHtml}
         </div>
-        ${draftedByHtml}
+        <div class="person-record-chip">${recordHtml}</div>
       </div>
     `;
   }
