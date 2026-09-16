@@ -14,6 +14,7 @@
 import { fetchJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { currentProfileId } from './identity.js';
+import { renderBoard } from './board.js';
 
 const FAVORITES_KEY = 'teamDashboardFavorites';
 
@@ -130,6 +131,14 @@ export function toggleFavorite(teamKey){
   const next = list.includes(teamKey) ? list.filter(k => k !== teamKey) : list.concat(teamKey);
   cacheFor(id).data = next;
   persistFavorites(id, next);
+  // Instant feedback on whatever star was actually tapped (usually the
+  // team modal's, since a Teams-tab row only shows one once it's
+  // already favorited — see renderBoard in js/board.js).
   repaintStarsFor(teamKey, next.includes(teamKey));
+  // Full resync of the Teams tab: a row's star can appear/disappear
+  // entirely now (not just flip icon), and a favorited-but-not-drafted
+  // team can enter or leave the list outright — an in-place DOM patch
+  // can't express either of those, a re-render can.
+  renderBoard();
 }
 window.toggleFavorite = toggleFavorite;

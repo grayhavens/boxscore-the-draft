@@ -116,6 +116,43 @@ body{
   font-weight: 500;
 }
 
+/* Scores tab only: the game-count subhead shares its line with the new
+   team-scope chip (js/live-now.js) — text on the left, chip flush
+   right, same idea as .league-tab pairing a title with .scoring-chip. */
+.page-sub-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Same ghost-button language as .scoring-chip below — invisible fill
+   until touched — mirrored here (rather than reused directly) because
+   that class cancels its OWN left padding to sit flush against a
+   left-aligned row; this one is the rightmost thing in its row, so it
+   cancels the other side instead. */
+.scope-chip{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: -9px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 9px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.scope-chip:hover{ background: var(--surface-2); color: var(--accent); }
+
+.scope-chip svg{ width: 12px; height: 12px; }
+
 /* Identity control (js/identity.js) — an outline-only initials circle,
    idle/hover language borrowed from .modal-close below (transparent
    until touched, a faint surface tint on hover) rather than a filled,
@@ -443,8 +480,15 @@ body{
   background: rgba(255,255,255,0.05);
 }
 
+/* Deliberately not flex:1 — a growing team-main would fill the row,
+   leaving the favorite star (its next sibling) stranded out by the
+   status column instead of hugging the name/sub text it's actually
+   marking. Shrinks instead of grows (min-width:0 lets it wrap rather
+   than overflow on a long name), and .status-slot's own margin-left:
+   auto still soaks up whatever space is left, keeping it pinned to
+   the row's right edge either way. */
 .team-main{
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -902,6 +946,11 @@ body{
 
 .tg-owner:empty{ display: none; }
 
+/* Shrunk to fit this compact row (the default 30px/18px is sized for
+   the Teams tab's taller cards) — same idle/filled-gold behavior. */
+.tg-side .favorite-star{ width: 22px; height: 22px; }
+.tg-side .favorite-star svg{ width: 13px; height: 13px; }
+
 .tg-score{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
@@ -1061,10 +1110,12 @@ body{
 
 .modal-actions .modal-close{ position: static; top: auto; right: auto; }
 
-/* ---- Identity switcher sheet (js/identity.js) ---- */
+/* ---- Bottom-sheet rows (js/identity.js's "Who are you?" switcher and
+   js/live-now.js's "Show which teams?" scope sheet both use this same
+   set) ---- */
 .sheet-title-row{
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 18px 22px 10px;
 }
@@ -1074,6 +1125,16 @@ body{
   font-weight: 700;
   font-size: 17px;
   letter-spacing: -0.3px;
+}
+
+/* Only the scope sheet uses this (explaining that rows combine); the
+   identity sheet's title stands alone. */
+.sheet-title-sub{
+  font-size: 12px;
+  color: var(--text-mute);
+  margin-top: 4px;
+  max-width: 240px;
+  line-height: 1.4;
 }
 
 .sheet-row{
@@ -1090,6 +1151,15 @@ body{
   font-size: 14.5px;
   font-weight: 600;
   min-height: 44px;
+}
+
+.sheet-row-text{ flex: 1; }
+
+.sheet-desc{
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-mute);
+  margin-top: 1px;
 }
 
 .sheet-row:hover{ background: rgba(255,255,255,0.03); }

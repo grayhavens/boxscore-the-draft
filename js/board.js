@@ -58,7 +58,7 @@ import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefres
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { renderAdminPage } from './admin.js';
 import { currentProfileId, paintIdentityChrome } from './identity.js';
-import { favoriteStarHtml } from './favorites.js';
+import { favoriteStarHtml, isFavorite } from './favorites.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
@@ -104,8 +104,17 @@ function applyUrlState(){
 // you are or who gets credited when you favorite a team.
 export let currentDraftTeamId = currentProfileId;
 
+// Your own drafted roster, plus (only on your own board, never while
+// peeking someone else's) any teams you've favorited that you didn't
+// draft yourself — see the owner-label handling in renderBoard below,
+// which is what tells the two apart on screen.
 function teamsForCurrentDraftTeam(league){
-  return league.teams.filter(teamKey => TEAM_META[teamKey].draftTeamId === currentDraftTeamId);
+  const owned = league.teams.filter(teamKey => TEAM_META[teamKey].draftTeamId === currentDraftTeamId);
+  if(currentDraftTeamId !== currentProfileId) return owned;
+  const favoritedElsewhere = league.teams.filter(teamKey =>
+    TEAM_META[teamKey].draftTeamId !== currentDraftTeamId && isFavorite(teamKey)
+  );
+  return owned.concat(favoritedElsewhere);
 }
 
 // Deliberately not persisted to localStorage — that's the difference
@@ -177,9 +186,18 @@ export function renderBoard(){
       // per team, so those keep it and just append their record chip
       // after it (empty string until that league's standings cache
       // resolves, same as CFB/NFL always have).
+      // A team pulled in by a favorite (not this drafter's own — see
+      // teamsForCurrentDraftTeam above) renders exactly like any other
+      // row, no owner credit — the star alone is what marks it as a
+      // favorite rather than something actually drafted here.
       const subHtml = league.key === 'epl'
         ? `<span class="epl-record" id="epl-record-${teamKey}"></span>`
         : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}`;
+      // The star is a favorited-status indicator here, not a persistent
+      // toggle affordance on every row — it only appears once a team is
+      // actually favorited (toggling that on happens from the team
+      // modal). Keeps a drafter's own roster from being cluttered with
+      // empty stars on every single team.
       return `
         <div class="team clickable" onclick="openTeamModal('${teamKey}')">
           ${teamBadgeHtml(meta)}
@@ -187,7 +205,7 @@ export function renderBoard(){
             <div class="team-name">${meta.name}</div>
             <div class="team-sub">${subHtml}</div>
           </div>
-          ${favoriteStarHtml(teamKey)}
+          ${isFavorite(teamKey) ? favoriteStarHtml(teamKey) : ''}
           <div class="status-slot" id="row-status-${teamKey}"></div>
         </div>
       `;

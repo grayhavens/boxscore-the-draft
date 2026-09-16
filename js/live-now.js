@@ -31,14 +31,23 @@
 import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, segmentedControlHtml } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { currentProfileId } from './identity.js';
+import { isFavorite, favoriteStarHtml } from './favorites.js';
 
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
 // re-pick and stale the moment the slate changes). `dayOffset` is in
 // whole days from today; 0 is today. ----
 let dayOffset = 0;
-let filterKey = 'all'; // 'live' | 'upcoming' | 'all'
+let filterKey = 'all'; // 'live' | 'upcoming' | 'all' — game STATE
+
+// Team SCOPE — a different axis from filterKey above, and independent
+// toggles rather than one exclusive choice: both can be on at once
+// ("Drafted + Favorites, nothing else"), and "all" is just shorthand
+// for "neither restriction is on". See the ghost chip/sheet below.
+const scopeFilter = { mine: false, fav: false };
+function scopeIsAll(){ return !scopeFilter.mine && !scopeFilter.fav; }
 
 // ---- Day slate fetching ----
 // One scoreboard request per sportPath per day. Today's slate is live
@@ -116,6 +125,8 @@ function buildGame(league, event){
       teamKey,
       meta,
       owner: teamKey ? ownerName(meta.draftTeamId) : '',
+      isMine: !!teamKey && meta.draftTeamId === currentProfileId,
+      isFav: !!teamKey && isFavorite(teamKey),
       score: c.score
     };
   });
@@ -134,6 +145,14 @@ function buildGame(league, event){
     detail: event.detail || '',
     date: event.date ? new Date(event.date) : null
   };
+}
+
+// A game matches the current scope if either side satisfies whichever
+// toggle(s) are on — an "OR" across sides and across toggles, so a
+// Drafted+Favorites combo shows a game if it has either.
+function gameMatchesScope(game){
+  if(scopeIsAll()) return true;
+  return [game.away, game.home].some(s => (scopeFilter.mine && s.isMine) || (scopeFilter.fav && s.isFav));
 }
 
 async function collectDay(offset){
@@ -185,6 +204,9 @@ function sideHtml(side, dim){
     `;
   }
   const open = `onclick="event.stopPropagation(); openTeamModal('${side.teamKey}')"`;
+  // Same rule as the Teams tab: the star only appears once a team is
+  // actually favorited, not as an empty toggle on every row.
+  const favHtml = side.isFav ? favoriteStarHtml(side.teamKey) : '';
   return `
     <div class="tg-side">
       <button type="button" class="tg-badge-btn" ${open} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
@@ -192,6 +214,7 @@ function sideHtml(side, dim){
         <span class="${nameClass}">${side.meta.name}</span>
         <span class="tg-owner">${side.owner}</span>
       </button>
+      ${favHtml}
       <span class="${scoreClass}">${score}</span>
     </div>
   `;
@@ -247,10 +270,71 @@ export function stepTodayDay(delta){
 export function resetTodayDay(){
   dayOffset = 0;
   filterKey = 'all';
+  scopeFilter.mine = false;
+  scopeFilter.fav = false;
 }
 
 window.setTodayFilter = setTodayFilter;
 window.stepTodayDay = stepTodayDay;
+
+// ---- Team scope sheet ("Show which teams?") ----
+
+function todayScopeChipLabel(){
+  if(scopeIsAll()) return 'All teams';
+  if(scopeFilter.mine && scopeFilter.fav) return 'Drafted + Favorites';
+  return scopeFilter.mine ? 'Drafted' : 'Favorites';
+}
+
+function todayScopeRowHtml(key, label, desc, active){
+  return `
+    <button class="sheet-row ${active ? 'active' : ''}" onclick="toggleTodayScope('${key}')">
+      <div class="sheet-row-text">
+        <div>${label}</div>
+        <div class="sheet-desc">${desc}</div>
+      </div>
+      <span class="sheet-check">${active ? CHECK_ICON_SVG : ''}</span>
+    </button>
+  `;
+}
+
+function refreshTodayScopeChrome(){
+  const labelEl = document.getElementById('today-scope-label');
+  if(labelEl) labelEl.textContent = todayScopeChipLabel();
+  const rowsEl = document.getElementById('today-scope-sheet-rows');
+  if(rowsEl){
+    rowsEl.innerHTML = todayScopeRowHtml('all', 'All teams', 'Every drafted team, every owner', scopeIsAll())
+      + todayScopeRowHtml('mine', 'Drafted Teams', 'Your own drafted roster', scopeFilter.mine)
+      + todayScopeRowHtml('fav', 'Favorites', 'Teams you’ve starred', scopeFilter.fav);
+  }
+}
+
+export function openTodayScopeSheet(){
+  refreshTodayScopeChrome();
+  document.getElementById('today-scope-sheet-overlay').classList.add('open');
+  lockBodyScroll();
+}
+
+export function closeTodayScopeSheet(){
+  document.getElementById('today-scope-sheet-overlay').classList.remove('open');
+  unlockBodyScroll();
+}
+
+// "All teams" clears both toggles (a one-tap reset); Drafted/Favorites
+// flip independently and the sheet stays open, since this is a filter
+// panel someone may want to set two switches on, not a menu that
+// closes itself after one tap.
+export function toggleTodayScope(key){
+  if(key === 'all'){ scopeFilter.mine = false; scopeFilter.fav = false; }
+  else scopeFilter[key] = !scopeFilter[key];
+  refreshTodayScopeChrome();
+  renderLiveNow();
+}
+
+window.openTodayScopeSheet = openTodayScopeSheet;
+window.closeTodayScopeSheet = closeTodayScopeSheet;
+window.toggleTodayScope = toggleTodayScope;
+
+enableSheetSwipeToDismiss(document.getElementById('today-scope-sheet-content'), closeTodayScopeSheet);
 
 function dayLabel(){
   if(dayOffset === 0) return 'Today';
@@ -310,18 +394,24 @@ export async function renderLiveNow(){
 
   const all = [];
   LEAGUES.forEach(l => { if(byLeague[l.key]) all.push(...byLeague[l.key].map(g => ({ ...g, league: l }))); });
-  const liveCount = all.filter(g => g.state === 'live').length;
+  // Everything downstream (the count line, the Live badge, the list
+  // itself) works off the scope-filtered set, not the full day's slate
+  // \u2014 so picking "Drafted" actually narrows what "3 live" means too,
+  // not just which cards are shown.
+  const inScope = all.filter(gameMatchesScope);
+  const liveCount = inScope.filter(g => g.state === 'live').length;
 
   if(subEl){
-    subEl.textContent = all.length
-      ? `${all.length} game${all.length === 1 ? '' : 's'} \u00b7 ${liveCount || 'no'} live`
-      : 'No games scheduled';
+    subEl.textContent = inScope.length
+      ? `${inScope.length} game${inScope.length === 1 ? '' : 's'} \u00b7 ${liveCount || 'no'} live`
+      : 'No games in this scope';
   }
   if(controlsEl) controlsEl.innerHTML = controlsHtml(liveCount);
+  refreshTodayScopeChrome();
 
-  let shown = all;
-  if(filterKey === 'live') shown = all.filter(g => g.state === 'live');
-  if(filterKey === 'upcoming') shown = all.filter(g => g.state === 'pre');
+  let shown = inScope;
+  if(filterKey === 'live') shown = shown.filter(g => g.state === 'live');
+  if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
 
   if(!shown.length){ listEl.innerHTML = emptyHtml(); return; }
 
