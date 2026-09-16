@@ -411,10 +411,14 @@ export async function fetchEspnNbaDivisionStandings(){
 }
 
 // Confirmed live (2026-09-12) the same way as NBA's above. NHL's 4
-// divisions don't collide by name across conferences either.
+// divisions don't collide by name across conferences either — but
+// "Metropolitan" is long enough to break layout in the tighter spots
+// that show it (the team modal's Division stat cell, standings group
+// headers), so it gets the same shortName override MLB's map uses,
+// even though there's no name collision reason to need one here.
 const NHL_DIVISION_GROUP_IDS = {
   'Atlantic': { groupId: 32, conferenceAbbr: 'East' },
-  'Metropolitan': { groupId: 33, conferenceAbbr: 'East' },
+  'Metropolitan': { groupId: 33, conferenceAbbr: 'East', shortName: 'Metro' },
   'Central': { groupId: 31, conferenceAbbr: 'West' },
   'Pacific': { groupId: 30, conferenceAbbr: 'West' }
 };
@@ -1021,7 +1025,7 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, location, mascot, homeAway, score, linescore: [n, ...] }],
 // boxscore: [{ teamId, abbr, groups: [...] }], media: { photoUrl,
-// recapHeadline, recapSummary, linkUrl, linkLabel } } | null on any failure.
+// recapHeadline, recapSummary, linkUrl, linkLabel }, date } | null on any failure.
 export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -1047,8 +1051,11 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 
   const boxscore = parseEspnBoxscorePlayers(data, FOOTBALL_BOX_GROUP_COLUMNS);
   const media = parseEspnGameMedia(data);
+  // See fetchEspnSummary's comment above — same field, now also read by
+  // the Game Details header's date line (js/live-data.js).
+  const date = comp.date || null;
 
-  return { status, teams, boxscore, media };
+  return { status, teams, boxscore, media, date };
 }
 
 // Soccer's equivalent of fetchEspnSummary/fetchEspnFootballSummary above
@@ -1072,7 +1079,7 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 // Shape returned: { status: {state, detail, period, displayClock},
 // teams: [{ teamId, abbr, name, homeAway, score }], events: [{ teamId, minute,
 // player, kind: 'goal'|'yellow'|'red' }], media: { photoUrl, recapHeadline,
-// recapSummary, linkUrl, linkLabel } } | null on any failure.
+// recapSummary, linkUrl, linkLabel }, date } | null on any failure.
 export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
   if(!data) return null;
@@ -1111,6 +1118,9 @@ export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
     .sort((a, b) => a.sortValue - b.sortValue);
 
   const media = parseEspnGameMedia(data);
+  // See fetchEspnSummary's comment above — same field, now also read by
+  // the Game Details header's date line (js/live-data.js).
+  const date = comp.date || null;
 
-  return { status, teams, events, media };
+  return { status, teams, events, media, date };
 }

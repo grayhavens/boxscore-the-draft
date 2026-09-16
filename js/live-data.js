@@ -4,7 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
@@ -1302,7 +1302,15 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // row status (see .status-slot/.dot in css/style.css) rather than the
   // old solid green pill, so "live" reads the same everywhere.
   const isLiveNow = summary.status && summary.status.state === 'in';
-  const statusHtml = `${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
+  // The date on its own (no time — status.detail below already carries
+  // a time for a scheduled game, or "Final"/the live clock otherwise,
+  // so repeating a time here would just be clutter), same weekday/month/
+  // day formatting as every other date on this app (formatKickoff's
+  // date-only sibling — see formatDateShort in js/utils.js). This is
+  // literally the only thing missing from this header before: date was
+  // never shown anywhere in the Game Details sheet.
+  const dateLabel = formatDateShort(summary.date);
+  const statusHtml = `${dateLabel ? `${dateLabel} &middot; ` : ''}${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
 
   // The score itself is now the header's title (see el.innerHTML below)
   // — previously the header showed only team names, with the score
