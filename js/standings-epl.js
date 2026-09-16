@@ -145,9 +145,14 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const draftedByHtml = teamKey
-    ? `<div class="drafted-by-chip">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
+  const ownerHtml = teamKey
+    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
     : '';
+  // Same two-tier record treatment as the Drafted view's row (see
+  // .person-record-chip in css/style.css and renderEplByDrafterRow
+  // below) — the real W-D-L record as the bold line, league points
+  // called out underneath.
+  const recordHtml = `<span class="person-record-primary">${row.wins}-${row.draws}-${row.losses}</span><span class="person-record-secondary">${row.points} PTS</span>`;
 
   return `
     <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
@@ -155,9 +160,9 @@ export function renderStandingsRow(leagueKey, row){
       ${teamBadgeHtml(meta)}
       <div class="team-main">
         <div class="team-name">${meta.name}</div>
-        <div class="team-sub">${row.wins}-${row.draws}-${row.losses} &middot; ${row.points} pts</div>
+        ${ownerHtml}
       </div>
-      ${draftedByHtml}
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }

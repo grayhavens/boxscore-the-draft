@@ -16,6 +16,7 @@
    ============================================================ */
 import { fetchEspnNbaStandings, fetchEspnNbaDivisionStandings } from './espn.js';
 import { createFlatStandingsBoard } from './standings-flat.js';
+import { formatWinPct } from './utils.js';
 
 // Win percentage isn't carried on the combined bucket itself — derived
 // here from whatever's been summed so far, so a still-winless-but-
@@ -50,7 +51,7 @@ const board = createFlatStandingsBoard({
     const pct = winPct(row);
     return {
       primary: `${row.wins}-${row.losses}`,
-      secondary: pct !== null ? `${Math.round(pct * 100)}% WIN` : ''
+      secondary: pct !== null ? formatWinPct(pct) : ''
     };
   },
   combinedSort: (a, b) => {

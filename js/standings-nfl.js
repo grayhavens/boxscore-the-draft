@@ -34,7 +34,7 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -327,10 +327,16 @@ export function renderNflStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const draftedByHtml = teamKey
-    ? `<div class="drafted-by-chip">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
+  const ownerHtml = teamKey
+    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
     : '';
   const recordLabel = `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`;
+  // Same two-tier record treatment as the Drafted view's row (see
+  // .person-record-chip in css/style.css and renderNflByDrafterRow
+  // below) — the raw W-L(-T) record as the bold line, win% called out
+  // underneath. ESPN's own winPercent (js/espn.js) covers a single
+  // row here, unlike the Drafted view's aggregated bucket.pct.
+  const recordHtml = `<span class="person-record-primary">${recordLabel}</span>${row.winPercent !== null && row.winPercent !== undefined ? `<span class="person-record-secondary">${formatWinPct(row.winPercent)}</span>` : ''}`;
 
   return `
     <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
@@ -338,9 +344,9 @@ export function renderNflStandingsRow(row, rank){
       ${teamBadgeHtml(meta)}
       <div class="team-main">
         <div class="team-name">${meta.name}</div>
-        <div class="team-sub">${recordLabel}</div>
+        ${ownerHtml}
       </div>
-      ${draftedByHtml}
+      <div class="person-record-chip">${recordHtml}</div>
     </div>
   `;
 }
@@ -453,7 +459,7 @@ export function renderNflByDrafterRow(row, rank){
   // Two-tier: the raw W-L(-T) record as the bold line, win% called out
   // underneath — see .person-record-chip in css/style.css.
   const recordHtml = row.found > 0
-    ? `<span class="person-record-primary">${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}</span>${row.pct !== null ? `<span class="person-record-secondary">${Math.round(row.pct * 100)}% WIN</span>` : ''}`
+    ? `<span class="person-record-primary">${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}</span>${row.pct !== null ? `<span class="person-record-secondary">${formatWinPct(row.pct)}</span>` : ''}`
     : `<span class="person-record-primary">&mdash;</span>`;
 
   return `

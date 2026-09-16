@@ -616,13 +616,13 @@ body{
   flex: 1;
   border: none;
   background: none;
-  padding: 9px 0;
+  padding: 6px 0;
   font-family: 'Manrope', sans-serif;
   font-size: 12.5px;
   font-weight: 700;
   color: var(--text-sub);
   cursor: pointer;
-  min-height: 44px;
+  min-height: 34px;
 }
 
 .seg-btn.active{ color: var(--accent); }
@@ -839,13 +839,10 @@ body{
 .tg-name.dim,
 .tg-score.dim{ color: var(--text-sub); }
 
-/* Owner designation. Deliberately NOT the gold .gc-owner/.drafted-by-
-   chip treatment the rest of the app uses for this: on the Teams and
-   Standings tabs the owner is the row's point, but here it's the
-   fourth thing on a line that already has a crest, a club and a score,
-   and full-strength accent gold on every line was reading louder than
-   the scores. Micro-caps behind a hairline instead — unmistakably
-   metadata, still legible at 4.5:1+. */
+/* Owner designation. Micro-caps behind a hairline — unmistakably
+   metadata, still legible at 4.5:1+ — rather than full-strength accent
+   gold, which read as louder than the scores on a line that already
+   has a crest, a club and a score. */
 .tg-owner{
   flex: 0 0 auto;
   font-family: 'Manrope', sans-serif;
@@ -1989,7 +1986,7 @@ body{
 .standings-toggle{
   display: flex;
   gap: 6px;
-  padding: 12px 18px;
+  padding: 8px 18px;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -2082,12 +2079,18 @@ body{
 .standings-group-header + .standings-row{ border-top: none; }
 
 /* Drafted view's combined-record stat — no pill (see the Standings-tab
-   exploration: same move away from pills as .drafted-by-chip below and
-   the Teams tab's status column), two-tier instead: the real W-D-L/W-L
-   record as the bold primary line, the derived stat (league points or
-   win%) called out separately underneath in the same "record" blue-gray
-   (not the gold drafted-by tag, nor the win/loss colors) so it still
-   reads as its own signal. */
+   exploration: same move away from pills as the Teams tab's status
+   column), two-tier instead: the real W-D-L/W-L record as the bold
+   primary line, the derived stat (league points or win%) called out
+   separately underneath in the same "record" blue-gray (not the win/
+   loss colors) so it still reads as its own signal. The League view's
+   row reuses this same class for its now-matching right-side record —
+   see js/standings-flat.js/-epl.js/-cfb.js/-nfl.js/-wnba.js. Its owner
+   label sits under the team name as a second plain .team-sub line
+   instead (same treatment as the Drafted view's "Chiefs · Bengals ·
+   Bears" teams-list line), not its own gold/pill styling — an
+   always-on-every-row attribution reads as secondary metadata here,
+   not the row's point. */
 .person-record-chip{
   margin-left: auto;
   flex: 0 0 auto;
@@ -2110,21 +2113,6 @@ body{
   font-weight: 800;
   letter-spacing: 0.4px;
   color: var(--record);
-}
-
-/* Plain text now, not a pill — see the Standings-tab drafted-by-tag
-   exploration: reads as an attribution ("owned by Collin") rather than
-   a filter chip, and matches the Teams tab's move away from pills for
-   this same kind of always-on-every-row label. */
-.drafted-by-chip{
-  margin-left: auto;
-  flex: 0 0 auto;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.1px;
-  white-space: nowrap;
-  color: var(--accent);
 }
 
 /* ---- Overall view (cross-drafter leaderboard) ----
