@@ -25,7 +25,7 @@ import { trackerSectionHtml } from './league-facts.js';
 // club's ESPN team id by name — ESPN's ids don't line up with
 // TheSportsDB's sportsdbId), and `sportPath` is ESPN's own sport/league
 // slug for the schedule URL.
-const FLAT_SCHEDULE_LEAGUES = {
+export const FLAT_SCHEDULE_LEAGUES = {
   epl: { sportPath: 'soccer/eng.1', ensureStandings: fetchEplStandingsTable, findRow: findEspnEplRow },
   nfl: { sportPath: 'football/nfl', ensureStandings: fetchEspnNflStandingsCached, findRow: findEspnNflRow },
   cfb: { sportPath: 'football/college-football', ensureStandings: fetchEspnCfbRecordsCached, findRow: findEspnCfbRow },

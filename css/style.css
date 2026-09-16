@@ -498,49 +498,353 @@ body{
   .dot.pulse{ animation: none; }
 }
 
-/* ---- Live Now: game card ----
-   Two team columns flanking a center score/status, built from the
-   same .badge/owner-tag/.meta-label pieces as everywhere else, just
-   recomposed for a game instead of a roster row (see js/live-now.js).
-   Both columns always reserve the same badge → name → owner slots so
-   badges line up even when only one side is a drafted team — the
-   other side's owner slot renders empty (see .gc-owner.placeholder). */
-.game-card{ display:grid; grid-template-columns: 1fr 82px 1fr; align-items:center; gap:4px; padding:16px 14px; position:relative; }
-.game-card + .game-card{ border-top:1px solid rgba(255,255,255,0.06); }
-.game-card.clickable{ cursor: pointer; transition: background 0.15s ease; }
-.game-card.clickable:hover{ background: rgba(255,255,255,0.03); }
-.game-card.clickable:active{ background: rgba(255,255,255,0.05); }
-
-.gc-side{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; min-width:0; }
-/* Sized down from the Teams-tab row's 44px badge — two of these now
-   share a row with a center score column, unlike a single roster row. */
-.gc-side .badge{ width:42px; height:42px; flex:0 0 42px; font-size:12.5px; }
-.gc-name{ font-weight:700; font-size:13.5px; line-height:1.18; letter-spacing:-0.1px; max-width:100%; }
-/* Same plain-text drafted-by treatment as the Standings tab's
-   .drafted-by-chip (js/standings-*.js) — gold text, no pill — just
-   without that class's own margin-left:auto/flex layout rules, which
-   are for its original horizontal-row context, not this centered
-   column. */
-.gc-owner{ font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:700; letter-spacing:-0.1px; white-space:nowrap; color:var(--accent); }
-.gc-owner.placeholder{ visibility:hidden; }
-
-.gc-center{ display:flex; flex-direction:column; align-items:center; gap:3px; }
-.gc-center .meta-value{ font-size:17px; }
-
-.gc-chev{ position:absolute; top:16px; right:12px; color:var(--text-mute); font-size:13px; }
-
-/* ---- Live Now: empty state + "Next up" preview ---- */
+/* ---- Live Now: empty state ---- */
 .empty-panel{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding: 40px 20px 26px; color: var(--text-sub); }
-.empty-ball{ font-size:34px; opacity:0.5; }
 .empty-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:17px; color:var(--text); }
 .empty-sub{ font-size:12.5px; line-height:1.5; max-width:270px; }
-.next-up{ width:100%; margin-top:22px; text-align:left; }
-.next-up-label{ font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--text-mute); padding:0 2px 8px; }
 
-@media (max-width: 420px){
-  .game-card{ grid-template-columns: 1fr 68px 1fr; padding:14px 10px; }
-  .gc-side .badge{ width:36px; height:36px; flex:0 0 36px; }
-  .gc-name{ font-size:12.5px; }
+/* ============================================================
+   Today tab (js/live-now.js) — replaces the old "Live Now" game-card
+   layout above.
+
+   The layout is a single day timeline: a fixed left gutter holding the
+   time (or LIVE, or F), a hairline rail with a status node on it, and
+   the matchup card hung off that rail. Two teams per card, each a
+   badge + name + owner + score on its own line — no center score
+   column, so a long club name has the full card width instead of a
+   third of it.
+   ============================================================ */
+
+/* ---- Day navigation ---- */
+.tg-daynav{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 12px;
+}
+
+.tg-arrow{
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--text-mute);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  /* 44px hit target (see the app's own minimum) without a 44px-tall
+     visual button — the chevron itself stays small and quiet. */
+  padding: 11px 14px;
+}
+
+.tg-arrow:hover{ color: var(--text); }
+
+.tg-daynav-center{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.tg-day{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.2px;
+}
+
+.tg-date{
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+/* Reads as "you are here on the calendar" — the only accent mark in
+   the header, so arrowing away from today still looks anchored. */
+.tg-day-underline{
+  width: 34px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 3px;
+}
+
+/* ---- Live / Upcoming / All ----
+   A sliding segmented control rather than the .filter-chip row the old
+   view used: these three are mutually exclusive states of the same
+   list, not a jump-nav across leagues, and the thumb's movement is
+   what makes that read. Solid accent (like .filter-chip.active) rather
+   than .toggle-btn's accent-soft, since this is the primary control on
+   the page. */
+.tg-seg{
+  position: relative;
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 6px;
+}
+
+.tg-seg-thumb{
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 999px;
+  background: var(--accent);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce){
+  .tg-seg-thumb{ transition: none; }
+}
+
+.tg-seg-btn{
+  position: relative;
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 9px 0;
+  font-family: 'Manrope', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.tg-seg-btn.active{ color: var(--bg); }
+
+/* ---- Section headers (Live now, then one per league) ---- */
+.tg-section{ margin-bottom: 8px; }
+
+.tg-section-head{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Indented past the time gutter so the label starts where the cards
+     do, not where the clock does. */
+  padding: 12px 0 8px 62px;
+}
+
+.tg-section-label{
+  font-family: 'Manrope', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.tg-section-label.live{ color: var(--live); }
+
+.tg-section-rule{
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ---- One game on the rail ---- */
+.tg-row{
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 16px;
+  padding: 2px 0 14px;
+}
+
+.tg-rail{
+  text-align: right;
+  padding-top: 2px;
+}
+
+.tg-rail-top{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: -0.2px;
+  color: var(--text-sub);
+}
+
+.tg-rail-top.live{ color: var(--live); }
+
+.tg-rail-bot{
+  font-family: 'Manrope', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-top: 3px;
+}
+
+/* The spine. Runs the full height of each row so consecutive games
+   read as one continuous day rather than separate cards. */
+.tg-line{
+  position: absolute;
+  left: 54px;
+  top: 8px;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* The node sits ON the rail; its bg ring is the page background, so
+   the line appears to pass behind it. */
+.tg-node{
+  position: absolute;
+  left: 50px;
+  top: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--bg);
+  background: var(--text-mute);
+}
+
+.tg-node.live{ background: var(--live); }
+.tg-node.pre{ background: var(--provisional); }
+
+/* Expanding ring on a live node only — the same "only motion on the
+   board" restraint .dot.pulse already sets, just at the one place this
+   view most needs it. */
+.tg-node.live::after{
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--live);
+  animation: tg-node-ring 2s ease-out infinite;
+}
+
+@keyframes tg-node-ring{
+  0%{ transform: scale(1); opacity: 0.55; }
+  70%, 100%{ transform: scale(2.6); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .tg-node.live::after{ animation: none; }
+}
+
+.tg-card{
+  margin-left: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* A live card is tinted from the top rather than outlined in red — the
+   red border alone read as an error state next to the app's own
+   --loss-colored rows. */
+.tg-card.live{
+  border-color: rgba(229, 72, 77, 0.32);
+  background: radial-gradient(120% 140% at 50% -20%, rgba(229, 72, 77, 0.10), var(--surface) 62%);
+}
+
+.tg-card.clickable{ cursor: pointer; transition: background 0.15s ease; }
+.tg-card.clickable:hover{ background: rgba(255, 255, 255, 0.03); }
+
+.tg-side{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tg-side .badge{
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  font-size: 9px;
+  border-radius: 8px;
+}
+
+/* Both the badge and the name open the team modal (openTeamModal) —
+   plain buttons with no chrome of their own, so the row still looks
+   like a row and not a toolbar. */
+.tg-badge-btn,
+.tg-label{
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+.tg-badge-btn{ flex: 0 0 auto; display: flex; }
+
+.tg-label{
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  text-align: left;
+}
+
+.tg-name{
+  font-weight: 700;
+  font-size: 13.5px;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The losing side of a finished game. --text-sub, not --text-mute:
+   still clearly secondary, still above 4.5:1 on --surface. */
+.tg-name.dim,
+.tg-score.dim{ color: var(--text-sub); }
+
+/* Owner designation. Deliberately NOT the gold .gc-owner/.drafted-by-
+   chip treatment the rest of the app uses for this: on the Teams and
+   Standings tabs the owner is the row's point, but here it's the
+   fourth thing on a line that already has a crest, a club and a score,
+   and full-strength accent gold on every line was reading louder than
+   the scores. Micro-caps behind a hairline instead — unmistakably
+   metadata, still legible at 4.5:1+. */
+.tg-owner{
+  flex: 0 0 auto;
+  font-family: 'Manrope', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  white-space: nowrap;
+  padding-left: 7px;
+  border-left: 1px solid var(--hairline-strong);
+}
+
+.tg-owner:empty{ display: none; }
+
+.tg-score{
+  flex: 0 0 auto;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Empty state ----
+   Reuses .empty-panel/.empty-title/.empty-sub as-is; only the old
+   basketball emoji is replaced (it was the one piece of the old view
+   that didn't match anything else in the app). */
+.tg-empty-ring{
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--hairline-strong);
 }
 
 /* ---- Modal ---- */
