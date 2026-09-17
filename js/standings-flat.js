@@ -304,7 +304,10 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
+    // favoriteOnly (js/data.js) is a personal add-on outside the real
+    // draft — flagged here as "· Favorite" so the owner name doesn't
+    // read as one of that drafter's real picks in this league.
+    const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
     // Same two-tier record treatment as the Drafted view's row (see
     // .person-record-chip) — combinedLabel works unchanged on a single
     // ESPN row, not just an aggregated per-drafter bucket, since both
@@ -327,12 +330,16 @@ export function createFlatStandingsBoard(opts){
 
   function computeDrafterCombined(){
     const league = LEAGUES.find(l => l.key === leagueKey);
+    // Excludes any favoriteOnly team (see its definition in js/data.js)
+    // — a personal add-on outside the real draft must never move a
+    // drafter's combined record/bonus standing, only their own board.
+    const scoringTeams = league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly);
     const byDrafter = {};
     DRAFT_TEAMS.forEach(d => {
       byDrafter[d.id] = Object.assign({ id: d.id, name: d.name, found: 0, total: 0, teamNames: [] }, combinedInit());
     });
 
-    league.teams.forEach(teamKey => {
+    scoringTeams.forEach(teamKey => {
       const meta = TEAM_META[teamKey];
       byDrafter[meta.draftTeamId].total++;
       byDrafter[meta.draftTeamId].teamNames.push(meta.name);
@@ -340,7 +347,7 @@ export function createFlatStandingsBoard(opts){
 
     (cache.rows || []).forEach(row => {
       const teamKey = findFlatTeamKey(leagueKey, row.teamNickname);
-      if(!teamKey) return;
+      if(!teamKey || TEAM_META[teamKey].favoriteOnly) return;
       const bucket = byDrafter[TEAM_META[teamKey].draftTeamId];
       combinedAccumulate(bucket, row);
       bucket.found++;

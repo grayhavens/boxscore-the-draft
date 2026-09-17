@@ -4,7 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, abbrFromName } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
@@ -59,6 +59,34 @@ export const FLAT_SCHEDULE_LEAGUES = {
 const titleNameLocation = team => (team && (team.location || team.mascot || team.name || team.abbr)) || '';
 const titleNameMascot = team => (team && (team.mascot || team.location || team.name || team.abbr)) || '';
 const titleNameFull = team => (team && (team.name || team.abbr)) || '';
+
+// Resolves one side of the Game Details header (see renderGameDetail
+// below) to the same badge + name the Scores tab already shows for this
+// exact matchup (see sideHtml/opponentMeta in js/live-now.js) — a
+// drafted team by its own TEAM_META crest and nickname (with the dark-
+// crest override, e.g. the Padres' bright "SD"/"Padres" — see crestSrc
+// in js/utils.js), matched by name the same way every other Scores-tab
+// lookup does (findDraftedTeamByName/findCfbTeamKeyByLocation — CFB
+// alone needs the location-based matcher, per its own comment). An
+// undrafted opponent has no TEAM_META entry, so both its badge and name
+// fall back to ESPN's own summary data — real crest art via
+// `team.logoUrl` (see espnLogoUrl in js/espn.js) over the same plain-
+// monogram treatment renderCfbRankingRow already gives undrafted ranked
+// CFB teams, and its full ESPN display name (e.g. "Pittsburgh Pirates")
+// rather than the bare abbreviation this header used to show.
+function resolveGameDetailSide(team, leagueKey){
+  if(!team) return { badgeHtml: '', name: '' };
+  const teamKey = leagueKey === 'cfb'
+    ? findCfbTeamKeyByLocation(team.location)
+    : findDraftedTeamByName(leagueKey, team.name);
+  const meta = teamKey ? TEAM_META[teamKey] : {
+    name: team.name || team.abbr || '',
+    badgeStyle: 'background: rgba(255,255,255,0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
+    badgeText: team.abbr || abbrFromName(team.name),
+    badgeUrl: team.logoUrl || null
+  };
+  return { badgeHtml: teamBadgeHtml(meta), name: meta.name };
+}
 
 // Leagues wired up for the "Game Details" boxscore drill-down (see
 // openGameDetail/renderGameDetail below) — MLB first, CFB added
@@ -1451,13 +1479,16 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     <div class="gd-head with-back">
       <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
       <div>
-        ${hasScore ? `
+        ${hasScore ? (() => {
+          const awaySide = resolveGameDetailSide(away, leagueKey);
+          const homeSide = resolveGameDetailSide(home, leagueKey);
+          return `
           <div class="gd-score-title">
-            <span class="gd-score-team${awayWon ? ' win' : ''}">${away.abbr || away.name}<b>${awayScore}</b></span>
-            <span class="gd-score-sep">–</span>
-            <span class="gd-score-team${homeWon ? ' win' : ''}">${home.abbr || home.name}<b>${homeScore}</b></span>
+            <span class="gd-score-team${awayWon ? ' win' : ''}">${awaySide.badgeHtml}${awaySide.name}<b>${awayScore}</b></span>
+            <span class="gd-score-team${homeWon ? ' win' : ''}">${homeSide.badgeHtml}${homeSide.name}<b>${homeScore}</b></span>
           </div>
-        ` : `<div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>`}
+          `;
+        })() : `<div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>`}
         <div class="gd-sub">${statusHtml}</div>
       </div>
     </div>
