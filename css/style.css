@@ -94,6 +94,12 @@ body{
   row-gap: 8px;
 }
 
+.app-logo-link{
+  flex: 0 0 36px;
+  display: block;
+  cursor: pointer;
+}
+
 .app-logo{
   flex: 0 0 36px;
   width: 36px;
