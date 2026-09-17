@@ -34,8 +34,17 @@ export const DRAFT_TEAMS = [
 // js/live-data.js).
 // leagueKey links each team to its LEAGUE_SCORING entry below.
 // draftTeamId links each team to its owner in DRAFT_TEAMS above.
+// favoriteOnly:true marks a team that isn't part of anyone's real draft
+// roster — it can still carry a draftTeamId (so it renders on that
+// person's own board and can be favorited/tracked from there), but every
+// points-adjacent computation (each league's computeXDrafterCombined,
+// js/overall.js's award/point totals) must filter these out first.
+// Currently just oklahomastate/oklahomastate_cbb below.
 //
-// Josh's 21 teams and all 18 other EPL clubs (below) have full
+// Josh's 23 teams (the real 21-team draft roster plus two personal
+// add-ons outside the draft — oklahomastate/oklahomastate_cbb, kept
+// only so Josh can follow and favorite Oklahoma State — see their own
+// comments below) and all 18 other EPL clubs (below) have full
 // metadata (real badge colors, live sportsdbId/rundownTeamId) filled
 // in. The remaining 171 teams — one roster per drafter, pulled from
 // the shared draft spreadsheet, across NFL/NBA/NHL/MLB/WNBA/CFB/CBB —
@@ -67,6 +76,22 @@ export const TEAM_META = {
   oregon:     { name:'Oregon',      leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Ducks',       sub:"Ducks",  accent:'#154733', badgeStyle:'background:#154733; color:#FEE123;', badgeText:'ORE',  sportsdbId:'136938', recentLabel:'Results So Far', rundownTeamId:198, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/p7qmdy1564336566.png' },
   texasam:    { name:'Texas A&M',   leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Aggies',      sub:"Aggies",  accent:'#500000', badgeStyle:'background:#500000; color:#FFFFFF;', badgeText:'A&M',  sportsdbId:'136959', recentLabel:'Results So Far', rundownTeamId:218, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/tsu3lj1564336806.png' },
   arizona:    { name:'Arizona',     leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Wildcats',    sub:"Wildcats",  accent:'#AB0520', badgeStyle:'background:#AB0520; color:#0C234B;', badgeText:'ARIZ', sportsdbId:'136171', recentLabel:'Results So Far', rundownTeamId:125, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/kq29h81564335468.png' },
+  // Added outside the real draft, just for Josh's own board — not part
+  // of anyone's drafted 30. Same real-data treatment as every drafted
+  // CFB team otherwise: findCfbTeamKeyByLocation (js/utils.js) matches
+  // it against ESPN's standings/schedule by `name` ("Oklahoma State",
+  // ESPN's own `location` field for team id 197), so it gets a real
+  // record, schedule and Game Details sheet, not a placeholder.
+  // draftTeamId is 'josh' only so it renders on Josh's own board (see
+  // teamsForCurrentDraftTeam in js/board.js) — it is NOT one of his 3
+  // real CFB picks. favoriteOnly:true is what actually enforces that:
+  // every drafter-combined/points computation (computeCfbDrafterCombined
+  // in js/standings-cfb.js, and the equivalent in every other league
+  // file) must filter it out before counting wins/losses toward any
+  // drafter's bonus or points — favoriting a team, drafted-elsewhere or
+  // hardcoded like this one, tracks it for fun and must never itself add
+  // to a drafter's score.
+  oklahomastate: { name:'Oklahoma State', leagueKey:'cfb', draftTeamId:'josh', favoriteOnly:true, boardSub:'Cowboys', sub:"Cowboys", accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:'136936', recentLabel:'Results So Far', rundownTeamId:196, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
 
   // TheSportsDB doesn't carry a distinct entry for these three
   // schools' basketball programs (only their football teams), so
@@ -75,6 +100,16 @@ export const TEAM_META = {
   houston:    { name:'Houston',     leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Cougars',      sub:'Cougars',      accent:'#C8102E', badgeStyle:'background:#C8102E; color:#FFFFFF;', badgeText:'HOU', sportsdbId:null, rundownTeamId:275, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/248.png' },
   purdue:     { name:'Purdue',      leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Boilermakers', sub:'Boilermakers', accent:'#000000', badgeStyle:'background:#000000; color:#CEB888;', badgeText:'PUR', sportsdbId:null, rundownTeamId:321, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png' },
   utahstate:  { name:'Utah State',  leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Aggies',       sub:'Aggies',       accent:'#0F2439', badgeStyle:'background:#0F2439; color:#FFFFFF;', badgeText:'USU', sportsdbId:null, rundownTeamId:348, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/328.png', badgeUrlDark:'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/328.png' },
+  // Same "just for Josh, outside the real draft" addition as
+  // `oklahomastate` above, on the CBB side — espnTeamId 197 (ESPN reuses
+  // the same numeric team id across a school's sports) is what
+  // findCbbTeamKeyByEspnId (js/standings-cbb.js) matches against, same
+  // as every real mcbb draft pick. No sportsdbId: TheSportsDB has no
+  // separate entry for this school's basketball program, same as
+  // Houston/Purdue/Utah State above. favoriteOnly:true — see
+  // `oklahomastate`'s comment above; same rule applies here for
+  // computeCbbDrafterCombined (js/standings-cbb.js).
+  oklahomastate_cbb: { name:'Oklahoma State', leagueKey:'mcbb', draftTeamId:'josh', favoriteOnly:true, boardSub:'Cowboys', sub:'Cowboys', accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:null, espnTeamId:'197', rundownTeamId:315, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
 
   // ---- Skeleton: the other 9 drafters' rosters (189 teams) ----
   isaac_arsenal: { name:'Arsenal', leagueKey:'epl', draftTeamId:'isaac', boardSub:'Premier League', sub:"", accent:'#EF0107', badgeStyle:'background:#EF0107; color:#FFFFFF;', badgeText:'ARS', sportsdbId:'133604', rundownTeamId:3436, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/uyhbfe1612467038.png' },
@@ -273,13 +308,13 @@ export const TEAM_META = {
 // and the season label shown next to the league name.
 export const LEAGUES = [
   { key:'epl', label:'EPL', season:"'26/'27 Season", teams:['isaac_arsenal', 'drew_mancity', 'douglas_everton', 'collin_chelsea', 'erichylok_astonvilla', 'liverpool', 'patrick_manunited', 'peter_tottenhamhotspur', 'ericprister_crystalpalace', 'donny_brentford', 'isaac_ipswichtown', 'drew_hullcity', 'douglas_fulham', 'collin_leedsunited', 'erichylok_nottingham', 'newcastle', 'patrick_brighton', 'peter_afcbournemouth', 'ericprister_sunderland', 'donny_coventrycity'] },
-  { key:'cfb', label:'College FB', season:"'26 Season", teams:['isaac_ohiostate', 'drew_georgia', 'douglas_miami', 'collin_washington', 'erichylok_usc', 'oregon', 'patrick_liberty', 'peter_texas', 'ericprister_oklahoma', 'donny_texastech', 'isaac_notredame', 'drew_pennstate', 'douglas_lsu', 'collin_toledo', 'erichylok_smu', 'texasam', 'patrick_westernmichigan', 'peter_iu', 'ericprister_jamesmadison', 'donny_newmexico', 'isaac_boisestate', 'drew_ndsu', 'douglas_houston', 'collin_olemiss', 'erichylok_byu', 'arizona', 'patrick_navy', 'peter_virginia', 'ericprister_memphis', 'donny_louisville'] },
+  { key:'cfb', label:'College FB', season:"'26 Season", teams:['isaac_ohiostate', 'drew_georgia', 'douglas_miami', 'collin_washington', 'erichylok_usc', 'oregon', 'patrick_liberty', 'peter_texas', 'ericprister_oklahoma', 'donny_texastech', 'isaac_notredame', 'drew_pennstate', 'douglas_lsu', 'collin_toledo', 'erichylok_smu', 'texasam', 'patrick_westernmichigan', 'peter_iu', 'ericprister_jamesmadison', 'donny_newmexico', 'isaac_boisestate', 'drew_ndsu', 'douglas_houston', 'collin_olemiss', 'erichylok_byu', 'arizona', 'patrick_navy', 'peter_virginia', 'ericprister_memphis', 'donny_louisville', 'oklahomastate'] },
   { key:'nfl', label:'NFL', season:"'26 Season", teams:['isaac_eagles', 'drew_chiefs', 'douglas_texans', 'collin_seahawks', 'erichylok_49ers', 'lions', 'patrick_ravens', 'peter_broncos', 'ericprister_rams', 'donny_bucs', 'isaac_patriots', 'drew_bengals', 'douglas_falcons', 'collin_giants', 'erichylok_packers', 'steelers', 'patrick_colts', 'peter_jaguars', 'ericprister_bills', 'donny_vikings', 'isaac_titans', 'drew_bears', 'douglas_commanders', 'collin_raiders', 'erichylok_cowboys', 'dolphins', 'patrick_saints', 'peter_panthers', 'ericprister_chargers', 'donny_jets'] },
   { key:'mlb', label:'MLB', season:"'27 Season", teams:['isaac_yankees', 'drew_brewers', 'douglas_bluejays', 'collin_dodgers', 'erichylok_braves', 'cubs', 'patrick_twins', 'peter_orioles', 'ericprister_rays', 'donny_tigers', 'isaac_guardians', 'drew_whitesox', 'douglas_marlins', 'collin_redsox', 'erichylok_astros', 'padres', 'patrick_athletics', 'peter_royals', 'ericprister_diamondbacks', 'donny_mariners', 'isaac_mets', 'drew_rockies', 'douglas_pirates', 'collin_phillies', 'erichylok_rangers', 'nationals', 'patrick_reds', 'peter_angels', 'ericprister_cardinals', 'donny_giants'] },
   { key:'wnba', label:'WNBA', season:"'27 Season", teams:['isaac_mercury', 'drew_sky', 'douglas_lynx', 'collin_dream', 'erichylok_liberty', 'valkyries', 'patrick_wings', 'peter_aces', 'ericprister_mystics', 'donny_fever'] },
   { key:'nba', label:'NBA', season:"'26/'27 Season", teams:['isaac_raptors', 'drew_knicks', 'douglas_76ers', 'collin_blazers', 'erichylok_celtics', 'cavaliers', 'patrick_spurs', 'peter_pacers', 'ericprister_hawks', 'donny_thunder', 'isaac_bulls', 'drew_warriors', 'douglas_rockets', 'collin_nets', 'erichylok_timberwolves', 'nuggets', 'patrick_heat', 'peter_jazz', 'ericprister_clippers', 'donny_pistons', 'isaac_pelicans', 'drew_bucks', 'douglas_hornets', 'collin_kings', 'erichylok_suns', 'mavericks', 'patrick_magic', 'peter_wizards', 'ericprister_grizzlies', 'donny_lakers'] },
   { key:'nhl', label:'NHL', season:"'26/'27 Season", teams:['isaac_ducks', 'drew_stars', 'douglas_mammoth', 'collin_hurricanes', 'erichylok_jets', 'lightning', 'patrick_oilers', 'peter_goldenknights', 'ericprister_panthers', 'donny_capitals', 'isaac_sabres', 'drew_senators', 'douglas_predators', 'collin_canadiens', 'erichylok_kraken', 'flyers', 'patrick_sharks', 'peter_devils', 'ericprister_avalanche', 'donny_kings', 'isaac_bluejackets', 'drew_islanders', 'douglas_blues', 'collin_mapleleafs', 'erichylok_canucks', 'redwings', 'patrick_rangers', 'peter_bruins', 'ericprister_wild', 'donny_penguins'] },
-  { key:'mcbb', label:'College BB', season:"'26/'27 Season", teams:['isaac_uconn', 'drew_michigan', 'douglas_duke', 'collin_arizona', 'erichylok_kansas', 'houston', 'patrick_illinois', 'peter_michstate', 'ericprister_iowastate', 'donny_florida', 'isaac_tennessee', 'drew_alabama', 'douglas_texas', 'collin_stjohns', 'erichylok_virginia', 'purdue', 'patrick_kentucky', 'peter_arkansas', 'ericprister_vanderbilt', 'donny_saintmarys', 'isaac_miami', 'drew_gonzaga', 'douglas_texastech', 'collin_northcarolina', 'erichylok_nebraska', 'utahstate', 'patrick_ndsu', 'peter_slu', 'ericprister_georgia', 'donny_louisville_cbb'] }
+  { key:'mcbb', label:'College BB', season:"'26/'27 Season", teams:['isaac_uconn', 'drew_michigan', 'douglas_duke', 'collin_arizona', 'erichylok_kansas', 'houston', 'patrick_illinois', 'peter_michstate', 'ericprister_iowastate', 'donny_florida', 'isaac_tennessee', 'drew_alabama', 'douglas_texas', 'collin_stjohns', 'erichylok_virginia', 'purdue', 'patrick_kentucky', 'peter_arkansas', 'ericprister_vanderbilt', 'donny_saintmarys', 'isaac_miami', 'drew_gonzaga', 'douglas_texastech', 'collin_northcarolina', 'erichylok_nebraska', 'utahstate', 'patrick_ndsu', 'peter_slu', 'ericprister_georgia', 'donny_louisville_cbb', 'oklahomastate_cbb'] }
 ];
 
 // MLB and WNBA drafted teams score starting with the '27 season (see

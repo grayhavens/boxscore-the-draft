@@ -154,7 +154,10 @@ function obSimIndex(){
     const scoring = LEAGUE_SCORING[league.key];
     if(!scoring) return;
     const rng = obSeededRandom('ob-sim-' + league.key);
-    const order = obSeededShuffle(league.teams, rng);
+    // Excludes any favoriteOnly team (see its definition in js/data.js)
+    // — a personal add-on outside the real draft, so it shouldn't be
+    // eligible to win simulated awards any more than real ones.
+    const order = obSeededShuffle(league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly), rng);
     const n = order.length;
     const awards = [];
 
@@ -212,7 +215,12 @@ function obDrafterAwards(draftTeamId){
     scoring.rules.forEach(rule => {
       obRuleTeams(league, rule).forEach(teamKey => {
         const meta = TEAM_META[teamKey];
-        if(!meta || meta.draftTeamId !== draftTeamId) return;
+        // favoriteOnly (js/data.js) is a personal add-on outside the
+        // real draft — excluded here too, as a last-resort backstop, in
+        // case it's ever credited upstream (an admin's League Facts
+        // pick, or a rankAuto table match) rather than just filtered out
+        // of the combined-record computations.
+        if(!meta || meta.draftTeamId !== draftTeamId || meta.favoriteOnly) return;
         awards.push({
           leagueKey: league.key,
           leagueLabel: league.label,
@@ -229,7 +237,7 @@ function obDrafterAwards(draftTeamId){
     // decided them, they don't move with a live table.
     league.teams.forEach(teamKey => {
       const meta = TEAM_META[teamKey];
-      if(!meta || meta.draftTeamId !== draftTeamId) return;
+      if(!meta || meta.draftTeamId !== draftTeamId || meta.favoriteOnly) return;
       const adj = getTeamAdjustment(teamKey);
       if(!adj || !adj.pts) return;
       awards.push({
@@ -248,7 +256,7 @@ function obDrafterAwards(draftTeamId){
 
 function obTeamNamesFor(draftTeamId, league){
   return league.teams
-    .filter(teamKey => TEAM_META[teamKey] && TEAM_META[teamKey].draftTeamId === draftTeamId)
+    .filter(teamKey => TEAM_META[teamKey] && TEAM_META[teamKey].draftTeamId === draftTeamId && !TEAM_META[teamKey].favoriteOnly)
     .map(teamKey => TEAM_META[teamKey].name);
 }
 

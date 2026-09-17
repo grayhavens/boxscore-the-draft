@@ -339,7 +339,10 @@ export function renderCfbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
+  // favoriteOnly (js/data.js) is a personal add-on outside the real
+  // draft — flagged here as "· Favorite" so the owner name doesn't read
+  // as one of that drafter's 3 real CFB picks.
+  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCfbByDrafterRow
   // below) — the raw W-L record as the bold line, win% called out
@@ -393,18 +396,22 @@ export function cfbStandingsToggleHtml(){
 // Ties on percentage broken by total wins.
 export function computeCfbDrafterCombined(){
   const league = LEAGUES.find(l => l.key === 'cfb');
+  // Excludes any favoriteOnly team (see its definition in js/data.js) —
+  // a personal add-on outside the real draft must never move a
+  // drafter's combined record/bonus standing, only their own board.
+  const scoringTeams = league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly);
   const byDrafter = {};
   DRAFT_TEAMS.forEach(d => {
     byDrafter[d.id] = { id: d.id, name: d.name, wins: 0, losses: 0, found: 0, total: 0, teamNames: [] };
   });
 
-  league.teams.forEach(teamKey => {
+  scoringTeams.forEach(teamKey => {
     const meta = TEAM_META[teamKey];
     byDrafter[meta.draftTeamId].total++;
     byDrafter[meta.draftTeamId].teamNames.push(meta.name);
   });
 
-  league.teams.forEach(teamKey => {
+  scoringTeams.forEach(teamKey => {
     const meta = TEAM_META[teamKey];
     const rec = findCfbRecord(meta);
     if(!rec || rec.wins === null) return;

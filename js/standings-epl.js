@@ -145,7 +145,10 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
+  // favoriteOnly (js/data.js) is a personal add-on outside the real
+  // draft — flagged here as "· Favorite" so the owner name doesn't read
+  // as one of that drafter's real EPL picks.
+  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderEplByDrafterRow
   // below) — the real W-D-L record as the bold line, league points
@@ -178,12 +181,16 @@ window.setEplStandingsMode = setEplStandingsMode;
 
 export function computeEplDrafterCombined(){
   const league = LEAGUES.find(l => l.key === 'epl');
+  // Excludes any favoriteOnly team (see its definition in js/data.js) —
+  // a personal add-on outside the real draft must never move a
+  // drafter's combined record/bonus standing, only their own board.
+  const scoringTeams = league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly);
   const byDrafter = {};
   DRAFT_TEAMS.forEach(d => {
     byDrafter[d.id] = { id: d.id, name: d.name, win: 0, draw: 0, loss: 0, points: 0, found: 0, total: 0, teamNames: [] };
   });
 
-  league.teams.forEach(teamKey => {
+  scoringTeams.forEach(teamKey => {
     const meta = TEAM_META[teamKey];
     byDrafter[meta.draftTeamId].total++;
     byDrafter[meta.draftTeamId].teamNames.push(meta.name);
@@ -191,7 +198,7 @@ export function computeEplDrafterCombined(){
 
   (eplStandingsCache.table || []).forEach(row => {
     const teamKey = findEplTeamKeyByEspnName(row.teamName);
-    if(!teamKey) return;
+    if(!teamKey || TEAM_META[teamKey].favoriteOnly) return;
     const bucket = byDrafter[TEAM_META[teamKey].draftTeamId];
     bucket.win += row.wins || 0;
     bucket.draw += row.draws || 0;
