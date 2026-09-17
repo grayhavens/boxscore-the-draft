@@ -284,11 +284,16 @@ function upcomingRowHtml(evt){
   const d = new Date(evt.date);
   const day = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  // Same "venue · Sep 12" convention resultRowHtml uses for a played
+  // game — the day-of-week label on the right (WED) told you nothing
+  // about which Wednesday, so the actual date belongs on the meta line
+  // too, not just the score side.
+  const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `
     <div class="form-item">
       <div class="form-detail" style="margin-left:0;">
         <span class="opp">${evt.isHome ? 'vs' : 'at'} ${evt.opponentName}</span>
-        <span class="meta">${evt.venueName || ''}</span>
+        <span class="meta">${evt.venueName || ''}${evt.venueName ? ' · ' : ''}${dateLabel}</span>
       </div>
       <div class="form-right">
         <div class="game-card-eyebrow" style="justify-content:flex-end;">${day}</div>
