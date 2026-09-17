@@ -7,18 +7,18 @@
    navigation, tab state, and the News/Roster/Stats fetches unique to
    this view.
 
-   Full 4-tab treatment (Schedule/News/Stats/Squad) ships for EPL, NFL
-   and MLB — the three leagues the design covers, and the only ones
-   whose news/roster/team-stats endpoints were curled and verified
-   (see js/espn.js's fetchEspnTeamNews/fetchEspnTeamRoster/
-   fetchEspnTeamStatistics header comments). Every other league with
-   live data (NBA/NHL/WNBA/CFB — see FLAT_SCHEDULE_LEAGUES) still gets a
-   real page — hero, stat strip, Schedule tab, all sourced from data
-   already flowing today — with Stats/Squad showing a plain "not
-   available yet" placeholder until they get their own design pass.
-   College Basketball has no ESPN wiring at all (not in
-   FLAT_SCHEDULE_LEAGUES) and has no Team Page — see the hasTeamPage
-   gate in openTeamModal.
+   Full 4-tab treatment (Schedule/News/Stats/Squad) ships for every
+   league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/CFB) — News
+   only needs a team's ESPN id and sportPath (see ensureNews below), so
+   it was never restricted the way Stats/Squad are. Roster/team-stats
+   endpoints were only curled and verified for EPL, NFL and MLB (see
+   js/espn.js's fetchEspnTeamRoster/fetchEspnTeamStatistics header
+   comments and FULL_STATS_SQUAD_LEAGUES below) — every other
+   FLAT_SCHEDULE_LEAGUES league gets a real page and a working News tab,
+   just a plain "not available yet" placeholder for Stats/Squad until
+   those get their own design pass. College Basketball has no ESPN
+   wiring at all (not in FLAT_SCHEDULE_LEAGUES) and has no Team Page —
+   see the hasTeamPage gate in openTeamModal.
 
    Pushed/popped via the functions below, not switchView() — switchView
    also drives the bottom tab bar's active state off a fixed data-view
@@ -41,9 +41,10 @@ import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
 import { trackerSectionHtml } from './league-facts.js';
 
-// The 3 leagues with a verified news/roster/team-stats source (see this
+// The 3 leagues with a verified roster/team-stats source (see this
 // file's header comment) — every other FLAT_SCHEDULE_LEAGUES league
-// still gets a real page + Schedule tab, just a placeholder Stats/Squad.
+// still gets a real page + Schedule + News tab, just a placeholder
+// Stats/Squad.
 const FULL_STATS_SQUAD_LEAGUES = ['epl', 'nfl', 'mlb'];
 
 const TABS = {
