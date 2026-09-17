@@ -1186,7 +1186,7 @@ function parseEspnSummaryStatus(comp){
 // (js/live-data.js) now read off bundle.espnLive.situation instead.
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, name, location, mascot, homeAway, score, hits, errors, linescore:
+// teams: [{ teamId, abbr, name, location, mascot, logoUrl, homeAway, score, hits, errors, linescore:
 // [n, ...] }], boxscore: [{ teamId, abbr, groups: [{ name, labels:
 // [...], rows: [{name, stats: [...]}] }] }], media: { photoUrl,
 // recapHeadline, recapSummary, linkUrl, linkLabel }, date } | null on any failure.
@@ -1224,6 +1224,11 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
       // location-only, NFL/EPL keep the full joined name).
       location: c.team && c.team.location,
       mascot: c.team && c.team.name,
+      // Real crest art for the Game Details header (see renderGameDetail
+      // in js/live-data.js) — same logos[] shape espnLogoUrl already
+      // reads for standings, just read directly here for whichever side
+      // isn't a TEAM_META-drafted team too.
+      logoUrl: espnLogoUrl(c.team),
       homeAway: c.homeAway,
       score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
       hits: c.hits !== undefined ? c.hits : boxTeamStat(teamId, 'hits'),
@@ -1259,7 +1264,7 @@ export async function fetchEspnSummary(sportLeaguePath, eventId){
 // see fetchEspnSummary's comment above).
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, name, location, mascot, homeAway, score, linescore: [n, ...] }],
+// teams: [{ teamId, abbr, name, location, mascot, logoUrl, homeAway, score, linescore: [n, ...] }],
 // boxscore: [{ teamId, abbr, groups: [...] }], media: { photoUrl,
 // recapHeadline, recapSummary, linkUrl, linkLabel }, date } | null on any failure.
 export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
@@ -1280,6 +1285,9 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
     // for the Game Details header's per-league title format.
     location: c.team && c.team.location,
     mascot: c.team && c.team.name,
+    // See fetchEspnSummary's comment above — same crest lookup, read by
+    // the same Game Details header.
+    logoUrl: espnLogoUrl(c.team),
     homeAway: c.homeAway,
     score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
     linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
@@ -1313,7 +1321,7 @@ export async function fetchEspnFootballSummary(sportLeaguePath, eventId){
 // so callers shouldn't expect one.
 //
 // Shape returned: { status: {state, detail, period, displayClock},
-// teams: [{ teamId, abbr, name, homeAway, score }], events: [{ teamId, minute,
+// teams: [{ teamId, abbr, name, logoUrl, homeAway, score }], events: [{ teamId, minute,
 // player, kind: 'goal'|'yellow'|'red' }], media: { photoUrl, recapHeadline,
 // recapSummary, linkUrl, linkLabel }, date } | null on any failure.
 export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
@@ -1330,6 +1338,9 @@ export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
     teamId: c.team && c.team.id,
     abbr: c.team && c.team.abbreviation,
     name: espnTeamName(c.team),
+    // See fetchEspnSummary's comment above — same crest lookup, read by
+    // the same Game Details header.
+    logoUrl: espnLogoUrl(c.team),
     homeAway: c.homeAway,
     score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null
   }));
