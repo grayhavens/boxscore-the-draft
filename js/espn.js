@@ -587,7 +587,7 @@ export async function fetchEspnCbbRankings(pollName = 'AP Top 25'){
 // this flattens every conference straight into one array.
 // Matches by `location` (e.g. "Ohio State"), the same field
 // fetchEspnCfbRankings already uses — reuses that exact matching
-// approach (findCfbTeamKeyByEspnLocation) rather than a second one.
+// approach (findCfbTeamKeyByLocation, js/utils.js) rather than a second one.
 // Shape returned: [{ id, location, teamName, wins, losses }]
 export async function fetchEspnCfbFullStandings(){
   const data = await fetchEspnJSON('/apis/v2/sports/football/college-football/standings');
@@ -883,7 +883,7 @@ export async function fetchEspnTeamStatistics(sportLeaguePath, espnTeamId){
 // season badge (see seasonStatusLabel in js/live-data.js) piggybacks
 // on this same request instead of needing its own.
 // Shape returned: { events: [{ id, date, state, detail, completed,
-// competitors: [{ teamId, teamName, teamNickname, abbreviation,
+// competitors: [{ teamId, teamName, teamNickname, location, logoUrl, abbreviation,
 // homeAway, score }] }], season: { type, year } | null }
 export async function fetchEspnScoreboard(sportLeaguePath, dates){
   // ESPN's scoreboard defaults to today; `?dates=YYYYMMDD` returns that
@@ -912,6 +912,17 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
       // Bare nickname ("Padres") — matches TEAM_META.name exactly, the
       // same convention findFlatTeamKey (js/standings-flat.js) uses.
       teamNickname: c.team && c.team.name,
+      // The bare school ("Texas", "North Texas") — unlike teamNickname/
+      // teamName above, this is unique per CFB school even when names
+      // nest inside each other, so js/live-now.js matches CFB games
+      // against this instead (findCfbTeamKeyByLocation, js/utils.js).
+      location: c.team && c.team.location,
+      // The scoreboard's team object carries one direct `logo` URL
+      // (unlike the `logos[]` array espnLogoUrl reads elsewhere) — real
+      // crest art for whichever side has no TEAM_META entry (i.e. isn't
+      // drafted), same "real logo over a generic monogram" treatment
+      // renderCfbRankingRow already gives undrafted ranked teams.
+      logoUrl: (c.team && c.team.logo) || null,
       abbreviation: c.team && c.team.abbreviation,
       homeAway: c.homeAway,
       score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null

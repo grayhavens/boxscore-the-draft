@@ -140,7 +140,7 @@ export function fetchEspnNflStandingsCached(){
 // badgeText ("WAS") — checked every one of the 30 currently-drafted NFL
 // teams against a live ESPN standings pull (2026-09-11): Washington is
 // the only mismatch, everything else matches verbatim. Same manual-
-// override idea as CFB_ESPN_NAME_OVERRIDES in js/standings-cfb.js.
+// override idea as CFB_ESPN_LOCATION_OVERRIDES in js/utils.js.
 const NFL_ESPN_ABBR_OVERRIDES = {
   'WSH': 'WAS'
 };

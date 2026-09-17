@@ -254,6 +254,34 @@ export function findDraftedTeamByName(leagueKey, realName){
   }) || null;
 }
 
+// College team names collide by prefix far more than pro leagues do —
+// "Texas" is a literal substring of "Texas A&M", "Texas Tech", and
+// "North Texas" — so findDraftedTeamByName's substring rule above is
+// unsafe for CFB (confirmed live 2026-09-19: a "North Texas" opponent
+// was matching drafted "Texas" via that fallback). ESPN's `location`
+// field ("Texas", "North Texas", "Texas A&M") is unique per school
+// though, so this compares it exactly against TEAM_META.name instead —
+// shared by standings-cfb.js's own matching and js/live-now.js's
+// Scores-tab matching, so both use the one lookup and override table.
+export const CFB_ESPN_LOCATION_OVERRIDES = {
+  'Indiana': 'IU',
+  // NDSU's row isn't in the standings endpoint at all (injected
+  // separately using ESPN's own "location" for the school — see
+  // NDSU_ESPN_TEAM_ID in standings-cfb.js), so this override just lets
+  // that injected row match this app's short "NDSU" the same way.
+  'North Dakota State': 'NDSU'
+};
+
+export function normalizeSchoolName(s){
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+export function findCfbTeamKeyByLocation(location){
+  const wanted = normalizeSchoolName(CFB_ESPN_LOCATION_OVERRIDES[location] || location);
+  const teams = LEAGUES.find(l => l.key === 'cfb').teams;
+  return teams.find(teamKey => normalizeSchoolName(TEAM_META[teamKey].name) === wanted) || null;
+}
+
 export function abbrFromName(name){
   const words = (name || '').trim().split(/\s+/).filter(Boolean);
   if(words.length >= 2) return words.map(w => w[0]).join('').toUpperCase().slice(0, 4);
