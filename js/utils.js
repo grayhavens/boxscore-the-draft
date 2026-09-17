@@ -295,6 +295,18 @@ export const CHEVRON_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="cu
 // the icons above.
 export const BALL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.4"></circle><path d="M12 7.4l2.7 2-1 3.2h-3.4l-1-3.2 2.7-2z" fill="currentColor" stroke="none"></path><path d="M12 3.6v3.2M12 17.2v3.2M5.2 8.4l2.7.9M16.1 8.4l-2.7.9M5.2 15.6l2.7-.9M16.1 15.6l-2.7-.9" stroke-linecap="round"></path></svg>';
 
+// A handful of ESPN crests are a single dark, thin-lined mark with no
+// built-in backing shape (e.g. the Padres' brown "SD", the Yankees'
+// navy interlock) — fine on the white backdrop crests used to sit on,
+// but they wash into the app's near-black background now that crests
+// render bare (see .badge.badge-crest in css/style.css). ESPN serves
+// an alternate white/bright rendering of the same crest at the same
+// path with "500" swapped for "500-dark", so those specific teams
+// carry a badgeUrlDark in TEAM_META instead of hand-drawn overrides.
+export function crestSrc(meta){
+  return meta.badgeUrlDark || meta.badgeUrl;
+}
+
 // Renders a team's badge: the real crest image when meta.badgeUrl is
 // set, layered over the same colored-monogram box every team already
 // has — that box stays as the fallback (onerror removes the img,
@@ -302,15 +314,10 @@ export const BALL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="curre
 // and it's what every team without a badgeUrl yet still uses as-is.
 export function teamBadgeHtml(meta){
   if(meta.badgeUrl){
-    // Real crests are transparent PNGs meant to sit on a light backdrop.
-    // Putting one over the team's own accent color looked fine for most
-    // teams, but broke badly for e.g. Liverpool — an all-red crest over
-    // Liverpool's near-identical red background was nearly invisible.
-    // White background instead, consistent regardless of a team's own
-    // brand color. data-fallback-* carries the original colored-monogram
-    // look over to the onerror handler, restored only if the hotlinked
-    // image actually fails to load.
-    return `<div class="badge badge-crest"><img src="${meta.badgeUrl}" alt="${meta.name}" data-fallback-style="${meta.badgeStyle}" data-fallback-text="${meta.badgeText}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
+    // data-fallback-* carries the original colored-monogram look over
+    // to the onerror handler, restored only if the hotlinked image
+    // actually fails to load.
+    return `<div class="badge badge-crest"><img src="${crestSrc(meta)}" alt="${meta.name}" data-fallback-style="${meta.badgeStyle}" data-fallback-text="${meta.badgeText}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
   }
   return `<div class="badge" style="${meta.badgeStyle}">${meta.badgeText}</div>`;
 }

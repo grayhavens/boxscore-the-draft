@@ -29,7 +29,7 @@
    alone.
    ============================================================ */
 import { TEAM_META, LEAGUES, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, updateUrlParam, segmentedControlHtml } from './utils.js';
+import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics } from './espn.js';
 import {
   FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle,
@@ -167,7 +167,7 @@ function heroHtml(teamKey, meta){
       <div class="team-hero-orb" style="background:radial-gradient(circle at 50% 50%, rgba(${rgb},0.45) 0%, transparent 70%);"></div>
       <div class="team-hero-scrim"></div>
       <div class="team-hero-row">
-        ${meta.badgeUrl ? `<img class="crest-bare" src="${meta.badgeUrl}" alt="${meta.name}">` : teamBadgeHtml(meta)}
+        ${meta.badgeUrl ? `<img class="crest-bare" src="${crestSrc(meta)}" alt="${meta.name}">` : teamBadgeHtml(meta)}
         <div>
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
           <div class="team-hero-meta">

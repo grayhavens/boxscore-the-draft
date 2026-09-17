@@ -420,11 +420,14 @@ body{
   overflow: hidden;
 }
 
-/* Real crests are transparent PNGs — a white backdrop keeps them
-   legible regardless of how close a team's own accent color is to its
-   crest's dominant color (see teamBadgeHtml in js/app.js). */
+/* Real crests render bare — no backdrop, same as the Team Page's
+   .crest-bare — with a drop-shadow standing in for contrast so a dark,
+   thin-lined crest (e.g. the Padres' brown "SD", a fully transparent
+   PNG with no built-in backing shape) doesn't wash into the dark page
+   behind it (see teamBadgeHtml in js/utils.js). */
 .badge.badge-crest{
-  background: var(--badge-surface);
+  background: transparent;
+  border-color: transparent;
 }
 
 .badge img{
@@ -433,8 +436,9 @@ body{
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 6px;
+  padding: 2px;
   box-sizing: border-box;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
 }
 
 .team-name{
