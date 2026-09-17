@@ -1459,22 +1459,27 @@ body{
 
 /* The score IS the header title now (see renderGameDetail in
    js/live-data.js — .gd-title is only a fallback for the practically
-   unreachable case a game has no score at all). Sized up from the
-   plain team-names title it replaced, so it still reads as the
-   header's primary element rather than a secondary detail. A team
-   ahead on the scoreboard gets --text (full brightness) + bold; behind
-   or tied stays --text-mute, same "winner reads brighter" convention
-   the team modal's own form-ticker dots already use elsewhere. */
+   unreachable case a game has no score at all). Both teams sit side by
+   side — crest, full name, score — with no separator between them: the
+   win/loss color contrast (below) already tells the two sides apart, so
+   a dash or rule between them was just visual noise. Wraps to two lines
+   on a narrow phone width rather than clipping, since a full name (vs.
+   the old bare abbreviation) is more likely to run out of room next to
+   its opponent. A team ahead on the scoreboard gets --text (full
+   brightness) + bold; behind or tied stays --text-mute, same "winner
+   reads brighter" convention the team modal's own form-ticker dots
+   already use elsewhere. */
 .gd-score-title{
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
   font-family: 'Space Grotesk', sans-serif;
 }
 
 .gd-score-team{
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
@@ -1482,15 +1487,25 @@ body{
   letter-spacing: 0.2px;
 }
 
+/* Team crest in the score header — shrunk from the shared 44px .badge
+   (built for a full team row) to sit inline next to a team's name and
+   score, same "scope a smaller size to its own parent" pattern as the
+   Team Page's 32px standings-row crest above. */
+.gd-score-team .badge{
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 8px;
+}
+
 .gd-score-team b{
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.3px;
 }
 
 .gd-score-team.win{ color: var(--text); }
-
-.gd-score-sep{ color: var(--text-mute); font-size: 14px; }
 
 /* Game Details header's live indicator — same pulsing-dot treatment as
    the Teams tab's .status-slot .meta-label.live, in place of the old
