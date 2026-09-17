@@ -62,7 +62,7 @@ const EMPTY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // once, so this is a single object rather than a map — cached per-team
 // data lives in the *Cache objects below instead, so switching away and
 // back to the same team's page doesn't refetch.
-const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule' };
+const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: 'all' };
 
 const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'|'error', items }
 const rosterCache = {}; // teamKey -> { status, items }
@@ -89,6 +89,7 @@ export function openTeamPage(teamKey, originView){
   state.originView = originView || 'board';
   state.originScrollY = window.scrollY;
   state.activeTab = 'schedule';
+  state.squadFilter = 'all';
   setActiveView('view-team-page');
   window.scrollTo(0, 0);
   updateUrlParam('view', 'team');
@@ -515,8 +516,18 @@ function homeAwaySplitHtml(bundle){
 
 // ---- Squad tab ----
 
+// A player's real production this season (goals+assists) — null when
+// ESPN has no per-player stats for this league (NFL/MLB, see
+// fetchEspnTeamRoster in js/espn.js) or this player hasn't featured yet.
+function goalContribution(p){
+  if(p.goals === null && p.assists === null) return null;
+  return (p.goals || 0) + (p.assists || 0);
+}
+
 function playerRowHtml(p){
   const tagsHtml = p.injured ? `<span class="player-tag out">Out</span>` : '';
+  const contribution = goalContribution(p);
+  const statHtml = contribution !== null ? `<div class="player-stat">${p.goals || 0}G · ${p.assists || 0}A</div>` : '';
   return `
     <div class="player-row">
       <div class="number-chip">${p.jersey || '—'}</div>
@@ -524,8 +535,96 @@ function playerRowHtml(p){
         <div class="player-name">${p.name}${tagsHtml}</div>
         <div class="player-sub">${p.position}${p.age ? ' · ' + p.age : ''}</div>
       </div>
+      ${statHtml}
     </div>
   `;
+}
+
+// Ranks by real season output (goals + assists, ties broken by
+// appearances as a "still gets picked" signal) instead of roster order —
+// ESPN's own soccer roster sorts goalkeepers first, so the old first-4
+// slice was showing a team's keepers instead of its stars (e.g.
+// Manchester City's, ahead of Erling Haaland — confirmed live
+// 2026-09-19). Falls back to plain roster order when a league has no
+// per-player stats at all (goals/assists both null for every player —
+// NFL/MLB today), rather than sorting everyone to a tied last place.
+function keyPlayers(items){
+  if(!items.some(p => goalContribution(p) !== null)) return items.slice(0, 4);
+  return [...items].sort((a, b) => {
+    const diff = (goalContribution(b) || 0) - (goalContribution(a) || 0);
+    return diff || ((b.appearances || 0) - (a.appearances || 0));
+  }).slice(0, 4);
+}
+
+// The coarse groups worth filtering a full roster by — NFL/MLB's own
+// roster grouping (Offense/Defense/Special Teams, Pitchers/Catchers/...),
+// not each player's fine position (16 distinct values on an NFL roster,
+// which would make an unreadably long chip row — see
+// fetchEspnTeamRoster in js/espn.js). In roster order, not alphabetized,
+// so "Offense" leads for NFL the same way it does in the unfiltered list.
+function squadPositionGroups(items){
+  const groups = [];
+  items.forEach(p => { if(p.group && !groups.includes(p.group)) groups.push(p.group); });
+  return groups;
+}
+
+export function setSquadFilter(key){
+  state.squadFilter = key;
+  renderTabBody();
+}
+window.setSquadFilter = setSquadFilter;
+
+// There's no real depth chart anywhere in ESPN's hidden API for NFL to
+// sort by — confirmed live 2026-09-19: /teams/{id}/depthchart returns
+// an empty {} for every team, and the per-athlete endpoint only links
+// out to ESPN's own HTML depth chart page rather than returning
+// structured data. This fixed position order is the next best thing:
+// good enough to read like a depth chart (quarterbacks before backup
+// linemen) without pretending to know who's actually WR1 vs WR3.
+const NFL_POSITION_ORDER = [
+  'Quarterback', 'Running Back', 'Fullback', 'Wide Receiver', 'Tight End',
+  'Offensive Tackle', 'Guard', 'Center',
+  'Defensive End', 'Defensive Tackle', 'Linebacker', 'Cornerback', 'Safety',
+  'Place Kicker', 'Punter', 'Long Snapper'
+];
+
+function nflPositionRank(position){
+  const idx = NFL_POSITION_ORDER.indexOf(position);
+  return idx === -1 ? NFL_POSITION_ORDER.length : idx;
+}
+
+// Re-orders each broad group (Offense/Defense/...) by that position
+// priority instead of ESPN's own within-group order (closer to
+// alphabetical-by-first-name than anything position-based — see
+// fetchEspnTeamRoster's header comment in js/espn.js). Groups themselves
+// stay in place — `a.group !== b.group` returning 0 relies on Array.sort
+// being stable, so cross-group order is left exactly as fetched (the
+// active roster still comes before Injured Reserve/Practice Squad in
+// "All"; only the order *inside* each group changes).
+function sortNflRoster(items){
+  return [...items].sort((a, b) => {
+    if(a.group !== b.group) return 0;
+    return nflPositionRank(a.position) - nflPositionRank(b.position) || ((parseInt(a.jersey, 10) || 999) - (parseInt(b.jersey, 10) || 999));
+  });
+}
+
+// NFL/MLB rosters (50-90 players, no reliable "star" signal to build a
+// teaser from — see keyPlayers above) skip the curated-teaser +
+// separate full-screen pattern EPL uses below entirely: the whole
+// roster is listed right here in the tab, narrowed by the same
+// filter-chip look every other jump-nav in this app already uses,
+// instead of a "Full roster ›" link off to its own screen.
+function fullRosterHtml(entry, meta){
+  const groups = squadPositionGroups(entry.items);
+  const filter = groups.includes(state.squadFilter) ? state.squadFilter : 'all';
+  const chips = ['all', ...groups].map(g => {
+    const label = g === 'all' ? 'All' : g;
+    return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setSquadFilter('${g.replace(/'/g, '')}')">${label}</div>`;
+  }).join('');
+  const base = meta.leagueKey === 'nfl' ? sortNflRoster(entry.items) : entry.items;
+  const shown = filter === 'all' ? base : base.filter(p => p.group === filter);
+  const rows = shown.map(playerRowHtml).join('') || `<div class="no-live-note">No players in this group.</div>`;
+  return `<div class="filter-chips">${chips}</div>${rows}`;
 }
 
 function squadTabHtml(teamKey){
@@ -534,12 +633,14 @@ function squadTabHtml(teamKey){
   if(!entry || entry.status === 'loading') return `<div class="loading-note">Loading squad…</div>`;
   if(entry.status === 'error' || !entry.items.length) return `<div class="no-live-note">Squad list isn't available for this team right now.</div>`;
 
-  const top = entry.items.slice(0, 4);
+  if(meta.leagueKey !== 'epl') return fullRosterHtml(entry, meta);
+
+  const top = keyPlayers(entry.items);
   return `
     <div class="modal-section-title">Key players</div>
     ${top.map(playerRowHtml).join('')}
     <div style="text-align:center; padding-top:14px;">
-      <span class="boxscore-link" style="justify-content:center;" onclick="openFullSquad('${teamKey}')">Full ${meta.leagueKey === 'epl' ? 'squad' : 'roster'} <span class="chev">›</span></span>
+      <span class="boxscore-link" style="justify-content:center;" onclick="openFullSquad('${teamKey}')">Full squad <span class="chev">›</span></span>
     </div>
   `;
 }
@@ -612,6 +713,12 @@ function renderFullSchedule(filter){
 }
 
 // ---- Full Squad screen ----
+// EPL-only from here down (see squadTabHtml above) — NFL/MLB list their
+// whole roster inline in the tab instead (fullRosterHtml above), so this
+// screen never opens for them. EPL's own position spread (Goalkeeper/
+// Defender/Midfielder/Forward) is small enough that filtering by each
+// player's fine `position` reads fine as-is, unlike NFL/MLB's 16/11
+// fine-grained values — no coarse `group` needed here.
 
 export function setFullSquadFilter(key){
   renderFullSquad(key);
@@ -626,7 +733,7 @@ function renderFullSquad(filter){
   const entry = rosterCache[teamKey];
 
   const groups = ['all', ...new Set((entry && entry.items || []).map(p => p.position).filter(Boolean))];
-  const chips = groups.slice(0, 6).map(g => {
+  const chips = groups.map(g => {
     const label = g === 'all' ? 'All' : g;
     return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setFullSquadFilter('${g.replace(/'/g, '')}')">${label}</div>`;
   }).join('');
@@ -647,7 +754,7 @@ function renderFullSquad(filter){
       </button>
     </div>
     <div class="page-header" style="padding: 0 4px 4px;">
-      <h1 style="font-size:22px;">${meta.leagueKey === 'epl' ? 'Squad' : 'Roster'}</h1>
+      <h1 style="font-size:22px;">Squad</h1>
       <div class="page-sub">${meta.name}${entry && entry.items.length ? ` · ${entry.items.length} players` : ''}</div>
     </div>
     <div class="filter-chips">${chips}</div>
