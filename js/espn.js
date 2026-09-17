@@ -817,32 +817,77 @@ export async function fetchEspnTeamNews(sportLeaguePath, espnTeamId){
     }));
 }
 
-// Team Page Squad/Roster tab: bio-only per-player data — verified live
-// (2026-09-17) against EPL/NFL/MLB. No per-player season stats
-// (apps/goals/etc.) anywhere in this payload for any of the three — that
-// needs a separate per-athlete call ESPN doesn't offer in bulk, so the
-// Squad tab deliberately shows no stat column rather than one new
-// request per player. Two different shapes verified live: soccer's
-// `athletes` is a flat array of player objects; NFL/MLB's `athletes` is
-// an array of {position: groupLabel, items: [...player objects]} groups
+// NFL's roster groups come back as machine-case keys ("specialTeam",
+// "injuredReserveOrOut") — MLB's own groups ("Pitchers", "Catchers", ...)
+// are already display-ready, so only NFL needs a lookup here.
+const NFL_ROSTER_GROUP_LABELS = {
+  offense: 'Offense',
+  defense: 'Defense',
+  specialTeam: 'Special Teams',
+  injuredReserveOrOut: 'Injured Reserve',
+  suspended: 'Suspended',
+  practiceSquad: 'Practice Squad'
+};
+
+// Pulls the handful of per-player stats worth surfacing out of a
+// soccer athlete's inline `statistics` block (goals/assists/appearances)
+// — present, verified live (2026-09-19) against Manchester City's full
+// squad, for any player who's actually featured this season; an unused
+// backup carries an empty `categories: []` instead, hence the `null`
+// fallback rather than `0` (no minutes isn't the same as zero output).
+function soccerPlayerStats(a){
+  const categories = a.statistics && a.statistics.splits && a.statistics.splits.categories;
+  if(!Array.isArray(categories) || !categories.length) return { goals: null, assists: null, appearances: null };
+  const byName = {};
+  categories.forEach(cat => (cat.stats || []).forEach(s => { byName[s.name] = s.value; }));
+  return {
+    goals: byName.totalGoals ?? null,
+    assists: byName.goalAssists ?? null,
+    appearances: byName.appearances ?? null
+  };
+}
+
+// Team Page Squad/Roster tab: per-player bio data for every league, plus
+// real season production for soccer — verified live (2026-09-19) that
+// each soccer roster entry carries its own inline `statistics` block
+// (goals/assists/appearances), which is what lets the Squad tab rank
+// "Key players" by actual output instead of roster order (a team's
+// goalkeepers sort first in ESPN's own soccer roster, so the old
+// first-4 slice was showing keepers over a team's actual stars — e.g.
+// Manchester City's before Erling Haaland). NFL/MLB carry no such
+// per-player stats anywhere in this payload — that would need a
+// separate per-athlete call ESPN doesn't offer in bulk — so `goals`/
+// `assists`/`appearances` are always null there.
+// Two different roster shapes verified live: soccer's `athletes` is a
+// flat array of player objects; NFL/MLB's `athletes` is an array of
+// {position: groupLabel, items: [...player objects]} groups
 // (offense/defense/specialTeam/... or Pitchers/Catchers/...) — this
-// flattens both into one list.
-// Shape returned: [{ id, name, jersey, position, age, injured }]
+// flattens both into one list, keeping each player's own `group` label
+// (null for soccer, which isn't grouped) for the Roster tab's own
+// coarse filter chips (see squadPositionGroups in js/team-page.js) —
+// deliberately coarser than the ~11-16 fine-grained `position` values
+// NFL/MLB carry per player, which would make an unreadably long chip row.
+// Shape returned: [{ id, name, jersey, position, group, age, injured,
+// goals, assists, appearances }]
 export async function fetchEspnTeamRoster(sportLeaguePath, espnTeamId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/roster`);
   const athletes = data && Array.isArray(data.athletes) ? data.athletes : null;
   if(!athletes) return null;
 
   const grouped = athletes.length > 0 && Array.isArray(athletes[0].items);
-  const raw = grouped ? athletes.flatMap(g => g.items || []) : athletes;
+  const raw = grouped
+    ? athletes.flatMap(g => (g.items || []).map(a => ({ a, group: NFL_ROSTER_GROUP_LABELS[g.position] || g.position || null })))
+    : athletes.map(a => ({ a, group: null }));
 
-  return raw.map(a => ({
+  return raw.map(({ a, group }) => ({
     id: a.id,
     name: a.displayName || a.fullName || '',
     jersey: a.jersey || '',
     position: (a.position && (a.position.displayName || a.position.abbreviation)) || '',
+    group,
     age: a.age || null,
-    injured: (Array.isArray(a.injuries) && a.injuries.length > 0) || !!(a.status && a.status.type && a.status.type !== 'active')
+    injured: (Array.isArray(a.injuries) && a.injuries.length > 0) || !!(a.status && a.status.type && a.status.type !== 'active'),
+    ...(grouped ? { goals: null, assists: null, appearances: null } : soccerPlayerStats(a))
   }));
 }
 
