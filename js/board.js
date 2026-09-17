@@ -53,6 +53,12 @@ import {
   renderWnbaStandingsRow, wnbaStandingsToggleHtml, fetchEspnWnbaStandingsCached, loadEspnWnbaStandingsCache,
   renderAllWnbaCardRecords
 } from './standings-wnba.js';
+import {
+  cbbStandingsMode, computeCbbDrafterCombined, renderCbbByDrafterRow,
+  computeCbbRankingTable, renderCbbRankingRow, cbbStandingsToggleHtml, renderAllCbbCardRecords,
+  espnCbbRankingsCache, fetchEspnCbbRankingsCached, loadEspnCbbRankingsCache,
+  espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
+} from './standings-cbb.js';
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
@@ -192,6 +198,7 @@ export function renderBoard(){
       const nhlRecordHtml = league.key === 'nhl' ? `<span class="cfb-record" id="nhl-record-${teamKey}"></span>` : '';
       const mlbRecordHtml = league.key === 'mlb' ? `<span class="cfb-record" id="mlb-record-${teamKey}"></span>` : '';
       const wnbaRecordHtml = league.key === 'wnba' ? `<span class="cfb-record" id="wnba-record-${teamKey}"></span>` : '';
+      const mcbbRecordHtml = league.key === 'mcbb' ? `<span class="cfb-record" id="cfb-record-${teamKey}"></span>` : '';
       // EPL: every team is in the same one league, so the static
       // "Premier League" boardSub text carried no information — swap
       // it for the team's own record + table position instead (see
@@ -206,7 +213,7 @@ export function renderBoard(){
       // favorite rather than something actually drafted here.
       const subHtml = league.key === 'epl'
         ? `<span class="epl-record" id="epl-record-${teamKey}"></span>`
-        : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}`;
+        : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}${mcbbRecordHtml}`;
       // The star is a favorited-status indicator here, not a persistent
       // toggle affordance on every row — it only appears once a team is
       // actually favorited (toggling that on happens from the team
@@ -254,6 +261,7 @@ export function renderBoard(){
   renderAllNhlCardRecords();
   renderAllMlbCardRecords();
   renderAllWnbaCardRecords();
+  renderAllCbbCardRecords();
 }
 
 // ---- League scoring reference modal ----
@@ -507,6 +515,42 @@ export function renderStandings(){
       return leagueBlockHtml(league, bodyHtml);
     }
 
+    if(league.key === 'mcbb'){
+      // Same Rank/Person split as CFB above, for the same reason (365 D1
+      // teams across 31 conferences has no useful single "League" table
+      // view) — see js/standings-cbb.js's header comment. Unlike CFB,
+      // there's no TheRundown fallback fetch riding along here: every
+      // drafted mcbb team resolves off the one bulk ESPN standings call.
+      let bodyHtml;
+      if(cbbStandingsMode === 'byDrafter'){
+        if(espnCbbStandingsCache.rows){
+          const rowsHtml = computeCbbDrafterCombined().map((row, i) => renderCbbByDrafterRow(row, i + 1)).join('');
+          bodyHtml = cbbStandingsToggleHtml() + rowsHtml;
+          fetchEspnCbbStandingsCached(); // no-op if already fresh; quietly refreshes in the background if stale
+        } else if(espnCbbStandingsCache.error){
+          bodyHtml = `<div class="no-live-note">No data available.</div>`;
+        } else {
+          fetchEspnCbbStandingsCached();
+          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+        }
+      } else {
+        if(espnCbbRankingsCache.ranks){
+          const rankingRows = computeCbbRankingTable();
+          const rowsHtml = rankingRows.length
+            ? rankingRows.map(rank => renderCbbRankingRow(rank)).join('')
+            : `<div class="no-live-note">No teams currently ranked.</div>`;
+          bodyHtml = cbbStandingsToggleHtml() + rowsHtml;
+          fetchEspnCbbRankingsCached(); // no-op if already fresh; quietly refreshes in the background if stale
+        } else if(espnCbbRankingsCache.error){
+          bodyHtml = `<div class="no-live-note">No data available.</div>`;
+        } else {
+          fetchEspnCbbRankingsCached();
+          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+        }
+      }
+      return leagueBlockHtml(league, bodyHtml);
+    }
+
     if(league.key === 'nfl'){
       // Nested: pick AFC/NFC/Person first, then (for AFC/NFC) Divisions
       // vs. that conference's Full ranking — see js/standings-nfl.js's
@@ -649,6 +693,8 @@ loadEspnNhlDivisionCache();
 loadEspnMlbStandingsCache();
 loadEspnMlbDivisionCache();
 loadEspnWnbaStandingsCache();
+loadEspnCbbRankingsCache();
+loadEspnCbbStandingsCache();
 loadTeamInfoCache();
 renderBoard();
 paintIdentityChrome(currentDraftTeamId);
@@ -669,6 +715,8 @@ fetchEspnNbaStandingsCached();
 fetchEspnNhlStandingsCached();
 fetchEspnMlbStandingsCached();
 fetchEspnWnbaStandingsCached();
+fetchEspnCbbRankingsCached();
+fetchEspnCbbStandingsCached();
 
 // Both ticks below already patch the Teams tab's own row-status pills
 // and an open team modal in place (see js/live-data.js) — Live Now

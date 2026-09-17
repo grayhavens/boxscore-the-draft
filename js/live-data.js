@@ -10,6 +10,7 @@ import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
 import { fetchMlbGameExtras } from './mlb-stats.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
+import { findCbbRecord, findEspnCbbRow, fetchEspnCbbStandingsCached, cbbConferenceRank } from './standings-cbb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, nflDivisionRank, nflConferenceRank, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, nbaDivisionRank, nbaConferenceRank, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
 import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisionLabel, nhlDivisionRank, nhlConferenceRank, fetchEspnNhlDivisionStandingsCached } from './standings-nhl.js';
@@ -32,7 +33,17 @@ export const FLAT_SCHEDULE_LEAGUES = {
   nba: { sportPath: 'basketball/nba', ensureStandings: fetchEspnNbaStandingsCached, findRow: findEspnNbaRow },
   nhl: { sportPath: 'hockey/nhl', ensureStandings: fetchEspnNhlStandingsCached, findRow: findEspnNhlRow },
   mlb: { sportPath: 'baseball/mlb', ensureStandings: fetchEspnMlbStandingsCached, findRow: findEspnMlbRow },
-  wnba: { sportPath: 'basketball/wnba', ensureStandings: fetchEspnWnbaStandingsCached, findRow: findEspnWnbaRow }
+  wnba: { sportPath: 'basketball/wnba', ensureStandings: fetchEspnWnbaStandingsCached, findRow: findEspnWnbaRow },
+  // College Basketball — added once ESPN's own hidden API was confirmed
+  // to fully cover it (contrary to earlier assumptions in
+  // docs/espn-migration-plan.md): all 30 drafted teams resolve, matched
+  // by a static espnTeamId rather than by name (see findEspnCbbRow in
+  // js/standings-cbb.js for why). This is what replaces TheRundown as
+  // this league's live source — the plain `meta.rundownTeamId`
+  // "rundown-only" branch further down in fetchTeamBundle only stays
+  // reachable as a defensive fallback for a team findEspnCbbRow ever
+  // fails to resolve.
+  mcbb: { sportPath: 'basketball/mens-college-basketball', ensureStandings: fetchEspnCbbStandingsCached, findRow: findEspnCbbRow }
 };
 
 // Game Details header title (see renderGameDetail below) picks one of
@@ -313,9 +324,12 @@ export async function fetchTeamBundle(teamKey){
     return bundle;
   }
 
-  // Rundown-only teams (currently just College Basketball, which
-  // TheSportsDB doesn't carry at all): TheRundown is the sole live
-  // source. Scoped to today's slate only, not a multi-day lookahead —
+  // Rundown-only teams: TheRundown is the sole live source. Used to be
+  // College Basketball's only path (TheSportsDB never carried it) until
+  // mcbb joined FLAT_SCHEDULE_LEAGUES above (2026-09-17) — this branch
+  // is now reached only as a defensive fallback, for a team whose
+  // FLAT_SCHEDULE_LEAGUES findRow genuinely fails to resolve on a given
+  // refresh. Scoped to today's slate only, not a multi-day lookahead —
   // see renderRowStatus/renderNext/renderForm for how that's rendered.
   const rundownEvent = await fetchRundownEventForTeam(meta);
   const bundle = { info: null, last: null, next: null, table: null, rundownEvent, rundownTeamId: meta.rundownTeamId, rundownOnly: true, fetchedAt: new Date() };
@@ -537,6 +551,25 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       el.innerHTML = `
         <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
         <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
+      `;
+      return;
+    }
+  }
+
+  // College Basketball: findCbbRecord (js/standings-cbb.js) — ESPN's
+  // full D1 standings, matched by the team's static espnTeamId. No
+  // division concept (like WNBA), but does carry a real AP Top 25 rank
+  // (like CFB) alongside the record, plus a real conference rank (like
+  // NFL/NBA's conferenceRank) computed from the same 365-team cache.
+  if(meta.leagueKey === 'mcbb'){
+    const rec = findCbbRecord(meta);
+    if(rec && rec.wins !== null){
+      const row = findEspnCbbRow(meta);
+      const confRank = cbbConferenceRank(meta);
+      el.innerHTML = `
+        <div class="stat-cell"><div class="num">${rec.wins}-${rec.losses}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num">${typeof rec.ranking === 'number' ? '#' + rec.ranking : 'NR'}</div><div class="lbl">AP Rank</div></div>
+        <div class="stat-cell"><div class="num" style="font-size:14px;">${(row && row.conferenceAbbr) || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
       `;
       return;
     }
@@ -1601,18 +1634,19 @@ document.addEventListener('keydown', (e) => {
    TheSportsDB makes zero calls in normal operation today, and ESPN's
    hidden API has no observed rate limit at all, so there's no metered
    budget left to derive this cycle length from the way there used to
-   be. The one real per-team cost still on a shared daily quota is
-   TheRundown, for College Basketball only (RUNDOWN_SPORT_ID's mcbb
-   entry, via fetchRundownEventForTeam) — but that rides one
-   day-cache per league+date (rundownDayCache in js/api.js), so its
-   cost doesn't scale with how many CBB teams are in the rotation. */
+   be. TheRundown no longer sits on any per-team cost in normal
+   operation at all, now that College Basketball resolves through ESPN
+   too (see FLAT_SCHEDULE_LEAGUES.mcbb above) — RUNDOWN_SPORT_ID and
+   fetchRundownEventForTeam stay wired up only as a defensive fallback,
+   same status as CFB's TheSportsDB branch. */
 const MIN_REFRESH_CYCLE_MS = 5 * 60 * 1000;
 
 // Every team ESPN can resolve real data for (any team in a
-// FLAT_SCHEDULE_LEAGUES league — matched by name, not by an id field,
-// see fetchTeamBundle above) belongs in the rotation, plus the small
-// legacy set that still resolves via sportsdbId/rundownTeamId (mostly
-// just College Basketball's 3 mapped teams at this point). This used
+// FLAT_SCHEDULE_LEAGUES league — matched by name for most leagues, by a
+// static espnTeamId for College Basketball, see fetchTeamBundle above)
+// belongs in the rotation, plus the small legacy set that still
+// resolves via sportsdbId/rundownTeamId (now genuinely just a handful
+// of never-fully-migrated teams, not a whole league). This used
 // to be gated on sportsdbId/rundownTeamId alone, which was correct
 // back when only teams with one of those ids had any live source at
 // all — but it left ~117 of this app's 210 drafted teams (every
@@ -1712,7 +1746,7 @@ export async function liveScoreboardSweepTick(){
   LIVE_TEAM_KEYS.forEach(teamKey => {
     const meta = TEAM_META[teamKey];
     const flatSchedule = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-    if(!flatSchedule) return; // e.g. College Basketball — no ESPN scoreboard to sweep
+    if(!flatSchedule) return; // e.g. a team with only a legacy sportsdbId/rundownTeamId — no ESPN scoreboard to sweep
     const scoreboard = bySportPath[flatSchedule.sportPath];
     if(!scoreboard) return;
     // Same by-name resolution fetchTeamBundle's ESPN branch uses — needs
