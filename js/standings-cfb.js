@@ -28,7 +28,7 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings } from './board.js';
@@ -193,17 +193,9 @@ export function fetchEspnCfbRankingsCached(){
 // this app's own TEAM_META[...].name (e.g. "IU") to find a drafted
 // match — most are verbatim-identical (see docs/espn-migration-plan.md's
 // Pilot Results), but a handful aren't, so those get a manual override
-// here rather than a fuzzier auto-match that could mis-pair two
-// different schools.
-const CFB_ESPN_NAME_OVERRIDES = {
-  'Indiana': 'IU',
-  // NDSU's row isn't in the standings endpoint at all (see
-  // NDSU_ESPN_TEAM_ID below) — it's injected separately using ESPN's own
-  // "location" for the school, so this override just lets that injected
-  // row match this app's short "NDSU" the same way every other override
-  // here does.
-  'North Dakota State': 'NDSU'
-};
+// (CFB_ESPN_LOCATION_OVERRIDES, js/utils.js — shared with js/live-now.js's
+// Scores-tab matching, since exact-location matching is what keeps
+// prefix-colliding schools like "Texas"/"North Texas" apart).
 
 // ESPN's team id for North Dakota State's Bison — resolved once via
 // site.web.api.espn.com/apis/site/v2/sports/football/college-football/teams/2449
@@ -215,16 +207,6 @@ const CFB_ESPN_NAME_OVERRIDES = {
 // (fetchEspnCfbTeamRecord) and appended as a plain extra row in
 // fetchEspnCfbRecordsCached below.
 const NDSU_ESPN_TEAM_ID = '2449';
-
-function normalizeTeamName(s){
-  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function findCfbTeamKeyByEspnLocation(location){
-  const wanted = normalizeTeamName(CFB_ESPN_NAME_OVERRIDES[location] || location);
-  const teams = LEAGUES.find(l => l.key === 'cfb').teams;
-  return teams.find(teamKey => normalizeTeamName(TEAM_META[teamKey].name) === wanted) || null;
-}
 
 // ---- Full-roster records (ESPN-sourced, replacing TheRundown for all
 // 30 drafted CFB teams — see the file header comment and findCfbRecord
@@ -295,7 +277,7 @@ export function fetchEspnCfbRecordsCached(){
   return espnCfbRecordsPromise;
 }
 
-// Reverse direction of findCfbTeamKeyByEspnLocation — given a drafted
+// Reverse direction of findCfbTeamKeyByLocation — given a drafted
 // team's own meta, find its row in the ESPN full-standings cache (NDSU's
 // individually-fetched row included — see NDSU_ESPN_TEAM_ID above). The
 // override table is checked both ways since a drafted team's own name
@@ -308,9 +290,9 @@ export function fetchEspnCfbRecordsCached(){
 export function findEspnCfbRow(meta){
   const rows = espnCfbRecordsCache.rows;
   if(!rows) return null;
-  const reverseOverride = Object.keys(CFB_ESPN_NAME_OVERRIDES).find(loc => CFB_ESPN_NAME_OVERRIDES[loc] === meta.name);
-  const wanted = normalizeTeamName(reverseOverride || meta.name);
-  return rows.find(row => normalizeTeamName(row.location) === wanted) || null;
+  const reverseOverride = Object.keys(CFB_ESPN_LOCATION_OVERRIDES).find(loc => CFB_ESPN_LOCATION_OVERRIDES[loc] === meta.name);
+  const wanted = normalizeSchoolName(reverseOverride || meta.name);
+  return rows.find(row => normalizeSchoolName(row.location) === wanted) || null;
 }
 
 // The real win-loss record (and AP Top 25 rank, if any) for a drafted
@@ -321,7 +303,7 @@ export function findEspnCfbRow(meta){
 export function findCfbRecord(meta){
   const espnRow = findEspnCfbRow(meta);
   if(espnRow){
-    const rankRow = (espnCfbRankingsCache.ranks || []).find(r => normalizeTeamName(r.location) === normalizeTeamName(espnRow.location));
+    const rankRow = (espnCfbRankingsCache.ranks || []).find(r => normalizeSchoolName(r.location) === normalizeSchoolName(espnRow.location));
     return { wins: espnRow.wins, losses: espnRow.losses, ranking: rankRow ? rankRow.rank : null };
   }
   const rec = meta.rundownTeamId ? (cfbRecordsCache.byTeamId || {})[meta.rundownTeamId] : null;
@@ -343,7 +325,7 @@ export function computeCfbRankingTable(){
 }
 
 export function renderCfbRankingRow(rank){
-  const teamKey = findCfbTeamKeyByEspnLocation(rank.location);
+  const teamKey = findCfbTeamKeyByLocation(rank.location);
   // A ranked-but-undrafted team has no TEAM_META entry (so no SportsDB
   // badge), but ESPN's own logoUrl covers that — same real-crest
   // treatment drafted teams get, teamBadgeHtml's onerror handler falls

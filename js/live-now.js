@@ -32,7 +32,7 @@
 import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
 
@@ -91,16 +91,23 @@ async function fetchDayScoreboard(sportPath, offset){
 // js/utils.js); it's second, not first, because its substring rule has
 // a known false positive ("Nets" inside "Hornets").
 //
-// College Basketball skips both of those and matches by competitor.teamId
-// (ESPN's own numeric id) against TEAM_META's espnTeamId instead — its
-// TEAM_META.name is the school name ("Houston"), not the ESPN nickname
-// ("Cougars"), so the exact-nickname check above can never match it, and
-// the substring fallback has real collisions of its own within just this
-// app's 30 drafted mcbb teams ("Texas" is a literal substring of "Texas
-// Tech", both drafted — see js/standings-cbb.js's header comment for the
-// full case). ESPN's scoreboard competitor already carries this id (see
-// fetchEspnScoreboard in js/espn.js), so no extra fetch is needed.
+// Both college leagues skip that pair entirely, for the same underlying
+// reason: TEAM_META's entries for them are keyed by school ("Houston",
+// "Texas"), not ESPN's mascot-based nickname ("Cougars", "Longhorns"),
+// so the exact-nickname check can never match, and the substring
+// fallback has real collisions of its own within college sports' many
+// nested school names ("Texas" is a literal substring of "Texas Tech"
+// and "North Texas", all separately relevant — this app's mcbb roster
+// drafts both "Texas" and "Texas Tech", and CFB's Scores tab was once
+// misattributing "North Texas" games to drafted "Texas", confirmed live
+// 2026-09-19). College Basketball matches by competitor.teamId (ESPN's
+// own numeric id) against TEAM_META's espnTeamId instead — see
+// js/standings-cbb.js's header comment for the full Texas/Texas Tech
+// case. CFB matches on competitor.location instead
+// (findCfbTeamKeyByLocation, js/utils.js — the same lookup
+// standings-cfb.js uses), since ESPN's `location` is unique per school.
 function draftedTeamFor(leagueKey, competitor){
+  if(leagueKey === 'cfb') return findCfbTeamKeyByLocation(competitor.location);
   const league = LEAGUES.find(l => l.key === leagueKey);
   if(!league) return null;
   if(leagueKey === 'mcbb'){
@@ -116,11 +123,19 @@ function ownerName(draftTeamId){
   return d ? d.name : '';
 }
 
-// A synthetic "team" for a side nobody drafted — fed straight into
-// teamBadgeHtml so it gets the same colored-monogram treatment every
-// other name-only team in this app gets (unchanged from the old view).
-function opponentMeta(name){
-  return { name, badgeText: abbrFromName(name), badgeStyle: 'background:var(--surface-2); color:var(--text-sub);' };
+// A synthetic "team" for a side nobody drafted. ESPN's scoreboard
+// already hands back that side's own real crest (competitor.logoUrl) —
+// same "real logo over a generic monogram" treatment
+// renderCfbRankingRow (js/standings-cfb.js) gives undrafted ranked
+// teams — so this is only a fallback for the rare team with no logo,
+// via teamBadgeHtml's own onerror handler.
+function opponentMeta(name, logoUrl){
+  return {
+    name,
+    badgeText: abbrFromName(name),
+    badgeStyle: 'background:var(--surface-2); color:var(--text-sub);',
+    badgeUrl: logoUrl || null
+  };
 }
 
 // Normalizes one scoreboard event into everything a row needs, or null
@@ -134,7 +149,7 @@ function buildGame(league, event){
 
   const sides = [away, home].map(c => {
     const teamKey = draftedTeamFor(league.key, c);
-    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(c.teamName);
+    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(c.teamName, c.logoUrl);
     return {
       teamKey,
       meta,
