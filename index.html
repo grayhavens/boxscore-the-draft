@@ -119,6 +119,24 @@
     <div id="admin-content"></div>
   </div>
 
+  <!-- Team Page and its two pushed sub-screens (js/team-page.js) — each
+       is just a mount div; every bit of markup (nav row, hero, tabs) is
+       built dynamically per-team, so there's no static header here the
+       way the other views above have. Pushed/popped via openTeamPage/
+       openFullSchedule/openFullSquad/backFromTeamPage/backFromFullScreen
+       rather than switchView, so the bottom tab bar keeps whichever tab
+       was actually active before the push (see that module's header
+       comment). -->
+  <div id="view-team-page" class="view view-push-in">
+    <div id="team-page-content"></div>
+  </div>
+  <div id="view-team-schedule" class="view view-push-in">
+    <div id="team-schedule-content"></div>
+  </div>
+  <div id="view-team-squad" class="view view-push-in">
+    <div id="team-squad-content"></div>
+  </div>
+
 </div>
 
 <div class="build-tag" id="build-tag"></div>

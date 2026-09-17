@@ -3024,4 +3024,242 @@ body{
   letter-spacing: 0.1px;
 }
 
+/* ============================================================
+   Team Page (js/team-page.js) — the standings row's crest shrinks to
+   32px per the design's Design Decision #2 (everything else about
+   .standings-row/.badge-crest stays exactly as-is, so this is scoped
+   here rather than touching the shared .badge rule everywhere else
+   still uses at 44px).
+   ============================================================ */
+.standings-row .badge{
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+/* Slide-in entrance for a pushed Team Page/full-screen — applied once
+   via JS on open (see openTeamPage/openFullSchedule in js/team-page.js)
+   rather than a permanent .view rule, so Board/Standings/Overall keep
+   their existing instant switch. */
+@keyframes view-push-in{
+  from{ transform: translateX(34px); opacity: 0; }
+  to{ transform: translateX(0); opacity: 1; }
+}
+.view-push-in{ animation: view-push-in 0.34s cubic-bezier(0.22, 0.7, 0.25, 1); }
+@media (prefers-reduced-motion: reduce){ .view-push-in{ animation: none; } }
+
+.team-page-nav{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 16px 10px;
+}
+.team-page-back{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 2px;
+}
+.team-page-back:hover{ color: var(--text); }
+.team-page-back svg{ width: 17px; height: 17px; }
+.team-page-actions{ display: flex; align-items: center; gap: 6px; }
+
+.team-hero{
+  position: relative;
+  overflow: hidden;
+  padding: 10px 20px 20px;
+}
+.team-hero-orb{
+  position: absolute;
+  right: -46px; top: -30px;
+  width: 190px; height: 190px;
+  border-radius: 50%;
+  filter: blur(2px);
+  pointer-events: none;
+}
+.team-hero-scrim{
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10,11,13,0) 40%, rgba(10,11,13,0.85) 100%);
+  pointer-events: none;
+}
+.team-hero-row{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.crest-bare{
+  flex: 0 0 auto;
+  object-fit: contain;
+  background: none;
+}
+.team-hero .crest-bare{ width: 82px; height: 82px; filter: drop-shadow(0 10px 22px rgba(0,0,0,0.5)); }
+.team-hero-name{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: -0.9px;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+.team-hero-meta{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+.team-hero-meta .status-pill{
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--win);
+  background: var(--win-soft);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.game-card{
+  margin: 16px 20px 0;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 14px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.game-card.live{ border-color: rgba(229,72,77,0.4); }
+.game-card-eyebrow{
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-mute);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.game-card.live .game-card-eyebrow{ color: var(--live); }
+.game-card-line1{ font-size: 11.5px; font-weight: 600; color: var(--text-sub); margin-top: 2px; }
+.game-card.live .game-card-line1{ color: var(--text); }
+.game-card-opponent{ font-size: 15px; font-weight: 700; margin-top: 5px; }
+.game-card-line2{ font-size: 11px; font-weight: 500; color: var(--text-mute); margin-top: 1px; }
+
+.tab-body{ padding: 14px 20px 26px; min-height: 330px; }
+
+.news-card{
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 13px 14px;
+  cursor: pointer;
+}
+.news-card + .news-card{ margin-top: 10px; }
+.news-card:hover{ background: var(--surface-2); }
+.news-card .headline{ font-size: 14px; font-weight: 700; line-height: 1.3; text-wrap: pretty; }
+.news-card .news-meta{ font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-mute); margin-top: 8px; }
+.news-footer-note{ text-align: center; font-size: 11px; font-weight: 600; color: var(--text-mute); margin-top: 4px; }
+
+@keyframes skel{ 0%, 100%{ opacity: 1; } 50%{ opacity: 0.4; } }
+.skel-bar{ background: rgba(255,255,255,0.07); border-radius: 6px; height: 13px; animation: skel 1.5s ease-in-out infinite; }
+.skel-bar.meta{ background: rgba(255,255,255,0.05); border-radius: 5px; height: 9px; }
+@media (prefers-reduced-motion: reduce){ .skel-bar{ animation: none; } }
+
+.empty-state{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 40px 34px 44px;
+}
+.empty-state svg{ width: 26px; height: 26px; stroke: #3A3B41; }
+.empty-state .title{ font-size: 13.5px; font-weight: 700; }
+.empty-state .body{ font-size: 12px; font-weight: 500; color: var(--text-sub); line-height: 1.5; text-wrap: pretty; }
+
+.stat-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat-tile{ background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 13px 14px; }
+.stat-tile .num{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.4px; }
+.stat-tile .lbl{ font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-mute); margin-top: 3px; }
+
+.split-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; margin-top: 16px; }
+.split-row{ display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+.split-row + .split-row{ border-top: 1px solid rgba(255,255,255,0.06); }
+.split-label{ font-size: 13px; font-weight: 600; }
+.split-values{ display: flex; align-items: center; gap: 14px; }
+.split-record{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13.5px; }
+.split-secondary{ font-size: 11.5px; font-weight: 600; color: var(--text-sub); }
+
+.player-row{ display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.player-row + .player-row{ border-top: 1px solid rgba(255,255,255,0.06); }
+.number-chip{
+  flex: 0 0 32px; width: 32px; height: 32px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px;
+  color: var(--text-sub);
+}
+.player-main{ flex: 1; min-width: 0; }
+.player-name{ font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.player-sub{ font-size: 11.5px; font-weight: 500; color: var(--text-sub); margin-top: 1px; }
+.player-tag{
+  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  border-radius: 5px; padding: 2px 5px;
+}
+.player-tag.captain{ color: var(--accent); background: var(--accent-soft); }
+.player-tag.out{ color: var(--loss); background: var(--loss-soft); }
+.player-stat{ text-align: right; font-size: 11.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+
+.placeholder-tab{
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 13px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+
+/* Trimmed team modal's hand-off to the Team Page (js/live-data.js's
+   openTeamModal) — same accent-soft/accent-border "callout" recipe
+   .prior-season-note/.ob-sim-banner already use, shaped into a
+   full-width button instead of a text banner. */
+.modal-cta{
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 18px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.modal-cta-note{
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-mute);
+  margin-top: 8px;
+}
+
 .tab-btn.active{ color: var(--accent); }

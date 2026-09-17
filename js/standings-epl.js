@@ -145,9 +145,7 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = teamKey
-    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
-    : '';
+  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderEplByDrafterRow
   // below) — the real W-D-L record as the bold line, league points
@@ -155,7 +153,7 @@ export function renderStandingsRow(leagueKey, row){
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.draws}-${row.losses}</span><span class="person-record-secondary">${row.points} PTS</span>`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
