@@ -1,9 +1,11 @@
 # ESPN hidden API — evaluation & migration plan
 
-**Status: everything below is live except College Basketball (see "Second migration wave," phase E) —
-every league now reads ESPN for standings/rankings, schedule, and live in-game state except CBB (no
-ESPN integration built for it yet). TheSportsDB has no remaining callers in normal operation at all —
-see "SportsDB fully deprecated (2026-09-12)" below.**
+**Status: every league, College Basketball included, now reads ESPN for standings/rankings,
+schedule, and live in-game state — see "College Basketball migration (2026-09-17)" below for the
+last one. TheSportsDB has no remaining callers in normal operation at all — see "SportsDB fully
+deprecated (2026-09-12)" below. TheRundown's only remaining role anywhere in this app is as a
+defensive per-team fallback (CFB's NDSU, and now every mcbb team) for a fetch that ESPN itself
+fails to resolve on a given refresh — not a primary source for any league any more.**
 **Code:** [`js/espn.js`](../js/espn.js) and [`js/standings-flat.js`](../js/standings-flat.js), wired
 into every league's own `js/standings-*.js` file and `js/live-data.js`.
 
@@ -342,12 +344,14 @@ rewrite. Verified against a real live window (2026-09-12, four MLB games actuall
 than just structurally: San Diego at San Francisco correctly showed `LIVE 7-5 · Bot 5th` on both the
 board pill and the team modal, live, mid-game.
 
-**What this leaves on TheRundown:** College Basketball (no ESPN integration built for it at all yet —
-it has no standings/schedule source today either, TheSportsDB never carried it; giving it the same
-treatment as the other 7 leagues is a real follow-up but a bigger lift, since there's no existing
-schedule/standings scaffolding to extend the way there was here). CFB's NDSU no longer needs it — see
-"SportsDB fully deprecated" below. Every other league's per-team live/schedule/record fetch no longer
-touches TheRundown's shared daily quota at all.
+**What this leaves on TheRundown (at the time this phase shipped):** College Basketball (no ESPN
+integration built for it at all yet — it has no standings/schedule source today either, TheSportsDB
+never carried it; giving it the same treatment as the other 7 leagues is a real follow-up but a
+bigger lift, since there's no existing schedule/standings scaffolding to extend the way there was
+here). CFB's NDSU no longer needs it — see "SportsDB fully deprecated" below. Every other league's
+per-team live/schedule/record fetch no longer touches TheRundown's shared daily quota at all.
+**Update (2026-09-17): the "bigger lift" assumption above turned out to be wrong — see "College
+Basketball migration" below, which closes this gap the same way the other 7 leagues were closed.**
 
 ## SportsDB fully deprecated (2026-09-12)
 
@@ -750,3 +754,78 @@ shape as `cfb`'s and reuses the identical reader, there's no NFL-specific code l
 NFL games start — only worth a quick spot-check against a live NFL payload the first time this actually
 gets used in-season, the same way CFB's own addition caught the two real MLB bugs (see above) that
 guessing from docs alone had missed.
+
+## College Basketball migration (2026-09-17)
+
+Closes the one remaining gap this whole document kept deferring: every earlier phase assumed CBB
+would need real new scaffolding built from scratch ("no ESPN integration... a bigger lift, since
+there's no existing schedule/standings scaffolding to extend"). That assumption was never actually
+re-tested — this session had real, working network access to `site.web.api.espn.com` (unlike some
+earlier sessions building other parts of this doc, which had to write against reverse-engineered
+field shapes with no way to check them) and simply tried it. It works, fully, the same as every other
+league here.
+
+**Verified live (2026-09-17):**
+- `/apis/v2/sports/basketball/mens-college-basketball/standings` — 365 D1 teams across 31
+  conferences, every conference a direct `standings.entries` list (no CFB-style "Sun Belt nests a
+  division deeper" surprise to special-case).
+- `/apis/site/v2/sports/basketball/mens-college-basketball/rankings` — real AP Top 25 with
+  rank/trend/points/firstPlaceVotes, same shape as CFB's.
+- `/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard`, `teams/{id}`,
+  `teams/{id}/schedule` — all real, all CORS-open, no key. Same `fetchEspnTeamSchedule`/
+  `fetchEspnScoreboard`/News reader every other FLAT_SCHEDULE_LEAGUES league already used, pointed at
+  this sportPath.
+- All 30 of this app's drafted mcbb teams matched a real ESPN row by id — 30/30, cross-checked
+  against the ESPN team id already embedded in each team's existing `badgeUrl` (e.g. Houston's
+  `.../ncaa/500/248.png`).
+
+**The one real design difference from every other FLAT_SCHEDULE_LEAGUES league: matching goes by a
+static `espnTeamId` field on `TEAM_META`, not by name.** Every other league's TEAM_META.name is
+either an exact ESPN nickname (NBA/NHL/MLB/WNBA, `findFlatTeamKey`) or a school name close enough for
+substring matching to work (EPL/CFB, `findDraftedTeamByName`). mcbb's TEAM_META.name is a school name
+like every other college league, but a real substring collision exists *within this app's own 30
+drafted teams* that an override table can't cleanly patch: "Texas" (`douglas_texas`) is a literal
+substring of "Texas Tech" (`douglas_texastech`), and unlike CFB's "IU"/"Indiana" overrides, both real
+teams are drafted here, so whichever one `findDraftedTeamByName` happens to iterate to first wins
+regardless of which team ESPN actually named — the same class of bug `js/standings-flat.js` documents
+finding for NBA's "Nets" substring-matching into "Hornets". Also present: "Michigan" vs "Michigan
+State", and TEAM_META abbreviations ESPN's `location` never uses at all (NDSU vs "North Dakota
+State", SLU vs "Saint Louis"), which name-overrides could patch individually but which a numeric id
+sidesteps entirely. Every drafted team's real ESPN id was already sitting in its existing `badgeUrl`
+(from an earlier, unrelated badge-fetching pass), so this was a matter of promoting an already-known
+value to its own field, not discovering anything new — see `findEspnCbbRow` in `js/standings-cbb.js`.
+
+**One real scoreboard gotcha, different from every other league here:** CBB can have 100+ Division I
+games on a single night, far more than any other sport in this app. ESPN's scoreboard endpoint
+defaults to a smaller "featured" slate rather than the full one for this sport specifically — the same
+"silent default-limit truncation" class of bug as finding #3 above (CFB's bulk `/teams` list needing
+`?limit=1000`), just on the scoreboard instead. Fixed by having `fetchEspnScoreboard` (`js/espn.js`)
+append `?groups=50&limit=400` (`groups=50` = all Division I) whenever `sportLeaguePath` is
+`basketball/mens-college-basketball` specifically — every other league's own call is untouched, since
+none of them plays enough games in a day to hit a default limit.
+
+**What shipped:** `js/standings-cbb.js` (new — modeled on `js/standings-cfb.js`: AP Top 25 / Drafted
+combined-win% toggle, no single "League" table view, same reasoning as CFB for skipping one — 365
+teams across 31 conferences has no useful one-table shape). `mcbb` added to `FLAT_SCHEDULE_LEAGUES`
+and `GAME_DETAIL_LEAGUES` was deliberately left alone (no basketball boxscore reader exists in this
+app yet for any league — NBA/NHL don't have one either; a real follow-up, not specific to this
+migration). `js/live-now.js`'s `draftedTeamFor` gained an `espnTeamId`-based branch for `mcbb`
+specifically, since its existing exact-nickname-then-substring matching would hit the exact same
+Texas/Texas Tech collision described above the moment mcbb's scoreboard joined the Today view's
+per-day fetch.
+
+**What happens to TheRundown for this league now:** kept wired up (`RUNDOWN_SPORT_ID.mcbb`,
+`fetchRundownEventForTeam`) as a defensive fallback only, same status CFB's TheSportsDB branch has had
+since "SportsDB fully deprecated" below — `fetchTeamBundle`'s plain `meta.rundownTeamId` branch is
+only reached if `FLAT_SCHEDULE_LEAGUES.mcbb.findRow` genuinely fails to resolve a team on a given
+refresh, which doesn't happen for any of today's 30 drafted teams in normal operation.
+
+**balldontlie.io evaluated and not adopted.** Investigated as a possible second/cross-reference
+source (`ncaab.balldontlie.io`) before this build. Its free tier — the tier this app has a key for —
+only exposes conferences/teams/players/standings; live games, schedule, and AP rankings all require
+the paid ALL-STAR tier ($9.99/mo), so it couldn't have supplied the schedule/live-score half of this
+feature at all on the free tier. More importantly, the one thing its free tier *does* offer
+(conferences + standings) turned out to be fully redundant: ESPN's own standings response already
+groups every team under its real conference name/abbreviation/short-name — confirmed live across all
+31 conferences — so there was no gap left for balldontlie to fill even for that. Not integrated in any
+form; no worker route, no client key handling, nothing to maintain.

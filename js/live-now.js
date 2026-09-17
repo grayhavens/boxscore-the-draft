@@ -22,11 +22,12 @@
         convention findFlatTeamKey in js/standings-flat.js uses, with
         findDraftedTeamByName as the fuzzy fallback.
 
-   Not covered: College Basketball, which has no ESPN scoreboard at all
-   (see FLAT_SCHEDULE_LEAGUES in js/live-data.js) — it was TheRundown-
-   only in the old view and is simply absent here rather than given a
-   second, date-less code path. If CBB needs to appear, it wants
-   TheRundown's own /events/{date} endpoint through the worker.
+   College Basketball joined FLAT_SCHEDULE_LEAGUES (js/live-data.js) on
+   2026-09-17 once ESPN's hidden API was confirmed to cover it, so it's
+   included here as a full 8th league now — TheRundown-only before that,
+   and simply absent from this view entirely before that. Its
+   draftedTeamFor match goes by ESPN team id, not name — see that
+   function's own comment for why.
    ============================================================ */
 import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
@@ -89,9 +90,22 @@ async function fetchDayScoreboard(sportPath, offset){
 // names don't line up (EPL's "Man City" etc — see TEAM_NAME_ALIASES in
 // js/utils.js); it's second, not first, because its substring rule has
 // a known false positive ("Nets" inside "Hornets").
+//
+// College Basketball skips both of those and matches by competitor.teamId
+// (ESPN's own numeric id) against TEAM_META's espnTeamId instead — its
+// TEAM_META.name is the school name ("Houston"), not the ESPN nickname
+// ("Cougars"), so the exact-nickname check above can never match it, and
+// the substring fallback has real collisions of its own within just this
+// app's 30 drafted mcbb teams ("Texas" is a literal substring of "Texas
+// Tech", both drafted — see js/standings-cbb.js's header comment for the
+// full case). ESPN's scoreboard competitor already carries this id (see
+// fetchEspnScoreboard in js/espn.js), so no extra fetch is needed.
 function draftedTeamFor(leagueKey, competitor){
   const league = LEAGUES.find(l => l.key === leagueKey);
   if(!league) return null;
+  if(leagueKey === 'mcbb'){
+    return league.teams.find(teamKey => TEAM_META[teamKey].espnTeamId === competitor.teamId) || null;
+  }
   const nickname = normalizeTeamName(competitor.teamNickname || '');
   const exact = league.teams.find(teamKey => normalizeTeamName(TEAM_META[teamKey].name) === nickname);
   return exact || findDraftedTeamByName(leagueKey, competitor.teamName);

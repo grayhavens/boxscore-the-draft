@@ -8,17 +8,16 @@
    this view.
 
    Full 4-tab treatment (Schedule/News/Stats/Squad) ships for every
-   league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/CFB) — News
-   only needs a team's ESPN id and sportPath (see ensureNews below), so
-   it was never restricted the way Stats/Squad are. Roster/team-stats
-   endpoints were only curled and verified for EPL, NFL and MLB (see
-   js/espn.js's fetchEspnTeamRoster/fetchEspnTeamStatistics header
-   comments and FULL_STATS_SQUAD_LEAGUES below) — every other
-   FLAT_SCHEDULE_LEAGUES league gets a real page and a working News tab,
+   league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/CFB/CBB) —
+   News only needs a team's ESPN id and sportPath (see ensureNews
+   below), so it was never restricted the way Stats/Squad are.
+   Roster/team-stats endpoints were only curled and verified for EPL,
+   NFL and MLB (see js/espn.js's fetchEspnTeamRoster/
+   fetchEspnTeamStatistics header comments and FULL_STATS_SQUAD_LEAGUES
+   below) — every other FLAT_SCHEDULE_LEAGUES league (College Basketball
+   included, added 2026-09-17) gets a real page and a working News tab,
    just a plain "not available yet" placeholder for Stats/Squad until
-   those get their own design pass. College Basketball has no ESPN
-   wiring at all (not in FLAT_SCHEDULE_LEAGUES) and has no Team Page —
-   see the hasTeamPage gate in openTeamModal.
+   those get their own design pass.
 
    Pushed/popped via the functions below, not switchView() — switchView
    also drives the bottom tab bar's active state off a fixed data-view

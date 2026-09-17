@@ -108,6 +108,16 @@ async function fetchEspnFlatStandings(path){
         id: entry.team.id,
         conference: conf.name,
         conferenceAbbr: conf.abbreviation,
+        // ESPN's own display-cased label ("Big Ten", "WCC", "A-10") —
+        // distinct from conferenceAbbr above, which is ESPN's internal
+        // machine code (lowercase, e.g. "big10", "wcc", "sec"). Every
+        // other sport here has so few conferences (2, or MLB's AL/NL)
+        // that the raw abbreviation already happens to read fine ("AFC",
+        // "East"), so only fetchEspnCbbStandings below actually uses
+        // this field — added alongside conferenceAbbr rather than
+        // replacing it, to avoid any risk to NFL/NBA/NHL/MLB/WNBA's
+        // already-shipped display.
+        conferenceShortName: conf.shortName || null,
         teamName: espnTeamName(entry.team),
         // The bare nickname ("Cavaliers"), no city — matches this app's
         // own TEAM_META.name exactly (see findFlatTeamKey in
@@ -180,6 +190,37 @@ export async function fetchEspnNbaStandings(){
 export async function fetchEspnWnbaStandings(){
   const rows = await fetchEspnFlatStandings('/apis/v2/sports/basketball/wnba/standings');
   return rows ? rows.map(mapNbaLikeRow) : null;
+}
+
+// Men's College Basketball — verified live (2026-09-17): 365 D1 teams
+// across 31 conferences, all direct entries (no CFB-style "Sun Belt
+// nests a division deeper" gap — every one of this app's 30 drafted
+// mcbb teams resolves here). Same flat, conference-grouped shape and
+// wins/losses/streak/winPercent stat names as NBA/WNBA, so this reuses
+// mapNbaLikeRow as-is rather than a bespoke mapper. Unlike CFB, matching
+// a row back to a drafted team doesn't go through `conference`/name at
+// all — TEAM_META's mcbb entries carry a static `espnTeamId` (see
+// findEspnCbbRow in js/standings-cbb.js) instead, since mcbb's
+// TEAM_META.name is the school name, not a nickname, and several of
+// this app's 30 drafted teams collide under name/substring matching
+// (e.g. "Texas" vs "Texas Tech", "Michigan" vs "Michigan State") the
+// same way "Nets"/"Hornets" did for NBA — sidestepped entirely by
+// keying on ESPN's own stable numeric team id instead.
+// Shape returned: [{ id, conference, conferenceAbbr, teamName,
+// abbreviation, logoUrl, wins, losses, streak, winPercent, gamesBehind,
+// pointsFor, pointsAgainst }] — conferenceAbbr here is ESPN's display-
+// cased shortName ("Big Ten", "WCC", "A-10"), not mapNbaLikeRow's usual
+// raw abbreviation field. Every other mapNbaLikeRow caller (NBA/WNBA)
+// only ever has 2 conferences whose raw abbreviation ("East"/"West")
+// already reads fine as-is; CBB's 31 real conferences don't (ESPN's
+// abbreviation for these is a lowercase internal code — "big10", "sec",
+// "wcc" — verified live 2026-09-17), so this overrides just that one
+// field with fetchEspnFlatStandings' conferenceShortName instead of
+// reusing mapNbaLikeRow unchanged the way fetchEspnNbaStandings/
+// fetchEspnWnbaStandings do.
+export async function fetchEspnCbbStandings(){
+  const rows = await fetchEspnFlatStandings('/apis/v2/sports/basketball/mens-college-basketball/standings');
+  return rows ? rows.map(r => Object.assign(mapNbaLikeRow(r), { conferenceAbbr: r.conferenceShortName || r.conferenceAbbr })) : null;
 }
 
 // NHL conference standings — verified live (2026-09-11). Hockey's
@@ -484,6 +525,41 @@ export async function fetchEspnCfbRankings(pollName = 'AP Top 25'){
   if(!poll || !Array.isArray(poll.ranks)) return null;
 
   return poll.ranks.map(r => ({
+    rank: r.current,
+    previousRank: r.previous,
+    trend: r.trend,
+    teamName: espnTeamName(r.team),
+    location: r.team.location,
+    logoUrl: espnLogoUrl(r.team),
+    record: r.recordSummary,
+    points: r.points,
+    firstPlaceVotes: r.firstPlaceVotes
+  }));
+}
+
+// Men's College Basketball's AP Top 25 — same shape as fetchEspnCfbRankings
+// above, plus a real `id` field (CFB's version doesn't carry one — it
+// matches ranked teams back to drafted ones by `location` instead, see
+// CFB_ESPN_NAME_OVERRIDES in js/standings-cfb.js). mcbb matches by
+// TEAM_META's static espnTeamId instead (see fetchEspnCbbStandings'
+// header comment for why), so this needs the id passed straight through
+// rather than requiring a second name-override table.
+// Verified live (2026-09-17): before the 2026-27 season's own polls
+// exist yet, this correctly returns the most recent real poll (2025-26
+// season, postseason Week 3) rather than an empty/future one — ESPN's
+// rankings endpoint always serves whatever its own `latestSeason`/
+// `latestWeek` fields point to.
+// Shape returned: [{ id, rank, previousRank, trend, teamName, location,
+// logoUrl, record, points, firstPlaceVotes }]
+export async function fetchEspnCbbRankings(pollName = 'AP Top 25'){
+  const data = await fetchEspnJSON('/apis/site/v2/sports/basketball/mens-college-basketball/rankings');
+  if(!data || !Array.isArray(data.rankings)) return null;
+
+  const poll = data.rankings.find(p => p.name === pollName);
+  if(!poll || !Array.isArray(poll.ranks)) return null;
+
+  return poll.ranks.map(r => ({
+    id: r.team.id,
     rank: r.current,
     previousRank: r.previous,
     trend: r.trend,
@@ -812,7 +888,17 @@ export async function fetchEspnTeamStatistics(sportLeaguePath, espnTeamId){
 export async function fetchEspnScoreboard(sportLeaguePath, dates){
   // ESPN's scoreboard defaults to today; `?dates=YYYYMMDD` returns that
   // day's slate instead — same response shape, verified against both.
-  const query = dates ? `?dates=${dates}` : '';
+  const params = dates ? [`dates=${dates}`] : [];
+  // College Basketball only: on a real slate day this league can have
+  // 100+ D1 games at once, far more than any other league here — the
+  // same "silent default-limit truncation" risk already documented for
+  // CFB's bulk /teams list (docs/espn-migration-plan.md, finding #3),
+  // just on the scoreboard endpoint instead. `groups=50` (all Division
+  // I, not just ESPN's default "featured" slate) + a high `limit`
+  // avoids that; every other sportLeaguePath here plays too few games a
+  // day to ever hit a default limit, so this only applies to mcbb.
+  if(sportLeaguePath === 'basketball/mens-college-basketball') params.push('groups=50', 'limit=400');
+  const query = params.length ? `?${params.join('&')}` : '';
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/scoreboard${query}`);
   if(!data) return null;
 

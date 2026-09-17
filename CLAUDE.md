@@ -69,11 +69,13 @@ including across sessions.
 
 **Data sources** (see `docs/espn-migration-plan.md` for the full history/rationale):
 - **ESPN's hidden site API** (`js/espn.js`, `ESPN_SITE_BASE`) is now the primary source for
-  standings, rankings, schedule, and live in-game state for every league except College Basketball.
-  No key, open CORS, called directly from the browser — no worker proxy involved.
+  standings, rankings, schedule, and live in-game state for every one of the 8 leagues, College
+  Basketball included (added 2026-09-17). No key, open CORS, called directly from the browser — no
+  worker proxy involved.
 - **TheSportsDB** is fully deprecated — no remaining runtime callers.
-- **TheRundown** (paid/metered) is kept only where ESPN doesn't cover live in-game clock/score
-  state or College Basketball; its key is private, so it's always proxied through
+- **TheRundown** (paid/metered) is kept only as a defensive per-team fallback for a fetch ESPN itself
+  fails to resolve on a given refresh (CFB's one FCS team, and now every College Basketball team) —
+  not a primary source for any league; its key is private, so it's always proxied through
   `worker/rundown-proxy.js`, never called directly from client JS.
 
 **`worker/rundown-proxy.js`** (Cloudflare Worker, deployed separately from the static site) does
