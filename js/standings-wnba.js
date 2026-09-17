@@ -126,16 +126,14 @@ export function renderWnbaStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = teamKey
-    ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
-    : '';
+  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row below —
   // the raw W-L record as the bold line, win% called out underneath.
   const rowPct = winPct(row);
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.losses}</span>${rowPct !== null ? `<span class="person-record-secondary">${formatWinPct(rowPct)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">

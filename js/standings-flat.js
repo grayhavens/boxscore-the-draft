@@ -304,9 +304,7 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    const ownerHtml = teamKey
-      ? `<div class="team-sub">${DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name}</div>`
-      : '';
+    const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
     // Same two-tier record treatment as the Drafted view's row (see
     // .person-record-chip) — combinedLabel works unchanged on a single
     // ESPN row, not just an aggregated per-drafter bucket, since both
@@ -315,7 +313,7 @@ export function createFlatStandingsBoard(opts){
     const recordHtml = `<span class="person-record-primary">${primary}</span>${secondary ? `<span class="person-record-secondary">${secondary}</span>` : ''}`;
 
     return `
-      <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamModal('${teamKey}')"` : ''}>
+      <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
         <div class="standings-rank">${rank}</div>
         ${teamBadgeHtml(meta)}
         <div class="team-main">

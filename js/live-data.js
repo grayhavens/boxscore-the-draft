@@ -15,7 +15,6 @@ import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisio
 import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisionLabel, nhlDivisionRank, nhlConferenceRank, fetchEspnNhlDivisionStandingsCached } from './standings-nhl.js';
 import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
-import { trackerSectionHtml } from './league-facts.js';
 import { favoriteStarHtml } from './favorites.js';
 
 // Every league whose Most Recent Result/Next Match comes from ESPN's
@@ -240,7 +239,7 @@ async function fetchTeamInfoCached(teamKey, id, useV2){
   return entry.info;
 }
 
-async function fetchTeamBundle(teamKey){
+export async function fetchTeamBundle(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return null;
 
@@ -373,7 +372,7 @@ function eplSeasonStatus(bundle){
 // basketball has no ESPN wiring at all — see FLAT_SCHEDULE_LEAGUES —
 // so its bundle carries neither espnSeason nor espnSchedule), in which
 // case the badge stays hidden rather than guessing.
-function seasonStatus(meta, bundle){
+export function seasonStatus(meta, bundle){
   if(meta.leagueKey === 'epl') return eplSeasonStatus(bundle);
   if(bundle.espnSeason && ESPN_SEASON_TYPE[bundle.espnSeason.type]) return ESPN_SEASON_TYPE[bundle.espnSeason.type];
   return null;
@@ -396,8 +395,8 @@ function renderSeasonBadge(meta, bundle){
   el.innerHTML = status ? `<span class="season-badge ${status.cls}">${status.label}</span>` : '';
 }
 
-export function renderStats(meta, bundle){
-  const el = document.getElementById('live-stats');
+export function renderStats(meta, bundle, elId = 'live-stats'){
+  const el = document.getElementById(elId);
   if(!el) return;
 
   // EPL: same ESPN standings source the Standings tab reads (see
@@ -562,7 +561,7 @@ export function renderStats(meta, bundle){
 // with the most recent (matches recentEvents' own newest-first order,
 // so this just reverses a slice of it) — the detailed line rendered
 // below it always covers the rightmost/most recent one already.
-function formStripHtml(recentEvents){
+export function formStripHtml(recentEvents){
   const last5 = recentEvents.slice(0, 5).reverse();
   return `
     <div class="form-strip">
@@ -577,8 +576,8 @@ function formStripHtml(recentEvents){
   `;
 }
 
-function renderForm(teamKey, meta, bundle){
-  const el = document.getElementById('live-form');
+export function renderForm(teamKey, meta, bundle, elId = 'live-form'){
+  const el = document.getElementById(elId);
   if(!el) return;
   const id = meta.sportsdbId;
 
@@ -730,8 +729,8 @@ export function getNextEventInfo(meta, bundle){
   return null;
 }
 
-function renderNext(teamKey, meta, bundle){
-  const el = document.getElementById('live-next');
+export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
+  const el = document.getElementById(elId);
   if(!el) return;
   const id = meta.sportsdbId;
 
@@ -1063,14 +1062,15 @@ export function openTeamModal(teamKey){
   // own), not just the ones with real TheSportsDB/TheRundown ids.
   const hasLive = !!meta.sportsdbId || !!meta.rundownTeamId || !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
   const cached = hasLive ? liveDataCache[teamKey] : null;
-  const tracker = trackerSectionHtml(teamKey);
-  // MLB/WNBA: the stat strip and results below are ESPN's real, live
-  // '26 data — still worth showing — but this team's drafted record
-  // doesn't start scoring until the '27 season actually begins. See
-  // PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js.
-  const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)
-    ? `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`
-    : '';
+  // The Team Page (js/team-page.js) only exists for leagues on the ESPN
+  // schedule/standings path (FLAT_SCHEDULE_LEAGUES) — College
+  // Basketball has no ESPN wiring at all (see that map's own header
+  // comment) and stays on this modal alone, so it gets no hand-off CTA.
+  const hasTeamPage = !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
+  const ctaHtml = hasTeamPage ? `
+    <button class="modal-cta" onclick="closeTeamModal(); openTeamPage('${teamKey}', 'board');">View team page &rsaquo;</button>
+    <div class="modal-cta-note">News, season splits and the full squad live there</div>
+  ` : '';
 
   modalContent.innerHTML = `
     <div class="modal-accent" style="background:${meta.accent};"></div>
@@ -1088,17 +1088,16 @@ export function openTeamModal(teamKey){
     ${hasLive ? `
       <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>'}</div>
       <div class="modal-body">
-        ${priorSeasonNoteHtml}
         <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
         <div class="form-list" id="live-form">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
         <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
         <div class="next-match" id="live-next">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
-        <div id="tracker-section">${tracker}</div>
+        ${ctaHtml}
       </div>
     ` : `
       <div class="modal-body">
         <div class="no-live-note">Live results for ${meta.fullName || meta.name} aren't hooked up yet — showing placeholder space here for now.</div>
-        <div id="tracker-section">${tracker}</div>
+        ${ctaHtml}
       </div>
     `}
   `;
@@ -1640,6 +1639,24 @@ export async function backgroundRefreshTick(){
   if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
     renderLiveBundle(teamKey, bundle);
   }
+  refreshOpenTeamPageIfActive(teamKey, bundle);
+}
+
+// The Team Page (js/team-page.js) marks its own mount point with the
+// same data-activeTeam convention the modal above already uses, so this
+// file can keep its stat-strip/game-card current on the same refresh
+// ticks the modal gets, without importing team-page.js (which itself
+// imports a good deal of this file — importing it back here would be
+// circular for no real benefit, since all that's needed is two DOM ids
+// to repaint).
+function refreshOpenTeamPageIfActive(teamKey, bundle){
+  const el = document.getElementById('team-page-content');
+  if(!el || el.dataset.activeTeam !== teamKey) return;
+  const meta = TEAM_META[teamKey];
+  renderStats(meta, bundle, 'team-page-stats');
+  renderNext(teamKey, meta, bundle, 'team-page-next');
+  const cardEl = document.getElementById('team-page-game-card');
+  if(cardEl) cardEl.classList.toggle('live', !!(bundle.espnLive && bundle.espnLive.isLive));
 }
 
 /* ---- Fast live-scoreboard sweep ----
@@ -1684,6 +1701,7 @@ function applyLiveScoreboardPatch(teamKey, espnLive){
   if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
     renderLiveBundle(teamKey, cached);
   }
+  refreshOpenTeamPageIfActive(teamKey, cached);
 }
 
 export async function liveScoreboardSweepTick(){

@@ -400,9 +400,16 @@ export function trackerSectionHtml(teamKey){
   return trackerHeadHtml(teamKey, totalHtml, expanded) + bodyHtml;
 }
 
+// `#tracker-section` now only ever lives on the Team Page's Stats tab
+// (js/team-page.js) — the team modal dropped it when trimmed down to a
+// peek. This used to also check the modal's own activeTeam dataset
+// before repainting, back when the modal was this element's only
+// possible home; that guard is gone since it no longer applies anywhere
+// this element actually renders, and was stopping this section from
+// ever expanding on the Team Page (always failing the modal check).
 function renderTrackerSection(teamKey){
   const el = document.getElementById('tracker-section');
-  if(!el || document.getElementById('modal-content').dataset.activeTeam !== teamKey) return;
+  if(!el) return;
   el.innerHTML = trackerSectionHtml(teamKey);
 }
 

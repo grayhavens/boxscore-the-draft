@@ -217,7 +217,8 @@ export async function fetchEspnMlbStandings(){
     id: r.id, conference: r.conference, conferenceAbbr: r.conferenceAbbr,
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, ties: r.stats.ties,
-    winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind, streak: r.stats.streak
+    winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind, streak: r.stats.streak,
+    pointDifferential: r.stats.pointDifferential
   }));
 }
 
@@ -704,6 +705,91 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
   const upcoming = all.filter(e => !e.completed && new Date(e.date).getTime() >= now)
     .sort((x, y) => new Date(x.date) - new Date(y.date));
   return { recent, upcoming };
+}
+
+// Team Page (js/team-page.js): a club's headlines, curled and verified
+// live (2026-09-17) for one EPL/NFL/MLB team each. `?team=` does filter
+// (mostly) to that team, but ESPN still folds in a handful of
+// whole-league roundup stories (verified live: an NFL "Week 2 uniforms"
+// story came back tagged with all 32 team ids at once) — those are
+// dropped here by only keeping articles whose `team`-type category list
+// is short enough to be genuinely about this club, rather than trusting
+// the `team=` filter alone.
+// Shape returned: [{ id, headline, description, published, link,
+// imageUrl }], newest first, already filtered/capped.
+const NEWS_MAX_TEAM_TAGS = 3; // a roundup story tags every team in the league; a real team story tags 1-2
+const NEWS_ARTICLE_LIMIT = 8;
+
+export async function fetchEspnTeamNews(sportLeaguePath, espnTeamId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/news?team=${espnTeamId}`);
+  const articles = data && Array.isArray(data.articles) ? data.articles : null;
+  if(!articles) return null;
+
+  return articles
+    .filter(a => {
+      const teamCats = (a.categories || []).filter(c => c.type === 'team');
+      return teamCats.length > 0 && teamCats.length <= NEWS_MAX_TEAM_TAGS && teamCats.some(c => String(c.teamId) === String(espnTeamId));
+    })
+    .slice(0, NEWS_ARTICLE_LIMIT)
+    .map(a => ({
+      id: a.id,
+      headline: a.headline,
+      description: a.description || '',
+      published: a.published,
+      link: a.links && a.links.web ? a.links.web.href : null,
+      imageUrl: a.images && a.images[0] ? a.images[0].url : null
+    }));
+}
+
+// Team Page Squad/Roster tab: bio-only per-player data — verified live
+// (2026-09-17) against EPL/NFL/MLB. No per-player season stats
+// (apps/goals/etc.) anywhere in this payload for any of the three — that
+// needs a separate per-athlete call ESPN doesn't offer in bulk, so the
+// Squad tab deliberately shows no stat column rather than one new
+// request per player. Two different shapes verified live: soccer's
+// `athletes` is a flat array of player objects; NFL/MLB's `athletes` is
+// an array of {position: groupLabel, items: [...player objects]} groups
+// (offense/defense/specialTeam/... or Pitchers/Catchers/...) — this
+// flattens both into one list.
+// Shape returned: [{ id, name, jersey, position, age, injured }]
+export async function fetchEspnTeamRoster(sportLeaguePath, espnTeamId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/roster`);
+  const athletes = data && Array.isArray(data.athletes) ? data.athletes : null;
+  if(!athletes) return null;
+
+  const grouped = athletes.length > 0 && Array.isArray(athletes[0].items);
+  const raw = grouped ? athletes.flatMap(g => g.items || []) : athletes;
+
+  return raw.map(a => ({
+    id: a.id,
+    name: a.displayName || a.fullName || '',
+    jersey: a.jersey || '',
+    position: (a.position && (a.position.displayName || a.position.abbreviation)) || '',
+    age: a.age || null,
+    injured: (Array.isArray(a.injuries) && a.injuries.length > 0) || !!(a.status && a.status.type && a.status.type !== 'active')
+  }));
+}
+
+// Team Page Stats tab: team-level season stats — verified live
+// (2026-09-17). Works richly for NFL/MLB (dozens of named stats across
+// several categories, e.g. NFL's `netPassingYards`, MLB's `avg`/
+// `homeRuns`). Soccer returns a real 200 but an EMPTY `results: {}` for
+// every EPL club tried — ESPN just doesn't populate this endpoint for
+// soccer, so this returns null there and callers fall back to whatever
+// the standings table already carries instead (see
+// fetchEspnEplStandings's goalsFor/goalsAgainst/goalDifference/ppg —
+// no second fetch needed for EPL's Stats tab because of this gap).
+// Shape returned: { [statName]: { value, displayValue, ... } } | null —
+// a flat lookup across every category, since callers only need to pluck
+// out a handful of named stats each, not walk the category structure.
+export async function fetchEspnTeamStatistics(sportLeaguePath, espnTeamId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/statistics`);
+  const categories = data && data.results && data.results.stats && data.results.stats.categories;
+  if(!Array.isArray(categories) || !categories.length) return null;
+
+  const byName = {};
+  categories.forEach(cat => (cat.stats || []).forEach(s => { byName[s.name] = s; }));
+  return byName;
 }
 
 // Today's full slate for a league (one request covers every team in

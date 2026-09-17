@@ -56,6 +56,7 @@ import {
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
+import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { currentProfileId, paintIdentityChrome } from './identity.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
@@ -89,7 +90,20 @@ function applyUrlState(){
   const hasData = data === 'real' || data === 'simulated';
   if(hasData) setObMode(data);
 
+  // The Team Page (js/team-page.js) isn't on switchView's whitelist — it
+  // pushes/pops `.view.active` itself, keeping whichever real tab was
+  // active underneath lit — so it's handled separately here rather than
+  // added to the `view` list below. `?tp=` is its own team-key param,
+  // not `?team=` (that one's already spoken for — see setDraftTeam
+  // above), so it survives a page piece even if setDraftTeam above
+  // didn't recognize a coincidentally-shaped `?team=` value.
   const explicitView = params.get('view');
+  const tp = params.get('tp');
+  if(explicitView === 'team' && tp && TEAM_META[tp]){
+    openTeamPage(tp, 'standings');
+    return;
+  }
+
   const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
