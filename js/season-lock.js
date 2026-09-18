@@ -79,7 +79,12 @@ function ensureLockLoaded(leagueKey){
   if(cache.data !== null || cache.error) return Promise.resolve();
   if(lockPromises[leagueKey]) return lockPromises[leagueKey];
   if(!DASHBOARD_WORKER_BASE){
-    cache.data = loadLocalLock(leagueKey);
+    // No local lock either (the common case, for any league that isn't
+    // locked) must still leave cache.data non-null — currentLock's
+    // "cache.data === null" guard below is what decides whether to fetch
+    // again, and {} unambiguously means "confirmed unlocked" the same
+    // way it does in the fetched branch below.
+    cache.data = loadLocalLock(leagueKey) || {};
     return Promise.resolve();
   }
   lockPromises[leagueKey] = (async () => {
@@ -92,12 +97,18 @@ function ensureLockLoaded(leagueKey){
     if(data && typeof data === 'object' && data.lockedAt){
       cache.data = data;
       saveLocalLock(leagueKey, data);
+    } else if(data){
+      // {} from a league that's never been locked — a real, successful
+      // answer, not "still loading". Must still land on a non-null
+      // cache.data (falling back to any locally-saved lock, or the {}
+      // itself) or currentLock's guard below never clears and every
+      // render re-kicks this same fetch, forever.
+      cache.data = loadLocalLock(leagueKey) || data;
     } else {
-      // {} from a league that's never been locked, or a fetch failure —
-      // either way, fall back to whatever's local (a lock written while
-      // offline, most likely) rather than assuming "definitely unlocked".
+      // A genuine fetch failure — cache.error (not cache.data) is what
+      // stops currentLock from retrying below.
       cache.data = loadLocalLock(leagueKey);
-      if(!data) cache.error = true;
+      cache.error = true;
     }
   })();
   return lockPromises[leagueKey];

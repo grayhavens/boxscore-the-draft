@@ -136,7 +136,7 @@ function lockStatusHtml(league){
   return `
     <div class="prior-season-note">
       Standings-based rules below are still live — they'll lock automatically once ESPN confirms the regular season is over.
-      <button class="admin-adj-save" style="margin-left: auto;" onclick="forceLockLeague('${league.key}')">Force lock now</button>
+      <button class="admin-adj-save" style="margin-left: auto;" onclick="forceLockLeague('${league.key}')">Force Lock</button>
     </div>
   `;
 }
