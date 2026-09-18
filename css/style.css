@@ -1473,7 +1473,7 @@ body{
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-mute);
+  color: var(--text);
   letter-spacing: 0.2px;
 }
 
@@ -1495,7 +1495,7 @@ body{
   letter-spacing: -0.3px;
 }
 
-.gd-score-team.win{ color: var(--text); }
+.gd-score-team.lost{ color: var(--text-mute); }
 
 /* Game Details header's live indicator — same pulsing-dot treatment as
    the Teams tab's .status-slot .meta-label.live, in place of the old
@@ -3229,7 +3229,36 @@ body{
   border-radius: 5px; padding: 2px 5px;
 }
 .player-tag.out{ color: var(--loss); background: var(--loss-soft); }
+.player-tag.doubtful{ color: var(--loss); background: var(--loss-soft); }
+.player-tag.questionable{ color: var(--draw); background: var(--draw-soft); }
 .player-stat{ text-align: right; font-size: 11.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+
+/* NFL Roster tab: real depth-chart grid (js/team-page.js's
+   depthChartGridHtml) — one row per charted position slot, one column
+   per depth level. Same horizontal-scroll idiom as .filter-chips
+   above, since a full O-line-to-receivers row is wider than a phone
+   screen; the position-label column stays pinned via sticky so it's
+   still readable mid-scroll. */
+.depth-chart-wrap{ overflow-x: auto; scrollbar-width: none; margin-top: 8px; }
+.depth-chart-wrap::-webkit-scrollbar{ display: none; }
+.depth-chart{ display: grid; column-gap: 10px; }
+.depth-chart-pos{
+  position: sticky; left: 0; z-index: 1;
+  background: var(--bg);
+  display: flex; align-items: center;
+  font-size: 10.5px; font-weight: 800; color: var(--text-sub);
+  text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 9px 8px 9px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.depth-chart-cell{
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  min-width: 0; padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.depth-chart-player{ font-size: 11.5px; font-weight: 600; overflow-wrap: break-word; }
+.depth-chart-player .num{ color: var(--text-mute); font-weight: 700; margin-right: 4px; }
+.depth-chart-cell .player-tag{ align-self: flex-start; }
 
 .placeholder-tab{
   text-align: center;

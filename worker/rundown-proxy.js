@@ -47,6 +47,37 @@
       API (js/espn.js), which is CORS-open and needs no proxy at all.
       See docs/espn-migration-plan.md.
 
+   5. NFLVERSE PROXY — nflverse-data (github.com/nflverse/nflverse-data,
+      a public GitHub release, no key at all) is the source for NFL
+      injuries and real depth-chart data (js/nflverse.js), filling a
+      gap ESPN's hidden API doesn't cover (its /teams/{id}/depthchart
+      endpoint returns empty for every team — see the comment that used
+      to sit next to NFL_POSITION_ORDER in js/team-page.js). This isn't
+      here for a private key — GitHub's release assets have no CORS
+      headers at all, so a browser fetch fails outright regardless of
+      key. Two routes, two different shapes of problem:
+        - /nflverse/injuries: the season's injuries CSV is small
+          (well under 1MB even late in a season), so this is a normal
+          cachedUpstreamFetch pass-through, just parsed to JSON and
+          filtered to the latest week server-side.
+        - /nflverse/depth-chart: the season's depth-chart CSV is NOT
+          small — it's every daily snapshot since the previous
+          offseason appended together (500k+ rows, ~50MB, confirmed
+          2026-09-17), because nflverse's own pipeline never rewrites
+          the file, only appends to it. Downloading/parsing that whole
+          thing per request isn't viable. But the file is sorted with
+          the newest snapshot FIRST (confirmed live) and one snapshot
+          is ~2,200 rows (~300KB) — so this reads the response as a
+          stream and stops (cancels the reader) the moment a row's `dt`
+          differs from the first row's `dt`, giving the full current
+          snapshot for every team without ever downloading the other
+          49+MB. See fetchLatestDepthChartSnapshot below — re-verify
+          the "newest first" ordering assumption if nflverse ever
+          changes their pipeline (that assumption is what makes this
+          safe; if it silently flipped, this would instead return the
+          OLDEST snapshot, not error out, so it's worth a periodic
+          spot-check against a fresh curl of the file's first few rows).
+
    EDGE CACHING — every proxied GET is cached in Workers' shared edge
    cache (caches.default), keyed on the upstream URL alone, with a TTL
    matched to how fast that data actually changes (see CACHE_TTL_SECONDS
@@ -74,6 +105,19 @@
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
 const SPORTSDB_V1_BASE = 'https://www.thesportsdb.com/api/v1/json';
+const NFLVERSE_RELEASES_BASE = 'https://github.com/nflverse/nflverse-data/releases/download';
+
+// nflverse names its injuries/depth_charts release assets by the season
+// they cover (e.g. depth_charts_2026.csv), and that file appears (and
+// starts filling with real data) as soon as the new league year opens
+// in March — confirmed live: depth_charts_2026.csv's earliest rows are
+// dated 2026-03-22. So the cutover to the new season's filename tracks
+// March, not September (when games actually start), avoiding a manual
+// yearly bump.
+function currentNflverseSeason(){
+  const now = new Date();
+  return now.getUTCMonth() >= 2 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+}
 
 // Update this list if the dashboard's deployed origin changes (e.g. a
 // custom domain). The localhost entry is only here for local dev preview
@@ -161,7 +205,9 @@ const CACHE_TTL_SECONDS = {
   rundownEvents: 60,           // a day's slate barely changes minute to minute
   rundownTeams: 60 * 60,       // one-off/occasional lookups, not polled on a schedule
   sportsdbTeam: 24 * 60 * 60,  // sport/founded/stadium/colors — effectively static
-  sportsdbSchedule: 60         // last-result / next-fixture, refreshed on the same cadence as rundownEvents
+  sportsdbSchedule: 60,        // last-result / next-fixture, refreshed on the same cadence as rundownEvents
+  nflverseInjuries: 2 * 60 * 60,   // practice reports land a few times during a game week (Wed-Fri), not continuously
+  nflverseDepthChart: 3 * 60 * 60  // teams post depth-chart moves less often than injury reports
 };
 
 // Shared building block for every proxy below: check the edge cache
@@ -319,6 +365,142 @@ async function handleSportsDb(request, url, env, headers, ctx){
   return new Response('Not found', { status: 404, headers });
 }
 
+// Minimal CSV -> array-of-objects parser. Deliberately not a general-
+// purpose one (no quoted-field/embedded-comma handling) — verified live
+// against real injuries/depth_charts rows (player names, injury
+// descriptions, position labels) that none of the fields nflverse
+// actually populates in these two files contain a comma or a quote.
+// Re-verify that assumption before reusing this for any other
+// nflverse file.
+function parseCsv(text){
+  const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+  if(!lines.length) return [];
+  const headers = lines[0].split(',');
+  return lines.slice(1).map(line => {
+    const cells = line.split(',');
+    const row = {};
+    headers.forEach((h, i) => { row[h] = cells[i] !== undefined ? cells[i] : ''; });
+    return row;
+  });
+}
+
+function groupByTeam(rows){
+  const byTeam = {};
+  rows.forEach(row => {
+    const team = row.team;
+    if(!team) return;
+    (byTeam[team] || (byTeam[team] = [])).push(row);
+  });
+  return byTeam;
+}
+
+// /nflverse/injuries — the whole season file is small enough (well
+// under 1MB, confirmed live) to proxy+cache wholesale like any other
+// route here, then parse+filter to the latest week server-side so the
+// client only ever gets "this week's report", not every week back to
+// preseason.
+async function handleNflverseInjuries(request, env, headers, ctx){
+  if(request.method !== 'GET'){
+    return new Response('Method not allowed', { status: 405, headers });
+  }
+  const season = currentNflverseSeason();
+  const upstream = await cachedUpstreamFetch(
+    `${NFLVERSE_RELEASES_BASE}/injuries/injuries_${season}.csv`,
+    CACHE_TTL_SECONDS.nflverseInjuries,
+    {},
+    ctx
+  );
+  if(!upstream.ok){
+    return json({}, 200, headers);
+  }
+  const rows = parseCsv(await upstream.text());
+  const latestWeek = rows.reduce((max, r) => Math.max(max, parseInt(r.week, 10) || 0), 0);
+  const latest = rows.filter(r => (parseInt(r.week, 10) || 0) === latestWeek);
+  return json(groupByTeam(latest), 200, headers);
+}
+
+// /nflverse/depth-chart — see the header comment's NFLVERSE PROXY
+// section for why this can't be a plain cachedUpstreamFetch pass-
+// through. Reads the upstream response as a stream and stops as soon
+// as a row's `dt` differs from the very first data row's `dt` (the
+// file is newest-snapshot-first), so this only ever pulls down one
+// day's ~300KB snapshot rather than the full ~50MB history — bounded
+// regardless of whether the range hint below is honored.
+async function fetchLatestDepthChartSnapshot(season){
+  const upstreamUrl = `${NFLVERSE_RELEASES_BASE}/depth_charts/depth_charts_${season}.csv`;
+  // Range is an optimization, not a requirement — the streaming
+  // early-cancel below is what actually bounds the work if this isn't
+  // honored (e.g. dropped across the redirect to GitHub's signed
+  // asset URL).
+  const upstream = await fetch(upstreamUrl, { headers: { Range: 'bytes=0-1048576' } });
+  if(!upstream.ok && upstream.status !== 206){
+    return [];
+  }
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = '';
+  let header = null;
+  let latestDt = null;
+  const rows = [];
+  const SAFETY_ROW_CAP = 5000; // ~2x a full 32-team snapshot — a real stop condition should hit first
+
+  try {
+    while(rows.length < SAFETY_ROW_CAP){
+      const { done, value } = await reader.read();
+      if(value) buffered += decoder.decode(value, { stream: true });
+
+      let newlineIdx;
+      while((newlineIdx = buffered.indexOf('\n')) !== -1){
+        const line = buffered.slice(0, newlineIdx).replace(/\r$/, '');
+        buffered = buffered.slice(newlineIdx + 1);
+        if(!line) continue;
+
+        if(!header){
+          header = line.split(',');
+          continue;
+        }
+        const cells = line.split(',');
+        const row = {};
+        header.forEach((h, i) => { row[h] = cells[i] !== undefined ? cells[i] : ''; });
+
+        if(latestDt === null) latestDt = row.dt;
+        if(row.dt !== latestDt){
+          await reader.cancel();
+          return rows;
+        }
+        rows.push(row);
+      }
+
+      if(done) return rows;
+    }
+  } finally {
+    try { await reader.cancel(); } catch(e){}
+  }
+  return rows;
+}
+
+async function handleNflverseDepthChart(request, env, headers, ctx){
+  if(request.method !== 'GET'){
+    return new Response('Method not allowed', { status: 405, headers });
+  }
+
+  const cache = caches.default;
+  // Synthetic cache key (this route has no meaningful upstream URL to
+  // key on the way cachedUpstreamFetch does — the real upstream is
+  // read as a bounded stream, not passed through) — same "shared
+  // across every caller" intent as everywhere else in this file.
+  const cacheKey = new Request('https://nflverse-cache.internal/depth-chart', { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if(cached) return new Response(cached.body, { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
+
+  const rows = await fetchLatestDepthChartSnapshot(currentNflverseSeason());
+  const body = JSON.stringify(groupByTeam(rows));
+  const toCache = new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${CACHE_TTL_SECONDS.nflverseDepthChart}` } });
+  ctx.waitUntil(cache.put(cacheKey, toCache));
+  return json(groupByTeam(rows), 200, headers);
+}
+
 // Shared by handleLeagueFacts and handleAdjustments — both are "one JSON
 // object per league, in the LEAGUE_FACTS KV namespace, GET public / PUT
 // password-gated", just under a different key prefix and PUT body shape.
@@ -455,6 +637,10 @@ export default {
     if(favoritesMatch) return handleFavorites(request, env, favoritesMatch[1], headers);
 
     if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
+
+    if(url.pathname === '/nflverse/injuries') return handleNflverseInjuries(request, env, headers, ctx);
+
+    if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
 
     if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
 

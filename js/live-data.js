@@ -1339,17 +1339,24 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // below the recap card/Top Plays/situation that have all landed
   // above it since. Every league's summary.teams already carries
   // `score` (not just MLB's), so this is header-level, not MLB-
-  // specific. A team with a higher score than its opponent is 'win'; a
-  // tie (soccer draws are common; a rare old NFL tie is possible too)
-  // is neither, styled neutrally rather than forced into a false
-  // win/loss. hasScore guards a fallback to the plain team-names title
+  // specific. hasScore guards a fallback to the plain team-names title
   // (gameDetail.titleName below) for the (practically unreachable —
   // every real caller opens this sheet for a live or completed game,
   // which always has a score) case it's ever missing.
+  //
+  // Both teams render in the same bright color (.gd-score-team's own
+  // base color) by default — a live game's score is still in motion,
+  // so dimming whoever's behind at this exact moment as "the loser"
+  // would be misleading (and would keep flipping back and forth as the
+  // score changes). Only once the game is actually final
+  // (status.state === 'post') does the LOSING team dim to the muted
+  // color — the winner (and either side of a tie) stays bright, so a
+  // completed result still reads the way it always has.
   const awayScore = away.score, homeScore = home.score;
   const hasScore = awayScore !== null && awayScore !== undefined && homeScore !== null && homeScore !== undefined;
-  const awayWon = hasScore && awayScore > homeScore;
-  const homeWon = hasScore && homeScore > awayScore;
+  const isFinal = summary.status && summary.status.state === 'post';
+  const awayLost = hasScore && isFinal && awayScore < homeScore;
+  const homeLost = hasScore && isFinal && homeScore < awayScore;
 
   // MLB-only — the classic boxscore "W/L/SV" line, sourced from
   // js/mlb-stats.js's fetchMlbGameExtras (liveData.decisions cross-
@@ -1440,8 +1447,8 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
           const homeSide = resolveGameDetailSide(home, leagueKey);
           return `
           <div class="gd-score-title">
-            <span class="gd-score-team${awayWon ? ' win' : ''}">${awaySide.badgeHtml}${awaySide.name}<b>${awayScore}</b></span>
-            <span class="gd-score-team${homeWon ? ' win' : ''}">${homeSide.badgeHtml}${homeSide.name}<b>${homeScore}</b></span>
+            <span class="gd-score-team${awayLost ? ' lost' : ''}">${awaySide.badgeHtml}${awaySide.name}<b>${awayScore}</b></span>
+            <span class="gd-score-team${homeLost ? ' lost' : ''}">${homeSide.badgeHtml}${homeSide.name}<b>${homeScore}</b></span>
           </div>
           `;
         })() : `<div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>`}
