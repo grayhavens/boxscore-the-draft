@@ -6,8 +6,8 @@
    window.* entry points for the inline onclick handlers in the
    rendered HTML.
    ============================================================ */
-import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { updateUrlParam, lockBodyScroll, CLOSE_ICON_SVG, teamBadgeHtml } from './utils.js';
+import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { updateUrlParam, teamBadgeHtml } from './utils.js';
 import { LEAGUE_FACTS_LEAGUES, migrateAchievementsToFacts } from './league-facts.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
@@ -67,6 +67,7 @@ import { checkSeasonLocks } from './season-lock.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
+import { renderScoringPage } from './scoring-page.js';
 import { currentProfileId, paintIdentityChrome } from './identity.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
 
@@ -113,7 +114,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin' || explicitView === 'scoring')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   if(view) switchView(view);
@@ -267,55 +268,6 @@ export function renderBoard(){
   renderAllCbbCardRecords();
 }
 
-// ---- League scoring reference modal ----
-
-export function openLeagueModal(leagueKey){
-  const data = LEAGUE_SCORING[leagueKey];
-  if(!data) return;
-
-  const rulesHtml = data.rules.map(r => `
-    <div class="scoring-item">
-      <div class="scoring-label">${r.label}</div>
-      <div class="scoring-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts} pt${Math.abs(r.pts) === 1 ? '' : 's'}</div>
-    </div>
-  `).join('');
-
-  // The league bonus is awarded once per drafter (not per team), so it's
-  // kept separate from `rules` — it never appears as a checkable item on
-  // an individual team's tracker.
-  const bonusHtml = data.bonus ? `
-    <div class="modal-section-title" style="margin-top: 18px;">League Bonus</div>
-    <div class="scoring-list">
-      <div class="scoring-item">
-        <div class="scoring-label">${data.bonus.label}</div>
-        <div class="scoring-value pos">+${data.bonus.pts} pts</div>
-      </div>
-    </div>
-  ` : '';
-
-  const modalContent = document.getElementById('modal-content');
-  modalContent.dataset.activeTeam = '';
-
-  modalContent.innerHTML = `
-    <div class="modal-accent" style="background:${data.accent};"></div>
-    <div class="modal-head">
-      <div>
-        <h2>${LEAGUE_FULL_LABELS[leagueKey] || data.name}</h2>
-        <div class="modal-sub">Draft scoring rules</div>
-      </div>
-      <button class="modal-close" onclick="closeTeamModal()">${CLOSE_ICON_SVG}</button>
-    </div>
-    <div class="modal-body" style="padding-top: 18px;">
-      <div class="scoring-list">${rulesHtml}</div>
-      ${bonusHtml}
-    </div>
-  `;
-
-  document.getElementById('modal-overlay').classList.add('open');
-  lockBodyScroll();
-}
-window.openLeagueModal = openLeagueModal;
-
 // Spelled out in both the Teams tab's section headers and the
 // Standings header — the filter chips still keep the short
 // LEAGUES[].label as-is (see FILTER_CHIP_LABELS below). Also used by
@@ -338,14 +290,6 @@ export const FILTER_CHIP_LABELS = {
   mcbb: 'CBB'
 };
 
-// Ghost-icon Scoring button on each Standings league header (see
-// leagueBlockHtml below) — a small icon rather than a background/border
-// is what marks this as an action now, so it reads as a lightweight
-// button rather than a pill. The old per-league "Results" chip moved to
-// the dedicated, password-gated admin page (js/admin.js) — see the
-// "Manage Scoring" link at the bottom of the Leaderboard tab.
-const SCORING_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>';
-
 function leagueBlockHtml(league, bodyHtml){
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
@@ -362,9 +306,6 @@ function leagueBlockHtml(league, bodyHtml){
         <div class="league-tab-top">
           <div class="league-tab-left">${headerLabel}</div>
           <span class="n">${league.season}</span>
-        </div>
-        <div class="league-tab-chips">
-          <div class="scoring-chip" onclick="openLeagueModal('${league.key}')">${SCORING_ICON_SVG}Scoring</div>
         </div>
         ${priorSeasonNoteHtml}
       </div>
@@ -673,6 +614,7 @@ export function switchView(view){
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();
   if(view === 'admin') renderAdminPage();
+  if(view === 'scoring') renderScoringPage();
 }
 window.switchView = switchView;
 

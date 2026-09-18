@@ -84,26 +84,49 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Leaderboard</h1>
-        <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
-             js/overall.js. Remove this control (and that block) once the
-             season is far enough along that a fake preview is no
-             longer useful. -->
-        <div class="ob-mode" id="ob-mode">
-          <span class="ob-mode-label">Data</span>
-          <div class="ob-mode-switch">
-            <button type="button" class="ob-mode-btn active" data-mode="real" onclick="setObMode('real')">Real</button>
-            <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
-          </div>
-        </div>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
       </div>
       <div class="page-sub">Standings for &ldquo;The Draft&rdquo;. Tap a drafter for the point breakdown.</div>
     </div>
+    <div class="ob-toolbar">
+      <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
+           js/overall.js. Remove this control (and that block) once the
+           season is far enough along that a fake preview is no longer
+           useful. Lives in its own row below the header/subheader
+           (rather than in the header-top row beside the title) so it
+           has room to be a plain two-button switch without fighting
+           "Leaderboard" for space on a phone-width screen. -->
+      <div class="ob-mode-switch" id="ob-mode-switch">
+        <button type="button" class="ob-mode-btn" data-mode="real" onclick="setObMode('real')">Real</button>
+        <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
+      </div>
+      <button type="button" class="scoring-chip" onclick="switchView('scoring')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+        Scoring
+      </button>
+    </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="overall-content"></div>
     <button class="ob-detail-link" style="margin: 18px 0 4px;" onclick="switchView('admin')">Manage Scoring</button>
+  </div>
+
+  <div id="view-scoring" class="view">
+    <div class="page-header">
+      <div class="page-header-top">
+        <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
+          <img class="app-logo" src="icons/logo-header.png" alt="">
+        </a>
+        <h1>Scoring</h1>
+        <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
+          <span class="id-circle"></span>
+        </button>
+      </div>
+      <div class="page-sub">Point values for every league's draft scoring rules</div>
+    </div>
+    <button class="ob-back" onclick="switchView('overall')">&larr; Leaderboard</button>
+    <div id="scoring-content"></div>
   </div>
 
   <div id="view-admin" class="view">

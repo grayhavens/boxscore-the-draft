@@ -176,13 +176,6 @@ body{
    .picker-hit's default margin-left:auto (above) still applies there. */
 .scope-chip + .picker-hit{ margin-left: 0; }
 
-/* Same fix, same reason, for the Overall tab's Real/Simulated toggle
-   (.ob-mode already had its own margin-left:auto from before the
-   identity circle existed) — without this, both it and .picker-hit's
-   auto margin split the row's leftover space and get pushed apart
-   instead of clustering together on the right. */
-.ob-mode + .picker-hit{ margin-left: 0; }
-
 /* Identity control (js/identity.js) — an outline-only initials circle,
    idle/hover language borrowed from .modal-close below (transparent
    until touched, a faint surface tint on hover) rather than a filled,
@@ -336,10 +329,11 @@ body{
 
 /* Standings-only header layout: the title gets its own top line (it
    can run long, e.g. "English Premier League") with the season
-   right-aligned alongside it, and the Scoring/Results chips sit on
-   their own line below — see leagueBlockHtml in js/board.js. The
-   Teams tab keeps the same title/season pairing on one line (see
-   renderBoard in js/board.js) since it has no separate chips row. */
+   right-aligned alongside it, and the prior-season note (MLB/WNBA
+   only) sits on its own line below — see leagueBlockHtml in
+   js/board.js. The Teams tab keeps the same title/season pairing on
+   one line (see renderBoard in js/board.js) since it has nothing
+   below it to stack. */
 .league-tab.standings-league-tab{
   flex-direction: column;
   align-items: stretch;
@@ -353,17 +347,6 @@ body{
   gap: 10px;
 }
 
-.league-tab-chips{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-}
-
-/* Sized/weighted/colored to match the Scoring/Results ghost buttons
-   (see .scoring-chip below) rather than the smaller/dimmer default a
-   plain .n label would otherwise get, since the season sits on the
-   same header row as those buttons on both the Teams and Standings
-   tabs (see leagueBlockHtml/renderBoard in js/board.js). */
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
   font-size: 11.5px;
@@ -463,11 +446,13 @@ body{
   margin-top: 1px;
 }
 
-/* Ghost icon buttons — invisible until hovered, so they read as a
-   lightweight in-context action (open the Scoring/Results modal) rather
-   than a persistent pill. Negative margin cancels the button's own
-   left padding so its icon/text sits flush with the card's edge, same
-   as any other unpadded header text. */
+/* Ghost icon button — invisible until hovered, so it reads as a
+   lightweight in-context action rather than a persistent pill. Used by
+   the Leaderboard tab's toolbar (see .ob-toolbar below) to open the
+   Scoring page (js/scoring-page.js). Negative margin cancels the
+   button's own left padding so its icon/text sits flush with whatever
+   edge it's the first/last element against, same as any other
+   unpadded header text. */
 .scoring-chip{
   flex: 0 0 auto;
   display: flex;
@@ -1138,7 +1123,7 @@ body{
    openTeamModal in js/live-data.js) — this wrapper takes over the
    absolute corner positioning so .modal-close can drop its own
    (still used standalone everywhere else the class appears, e.g. the
-   League Scoring modal in js/board.js's openLeagueModal). */
+   identity-switcher and Scores-scope sheets in index.html). */
 .modal-actions{
   position: absolute;
   top: 16px;
@@ -1830,6 +1815,30 @@ body{
   color: var(--loss);
 }
 
+/* ---- Scoring page (js/scoring-page.js) ----
+   The filter-chip-selected league's rules, reusing openLeagueModal's own
+   content shape (accent bar, heading, .scoring-list) without the modal
+   chrome around it — see that function in js/board.js, which still
+   backs the Standings tab's per-league popup unchanged. */
+.scoring-page-accent{
+  height: 6px;
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.scoring-page-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+}
+.scoring-page-sub{
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 500;
+  margin: 3px 0 18px;
+}
+
 /* ---- Season tracker (achievement checklist, in team modal) ----
    The head (title + "Earned so far" summary + chevron) stays visible
    whether the body (the checklist itself) is collapsed or not — only
@@ -2476,24 +2485,24 @@ body{
    touch the ranking number. See design_handoff_leaderboard/README.md
    for the full spec this implements. */
 
-/* -- Real/Simulated data toggle + banner --
-   TEMPORARY: a preview aid for showing the page's shape before the
-   season produces real results. Safe to delete this block (and the
-   matching "TEMPORARY" block in js/app.js, and the toggle markup in
-   index.html) once real data makes it unnecessary. */
-.ob-mode{
-  margin-left: auto;
+/* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
+   Sits below the header/subheader rather than in the header-top row
+   beside the title, so the mode switch can be a plain two-button pill
+   (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
+   defined above) reads as a lightweight in-page action rather than
+   competing with the identity picker up top. */
+.ob-toolbar{
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 16px;
 }
-.ob-mode-label{
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-mute);
-}
+
+/* TEMPORARY: a preview aid for showing the page's shape before the
+   season produces real results. Safe to delete this block (and the
+   matching "TEMPORARY" block in js/overall.js, and the toggle markup in
+   index.html) once real data makes it unnecessary. */
 .ob-mode-switch{
   display: flex;
   background: var(--surface);
@@ -2504,9 +2513,9 @@ body{
 }
 .ob-mode-btn{
   font-family: 'Manrope', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 5px 12px;
+  padding: 5px 11px;
   border-radius: 999px;
   border: none;
   background: transparent;
@@ -2596,14 +2605,6 @@ body{
   white-space: nowrap;
 }
 .ob-row.leader .ob-total{ color: var(--lb-ink-strong); }
-.ob-leads{
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  white-space: nowrap;
-}
 .ob-chevron{ flex: none; stroke: var(--lb-stroke); margin-left: 4px; }
 
 @media (max-width: 480px){
@@ -2639,12 +2640,6 @@ body{
 .ob-detail-link:hover{
   border-color: var(--accent-border);
   background: var(--accent-soft);
-}
-.ob-foot{
-  padding: 18px 4px 8px;
-  font-size: 11.5px;
-  color: var(--text-sub);
-  line-height: 1.5;
 }
 
 /* -- Detail -- */
