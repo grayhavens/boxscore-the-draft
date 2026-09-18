@@ -5,13 +5,35 @@
    ============================================================ */
 import { LEAGUES, TEAM_META } from './data.js';
 
+// Every fetch helper below used to have no timeout at all — a request
+// that never resolves (a network filter silently dropping traffic to a
+// domain, rather than cleanly refusing the connection — *.workers.dev
+// is a common target for exactly this, since it's also commonly abused
+// for phishing) left the UI stuck forever with no error, e.g. the admin
+// page's "Checking password…" gate (js/admin.js) never recovering.
+// AbortController's abort() makes the in-flight fetch() reject the same
+// way a real network failure would, so it falls through each caller's
+// existing catch block unchanged — this fixes "hangs forever" without
+// needing to touch what happens after a failure, only how long one can
+// take before it counts as one.
+const FETCH_TIMEOUT_MS = 10000;
+
+function withTimeoutSignal(){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
 export async function fetchJSON(url){
+  const { signal, clear } = withTimeoutSignal();
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if(!res.ok) return null;
     return await res.json();
   } catch (e){
     return null;
+  } finally {
+    clear();
   }
 }
 
@@ -50,26 +72,33 @@ export function clearAdminPassword(){
 // log. { ok, status } lets the caller tell "wrong password" (401) apart
 // from "worker unreachable" (status 0).
 export async function fetchAuthedJSON(url, password){
+  const { signal, clear } = withTimeoutSignal();
   try {
-    const res = await fetch(url, { headers: { 'X-Admin-Password': password } });
+    const res = await fetch(url, { headers: { 'X-Admin-Password': password }, signal });
     return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
   } catch (e){
     return { ok: false, status: 0, data: null };
+  } finally {
+    clear();
   }
 }
 
 // PUT with the admin password attached and a JSON body — the write
 // counterpart to fetchAuthedJSON, used for every facts/adjustments save.
 export async function putAuthedJSON(url, password, body){
+  const { signal, clear } = withTimeoutSignal();
   try {
     const res = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal
     });
     return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
   } catch (e){
     return { ok: false, status: 0, data: null };
+  } finally {
+    clear();
   }
 }
 
