@@ -100,15 +100,19 @@ header icon ships pointing at a room that doesn't exist yet.
 
 **Chat GIFs** (`js/gifs.js`, `js/gif-picker.js`): a GIF button in the chat composer opens a picker
 backed by KLIPY (Tenor's API shut down 2026-06-30). **This is the one upstream that deliberately
-breaks the "private keys go through the worker" rule above:** KLIPY's integration requirements
-say requests and media loads must come from the user's browser, and that proxying, caching, or
-mirroring needs their prior written approval (developers@klipy.com) — so `KLIPY_APP_KEY` is a
-public constant in `js/gifs.js` (KLIPY expects that), not a worker secret, and results are not
-edge-cached. Also required by KLIPY: media URLs used exactly as returned, results in the order
-returned, "Search KLIPY" as the search placeholder. A key in Testing mode is capped at 100
-requests/hour across everyone; request Production access (free) in KLIPY's Partner Panel. An empty
-`KLIPY_APP_KEY` hides the GIF button. A GIF message stores `{slug, url, w, h}`; the worker
-(`parseGif` in `worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
+breaks the "everything goes through the worker" rule above:** KLIPY's integration requirements say
+API requests and media loads must come from the user's browser, and that proxying, caching, or
+mirroring needs their prior written approval (developers@klipy.com) — so the browser calls
+`api.klipy.com` directly and nothing is edge-cached. Because the browser calls KLIPY itself it
+necessarily has the app key, so the key can't be hidden from users — but it's kept out of this public
+repo: it's the worker secret `KLIPY_APP_KEY`, fetched at runtime from `/gif/config` (which only answers
+our own origins), so it can also be rotated without a redeploy. Set it with
+`npx wrangler secret put KLIPY_APP_KEY`; for local `wrangler dev` put `KLIPY_APP_KEY=...` in
+`worker/.dev.vars` (gitignored). No key = the GIF button stays hidden. Also required by KLIPY: media
+URLs used exactly as returned, results in the order returned, "Search KLIPY" as the search placeholder.
+A key in Testing mode is capped at 100 requests/hour across everyone; request Production access (free)
+in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (`parseGif` in
+`worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
 
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in

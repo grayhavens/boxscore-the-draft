@@ -14,10 +14,10 @@
    js/identity.js — same no-auth trust tier as favorites.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
-import { DASHBOARD_WORKER_BASE } from './api.js';
+import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { currentProfileId } from './identity.js';
 import { lockBodyScroll, unlockBodyScroll } from './utils.js';
-import { gifsEnabled, reportGifShare } from './gifs.js';
+import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
@@ -30,13 +30,8 @@ const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> s
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
 
-// On a local preview the dashboard talks to `wrangler dev` (port 8787)
-// instead of the deployed worker, so poking at chat locally never posts
-// into the group's real room.
 function chatSocketUrl(after){
-  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-  const base = isLocal ? 'ws://localhost:8787' : DASHBOARD_WORKER_BASE.replace(/^http/, 'ws');
-  return `${base}/chat/ws${after ? `?after=${after}` : ''}`;
+  return `${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`;
 }
 
 let messages = loadCachedMessages();
@@ -355,6 +350,7 @@ export function openChat(){
   renderList(true);
   syncViewport();
   if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
+  if(!gifsReady) setUpGifs();
 }
 window.openChat = openChat;
 
@@ -419,6 +415,18 @@ window.closeGifPicker = () => { closeGifPicker(); pinListToBottom(); };
 
 // ---- Boot ----
 
+// Reveals the GIF button once the KLIPY key is available (see
+// js/gifs.js's loadGifKey). Safe to call repeatedly: it's a no-op once
+// set up, and a failed lookup at boot gets another try each time chat is
+// opened, rather than leaving GIFs off until the next reload.
+let gifsReady = false;
+async function setUpGifs(){
+  if(gifsReady || !(await loadGifKey()) || gifsReady) return;
+  gifsReady = true;
+  document.getElementById('chat-gif-btn').hidden = false;
+  initGifPicker({ onPick: sendGif });
+}
+
 export function initChat(){
   const input = inputEl();
   if(input){
@@ -436,10 +444,7 @@ export function initChat(){
     if(event.key === 'Escape' && open) closeChat();
   });
   if(screenEl()) guardTouchScroll(screenEl());
-  if(gifsEnabled()){
-    document.getElementById('chat-gif-btn').hidden = false;
-    initGifPicker({ onPick: sendGif });
-  }
+  setUpGifs();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewport);
     window.visualViewport.addEventListener('scroll', syncViewport);

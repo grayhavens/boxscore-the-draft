@@ -3,33 +3,41 @@
    the chat's GIF picker (js/gif-picker.js).
 
    Unlike every other upstream in this app, this one is deliberately
-   NOT proxied through the worker, and the app key below deliberately
-   ships in client JS. Both are KLIPY's own integration requirements,
-   not a shortcut: API requests and media loads "must originate from
-   the user's ... web browser", and routing them through a
-   partner-operated server or CDN, or caching/mirroring results or
-   media, needs KLIPY's prior written approval. So this doesn't
-   follow the worker's usual cachedUpstreamFetch convention (see the
-   comment block in worker/rundown-proxy.js), and the key isn't a
-   private credential the way the TheRundown/TheSportsDB keys are —
-   it's an identifier KLIPY expects to be public. Don't "fix" either
-   by moving this behind the worker without asking KLIPY first
+   NOT proxied through the worker. That's KLIPY's own integration
+   requirement, not a shortcut: API requests and media loads "must
+   originate from the user's ... web browser", and routing them through
+   a partner-operated server or CDN, or caching/mirroring results or
+   media, needs KLIPY's prior written approval. So this doesn't follow
+   the worker's usual cachedUpstreamFetch convention (see the comment
+   block in worker/rundown-proxy.js). Don't "fix" that by moving the
+   calls behind the worker without asking KLIPY first
    (developers@klipy.com).
+
+   The app key is therefore not a secret a browser can be kept from —
+   whatever is calling KLIPY has it. What the worker does do is keep it
+   out of this public repo: it lives in a Cloudflare secret
+   (KLIPY_APP_KEY) and is fetched at runtime from the worker's
+   /gif/config route (see loadGifKey below), which only answers our own
+   origins. That also lets it be rotated without a redeploy. For a
+   local preview, put KLIPY_APP_KEY=... in worker/.dev.vars (gitignored)
+   for `wrangler dev`.
 
    Other KLIPY requirements this file and the picker follow: media
    URLs are used exactly as returned (never rewritten or
    reconstructed), results are shown in the order returned, and the
    search box's placeholder is "Search KLIPY".
 
-   KLIPY_APP_KEY empty = GIFs off (the chat hides its GIF button), so
-   this ships dark until a key is set. A key in Testing mode is limited
-   to 100 requests per hour across everyone using it; request
-   Production access in KLIPY's Partner Panel (free) before relying on
-   it with the whole group.
+   No key (secret unset, or the worker unreachable) = GIFs off: the chat
+   hides its GIF button. A key in Testing mode is limited to 100
+   requests per hour across everyone using it; request Production
+   access in KLIPY's Partner Panel (free) before relying on it with the
+   whole group.
    ============================================================ */
+import { chatWorkerBase } from './api.js';
 import { currentProfileId } from './identity.js';
 
-export const KLIPY_APP_KEY = '';
+let appKey = null;
+let keyRequest = null;   // in-flight lookup, so concurrent callers share one fetch
 
 const KLIPY_BASE = 'https://api.klipy.com/api/v1';
 const PER_PAGE = 24;
@@ -42,8 +50,24 @@ const DISPLAY_SIZE = 'sm';
 const FORMAT_PREFERENCE = ['webp', 'gif', 'jpg'];
 const TRENDING_TTL_MS = 5 * 60 * 1000;
 
-export function gifsEnabled(){
-  return !!KLIPY_APP_KEY;
+// Resolves true once a key is in hand. Kept in memory only (never
+// persisted) and looked up again on the next page load, so a rotated key
+// takes effect without anyone clearing anything. A failed lookup isn't
+// remembered — the next call tries again — so a worker blip at boot
+// doesn't leave GIFs off for the whole session.
+export function loadGifKey(){
+  if(appKey) return Promise.resolve(true);
+  if(!keyRequest){
+    keyRequest = fetch(`${chatWorkerBase()}/gif/config`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(config => {
+        if(config && typeof config.appKey === 'string' && config.appKey) appKey = config.appKey;
+        return !!appKey;
+      })
+      .catch(() => false)
+      .finally(() => { keyRequest = null; });
+  }
+  return keyRequest;
 }
 
 // { slug, title, url, w, h } — the one shape the picker renders and the
@@ -80,7 +104,8 @@ export async function fetchGifs(query, page){
   });
   if(q) params.set('q', q);
 
-  const res = await fetch(`${KLIPY_BASE}/${KLIPY_APP_KEY}/gifs/${q ? 'search' : 'trending'}?${params}`);
+  if(!appKey) throw new Error('KLIPY key not loaded');
+  const res = await fetch(`${KLIPY_BASE}/${appKey}/gifs/${q ? 'search' : 'trending'}?${params}`);
   if(!res.ok) throw new Error(`KLIPY ${res.status}`);
   const json = await res.json();
   if(!json.result || !json.data || !Array.isArray(json.data.data)) throw new Error('KLIPY bad response');
@@ -97,8 +122,8 @@ export async function fetchGifs(query, page){
 // ranking. `query` is the search that led to the pick ('' for trending).
 // Failures are irrelevant to the user, so they're swallowed.
 export function reportGifShare(slug, query){
-  if(!gifsEnabled()) return;
-  fetch(`${KLIPY_BASE}/${KLIPY_APP_KEY}/gifs/share/${encodeURIComponent(slug)}`, {
+  if(!appKey) return;
+  fetch(`${KLIPY_BASE}/${appKey}/gifs/share/${encodeURIComponent(slug)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ customer_id: currentProfileId, q: query || '' }),
