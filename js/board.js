@@ -68,7 +68,7 @@ import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
-import { currentProfileId, paintIdentityChrome } from './identity.js';
+import { currentProfileId, paintIdentityChrome, maybeShowWelcome } from './identity.js';
 import { initChat, paintBadges as paintChatBadges } from './chat.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
 
@@ -77,7 +77,7 @@ import { favoriteStarHtml, isFavorite } from './favorites.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.13-1';
+const APP_VERSION = '2026.09.18-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -648,6 +648,7 @@ renderBoard();
 paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
+maybeShowWelcome();
 
 // renderBoard() already repaints row-status pills and CFB/EPL/NFL
 // record chips from whatever's cached (possibly from a previous

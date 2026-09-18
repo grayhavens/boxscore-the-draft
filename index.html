@@ -208,6 +208,14 @@
   </div>
 </div>
 
+<!-- First-run welcome (pick your name, then how to add to Home Screen) and
+     the reusable install guide — see js/identity.js's maybeShowWelcome. -->
+<div class="modal-overlay" id="welcome-overlay" onclick="if(event.target===this) dismissWelcomeOverlay()">
+  <div class="modal" id="welcome-content">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
 <!-- Scores tab scope filter — which teams' games to show (see js/live-now.js). -->
 <div class="modal-overlay" id="today-scope-sheet-overlay" onclick="if(event.target===this) closeTodayScopeSheet()">
   <div class="modal" id="today-scope-sheet-content">
