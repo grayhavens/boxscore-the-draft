@@ -453,7 +453,7 @@ window.removeLeagueFact = removeLeagueFact;
 
 // Which team's tracker body (the checklist itself, below the always-
 // visible "Earned so far" summary) is expanded — at most one at a time,
-// same within-session-only idea as obExpandedId in js/overall.js. Only
+// same within-session-only idea as obOpenLeagueKey in js/overall.js. Only
 // one team modal can be open at once, so tracking a single teamKey
 // (rather than a Set) is enough: opening a different team's modal
 // naturally starts collapsed, since trackerExpandedTeamKey won't match

@@ -1,19 +1,24 @@
 /* ============================================================
-   Overall view: cross-drafter leaderboard.
+   Leaderboard view: cross-drafter standings.
 
-   The LIST shows confirmed points only (locked-in facts). Provisional
-   points — the rankAuto slice that still moves with the live table —
-   appear only in a drafter's breakdown, never folded into the ranking
-   number. See obIsProvisional below for what counts as provisional.
+   The LIST is deliberately plain — rank, name, one confirmed total.
+   No per-league composition here at all (no mix bar, no legend); tap a
+   row to drill into a drafter's DETAIL, where each scoring league gets
+   its own accordion card (one open at a time) and provisional points
+   — the rankAuto slice that still moves with the live table — surface
+   in a banner and per-rule tags, never folded into the ranking number.
+   See obIsProvisional below for what counts as provisional, and
+   design_handoff_leaderboard/README.md (from the redesign handoff) for
+   the full visual spec this implements.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
 import { updateUrlParam } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 
-// League color for the mix bar / legend dots. Deliberately NOT each
-// league's real modal accent (LEAGUE_SCORING[key].accent) — those are
-// brand colors picked to sit on a light badge, and half of them are
+// League color for the per-league card's accent bar. Deliberately NOT
+// each league's real modal accent (LEAGUE_SCORING[key].accent) — those
+// are brand colors picked to sit on a light badge, and half of them are
 // near-black (NHL, CFB, NFL, MLB) or fully-saturated neon (WNBA, NBA),
 // which reads as broken/jarring on this view's near-black background:
 // some segments nearly vanish, others scream. This is a separate,
@@ -27,17 +32,30 @@ const OB_LEAGUE_CHART_COLOR = {
   nba: '#B57FC0', nhl: '#6FBFC6', mlb: '#6AC87A', wnba: '#A8B36A'
 };
 
+// League full names for the detail view's card titles — LEAGUE_SCORING's
+// own `full` is a scoring-table heading ("Premier League Scoring", used
+// on the Manage Scoring page), not a display name, so this view keeps
+// its own short list rather than borrowing that string.
+const OB_LEAGUE_FULL_NAME = {
+  epl: 'Premier League', cfb: 'College Football', nfl: 'NFL', mcbb: 'College Basketball',
+  nba: 'NBA', nhl: 'NHL', mlb: 'MLB', wnba: 'WNBA'
+};
+
 function obLeagueColor(leagueKey){
   const scoring = LEAGUE_SCORING[leagueKey];
   return OB_LEAGUE_CHART_COLOR[leagueKey] || (scoring && scoring.accent) || 'var(--text-mute)';
 }
 
-// Which row is expanded inline, and which drafter's full breakdown is
-// open. Within-session view state only, same as standingsFilterKey in
-// js/board.js.
-let obExpandedId = null;
+function obLeagueFullName(leagueKey){
+  return OB_LEAGUE_FULL_NAME[leagueKey] || (LEAGUES.find(l => l.key === leagueKey) || {}).label || leagueKey;
+}
+
+// Which drafter's full breakdown is open, and — within that — which
+// single league card is expanded. Within-session view state only, same
+// as standingsFilterKey in js/board.js. Both reset on every navigation
+// (obOpenDetail / obCloseDetail) per the design spec.
 let obDetailId = null;
-let obLegendOpen = false;
+let obOpenLeagueKey = null;
 
 function obSignedPts(n){
   return (n > 0 ? '+' : '') + n;
@@ -260,24 +278,20 @@ function obDrafterAwards(draftTeamId){
   return awards;
 }
 
-function obTeamNamesFor(draftTeamId, league){
-  return league.teams
-    .filter(teamKey => TEAM_META[teamKey] && TEAM_META[teamKey].draftTeamId === draftTeamId && !TEAM_META[teamKey].favoriteOnly)
-    .map(teamKey => TEAM_META[teamKey].name);
-}
-
 // One drafter's row model. The confirmed total is what ranks the board;
-// provisional only ever surfaces in the breakdown.
+// provisional only ever surfaces in the detail view.
 function obBuildRow(d){
   const awards = obDrafterAwards(d.id);
   const leagues = LEAGUES.map(l => {
     const mine = awards.filter(a => a.leagueKey === l.key);
     const pts = mine.reduce((s, a) => s + a.pts, 0);
     const provisional = mine.reduce((s, a) => s + (a.provisional ? a.pts : 0), 0);
-    return { league: l, pts, provisional, confirmed: pts - provisional };
+    return { league: l, pts, provisional, confirmed: pts - provisional, awards: mine };
   });
   const total = leagues.reduce((s, x) => s + x.pts, 0);
   const provisionalTotal = leagues.reduce((s, x) => s + x.provisional, 0);
+  const scoringLeagues = leagues.filter(x => x.confirmed !== 0);
+  const topLeague = scoringLeagues.slice().sort((a, b) => b.confirmed - a.confirmed)[0] || null;
   return {
     id: d.id,
     name: d.name,
@@ -285,210 +299,169 @@ function obBuildRow(d){
     provisionalTotal,
     confirmedTotal: total - provisionalTotal,
     leagues,
-    awards
+    scoringCount: scoringLeagues.length,
+    topLeague
   };
 }
 
-function obRows(){
-  return DRAFT_TEAMS.map(obBuildRow)
+// All ten rows, sorted by confirmed points (ties broken alphabetically)
+// and annotated with standard-competition rank + a "T" tie prefix, e.g.
+// 1, T2, T2, 4 — the single source both the list and the detail header
+// read rank from, so the two never drift out of sync.
+function obRankedRows(){
+  const rows = DRAFT_TEAMS.map(obBuildRow)
     .sort((a, b) => b.confirmedTotal - a.confirmedTotal || a.name.localeCompare(b.name));
+
+  let prevTotal = null, prevRank = 0;
+  rows.forEach((r, i) => {
+    r.rank = (prevTotal !== null && r.confirmedTotal === prevTotal) ? prevRank : i + 1;
+    prevTotal = r.confirmedTotal;
+    prevRank = r.rank;
+  });
+  const rankCounts = {};
+  rows.forEach(r => { rankCounts[r.rank] = (rankCounts[r.rank] || 0) + 1; });
+  rows.forEach(r => { r.rankLabel = (rankCounts[r.rank] > 1 ? 'T' : '') + r.rank; });
+
+  return rows;
 }
 
 // ---- List ----
 
-function obMixBarHtml(row){
-  const positives = row.leagues.filter(x => x.confirmed > 0);
-  const sum = positives.reduce((s, x) => s + x.confirmed, 0);
-  if(!sum) return '<div class="ob-mix"></div>';
-  const segs = positives.map(x =>
-    `<span class="ob-mix-seg" style="width:${(x.confirmed / sum) * 100}%; background:${obLeagueColor(x.league.key)};" title="${x.league.label} ${obSignedPts(x.confirmed)}"></span>`
-  ).join('');
-  return `<div class="ob-mix">${segs}</div>`;
+function obSubCopy(row){
+  if(row.scoringCount === 0) return 'No Points Earned';
+  const base = row.scoringCount + (row.scoringCount === 1 ? ' league scoring' : ' leagues scoring');
+  return row.topLeague ? base + ' &middot; best in ' + row.topLeague.league.label : base;
 }
 
-function obExpandHtml(row){
-  const leagueRowsHtml = row.leagues.map(x => {
-    const maxAbs = Math.max(1, ...row.leagues.map(y => Math.abs(y.confirmed)));
-    const width = (Math.abs(x.confirmed) / maxAbs) * 100;
-    return `
-      <div class="ob-lg-row">
-        <span class="ob-lg-dot" style="background:${x.confirmed === 0 ? 'var(--hairline-strong)' : obLeagueColor(x.league.key)};"></span>
-        <div class="ob-lg-label">${x.league.label}</div>
-        <div class="ob-lg-track"><span style="width:${width}%; background:${obLeagueColor(x.league.key)};"></span></div>
-        <div class="ob-lg-pts ${obPtsClass(x.confirmed)}">${x.confirmed === 0 ? '&mdash;' : obSignedPts(x.confirmed)}</div>
-      </div>
-    `;
-  }).join('');
-
-  const confirmed = row.awards.filter(a => !a.provisional)
-    .sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts))
-    .slice(0, 3);
-
-  const awardsHtml = confirmed.length
-    ? confirmed.map(a => `
-        <div class="ob-award">
-          <div class="ob-award-main">
-            <div class="ob-award-label">${a.label}</div>
-            <div class="ob-award-meta">${a.teamName} &middot; ${a.leagueLabel}</div>
-          </div>
-          <div class="ob-award-pts ${obPtsClass(a.pts)}">${obSignedPts(a.pts)}</div>
-        </div>
-      `).join('')
-    : `<div class="ob-empty">Nothing confirmed yet &mdash; no result has settled for these teams.</div>`;
-
-  const pendingHtml = row.provisionalTotal !== 0
-    ? `<div class="ob-pending"><span class="ob-stripe-swatch"></span>${obSignedPts(row.provisionalTotal)} provisional in the breakdown</div>`
-    : '';
-
+function obRowHtml(row, hasLeader){
+  const isTop = hasLeader && row.rank === 1;
+  const rankTier = isTop ? 'rank-1' : (hasLeader && row.rank <= 3 ? 'rank-mid' : '');
   return `
-    <div class="ob-expand">
-      <div class="ob-section-title">Confirmed points by league</div>
-      <div class="ob-lg-list">${leagueRowsHtml}</div>
-      ${pendingHtml}
-      <div class="ob-section-title">Confirmed awards</div>
-      <div class="ob-award-list">${awardsHtml}</div>
-      <button class="ob-detail-link" onclick="obOpenDetail('${row.id}')">Full breakdown for ${row.name} &rarr;</button>
-    </div>
+    <button type="button" class="ob-row ${isTop ? 'leader' : ''} ${row.id === currentDraftTeamId ? 'current' : ''}" onclick="obOpenDetail('${row.id}')">
+      <span class="ob-rank ${rankTier}">${row.rankLabel}</span>
+      <span class="ob-identity">
+        <span class="ob-name">${row.name}</span>
+        <span class="ob-sub">${obSubCopy(row)}</span>
+      </span>
+      <span class="ob-totalwrap">
+        ${isTop ? '<span class="ob-leads">leads</span>' : ''}
+        <span class="ob-total">${row.confirmedTotal}</span>
+        <svg class="ob-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </span>
+    </button>
   `;
 }
 
-function obLegendHtml(){
-  const chips = LEAGUES.map(l => `
-    <div class="ob-legend-chip">
-      <span class="ob-legend-dot" style="background:${obLeagueColor(l.key)};"></span>
-      ${l.label}
-    </div>
-  `).join('');
-  const preview = LEAGUES.slice(0, 4).map(l =>
-    `<span style="background:${obLeagueColor(l.key)};"></span>`
-  ).join('');
-
+// No genuine leader to call out when every row is tied for rank 1 (the
+// whole board sits at 0 confirmed points before anything's settled, most
+// obviously) — highlighting "the leader" in that case would just be
+// singling out an arbitrary alphabetical pick, so the leader wash/gold
+// rank/"leads" label only render once someone has actually separated
+// from the pack.
+function obListHtml(rows){
+  const leaderCount = rows.filter(r => r.rank === 1).length;
+  const hasLeader = leaderCount > 0 && leaderCount < rows.length;
+  const rowsHtml = rows.map(row => obRowHtml(row, hasLeader)).join('');
   return `
-    <div class="ob-legend">
-      <button class="ob-legend-toggle" onclick="obToggleLegend()">
-        <span class="ob-legend-toggle-dots">${preview}</span>
-        ${obLegendOpen ? 'Hide colors' : 'What do the colors mean?'}
-      </button>
-      ${obLegendOpen ? `<div class="ob-legend-panel">${chips}</div>` : ''}
-    </div>
-  `;
-}
-
-function obListHtml(){
-  const rows = obRows();
-
-  const rowsHtml = rows.map((row, i) => {
-    const rank = i + 1;
-    const expanded = obExpandedId === row.id;
-    return `
-      <div class="ob-row ${rank === 1 ? 'leader' : ''} ${expanded ? 'expanded' : ''} ${row.id === currentDraftTeamId ? 'current' : ''}">
-        <div class="ob-row-head" onclick="obToggleRow('${row.id}')">
-          <div class="ob-rank">${rank}</div>
-          <div class="ob-row-main">
-            <div class="ob-name">${row.name}</div>
-            <div class="ob-mix-line">
-              ${obMixBarHtml(row)}
-            </div>
-          </div>
-          <div class="ob-total ${obPtsClass(row.confirmedTotal)}">${row.confirmedTotal === 0 ? '0 pts' : obSignedPts(row.confirmedTotal) + ' pts'}</div>
-        </div>
-        ${expanded ? obExpandHtml(row) : ''}
-      </div>
-    `;
-  }).join('');
-
-  return `
-    ${obLegendHtml()}
     <div class="ob-list">${rowsHtml}</div>
-    <div class="ob-foot">Ranked by confirmed points. Open a drafter to see provisional points still riding on live tables.</div>
+    <div class="ob-foot">Totals count confirmed results only. Open a drafter to see the per-league split and what is still riding on a live table.</div>
   `;
 }
 
 // ---- Detail ----
 
-function obDetailHtml(row, rank){
-  const confirmed = row.confirmedTotal;
-  const provisional = row.provisionalTotal;
-  const span = Math.abs(confirmed) + Math.abs(provisional);
-  const confirmedPct = span ? (Math.abs(confirmed) / span) * 100 : 0;
-  const provisionalPct = span ? (Math.abs(provisional) / span) * 100 : 0;
+function obCardHtml(x, maxAbs){
+  const expanded = obOpenLeagueKey === x.league.key;
+  const teams = [];
+  x.awards.forEach(a => { if(teams.indexOf(a.teamName) === -1) teams.push(a.teamName); });
+  const pct = Math.round((Math.abs(x.confirmed) / maxAbs) * 100);
+  const barColor = x.confirmed < 0 ? 'var(--loss)' : obLeagueColor(x.league.key);
 
-  const leagueCardsHtml = row.leagues.map(x => {
-    const awards = row.awards.filter(a => a.leagueKey === x.league.key)
-      .sort((a, b) => Math.abs(b.pts) - Math.abs(a.pts));
-    const teams = obTeamNamesFor(row.id, x.league);
-    const rulesHtml = awards.length
-      ? awards.map(a => `
-          <div class="ob-rule" onclick="openTeamModal('${a.teamKey}')">
-            <div class="ob-rule-main">
-              <div class="ob-rule-label">${a.label}</div>
-              <div class="ob-rule-meta">${a.teamName}${a.provisional ? '<span class="ob-prov-tag">Provisional</span>' : ''}</div>
-            </div>
-            <div class="ob-rule-pts ${obPtsClass(a.pts)}">${obSignedPts(a.pts)}</div>
+  const rulesHtml = x.awards.slice()
+    .sort((a, b) => (a.provisional === b.provisional) ? b.pts - a.pts : (a.provisional ? 1 : -1))
+    .map(a => `
+      <div class="ob-rule" onclick="openTeamModal('${a.teamKey}')">
+        <div class="ob-rule-main">
+          <div class="ob-rule-label">${a.label}</div>
+          <div class="ob-rule-meta">
+            <span>${a.teamName}</span>
+            ${a.provisional ? '<span class="ob-prov-tag">Provisional</span>' : ''}
           </div>
-        `).join('')
-      : `<div class="ob-empty">Nothing settled yet in ${x.league.label}. Every rule is still available.</div>`;
-
-    const provHtml = x.provisional !== 0
-      ? `<div class="ob-card-prov"><span class="ob-stripe-swatch"></span>${obSignedPts(x.provisional)} of this is provisional &mdash; it moves with the table</div>`
-      : '';
-
-    return `
-      <div class="ob-card">
-        <div class="ob-card-head">
-          <span class="ob-lg-dot" style="background:${x.pts === 0 ? 'var(--hairline-strong)' : obLeagueColor(x.league.key)};"></span>
-          <div class="ob-card-main">
-            <div class="ob-card-title">${LEAGUE_SCORING[x.league.key] ? LEAGUE_SCORING[x.league.key].full : x.league.label}</div>
-            <div class="ob-card-sub">${x.league.season} &middot; ${teams.join(' &middot; ') || '&mdash;'}</div>
-          </div>
-          <div class="ob-card-pts ${obPtsClass(x.pts)}">${obSignedPts(x.pts)}</div>
         </div>
-        <div class="ob-rule-list">${rulesHtml}</div>
-        ${provHtml}
+        <div class="ob-rule-pts ${obPtsClass(a.pts)}">${obSignedPts(a.pts)}</div>
       </div>
-    `;
-  }).join('');
+    `).join('');
 
   return `
-    <button class="ob-back" onclick="obCloseDetail()">&larr; Overall standings</button>
-    <div class="ob-detail-head">
-      <div class="ob-detail-rank">Rank ${rank} of ${DRAFT_TEAMS.length}</div>
-      <h2 class="ob-detail-name">${row.name}</h2>
-      <div class="ob-detail-total"><b class="${obPtsClass(row.total)}">${obSignedPts(row.total)}</b><span>points total</span></div>
-      <div class="ob-split">
-        <span class="ob-split-confirmed" style="width:${confirmedPct}%;"></span>
-        <span class="ob-split-provisional" style="width:${provisionalPct}%;"></span>
-      </div>
-      <div class="ob-split-legend">
-        <span class="ob-pill confirmed"><i></i>${obSignedPts(confirmed)} confirmed</span>
-        <span class="ob-pill provisional"><i></i>${obSignedPts(provisional)} provisional</span>
-      </div>
-      <div class="ob-split-note">${provisional === 0
-        ? 'Everything here is settled &mdash; no points are riding on a live table.'
-        : 'Provisional points come from where a club sits in the table right now. They move until the season ends.'}</div>
+    <div class="ob-card ${expanded ? 'expanded' : ''}">
+      <button type="button" class="ob-card-head" onclick="obToggleLeague('${x.league.key}')" aria-expanded="${expanded}">
+        <div class="ob-card-pts ${obPtsClass(x.confirmed)}">${x.confirmed === 0 ? '0' : obSignedPts(x.confirmed)}</div>
+        <div class="ob-card-main">
+          <div class="ob-card-title">${obLeagueFullName(x.league.key)}</div>
+          <div class="ob-card-sub">${x.league.season} &middot; ${teams.join(' &middot; ')}</div>
+        </div>
+        <div class="ob-card-right">
+          <div class="ob-card-bar-track"><span class="ob-card-bar-fill" style="width:${pct}%; background:${barColor};"></span></div>
+          <svg class="ob-card-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+        </div>
+      </button>
+      ${expanded ? `<div class="ob-card-body">${rulesHtml}</div>` : ''}
     </div>
-    <div class="ob-section-title">How the points were awarded</div>
-    <div class="ob-cards">${leagueCardsHtml}</div>
+  `;
+}
+
+function obDetailHtml(row){
+  const scoringRows = row.leagues.filter(x => x.awards.length > 0)
+    .sort((a, b) => b.confirmed - a.confirmed || Math.abs(b.pts) - Math.abs(a.pts));
+  const idle = row.leagues.filter(x => x.awards.length === 0);
+  const maxAbs = Math.max(1, ...scoringRows.map(x => Math.abs(x.confirmed)));
+
+  const bannerHtml = row.provisionalTotal !== 0
+    ? `
+      <div class="ob-prov-banner">
+        <span class="ob-stripe-swatch"></span>
+        <div class="ob-prov-text">${row.provisionalTotal > 0
+          ? obSignedPts(row.provisionalTotal) + ' more is provisional &mdash; it depends on where a club sits in a live table and is not in the total above.'
+          : obSignedPts(row.provisionalTotal) + ' is at risk from live tables &mdash; it is not in the total above, but would come off if the table holds.'}</div>
+      </div>
+    `
+    : '';
+
+  const idleHtml = idle.length
+    ? `
+      <div class="ob-idle-block">
+        <div class="ob-idle-title">No points yet</div>
+        <div class="ob-idle-body">${idle.map(x => obLeagueFullName(x.league.key)).join(', ')} &mdash; every rule there is still available.</div>
+      </div>
+    `
+    : '';
+
+  return `
+    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Leaderboard</button>
+    <div class="ob-detail-head">
+      <div class="ob-detail-left">
+        <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>
+        <h2 class="ob-detail-name">${row.name}</h2>
+        <div class="ob-detail-meta">${row.scoringCount} of ${LEAGUES.length} leagues scoring confirmed points</div>
+      </div>
+      <div class="ob-detail-right">
+        <div class="ob-detail-total">${row.confirmedTotal}</div>
+        <div class="ob-detail-total-label">Confirmed pts</div>
+      </div>
+    </div>
+    ${bannerHtml}
+    <div class="ob-section-title">Where the points come from</div>
+    <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, maxAbs)).join('')}</div>
+    ${idleHtml}
     <button class="ob-detail-link" onclick="setDraftTeam('${row.id}'); switchView('board');">See ${row.name}'s board &rarr;</button>
   `;
 }
 
 // ---- Entry points ----
 
-export function obToggleRow(id){
-  obExpandedId = obExpandedId === id ? null : id;
-  renderOverallStandings();
-}
-window.obToggleRow = obToggleRow;
-
-export function obToggleLegend(){
-  obLegendOpen = !obLegendOpen;
-  renderOverallStandings();
-}
-window.obToggleLegend = obToggleLegend;
-
 export function obOpenDetail(id){
   obDetailId = id;
+  obOpenLeagueKey = null;
   window.scrollTo(0, 0);
   renderOverallStandings();
 }
@@ -496,9 +469,16 @@ window.obOpenDetail = obOpenDetail;
 
 export function obCloseDetail(){
   obDetailId = null;
+  obOpenLeagueKey = null;
   renderOverallStandings();
 }
 window.obCloseDetail = obCloseDetail;
+
+export function obToggleLeague(key){
+  obOpenLeagueKey = obOpenLeagueKey === key ? null : key;
+  renderOverallStandings();
+}
+window.obToggleLeague = obToggleLeague;
 
 // TEMPORARY: see the block above obDrafterAwards — delete alongside it.
 function obSyncModeToggle(){
@@ -514,16 +494,16 @@ export function renderOverallStandings(){
   if(!container) return;
   obSyncModeToggle();
   const simBanner = obMode === 'simulated' ? OB_SIM_BANNER_HTML : '';
+  const rows = obRankedRows();
 
   if(obDetailId){
-    const rows = obRows();
-    const idx = rows.findIndex(r => r.id === obDetailId);
-    if(idx !== -1){
-      container.innerHTML = `${simBanner}<div class="ob-detail">${obDetailHtml(rows[idx], idx + 1)}</div>`;
+    const row = rows.find(r => r.id === obDetailId);
+    if(row){
+      container.innerHTML = `${simBanner}<div class="ob-detail">${obDetailHtml(row)}</div>`;
       return;
     }
     obDetailId = null;
   }
 
-  container.innerHTML = simBanner + obListHtml();
+  container.innerHTML = simBanner + obListHtml(rows);
 }
