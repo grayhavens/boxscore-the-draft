@@ -1331,7 +1331,11 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // literally the only thing missing from this header before: date was
   // never shown anywhere in the Game Details sheet.
   const dateLabel = formatDateShort(summary.date);
-  const statusHtml = `${dateLabel ? `${dateLabel} &middot; ` : ''}${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${(summary.status && summary.status.detail) || ''}`;
+  // ESPN's shortDetail for a scheduled game leads with its own numeric
+  // date ("9/18 - 3:00 PM EDT"), which would repeat dateLabel above —
+  // strip it so only the time remains.
+  const statusDetail = ((summary.status && summary.status.detail) || '').replace(/^\d{1,2}\/\d{1,2}\s*[-–—]\s*/, '');
+  const statusHtml = `${dateLabel ? `${dateLabel} &middot; ` : ''}${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${statusDetail}`;
 
   // The score itself is now the header's title (see el.innerHTML below)
   // — previously the header showed only team names, with the score
@@ -1339,10 +1343,8 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // below the recap card/Top Plays/situation that have all landed
   // above it since. Every league's summary.teams already carries
   // `score` (not just MLB's), so this is header-level, not MLB-
-  // specific. hasScore guards a fallback to the plain team-names title
-  // (gameDetail.titleName below) for the (practically unreachable —
-  // every real caller opens this sheet for a live or completed game,
-  // which always has a score) case it's ever missing.
+  // specific. hasScore picks between the score header and the score-less
+  // "Away at Home" header an upcoming game gets (see el.innerHTML below).
   //
   // Both teams render in the same bright color (.gd-score-team's own
   // base color) by default — a live game's score is still in motion,
@@ -1442,16 +1444,25 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     <div class="gd-head with-back">
       <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
       <div>
-        ${hasScore ? (() => {
+        ${(() => {
           const awaySide = resolveGameDetailSide(away, leagueKey);
           const homeSide = resolveGameDetailSide(home, leagueKey);
-          return `
+          // An upcoming game has no score yet, but still gets the same
+          // crest + name treatment as a completed one — just with "at"
+          // between the sides in place of the scores.
+          return hasScore ? `
           <div class="gd-score-title">
             <span class="gd-score-team${awayLost ? ' lost' : ''}">${awaySide.badgeHtml}${awaySide.name}<b>${awayScore}</b></span>
             <span class="gd-score-team${homeLost ? ' lost' : ''}">${homeSide.badgeHtml}${homeSide.name}<b>${homeScore}</b></span>
           </div>
+          ` : `
+          <div class="gd-score-title no-score">
+            <span class="gd-score-team">${awaySide.badgeHtml}${awaySide.name}</span>
+            <span class="gd-at">at</span>
+            <span class="gd-score-team">${homeSide.badgeHtml}${homeSide.name}</span>
+          </div>
           `;
-        })() : `<div class="gd-title">${gameDetail.titleName(away)} at ${gameDetail.titleName(home)}</div>`}
+        })()}
         <div class="gd-sub">${statusHtml}</div>
       </div>
     </div>

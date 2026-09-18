@@ -1450,8 +1450,8 @@ body{
 }
 
 /* The score IS the header title now (see renderGameDetail in
-   js/live-data.js — .gd-title is only a fallback for the practically
-   unreachable case a game has no score at all). Both teams sit side by
+   js/live-data.js — an upcoming game with no score yet gets the same
+   header, minus the scores; see .no-score below). Both teams sit side by
    side — crest, full name, score — with no separator between them: the
    win/loss color contrast (below) already tells the two sides apart, so
    a dash or rule between them was just visual noise. Wraps to two lines
@@ -1498,6 +1498,21 @@ body{
 }
 
 .gd-score-team.lost{ color: var(--text-mute); }
+
+/* Upcoming game — no score, so the names carry the header on their own
+   at the old plain title's size, with a muted "at" between the sides. */
+.gd-score-title.no-score .gd-score-team{ font-size: 17px; }
+.gd-score-title.no-score .gd-score-team .badge{
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
+  font-size: 9px;
+}
+.gd-at{
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
 
 /* Game Details header's live indicator — same pulsing-dot treatment as
    the Teams tab's .status-slot .meta-label.live, in place of the old
