@@ -176,13 +176,6 @@ body{
    .picker-hit's default margin-left:auto (above) still applies there. */
 .scope-chip + .picker-hit{ margin-left: 0; }
 
-/* Same fix, same reason, for the Overall tab's Real/Simulated toggle
-   (.ob-mode already had its own margin-left:auto from before the
-   identity circle existed) — without this, both it and .picker-hit's
-   auto margin split the row's leftover space and get pushed apart
-   instead of clustering together on the right. */
-.ob-mode + .picker-hit{ margin-left: 0; }
-
 /* Identity control (js/identity.js) — an outline-only initials circle,
    idle/hover language borrowed from .modal-close below (transparent
    until touched, a faint surface tint on hover) rather than a filled,
@@ -225,6 +218,51 @@ body{
   background: rgba(255,255,255,0.06);
   color: var(--text);
 }
+
+/* Chat entry point (js/chat.js) — sits immediately left of the identity
+   circle on every view. Same auto-margin dance as .scope-chip
+   above: whichever element leads the right-hand cluster owns the
+   margin-left:auto, everything after it sits flush against it. */
+.chat-hit{
+  position: relative;
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.chat-hit:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
+.chat-hit svg{ width: 21px; height: 21px; }
+.scope-chip + .chat-hit,
+.chat-hit + .picker-hit{ margin-left: 0; }
+
+.chat-badge{
+  display: none;
+  position: absolute;
+  top: 1px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--live);
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.chat-badge.show{ display: block; }
 
 /* Shown under a view's header while it's displaying someone else's
    board via a ?team= link (a "peek" — see setDraftTeam's comment in
@@ -336,10 +374,11 @@ body{
 
 /* Standings-only header layout: the title gets its own top line (it
    can run long, e.g. "English Premier League") with the season
-   right-aligned alongside it, and the Scoring/Results chips sit on
-   their own line below — see leagueBlockHtml in js/board.js. The
-   Teams tab keeps the same title/season pairing on one line (see
-   renderBoard in js/board.js) since it has no separate chips row. */
+   right-aligned alongside it, and the prior-season note (MLB/WNBA
+   only) sits on its own line below — see leagueBlockHtml in
+   js/board.js. The Teams tab keeps the same title/season pairing on
+   one line (see renderBoard in js/board.js) since it has nothing
+   below it to stack. */
 .league-tab.standings-league-tab{
   flex-direction: column;
   align-items: stretch;
@@ -353,17 +392,6 @@ body{
   gap: 10px;
 }
 
-.league-tab-chips{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-}
-
-/* Sized/weighted/colored to match the Scoring/Results ghost buttons
-   (see .scoring-chip below) rather than the smaller/dimmer default a
-   plain .n label would otherwise get, since the season sits on the
-   same header row as those buttons on both the Teams and Standings
-   tabs (see leagueBlockHtml/renderBoard in js/board.js). */
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
   font-size: 11.5px;
@@ -463,11 +491,13 @@ body{
   margin-top: 1px;
 }
 
-/* Ghost icon buttons — invisible until hovered, so they read as a
-   lightweight in-context action (open the Scoring/Results modal) rather
-   than a persistent pill. Negative margin cancels the button's own
-   left padding so its icon/text sits flush with the card's edge, same
-   as any other unpadded header text. */
+/* Ghost icon button — invisible until hovered, so it reads as a
+   lightweight in-context action rather than a persistent pill. Used by
+   the Points tab's toolbar (see .ob-toolbar below) to open the
+   Scoring page (js/scoring-page.js). Negative margin cancels the
+   button's own left padding so its icon/text sits flush with whatever
+   edge it's the first/last element against, same as any other
+   unpadded header text. */
 .scoring-chip{
   flex: 0 0 auto;
   display: flex;
@@ -1138,7 +1168,7 @@ body{
    openTeamModal in js/live-data.js) — this wrapper takes over the
    absolute corner positioning so .modal-close can drop its own
    (still used standalone everywhere else the class appears, e.g. the
-   League Scoring modal in js/board.js's openLeagueModal). */
+   identity-switcher and Scores-scope sheets in index.html). */
 .modal-actions{
   position: absolute;
   top: 16px;
@@ -1564,8 +1594,8 @@ body{
 }
 
 /* The score IS the header title now (see renderGameDetail in
-   js/live-data.js — .gd-title is only a fallback for the practically
-   unreachable case a game has no score at all). Both teams sit side by
+   js/live-data.js — an upcoming game with no score yet gets the same
+   header, minus the scores; see .no-score below). Both teams sit side by
    side — crest, full name, score — with no separator between them: the
    win/loss color contrast (below) already tells the two sides apart, so
    a dash or rule between them was just visual noise. Wraps to two lines
@@ -1612,6 +1642,21 @@ body{
 }
 
 .gd-score-team.lost{ color: var(--text-mute); }
+
+/* Upcoming game — no score, so the names carry the header on their own
+   at the old plain title's size, with a muted "at" between the sides. */
+.gd-score-title.no-score .gd-score-team{ font-size: 17px; }
+.gd-score-title.no-score .gd-score-team .badge{
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
+  font-size: 9px;
+}
+.gd-at{
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
 
 /* Game Details header's live indicator — same pulsing-dot treatment as
    the Teams tab's .status-slot .meta-label.live, in place of the old
@@ -1927,6 +1972,30 @@ body{
 .scoring-value.neg{
   background: var(--loss-soft);
   color: var(--loss);
+}
+
+/* ---- Scoring page (js/scoring-page.js) ----
+   The filter-chip-selected league's rules, reusing openLeagueModal's own
+   content shape (accent bar, heading, .scoring-list) without the modal
+   chrome around it — see that function in js/board.js, which still
+   backs the Standings tab's per-league popup unchanged. */
+.scoring-page-accent{
+  height: 6px;
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.scoring-page-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+}
+.scoring-page-sub{
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 500;
+  margin: 3px 0 18px;
 }
 
 /* ---- Season tracker (achievement checklist, in team modal) ----
@@ -2575,24 +2644,24 @@ body{
    touch the ranking number. See design_handoff_leaderboard/README.md
    for the full spec this implements. */
 
-/* -- Real/Simulated data toggle + banner --
-   TEMPORARY: a preview aid for showing the page's shape before the
-   season produces real results. Safe to delete this block (and the
-   matching "TEMPORARY" block in js/app.js, and the toggle markup in
-   index.html) once real data makes it unnecessary. */
-.ob-mode{
-  margin-left: auto;
+/* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
+   Sits below the header/subheader rather than in the header-top row
+   beside the title, so the mode switch can be a plain two-button pill
+   (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
+   defined above) reads as a lightweight in-page action rather than
+   competing with the identity picker up top. */
+.ob-toolbar{
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 16px;
 }
-.ob-mode-label{
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-mute);
-}
+
+/* TEMPORARY: a preview aid for showing the page's shape before the
+   season produces real results. Safe to delete this block (and the
+   matching "TEMPORARY" block in js/overall.js, and the toggle markup in
+   index.html) once real data makes it unnecessary. */
 .ob-mode-switch{
   display: flex;
   background: var(--surface);
@@ -2603,9 +2672,9 @@ body{
 }
 .ob-mode-btn{
   font-family: 'Manrope', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 5px 12px;
+  padding: 5px 11px;
   border-radius: 999px;
   border: none;
   background: transparent;
@@ -2695,14 +2764,6 @@ body{
   white-space: nowrap;
 }
 .ob-row.leader .ob-total{ color: var(--lb-ink-strong); }
-.ob-leads{
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  white-space: nowrap;
-}
 .ob-chevron{ flex: none; stroke: var(--lb-stroke); margin-left: 4px; }
 
 @media (max-width: 480px){
@@ -2738,12 +2799,6 @@ body{
 .ob-detail-link:hover{
   border-color: var(--accent-border);
   background: var(--accent-soft);
-}
-.ob-foot{
-  padding: 18px 4px 8px;
-  font-size: 11.5px;
-  color: var(--text-sub);
-  line-height: 1.5;
 }
 
 /* -- Detail -- */
@@ -3298,3 +3353,353 @@ body{
 }
 
 .tab-btn.active{ color: var(--accent); }
+
+/* ============================================================
+   Chat screen (js/chat.js) — a fixed full-screen overlay above the tab
+   bar (z-index 200) and below the sheets. Height/top are driven by JS
+   from window.visualViewport so the on-screen keyboard shrinks the
+   screen instead of covering the composer (100dvh is only the pre-JS
+   fallback); body scroll is locked while it's open (lockBodyScroll).
+   ============================================================ */
+.chat-screen{
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100dvh;
+  z-index: 500;
+  background: var(--bg);
+  flex-direction: column;
+}
+.chat-screen.open{ display: flex; }
+
+/* Set on <html> while chat is open (js/chat.js's openChat) — the page
+   behind must not scroll or bounce; see guardTouchScroll there for the
+   half of this that CSS alone can't cover on iOS. */
+html.chat-open{
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.chat-head{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 6px) 12px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.chat-back{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -4px;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.chat-back:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
+.chat-back svg{ width: 22px; height: 22px; }
+.chat-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+.chat-status{
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
+.chat-status::before{
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-mute);
+}
+.chat-status[data-state="open"]{ color: var(--text-sub); }
+.chat-status[data-state="open"]::before{ background: var(--win); }
+
+.chat-list{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  padding: 12px max(16px, calc((100% - 720px) / 2)) 8px;
+}
+/* margin-top:auto (not justify-content:flex-end) so a short conversation
+   sits at the bottom next to the composer but a long one still scrolls
+   normally from the top. */
+.chat-list > :first-child{ margin-top: auto; }
+
+.chat-empty{
+  margin: auto;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+.chat-day{
+  align-self: center;
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text-mute);
+}
+.chat-meta{
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 10px 4px 3px;
+}
+.chat-meta.mine{ align-self: flex-end; }
+.chat-name{ font-size: 12px; font-weight: 800; color: var(--text-sub); }
+.chat-time{ font-size: 11px; font-weight: 600; color: var(--text-mute); }
+.chat-bubble{
+  align-self: flex-start;
+  max-width: min(82%, 520px);
+  margin-top: 2px;
+  padding: 8px 12px;
+  border-radius: 16px 16px 16px 5px;
+  background: var(--surface-2);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.38;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.chat-bubble.mine{
+  align-self: flex-end;
+  border-radius: 16px 16px 5px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  padding: 7px 11px;
+}
+
+.chat-composer{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px max(12px, calc((100% - 720px) / 2)) calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+}
+.chat-screen.kb-open .chat-composer{ padding-bottom: 10px; }
+.chat-composer textarea{
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 120px;
+  resize: none;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  /* 16px minimum — anything smaller makes iOS zoom the page on focus. */
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+  outline: none;
+}
+.chat-composer textarea:focus{ border-color: var(--accent-border); }
+.chat-composer textarea::placeholder{ color: var(--text-mute); }
+.chat-send{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+}
+.chat-send svg{ width: 20px; height: 20px; }
+
+/* ---- GIFs in chat (js/gifs.js, js/gif-picker.js) ---- */
+
+/* A GIF message: no bubble, just the image with the same corner shapes
+   as a text bubble. aspect-ratio is set inline from the GIF's own
+   dimensions so its space is reserved before it loads. */
+.chat-gif{
+  position: relative;
+  /* Not shrinkable: the list is a fixed-height flex column, and this box
+     has no intrinsic content height (its img is absolutely positioned)
+     and overflow:hidden (so no min-height:auto floor either) — left
+     alone it collapses to 0 tall as soon as the conversation is long
+     enough to overflow. */
+  flex: none;
+  align-self: flex-start;
+  width: min(68%, 240px);
+  max-height: 320px;
+  margin-top: 2px;
+  border-radius: 16px 16px 16px 5px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.chat-gif.mine{
+  align-self: flex-end;
+  border-radius: 16px 16px 5px 16px;
+}
+.chat-gif img,
+.gif-cell img{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-gif-btn{
+  flex: 0 0 auto;
+  align-self: flex-end;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 19px;
+  border: 1px solid var(--hairline-strong);
+  background: none;
+  color: var(--text-sub);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.chat-gif-btn[hidden]{ display: none; }
+.chat-gif-btn.active{
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+/* Sits between the message list and the composer while open, taking its
+   height out of the list's. Taller while the keyboard is up (typing a
+   search) since results are what you're looking at then. */
+.gif-panel{
+  display: none;
+  flex: 0 0 auto;
+  height: 44%;
+  flex-direction: column;
+  padding: 8px max(12px, calc((100% - 720px) / 2)) 0;
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+}
+.gif-panel.open{ display: flex; }
+.chat-screen.kb-open .gif-panel{ height: 62%; }
+
+.gif-search-row{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+#gif-search{
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  /* 16px minimum, same iOS-zoom reason as the composer's textarea. */
+  font-size: 16px;
+  font-weight: 500;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+#gif-search:focus{ border-color: var(--accent-border); }
+#gif-search::placeholder{ color: var(--text-mute); }
+.gif-close{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.gif-close:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
+.gif-close svg{ width: 18px; height: 18px; }
+
+.gif-grid{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  align-items: start;
+}
+.gif-col{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.gif-cell{
+  position: relative;
+  flex: none;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.gif-status{
+  flex: 0 0 auto;
+  padding: 8px 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+}
+.gif-retry{
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.gif-attribution{
+  flex: 0 0 auto;
+  padding: 6px 0 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text-mute);
+}

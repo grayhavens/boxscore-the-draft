@@ -36,6 +36,17 @@ export const DASHBOARD_WORKER_BASE = 'https://team-dashboard-rundown-proxy.boxsc
 
 import { fetchJSON } from './utils.js';
 
+// The worker the chat features (js/chat.js's socket, js/gifs.js's key
+// lookup) talk to. On a local preview that's `wrangler dev` (port 8787)
+// instead of the deployed worker, so poking at chat locally never posts
+// into the group's real room. Everything else in this app deliberately
+// keeps hitting the deployed worker, even from localhost — only chat has
+// state you'd be polluting.
+export function chatWorkerBase(){
+  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+  return isLocal ? 'http://localhost:8787' : DASHBOARD_WORKER_BASE;
+}
+
 // Which TheRundown sport_id each leagueKey maps to. Only leagues
 // listed here get the live in-game-state supplement — add a league
 // only after its rundownTeamId mappings have been verified against

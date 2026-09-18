@@ -28,7 +28,7 @@ cd worker
 npx wrangler login                       # one-time
 npx wrangler secret put THERUNDOWN_API_KEY
 npx wrangler secret put SPORTSDB_API_KEY
-npx wrangler dev                         # local worker dev server
+npx wrangler dev                         # local worker dev server (chat client uses it on localhost, port 8787)
 npx wrangler deploy
 ```
 After deploying, `DASHBOARD_WORKER_BASE` in `js/api.js` must point at the printed `*.workers.dev` URL.
@@ -86,6 +86,33 @@ concurrent viewers collapse into one upstream call instead of one per browser, a
 Facts KV store. Adding a new upstream call: it MUST go through `cachedUpstreamFetch`, and a private
 key must never be added to client JS directly — see the comment block at the top of that file
 before adding a new route.
+
+**Group chat** (`js/chat.js` + `worker/chat-room.js`): real-time text chat for the drafters, opened
+from a header icon on every view (an overlay, not a tab/`.view` — `switchView` and the URL params
+never see it). Messages fan out through one shared Durable Object (SQLite-backed, WebSocket
+Hibernation API) reached at `/chat/ws`; KV can't do this (eventual consistency, no push). Same
+no-auth trust tier as favorites — sender is whichever drafter `js/identity.js` says you are. The
+socket opens at boot so the header's unread badge is live; reconnects resume via `?after=<lastId>`.
+On `localhost` the client talks to `wrangler dev` (`ws://localhost:8787`), never the deployed
+worker, so local testing can't post into the real room. The first deploy after adding it runs the
+`[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
+header icon ships pointing at a room that doesn't exist yet.
+
+**Chat GIFs** (`js/gifs.js`, `js/gif-picker.js`): a GIF button in the chat composer opens a picker
+backed by KLIPY (Tenor's API shut down 2026-06-30). **This is the one upstream that deliberately
+breaks the "everything goes through the worker" rule above:** KLIPY's integration requirements say
+API requests and media loads must come from the user's browser, and that proxying, caching, or
+mirroring needs their prior written approval (developers@klipy.com) — so the browser calls
+`api.klipy.com` directly and nothing is edge-cached. Because the browser calls KLIPY itself it
+necessarily has the app key, so the key can't be hidden from users — but it's kept out of this public
+repo: it's the worker secret `KLIPY_APP_KEY`, fetched at runtime from `/gif/config` (which only answers
+our own origins), so it can also be rotated without a redeploy. Set it with
+`npx wrangler secret put KLIPY_APP_KEY`; for local `wrangler dev` put `KLIPY_APP_KEY=...` in
+`worker/.dev.vars` (gitignored). No key = the GIF button stays hidden. Also required by KLIPY: media
+URLs used exactly as returned, results in the order returned, "Search KLIPY" as the search placeholder.
+A key in Testing mode is capped at 100 requests/hour across everyone; request Production access (free)
+in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (`parseGif` in
+`worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
 
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in

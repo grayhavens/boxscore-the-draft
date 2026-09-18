@@ -27,11 +27,15 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Home</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
       </div>
-      <div class="page-sub" id="team-tally">The Draft &middot; &mdash; leagues &middot; &mdash; teams</div>
+      <div class="page-sub" id="team-tally">&mdash; leagues &middot; &mdash; teams</div>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div class="filter-chips" id="filter-chips"></div>
@@ -48,6 +52,10 @@
         <button class="scope-chip" onclick="openTodayScopeSheet()">
           <span id="today-scope-label">All teams</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
         </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
@@ -67,6 +75,10 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Standings</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -83,27 +95,54 @@
         <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
-        <h1>Leaderboard</h1>
-        <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
-             js/overall.js. Remove this control (and that block) once the
-             season is far enough along that a fake preview is no
-             longer useful. -->
-        <div class="ob-mode" id="ob-mode">
-          <span class="ob-mode-label">Data</span>
-          <div class="ob-mode-switch">
-            <button type="button" class="ob-mode-btn active" data-mode="real" onclick="setObMode('real')">Real</button>
-            <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
-          </div>
-        </div>
+        <h1>Points</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
       </div>
-      <div class="page-sub">Standings for &ldquo;The Draft&rdquo;. Tap a drafter for the point breakdown.</div>
+      <div class="page-sub">Tap name for point breakdown</div>
+    </div>
+    <div class="ob-toolbar">
+      <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
+           js/overall.js. Remove this control (and that block) once the
+           season is far enough along that a fake preview is no longer
+           useful. Lives in its own row below the header/subheader
+           (rather than in the header-top row beside the title) so it
+           has room to be a plain two-button switch without fighting
+           "Points" for space on a phone-width screen. -->
+      <div class="ob-mode-switch" id="ob-mode-switch">
+        <button type="button" class="ob-mode-btn" data-mode="real" onclick="setObMode('real')">Real</button>
+        <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
+      </div>
+      <button type="button" class="scoring-chip" onclick="switchView('scoring')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+        Scoring
+      </button>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="overall-content"></div>
     <button class="ob-detail-link" style="margin: 18px 0 4px;" onclick="switchView('admin')">Manage Scoring</button>
+  </div>
+
+  <div id="view-scoring" class="view">
+    <div class="page-header">
+      <div class="page-header-top">
+        <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
+          <img class="app-logo" src="icons/logo-header.png" alt="">
+        </a>
+        <h1>Scoring</h1>
+        <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
+          <span class="id-circle"></span>
+        </button>
+      </div>
+      <div class="page-sub">Point values for every league's draft scoring rules</div>
+    </div>
+    <button class="ob-back" onclick="switchView('overall')">&larr; Points</button>
+    <div id="scoring-content"></div>
   </div>
 
   <div id="view-admin" class="view">
@@ -191,6 +230,40 @@
   </div>
 </div>
 
+<!-- Group chat (js/chat.js) — an overlay opened from the header icon on
+     every view, not a tab/view, so whatever's underneath is untouched. -->
+<div id="chat-screen" class="chat-screen" role="dialog" aria-label="Chat">
+  <div class="chat-head">
+    <button class="chat-back" onclick="closeChat()" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+    </button>
+    <div class="chat-title">Chat</div>
+    <div class="chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
+  </div>
+  <div class="chat-list" id="chat-list"></div>
+  <!-- GIF picker (js/gif-picker.js) — sits between the message list and the
+       composer while open. The whole thing, and the composer's GIF button,
+       stay hidden unless js/gifs.js has a KLIPY app key. -->
+  <div class="gif-panel" id="gif-panel">
+    <div class="gif-search-row">
+      <input id="gif-search" type="search" placeholder="Search KLIPY" enterkeyhint="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button type="button" class="gif-close" onclick="closeGifPicker()" aria-label="Close GIFs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="gif-grid" id="gif-grid"></div>
+    <div class="gif-status" id="gif-status" hidden></div>
+    <div class="gif-attribution">Powered by KLIPY</div>
+  </div>
+  <form class="chat-composer" onsubmit="sendChatMessage(); return false;">
+    <button type="button" class="chat-gif-btn" id="chat-gif-btn" onmousedown="event.preventDefault()" onclick="toggleGifPicker()" aria-label="Choose a GIF" hidden>GIF</button>
+    <textarea id="chat-input" rows="1" maxlength="1000" placeholder="Message" enterkeyhint="send" autocomplete="off"></textarea>
+    <button type="submit" class="chat-send" onmousedown="event.preventDefault()" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+    </button>
+  </form>
+</div>
+
 <nav class="tab-bar">
   <button class="tab-btn active" data-view="board" onclick="switchView('board')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>
@@ -206,7 +279,7 @@
   </button>
   <button class="tab-btn" data-view="overall" onclick="switchView('overall')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 21v-9.5h5V21"></path><path d="M3 21v-6h6.5"></path><path d="M14.5 21H21v-8h-6.5"></path><path d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg>
-    <span class="tab-label">Leaderboard</span>
+    <span class="tab-label">Points</span>
   </button>
 </nav>
 

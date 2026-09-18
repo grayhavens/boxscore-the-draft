@@ -1,5 +1,5 @@
 /* ============================================================
-   Leaderboard view: cross-drafter standings.
+   Points view (formerly "Leaderboard"): cross-drafter standings.
 
    The LIST is deliberately plain — rank, name, one confirmed total.
    No per-league composition here at all (no mix bar, no legend); tap a
@@ -344,7 +344,6 @@ function obRowHtml(row, hasLeader){
         <span class="ob-sub">${obSubCopy(row)}</span>
       </span>
       <span class="ob-totalwrap">
-        ${isTop ? '<span class="ob-leads">leads</span>' : ''}
         <span class="ob-total">${row.confirmedTotal}</span>
         <svg class="ob-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
       </span>
@@ -356,16 +355,12 @@ function obRowHtml(row, hasLeader){
 // whole board sits at 0 confirmed points before anything's settled, most
 // obviously) — highlighting "the leader" in that case would just be
 // singling out an arbitrary alphabetical pick, so the leader wash/gold
-// rank/"leads" label only render once someone has actually separated
-// from the pack.
+// rank only renders once someone has actually separated from the pack.
 function obListHtml(rows){
   const leaderCount = rows.filter(r => r.rank === 1).length;
   const hasLeader = leaderCount > 0 && leaderCount < rows.length;
   const rowsHtml = rows.map(row => obRowHtml(row, hasLeader)).join('');
-  return `
-    <div class="ob-list">${rowsHtml}</div>
-    <div class="ob-foot">Totals count confirmed results only. Open a drafter to see the per-league split and what is still riding on a live table.</div>
-  `;
+  return `<div class="ob-list">${rowsHtml}</div>`;
 }
 
 // ---- Detail ----
@@ -437,7 +432,7 @@ function obDetailHtml(row){
     : '';
 
   return `
-    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Leaderboard</button>
+    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Points</button>
     <div class="ob-detail-head">
       <div class="ob-detail-left">
         <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>
@@ -482,7 +477,7 @@ window.obToggleLeague = obToggleLeague;
 
 // TEMPORARY: see the block above obDrafterAwards — delete alongside it.
 function obSyncModeToggle(){
-  document.querySelectorAll('.ob-mode-btn').forEach(btn => {
+  document.querySelectorAll('#ob-mode-switch .ob-mode-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.mode === obMode);
   });
 }

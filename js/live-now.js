@@ -456,8 +456,11 @@ export async function renderLiveNow(){
   const liveCount = inScope.filter(g => g.state === 'live').length;
 
   if(subEl){
+    // Leagues counted off the same scope-filtered set the list renders
+    // from, so the number matches the league sections actually shown.
+    const leagueCount = new Set(inScope.map(g => g.league.key)).size;
     subEl.textContent = inScope.length
-      ? `${inScope.length} game${inScope.length === 1 ? '' : 's'} \u00b7 ${liveCount || 'no'} live`
+      ? `${leagueCount} league${leagueCount === 1 ? '' : 's'} · ${inScope.length} game${inScope.length === 1 ? '' : 's'}`
       : 'No games in this scope';
   }
   if(controlsEl) controlsEl.innerHTML = controlsHtml(liveCount);
