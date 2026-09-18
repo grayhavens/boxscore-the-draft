@@ -481,10 +481,20 @@ export function obToggleLeague(key){
 window.obToggleLeague = obToggleLeague;
 
 // TEMPORARY: see the block above obDrafterAwards — delete alongside it.
+export function obToggleMode(){
+  setObMode(obMode === 'simulated' ? 'real' : 'simulated');
+}
+window.obToggleMode = obToggleMode;
+
 function obSyncModeToggle(){
-  document.querySelectorAll('.ob-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === obMode);
-  });
+  const btn = document.getElementById('ob-mode-toggle');
+  if(!btn) return;
+  const isFake = obMode === 'simulated';
+  btn.classList.toggle('active', isFake);
+  btn.querySelector('.ob-mode-circle').textContent = isFake ? 'F' : 'R';
+  const label = isFake ? 'Showing fake preview data — tap for real' : 'Showing real data — tap for fake preview';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
 }
 
 const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; switch data to Real for live standings.</div>`;
