@@ -87,14 +87,14 @@
         <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
              js/overall.js. Remove this control (and that block) once the
              season is far enough along that a fake preview is no
-             longer useful. -->
-        <div class="ob-mode" id="ob-mode">
-          <span class="ob-mode-label">Data</span>
-          <div class="ob-mode-switch">
-            <button type="button" class="ob-mode-btn active" data-mode="real" onclick="setObMode('real')">Real</button>
-            <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
-          </div>
-        </div>
+             longer useful. A single lettered-circle toggle (same shape
+             as the identity picker beside it) rather than a labeled
+             two-button switch — that switch's width fought the
+             "Leaderboard" title for space and wrapped the header onto
+             its own line on a phone-width screen. -->
+        <button type="button" class="ob-mode-toggle" id="ob-mode-toggle" onclick="obToggleMode()" aria-label="Showing real data — tap for fake preview" title="Showing real data — tap for fake preview">
+          <span class="ob-mode-circle">R</span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
