@@ -23,12 +23,13 @@ let verifying = false;
 let errorMsg = '';
 let autoVerifyTried = false;
 
-// Which league this page is isolated to — same "All" + per-league chip
-// row as the Standings tab (js/board.js's standingsFilterKey), since
-// every league's rules + team adjustments stacked together is a lot to
-// scroll through at once. Not persisted/URL-mirrored — resets to "All"
-// each time the page is opened, same as Standings' own filter.
-let adminFilterKey = 'all';
+// Which league this page is isolated to — a per-league chip row like the
+// Standings tab (js/board.js's standingsFilterKey), but with no "All"
+// option: every league's rules + team adjustments stacked together is a
+// lot to render at once (each rankAuto rule reads a live standings
+// table), so only one league is ever rendered here. Not persisted/
+// URL-mirrored — resets to the first league each time the page is opened.
+let adminFilterKey = LEAGUES[0].key;
 
 window.setAdminFilter = function(key){
   adminFilterKey = key;
@@ -160,22 +161,22 @@ function leagueSectionHtml(league){
 }
 
 function filterChipsHtml(){
-  const chipsHtml = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
-    const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
-    return `<div class="filter-chip ${key === adminFilterKey ? 'active' : ''}" onclick="setAdminFilter('${key}')">${label}</div>`;
+  const chipsHtml = LEAGUES.map(l => {
+    const label = FILTER_CHIP_LABELS[l.key] || l.label;
+    return `<div class="filter-chip ${l.key === adminFilterKey ? 'active' : ''}" onclick="setAdminFilter('${l.key}')">${label}</div>`;
   }).join('');
   return `<div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>`;
 }
 
 function unlockedHtml(){
-  const shownLeagues = adminFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === adminFilterKey);
+  const shownLeague = LEAGUES.find(l => l.key === adminFilterKey) || LEAGUES[0];
   return `
     <div class="admin-toolbar">
       <button class="ob-back" onclick="switchView('overall')">&larr; Back to Overall</button>
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
     ${filterChipsHtml()}
-    ${shownLeagues.map(leagueSectionHtml).join('')}
+    ${leagueSectionHtml(shownLeague)}
   `;
 }
 

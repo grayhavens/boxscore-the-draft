@@ -186,6 +186,22 @@ function gameMatchesScope(game){
   return [game.away, game.home].some(s => (scopeFilter.mine && s.isMine) || (scopeFilter.fav && s.isFav));
 }
 
+// Reported bug: with the scope filter narrowed to Drafted/Favorites, a
+// team could show up as playing on a day it wasn't actually scheduled
+// for. ESPN's `dates=YYYYMMDD` scoreboard param isn't guaranteed to be
+// a strict same-day filter for every sport (college football's
+// schedule is organized by week, not day, and other date-boundary
+// mismatches are possible too) — rather than trust each sportPath to
+// filter itself server-side, every event is re-checked here against
+// the day the user actually selected: a game is kept only if its own
+// local calendar date matches dateForOffset(offset). Events missing a
+// date (shouldn't happen, but buildGame tolerates it) are kept rather
+// than silently dropped.
+function isOnSelectedDay(game, offset){
+  if(!game.date) return true;
+  return yyyymmdd(game.date) === yyyymmdd(dateForOffset(offset));
+}
+
 async function collectDay(offset){
   const leagues = LEAGUES.filter(l => FLAT_SCHEDULE_LEAGUES[l.key]);
   const boards = await Promise.all(leagues.map(l => fetchDayScoreboard(FLAT_SCHEDULE_LEAGUES[l.key].sportPath, offset)));
@@ -193,7 +209,7 @@ async function collectDay(offset){
   leagues.forEach((league, i) => {
     const board = boards[i];
     if(!board || !Array.isArray(board.events)) return;
-    const games = board.events.map(e => buildGame(league, e)).filter(Boolean);
+    const games = board.events.map(e => buildGame(league, e)).filter(Boolean).filter(g => isOnSelectedDay(g, offset));
     if(games.length) byLeague[league.key] = games;
   });
   return byLeague;
