@@ -86,6 +86,16 @@
       no-auth trust tier as favorites, but the WebSocket upgrade does
       check the Origin header so only the dashboard's own pages connect.
 
+   7. KLIPY APP KEY DELIVERY — the chat's GIF picker (js/gifs.js) calls
+      KLIPY straight from the browser, which is KLIPY's own rule (see
+      that file's header), so this is NOT a proxy: this route only hands
+      the app key to the dashboard's own pages at runtime, so it lives in
+      a Cloudflare secret (KLIPY_APP_KEY) instead of being committed to a
+      public repo, and can be rotated without a redeploy. It doesn't hide
+      the key from someone reading their own network traffic — nothing
+      browser-direct can — it just keeps it out of git and off origins
+      that aren't ours.
+
    EDGE CACHING — every proxied GET is cached in Workers' shared edge
    cache (caches.default), keyed on the upstream URL alone, with a TTL
    matched to how fast that data actually changes (see CACHE_TTL_SECONDS
@@ -103,6 +113,7 @@
      npx wrangler secret put THERUNDOWN_API_KEY
      npx wrangler secret put SPORTSDB_API_KEY
      npx wrangler secret put ADMIN_PASSWORD
+     npx wrangler secret put KLIPY_APP_KEY   (chat GIFs; unset = GIFs hidden)
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
@@ -631,6 +642,21 @@ function handleChatSocket(request, env){
   return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('main')).fetch(request);
 }
 
+// Runtime delivery of the KLIPY app key — see the header comment's KLIPY
+// APP KEY DELIVERY section for why this isn't a proxy. Origin-checked like
+// the chat socket: a browser on one of our own pages always sends Origin
+// on this cross-origin fetch, so a missing or foreign one gets nothing.
+// A missing secret answers { appKey: null }, which the client treats as
+// "GIFs off" rather than an error. `no-store` so a rotated key is picked
+// up on the next page load instead of lingering in an HTTP cache.
+function handleGifConfig(request, env, headers){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')){
+    return new Response('Forbidden', { status: 403, headers });
+  }
+  return json({ appKey: env.KLIPY_APP_KEY || null }, 200, { ...headers, 'Cache-Control': 'no-store' });
+}
+
 export default {
   async fetch(request, env, ctx){
     const url = new URL(request.url);
@@ -649,6 +675,8 @@ export default {
     }
 
     if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
+
+    if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 
     const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
     if(factsMatch) return handleLeagueFacts(request, env, factsMatch[1], headers);

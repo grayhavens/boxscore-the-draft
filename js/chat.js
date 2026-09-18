@@ -14,9 +14,11 @@
    js/identity.js — same no-auth trust tier as favorites.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
-import { DASHBOARD_WORKER_BASE } from './api.js';
+import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { currentProfileId } from './identity.js';
 import { lockBodyScroll, unlockBodyScroll } from './utils.js';
+import { loadGifKey, reportGifShare } from './gifs.js';
+import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -28,13 +30,8 @@ const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> s
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
 
-// On a local preview the dashboard talks to `wrangler dev` (port 8787)
-// instead of the deployed worker, so poking at chat locally never posts
-// into the group's real room.
 function chatSocketUrl(after){
-  const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-  const base = isLocal ? 'ws://localhost:8787' : DASHBOARD_WORKER_BASE.replace(/^http/, 'ws');
-  return `${base}/chat/ws${after ? `?after=${after}` : ''}`;
+  return `${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`;
 }
 
 let messages = loadCachedMessages();
@@ -242,6 +239,14 @@ function timeLabel(ts){
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+// A GIF message. width/height + aspect-ratio reserve the image's space
+// before it loads, so the list doesn't jump (or lose its stick-to-bottom
+// position) as each one arrives. The URL is used exactly as KLIPY gave it
+// — the worker only ever stores hosts it recognizes (worker/chat-room.js).
+function gifBubbleHtml(m, mine){
+  return `<div class="chat-gif ${mine ? 'mine' : ''}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async"></div>`;
+}
+
 function renderList(forceScroll){
   const el = listEl();
   if(!el) return;
@@ -262,7 +267,10 @@ function renderList(forceScroll){
     if(startsGroup){
       html += `<div class="chat-meta ${mine ? 'mine' : ''}">${mine ? '' : `<span class="chat-name">${esc(drafterName(m.from))}</span>`}<span class="chat-time">${esc(timeLabel(m.ts))}</span></div>`;
     }
-    html += `<div class="chat-bubble ${mine ? 'mine' : ''}">${esc(m.text)}</div>`;
+    if(m.gif) html += gifBubbleHtml(m, mine);
+    // A GIF's text is an optional caption (the picker never sends one, but
+    // the worker accepts one) — shown under it rather than silently dropped.
+    if(m.text) html += `<div class="chat-bubble ${mine ? 'mine' : ''}">${esc(m.text)}</div>`;
     prev = m;
   });
   el.innerHTML = html;
@@ -310,10 +318,12 @@ function guardTouchScroll(screen){
     lastY = y;
 
     const target = event.target;
-    if(target.closest && target.closest('#chat-input')) return;
+    if(target.closest && target.closest('#chat-input, #gif-search')) return;
 
-    const list = listEl();
-    if(!list || !list.contains(target)){
+    // The message list and (while open) the GIF picker's grid are the
+    // only things that scroll; each is guarded at its own edges.
+    const list = target.closest && target.closest('#chat-list, #gif-grid');
+    if(!list){
       event.preventDefault();
       return;
     }
@@ -340,6 +350,7 @@ export function openChat(){
   renderList(true);
   syncViewport();
   if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
+  if(!gifsReady) setUpGifs();
 }
 window.openChat = openChat;
 
@@ -347,6 +358,7 @@ export function closeChat(){
   const el = screenEl();
   if(!el || !open) return;
   open = false;
+  closeGifPicker();
   el.classList.remove('open');
   inputEl().blur();
   document.documentElement.classList.remove('chat-open');
@@ -377,7 +389,43 @@ function sendMessage(){
 }
 window.sendChatMessage = sendMessage;
 
+// Picking a GIF sends it right away (no caption step), the way phone chat
+// apps do. Only the fields the worker stores are sent — see parseGif in
+// worker/chat-room.js. If the socket isn't up, the picker stays open so
+// the pick isn't lost.
+function sendGif(item, query){
+  if(!socket || socket.readyState !== WebSocket.OPEN){
+    reconnectNow();
+    return;
+  }
+  socket.send(JSON.stringify({ type: 'send', from: currentProfileId, gif: { slug: item.slug, url: item.url, w: item.w, h: item.h } }));
+  reportGifShare(item.slug, query);
+  closeGifPicker();
+}
+
+// The panel takes its height out of the message list's, so re-pin the
+// list to the bottom afterwards — otherwise the latest message ends up
+// hidden behind the panel.
+function pinListToBottom(){
+  const list = listEl();
+  if(list) list.scrollTop = list.scrollHeight;
+}
+window.toggleGifPicker = () => { toggleGifPicker(); pinListToBottom(); };
+window.closeGifPicker = () => { closeGifPicker(); pinListToBottom(); };
+
 // ---- Boot ----
+
+// Reveals the GIF button once the KLIPY key is available (see
+// js/gifs.js's loadGifKey). Safe to call repeatedly: it's a no-op once
+// set up, and a failed lookup at boot gets another try each time chat is
+// opened, rather than leaving GIFs off until the next reload.
+let gifsReady = false;
+async function setUpGifs(){
+  if(gifsReady || !(await loadGifKey()) || gifsReady) return;
+  gifsReady = true;
+  document.getElementById('chat-gif-btn').hidden = false;
+  initGifPicker({ onPick: sendGif });
+}
 
 export function initChat(){
   const input = inputEl();
@@ -396,6 +444,7 @@ export function initChat(){
     if(event.key === 'Escape' && open) closeChat();
   });
   if(screenEl()) guardTouchScroll(screenEl());
+  setUpGifs();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewport);
     window.visualViewport.addEventListener('scroll', syncViewport);

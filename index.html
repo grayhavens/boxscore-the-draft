@@ -233,7 +233,22 @@
     <div class="chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
   </div>
   <div class="chat-list" id="chat-list"></div>
+  <!-- GIF picker (js/gif-picker.js) — sits between the message list and the
+       composer while open. The whole thing, and the composer's GIF button,
+       stay hidden unless js/gifs.js has a KLIPY app key. -->
+  <div class="gif-panel" id="gif-panel">
+    <div class="gif-search-row">
+      <input id="gif-search" type="search" placeholder="Search KLIPY" enterkeyhint="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button type="button" class="gif-close" onclick="closeGifPicker()" aria-label="Close GIFs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="gif-grid" id="gif-grid"></div>
+    <div class="gif-status" id="gif-status" hidden></div>
+    <div class="gif-attribution">Powered by KLIPY</div>
+  </div>
   <form class="chat-composer" onsubmit="sendChatMessage(); return false;">
+    <button type="button" class="chat-gif-btn" id="chat-gif-btn" onmousedown="event.preventDefault()" onclick="toggleGifPicker()" aria-label="Choose a GIF" hidden>GIF</button>
     <textarea id="chat-input" rows="1" maxlength="1000" placeholder="Message" enterkeyhint="send" autocomplete="off"></textarea>
     <button type="submit" class="chat-send" onmousedown="event.preventDefault()" aria-label="Send">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>

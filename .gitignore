@@ -1,3 +1,5 @@
 worker/.wrangler/
 worker/node_modules/
 .wrangler/
+# Local `wrangler dev` secrets (e.g. KLIPY_APP_KEY for chat GIFs) — never committed
+worker/.dev.vars
