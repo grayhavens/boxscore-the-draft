@@ -4,7 +4,7 @@
    league's rankAuto-heavy rule set is enough to read on its own; see
    js/admin.js's adminFilterKey for the identical no-All precedent).
 
-   Reached from the Leaderboard tab's "Scoring" ghost chip. Replaces the
+   Reached from the Points tab's "Scoring" ghost chip. Replaces the
    old per-league Scoring popup the Standings tab used to open from each
    league card (openLeagueModal in js/board.js, now removed) with one
    destination that covers every league behind the same filter chips

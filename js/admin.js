@@ -2,7 +2,7 @@
    Password-gated scoring admin page.
 
    Reached only via the "Manage Scoring" link at the bottom of the
-   Leaderboard tab (or a bookmarked ?view=admin) — see switchView in
+   Points tab (or a bookmarked ?view=admin) — see switchView in
    js/board.js. The password prompt here is a convenience gate so
    casual visitors don't land on an editing UI; the real protection is
    the Cloudflare Worker rejecting unauthenticated writes (see
@@ -79,7 +79,7 @@ window.saveTeamAdjustment = function(teamKey){
 };
 
 function gateHtml(){
-  const backHtml = `<button class="ob-back" onclick="switchView('overall')">&larr; Back to Leaderboard</button>`;
+  const backHtml = `<button class="ob-back" onclick="switchView('overall')">&larr; Back to Points</button>`;
   if(verifying){
     return `${backHtml}<div class="admin-gate"><div class="admin-gate-title">Checking password…</div></div>`;
   }
@@ -172,7 +172,7 @@ function unlockedHtml(){
   const shownLeague = LEAGUES.find(l => l.key === adminFilterKey) || LEAGUES[0];
   return `
     <div class="admin-toolbar">
-      <button class="ob-back" onclick="switchView('overall')">&larr; Back to Leaderboard</button>
+      <button class="ob-back" onclick="switchView('overall')">&larr; Back to Points</button>
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
     ${filterChipsHtml()}

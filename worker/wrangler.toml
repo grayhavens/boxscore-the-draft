@@ -12,3 +12,15 @@ compatibility_date = "2026-09-01"
 [[kv_namespaces]]
 binding = "LEAGUE_FACTS"
 id = "abadd3da86124f0fbb586566034a9d52"
+
+# The real-time chat room (worker/chat-room.js) — one Durable Object
+# instance shared by everyone, with its history in the object's own
+# SQLite storage. The migration below runs once, on the first deploy
+# after this was added; class renames/removals need their own new entry.
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]

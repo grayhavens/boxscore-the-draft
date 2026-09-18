@@ -78,6 +78,14 @@
           OLDEST snapshot, not error out, so it's worth a periodic
           spot-check against a fresh curl of the file's first few rows).
 
+   6. CHAT ROOM — real-time text chat for the whole group (js/chat.js).
+      Lives in a Durable Object (worker/chat-room.js, re-exported below
+      so wrangler can bind it), not KV: chat needs instant fan-out to
+      every open connection, which KV's eventual consistency can't do.
+      This file only routes /chat/ws to that one shared room. Same
+      no-auth trust tier as favorites, but the WebSocket upgrade does
+      check the Origin header so only the dashboard's own pages connect.
+
    EDGE CACHING — every proxied GET is cached in Workers' shared edge
    cache (caches.default), keyed on the upstream URL alone, with a TTL
    matched to how fast that data actually changes (see CACHE_TTL_SECONDS
@@ -101,6 +109,9 @@
    Then set DASHBOARD_WORKER_BASE in js/api.js to the deployed
    *.workers.dev URL wrangler prints out.
    ============================================================ */
+
+// Wrangler needs the Durable Object class exported from the entry module.
+export { ChatRoom } from './chat-room.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -607,6 +618,19 @@ async function handleFavorites(request, env, draftTeamId, headers){
   return new Response('Method not allowed', { status: 405, headers });
 }
 
+// WebSocket upgrades aren't subject to CORS, so a browser will happily
+// open one from any origin — check Origin ourselves, same allowlist as
+// every other route here. Every drafter connects to the same room.
+function handleChatSocket(request, env){
+  if(request.headers.get('Upgrade') !== 'websocket'){
+    return new Response('Expected a WebSocket upgrade', { status: 426 });
+  }
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')){
+    return new Response('Forbidden', { status: 403 });
+  }
+  return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('main')).fetch(request);
+}
+
 export default {
   async fetch(request, env, ctx){
     const url = new URL(request.url);
@@ -623,6 +647,8 @@ export default {
         ? json({ ok: true }, 200, headers)
         : new Response('Unauthorized', { status: 401, headers });
     }
+
+    if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
 
     const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
     if(factsMatch) return handleLeagueFacts(request, env, factsMatch[1], headers);

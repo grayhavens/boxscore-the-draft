@@ -27,6 +27,10 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Home</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -49,6 +53,10 @@
           <span id="today-scope-label">All teams</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
         </button>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -67,6 +75,10 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Standings</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -83,7 +95,11 @@
         <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
-        <h1>Leaderboard</h1>
+        <h1>Points</h1>
+        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+          <span class="chat-badge"></span>
+        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -97,7 +113,7 @@
            useful. Lives in its own row below the header/subheader
            (rather than in the header-top row beside the title) so it
            has room to be a plain two-button switch without fighting
-           "Leaderboard" for space on a phone-width screen. -->
+           "Points" for space on a phone-width screen. -->
       <div class="ob-mode-switch" id="ob-mode-switch">
         <button type="button" class="ob-mode-btn" data-mode="real" onclick="setObMode('real')">Real</button>
         <button type="button" class="ob-mode-btn" data-mode="simulated" onclick="setObMode('simulated')">Fake</button>
@@ -125,7 +141,7 @@
       </div>
       <div class="page-sub">Point values for every league's draft scoring rules</div>
     </div>
-    <button class="ob-back" onclick="switchView('overall')">&larr; Leaderboard</button>
+    <button class="ob-back" onclick="switchView('overall')">&larr; Points</button>
     <div id="scoring-content"></div>
   </div>
 
@@ -206,6 +222,25 @@
   </div>
 </div>
 
+<!-- Group chat (js/chat.js) — an overlay opened from the header icon on
+     every view, not a tab/view, so whatever's underneath is untouched. -->
+<div id="chat-screen" class="chat-screen" role="dialog" aria-label="Chat">
+  <div class="chat-head">
+    <button class="chat-back" onclick="closeChat()" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
+    </button>
+    <div class="chat-title">Chat</div>
+    <div class="chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
+  </div>
+  <div class="chat-list" id="chat-list"></div>
+  <form class="chat-composer" onsubmit="sendChatMessage(); return false;">
+    <textarea id="chat-input" rows="1" maxlength="1000" placeholder="Message" enterkeyhint="send" autocomplete="off"></textarea>
+    <button type="submit" class="chat-send" onmousedown="event.preventDefault()" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg>
+    </button>
+  </form>
+</div>
+
 <nav class="tab-bar">
   <button class="tab-btn active" data-view="board" onclick="switchView('board')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>
@@ -221,7 +256,7 @@
   </button>
   <button class="tab-btn" data-view="overall" onclick="switchView('overall')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 21v-9.5h5V21"></path><path d="M3 21v-6h6.5"></path><path d="M14.5 21H21v-8h-6.5"></path><path d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg>
-    <span class="tab-label">Leaderboard</span>
+    <span class="tab-label">Points</span>
   </button>
 </nav>
 
