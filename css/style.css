@@ -176,13 +176,6 @@ body{
    .picker-hit's default margin-left:auto (above) still applies there. */
 .scope-chip + .picker-hit{ margin-left: 0; }
 
-/* Same fix, same reason, for the Leaderboard tab's Real/Simulated toggle
-   (.ob-mode-toggle already had its own margin-left:auto from before the
-   identity circle existed) — without this, both it and .picker-hit's
-   auto margin split the row's leftover space and get pushed apart
-   instead of clustering together on the right. */
-.ob-mode-toggle + .picker-hit{ margin-left: 0; }
-
 /* Identity control (js/identity.js) — an outline-only initials circle,
    idle/hover language borrowed from .modal-close below (transparent
    until touched, a faint surface tint on hover) rather than a filled,
@@ -1830,6 +1823,30 @@ body{
   color: var(--loss);
 }
 
+/* ---- Scoring page (js/scoring-page.js) ----
+   The filter-chip-selected league's rules, reusing openLeagueModal's own
+   content shape (accent bar, heading, .scoring-list) without the modal
+   chrome around it — see that function in js/board.js, which still
+   backs the Standings tab's per-league popup unchanged. */
+.scoring-page-accent{
+  height: 6px;
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.scoring-page-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.3px;
+}
+.scoring-page-sub{
+  font-size: 11px;
+  color: var(--text-sub);
+  font-weight: 500;
+  margin: 3px 0 18px;
+}
+
 /* ---- Season tracker (achievement checklist, in team modal) ----
    The head (title + "Earned so far" summary + chevron) stays visible
    whether the body (the checklist itself) is collapsed or not — only
@@ -2476,50 +2493,45 @@ body{
    touch the ranking number. See design_handoff_leaderboard/README.md
    for the full spec this implements. */
 
-/* -- Real/Simulated data toggle + banner --
-   TEMPORARY: a preview aid for showing the page's shape before the
+/* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
+   Sits below the header/subheader rather than in the header-top row
+   beside the title, so the mode switch can be a plain two-button pill
+   (no phone-width squeeze) and the Scoring entry point (same ghost-chip
+   language as .scoring-chip's original Standings-tab use, see below)
+   reads as a lightweight in-page action rather than competing with the
+   identity picker up top. */
+.ob-toolbar{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 16px;
+}
+
+/* TEMPORARY: a preview aid for showing the page's shape before the
    season produces real results. Safe to delete this block (and the
    matching "TEMPORARY" block in js/overall.js, and the toggle markup in
-   index.html) once real data makes it unnecessary.
-
-   A single lettered circle (R/F) that cycles on tap, styled exactly
-   like .picker-hit/.id-circle right beside it, rather than the old
-   "DATA" label + two-button switch — that switch alone was ~150px
-   wide, which left no room for it next to the longer "Leaderboard"
-   title on a phone-width screen and wrapped the whole header onto a
-   second line. */
-.ob-mode-toggle{
-  flex: 0 0 auto;
-  margin-left: auto;
+   index.html) once real data makes it unnecessary. */
+.ob-mode-switch{
   display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
   padding: 3px;
-  border-radius: 999px;
+  gap: 2px;
 }
-.ob-mode-circle{
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1.5px solid var(--hairline-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
+.ob-mode-btn{
+  font-family: 'Manrope', sans-serif;
   font-size: 11px;
-  letter-spacing: 0.2px;
-  color: var(--text-sub);
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  font-weight: 700;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
 }
-.ob-mode-toggle:hover .ob-mode-circle{
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-}
-.ob-mode-toggle.active .ob-mode-circle{
-  border-color: var(--accent-border);
+.ob-mode-btn.active{
   color: var(--accent);
   background: var(--accent-soft);
 }

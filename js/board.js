@@ -67,6 +67,7 @@ import { checkSeasonLocks } from './season-lock.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
+import { renderScoringPage } from './scoring-page.js';
 import { currentProfileId, paintIdentityChrome } from './identity.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
 
@@ -113,7 +114,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin' || explicitView === 'scoring')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   if(view) switchView(view);
@@ -673,6 +674,7 @@ export function switchView(view){
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();
   if(view === 'admin') renderAdminPage();
+  if(view === 'scoring') renderScoringPage();
 }
 window.switchView = switchView;
 
