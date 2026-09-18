@@ -34,7 +34,7 @@
    { lockedAt: isoString, rules: { [ruleLabel]: [teamKey, ...] } },
    one blob per league.
    ============================================================ */
-import { LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -219,5 +219,3 @@ export async function checkSeasonLocks(){
     if(over) lockLeague(leagueKey);
   }
 }
-
-export const SEASON_LOCK_LEAGUES = [...SEASON_PHASE_LEAGUES, 'epl'].filter(k => !!LEAGUES.find(l => l.key === k));

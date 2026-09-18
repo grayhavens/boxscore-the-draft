@@ -148,7 +148,12 @@ export const GAME_DETAIL_LEAGUES = {
 const ESPN_SCOREBOARD_TTL_MS = 60 * 1000;
 const espnScoreboardCache = {}; // sportPath -> { data: {events, season}, fetchedAt }
 
-async function fetchEspnScoreboardCached(sportPath){
+// Exported so js/live-now.js's own day-scoreboard fetch can share this
+// cache for "today" instead of keeping a second independent 60s-TTL
+// cache for the exact same sportPath/date — two uncoordinated caches
+// meant double the real network calls to ESPN whenever the Today tab
+// was open alongside the background refresh/sweep loops below.
+export async function fetchEspnScoreboardCached(sportPath){
   const cached = espnScoreboardCache[sportPath];
   if(cached && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
   const data = await fetchEspnScoreboard(sportPath);
@@ -727,11 +732,10 @@ export function renderForm(teamKey, meta, bundle, elId = 'live-form'){
   `;
 }
 
-// Shared by renderNext, renderForm, renderRowStatus, and (exported)
-// js/live-now.js: pulls this team's own score, the opponent's
-// score/name, and a human clock/period label out of a TheRundown
-// event, from that team's perspective — live or not; callers branch on
-// event_status first.
+// Shared by renderNext, renderForm, and renderRowStatus: pulls this
+// team's own score, the opponent's score/name, and a human clock/period
+// label out of a TheRundown event, from that team's perspective — live
+// or not; callers branch on event_status first.
 export function rundownEventLine(event, rundownTeamId){
   const s = event.score;
   const isHome = s.team_id_home === rundownTeamId;
@@ -740,47 +744,6 @@ export function rundownEventLine(event, rundownTeamId){
   const opponent = (event.teams || []).find(t => t.team_id !== rundownTeamId);
   const period = s.display_clock || s.event_status_detail || 'Live';
   return { isHome, own, opp, opponentName: (opponent && opponent.name) || 'TBD', period };
-}
-
-// Same per-source branches renderNext below reads, pulled out as a
-// pure lookup for js/live-now.js's empty-state "Next up" list — that
-// view needs just the when/against-whom for every drafted team at
-// once, not a DOM render, so it reads this instead of duplicating
-// renderNext's own branching.
-export function getNextEventInfo(meta, bundle){
-  if(bundle.rundownOnly){
-    const rEvt = bundle.rundownEvent;
-    if(rEvt && rEvt.score && rEvt.score.event_status === 'STATUS_SCHEDULED' && rEvt.event_date){
-      const d = new Date(rEvt.event_date);
-      if(!isNaN(d.getTime())){
-        const line = rundownEventLine(rEvt, bundle.rundownTeamId);
-        return { date: d, opponentName: line.opponentName, isHome: line.isHome };
-      }
-    }
-    return null;
-  }
-  if(bundle.espnSchedule){
-    const evt = bundle.espnSchedule.upcoming && bundle.espnSchedule.upcoming[0];
-    if(evt){
-      const d = new Date(evt.date);
-      // eventId carried through so a caller (js/live-now.js's "Next
-      // up" list) can tell when two drafted teams' own upcoming games
-      // are actually the same real-world matchup, the same way
-      // bundle.espnLive.eventId already lets live games merge.
-      if(!isNaN(d.getTime())) return { date: d, opponentName: evt.opponentName, isHome: evt.isHome, eventId: evt.id };
-    }
-    return null;
-  }
-  const evt = bundle.next && bundle.next.events && bundle.next.events[0];
-  if(evt && evt.strTimestamp){
-    const d = new Date(evt.strTimestamp.includes('Z') ? evt.strTimestamp : evt.strTimestamp + 'Z');
-    if(!isNaN(d.getTime())){
-      const isHome = String(evt.idHomeTeam) === String(meta.sportsdbId);
-      const opponentName = isHome ? evt.strAwayTeam : evt.strHomeTeam;
-      return { date: d, opponentName: opponentName || 'TBD', isHome };
-    }
-  }
-  return null;
 }
 
 export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
