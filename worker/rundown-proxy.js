@@ -11,16 +11,17 @@
       server-side as a secret and forwards a small allowlist of
       read-only requests to TheRundown on the dashboard's behalf.
 
-   2. LEAGUE FACTS STORE — the "who won the FA Cup" style facts and
-      manual point adjustments marked from the dashboard's admin page
-      need to be visible to everyone looking at the dashboard, not
-      just saved in one person's browser (localStorage can't do
-      that). This stores one JSON blob per league (two flavors: facts
-      and adjustments) in Workers KV and hands it back to whoever
-      asks. Reads (GET) stay open to anyone — every drafter needs to
-      see current facts/adjustments. Writes (PUT) require the
-      X-Admin-Password header to match the ADMIN_PASSWORD secret —
-      basic, shared-secret protection appropriate for a friend-group
+   2. LEAGUE FACTS STORE — the "who won the FA Cup" style facts, manual
+      point adjustments, and regular-season locks (js/season-lock.js)
+      marked/computed from the dashboard need to be visible to everyone
+      looking at the dashboard, not just saved in one person's browser
+      (localStorage can't do that). This stores one JSON blob per
+      league (three flavors: facts, adjustments, and lock) in Workers
+      KV and hands it back to whoever asks. Reads (GET) stay open to
+      anyone — every drafter needs to see current facts/adjustments/
+      lock state. Writes (PUT) require the X-Admin-Password header to
+      match the ADMIN_PASSWORD secret — basic, shared-secret protection
+      appropriate for a friend-group
       app, not real per-user auth.
 
    3. FAVORITES STORE — a lightweight sibling to League Facts above:
@@ -370,6 +371,26 @@ function handleAdjustments(request, env, leagueKey, headers){
   );
 }
 
+// Expected shape: { lockedAt: isoString, rules: { [ruleLabel]: [teamKey,
+// ...] } } — a one-time frozen snapshot of a league's rankAuto rules,
+// written once its regular season is confirmed over (js/season-lock.js)
+// so those rules stop reading the live ESPN table (which moves into the
+// postseason, then next season's 0-0 table, after that point). Same
+// wholesale-PUT contract as facts/adjustments above — the client
+// computes the full object and PUTs it, this just stores whatever shape
+// it expects. An empty {} is valid for both directions: as a GET
+// response it means "never locked yet" (handleKvBlob already returns
+// that for any key with nothing stored); as a PUT body it's
+// unlockLeague's own "clear the lock" request (js/season-lock.js) —
+// the safety valve for an accidental Force Lock, same admin-gated write
+// as everything else here.
+function handleSeasonLock(request, env, leagueKey, headers){
+  return handleKvBlob(request, env, leagueKey, headers, 'lock', body =>
+    Object.keys(body).length === 0 ||
+    (typeof body.lockedAt === 'string' && body.rules && typeof body.rules === 'object' && !Array.isArray(body.rules))
+  );
+}
+
 // Open GET/PUT, unlike handleKvBlob above — see the header comment's
 // FAVORITES STORE section for why this deliberately skips the
 // X-Admin-Password gate. Expected PUT body: a plain array of team keys
@@ -426,6 +447,9 @@ export default {
 
     const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
     if(adjustmentsMatch) return handleAdjustments(request, env, adjustmentsMatch[1], headers);
+
+    const lockMatch = url.pathname.match(/^\/lock\/([a-z]+)$/);
+    if(lockMatch) return handleSeasonLock(request, env, lockMatch[1], headers);
 
     const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
     if(favoritesMatch) return handleFavorites(request, env, favoritesMatch[1], headers);

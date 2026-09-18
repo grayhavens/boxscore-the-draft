@@ -318,6 +318,25 @@ export function findCfbRecord(meta){
   return null;
 }
 
+// Every drafted-or-not team in one real conference (e.g. "SEC", "Sun
+// Belt" — ESPN's own shortName, see the `conference` field
+// fetchEspnCfbFullStandings now carries per row in js/espn.js), ranked
+// by win% then name — same shape/sort convention as mcbb's
+// computeCbbConferenceStandings (js/standings-cbb.js), used the same
+// way here: js/league-facts.js's rankAuto reads this for CFB's "Finish
+// last in conference" rule. CFB rows carry no precomputed winPercent
+// field (unlike NFL/NBA/etc — see the file header comment), so this
+// derives it inline instead.
+export function computeCfbConferenceStandings(conference){
+  const rows = (espnCfbRecordsCache.rows || []).filter(row => row.conference === conference);
+  return rows.sort((a, b) => {
+    const pa = (a.wins + a.losses) > 0 ? a.wins / (a.wins + a.losses) : -1;
+    const pb = (b.wins + b.losses) > 0 ? b.wins / (b.wins + b.losses) : -1;
+    if(pb !== pa) return pb - pa;
+    return a.location.localeCompare(b.location);
+  });
+}
+
 // ranks is already sorted 1-25 by ESPN — nothing left to compute here,
 // this just exists so board.js doesn't need to know the cache's shape.
 export function computeCfbRankingTable(){

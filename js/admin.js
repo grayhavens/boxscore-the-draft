@@ -12,10 +12,11 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
+import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
 
 let unlocked = false;
 let verifying = false;
@@ -109,6 +110,36 @@ function adjustmentRowHtml(teamKey, adjustments){
   `;
 }
 
+// Regular-season lock status (js/season-lock.js) — only shown for a
+// league that actually has rankAuto rules to freeze (every league does
+// as of this writing, but a future league might not yet). Not-yet-locked
+// offers "Force lock" as the manual safety valve for whatever the
+// automatic ESPN-date detection gets wrong; locked offers "Unlock" as
+// the safety valve for THAT button (or the automatic check) firing by
+// mistake — see that file's header comment for both. Same reuse-
+// existing-styling instinct as everywhere else on this page:
+// .prior-season-note for the banner shape, .admin-adj-save for the
+// buttons.
+function lockStatusHtml(league){
+  if(!league.teams || !LEAGUE_SCORING[league.key].rules.some(r => r.rankAuto)) return '';
+  const locked = isLeagueLocked(league.key);
+  if(locked){
+    const at = lockedAtFor(league.key);
+    return `
+      <div class="prior-season-note">
+        🔒 Regular season locked in${at ? ` — ${formatDateShort(at)}` : ''}. Standings-based rules below are frozen, not live.
+        <button class="admin-adj-save" style="margin-left: auto;" onclick="unlockLeague('${league.key}')">Unlock</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="prior-season-note">
+      Standings-based rules below are still live — they'll lock automatically once ESPN confirms the regular season is over.
+      <button class="admin-adj-save" style="margin-left: auto;" onclick="forceLockLeague('${league.key}')">Force lock now</button>
+    </div>
+  `;
+}
+
 function leagueSectionHtml(league){
   const scoring = LEAGUE_SCORING[league.key];
   if(!scoring) return '';
@@ -119,6 +150,7 @@ function leagueSectionHtml(league){
   return `
     <div class="admin-league" style="border-top-color: ${scoring.accent};">
       <h3 class="admin-league-title">${LEAGUE_FULL_LABELS[league.key] || scoring.name}</h3>
+      ${lockStatusHtml(league)}
       <div class="modal-section-title">Scoring rules</div>
       <div class="league-facts-list">${rulesHtml}</div>
       <div class="modal-section-title" style="margin-top: 18px;">Point adjustments</div>

@@ -173,7 +173,7 @@ function heroHtml(teamKey, meta){
           <div class="team-hero-meta">
             <span>${league ? league.label : ''}</span>
             <span>&middot;</span>
-            <span>${drafter ? drafter.name : 'Undrafted'}</span>
+            <span>${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
             ${status ? `<span class="status-pill">${status.label}</span>` : ''}
           </div>
         </div>

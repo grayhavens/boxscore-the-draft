@@ -128,6 +128,17 @@ async function fetchEspnFlatStandings(path){
         teamNickname: entry.team.name,
         abbreviation: entry.team.abbreviation,
         logoUrl: espnLogoUrl(entry.team),
+        // ESPN's own real-world playoff-clinch determination — confirmed
+        // live (2026-09-17) on WNBA/MLB (both late in their season right
+        // now) as e.g. "Clinched Playoff Berth" / "Eliminated From
+        // Playoffs" / "Clinched Playoff Berth and Won Commissioner's
+        // Cup"; NFL/NBA/NHL carry no `clincher` stat at all this early in
+        // their season (nobody's mathematically in or out yet) — not
+        // read from `stats` above since that dict only keeps each stat's
+        // bare numeric `value` (e.g. clincher's own value is an internal
+        // code, not human-readable), while this needs the real sentence.
+        // See getLeagueRuleTeams in js/league-facts.js.
+        clincherDescription: (entry.stats || []).find(s => s.name === 'clincher')?.description || null,
         stats
       });
     });
@@ -160,7 +171,7 @@ export async function fetchEspnNflStandings(){
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, ties: r.stats.ties,
     streak: r.stats.streak, pointsFor: r.stats.pointsFor, pointsAgainst: r.stats.pointsAgainst,
-    winPercent: r.stats.winPercent
+    winPercent: r.stats.winPercent, clincherDescription: r.clincherDescription
   }));
 }
 
@@ -178,7 +189,8 @@ function mapNbaLikeRow(r){
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, streak: r.stats.streak,
     winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind,
-    pointsFor: r.stats.pointsFor, pointsAgainst: r.stats.pointsAgainst
+    pointsFor: r.stats.pointsFor, pointsAgainst: r.stats.pointsAgainst,
+    clincherDescription: r.clincherDescription
   };
 }
 
@@ -238,7 +250,7 @@ export async function fetchEspnNhlStandings(){
     id: r.id, conference: r.conference, conferenceAbbr: r.conferenceAbbr,
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, otLosses: r.stats.otLosses,
-    points: r.stats.points, streak: r.stats.streak
+    points: r.stats.points, streak: r.stats.streak, clincherDescription: r.clincherDescription
   }));
 }
 
@@ -259,7 +271,7 @@ export async function fetchEspnMlbStandings(){
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, ties: r.stats.ties,
     winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind, streak: r.stats.streak,
-    pointDifferential: r.stats.pointDifferential
+    pointDifferential: r.stats.pointDifferential, clincherDescription: r.clincherDescription
   }));
 }
 
@@ -581,20 +593,28 @@ export async function fetchEspnCbbRankings(pollName = 'AP Top 25'){
 // see findCfbRecord in js/standings-cfb.js for the ESPN-first,
 // TheRundown-fallback-for-anything-ESPN-doesn't-have approach that
 // covers it without keeping the other 29 CFB teams on TheRundown too.
-// No conference grouping needed here (unlike fetchEspnFlatStandings's
-// NFL/NBA/etc use) — CFB's own "League" view is the AP Top 25
-// (fetchEspnCfbRankings above), not a conference standings table, so
-// this flattens every conference straight into one array.
+// Flattens every conference into one array (CFB's own "League" view is
+// the AP Top 25 above, not a conference standings table like NFL/NBA's),
+// but each row keeps its real `conference` (see walk() below) — needed
+// for LEAGUE_SCORING's conference-scoped rankAuto rules (js/league-facts.js),
+// even though no per-league UI groups by it the way computeCbbConferenceStandings
+// (js/standings-cbb.js) does for mcbb.
 // Matches by `location` (e.g. "Ohio State"), the same field
 // fetchEspnCfbRankings already uses — reuses that exact matching
 // approach (findCfbTeamKeyByLocation, js/utils.js) rather than a second one.
-// Shape returned: [{ id, location, teamName, wins, losses }]
+// Shape returned: [{ id, location, teamName, wins, losses, conference }]
 export async function fetchEspnCfbFullStandings(){
   const data = await fetchEspnJSON('/apis/v2/sports/football/college-football/standings');
   if(!data || !Array.isArray(data.children)) return null;
 
   const rows = [];
-  function walk(group){
+  // conference is threaded through from the top-level group ("ACC",
+  // "SEC", "Sun Belt" — ESPN's own shortName, same display-cased
+  // convention fetchEspnCbbStandings' conferenceShortName uses) even
+  // through the Sun Belt recursion below, so a team's real conference
+  // for scoring purposes (js/league-facts.js's rankAuto) is always the
+  // conference itself, never one of its inner divisions.
+  function walk(group, conference){
     const entries = (group.standings && group.standings.entries) || [];
     if(entries.length){
       entries.forEach(entry => {
@@ -614,7 +634,8 @@ export async function fetchEspnCfbFullStandings(){
           location: entry.team.location,
           teamName: espnTeamName(entry.team),
           wins: parseInt(m[1], 10),
-          losses: parseInt(m[2], 10)
+          losses: parseInt(m[2], 10),
+          conference
         });
       });
     } else if(Array.isArray(group.children)){
@@ -626,10 +647,10 @@ export async function fetchEspnCfbFullStandings(){
       // in. Recursing here picks up that shape (and any future
       // conference ESPN nests the same way) instead of a one-off
       // special case for just Sun Belt.
-      group.children.forEach(walk);
+      group.children.forEach(child => walk(child, conference));
     }
   }
-  data.children.forEach(walk);
+  data.children.forEach(group => walk(group, group.shortName || group.name));
   return rows;
 }
 
@@ -657,6 +678,49 @@ export async function fetchEspnCfbTeamRecord(espnTeamId){
     wins: parseInt(m[1], 10),
     losses: parseInt(m[2], 10)
   };
+}
+
+// A league's real season-phase calendar (Preseason/Regular Season/
+// Postseason/Off Season, each with real date ranges) — confirmed live
+// (2026-09-17) against all 7 leagues here (EPL excluded — no discrete
+// phase split at all, one continuous Aug-May table with no playoffs;
+// see eplSeasonStatus in js/live-data.js instead). Backs both the team
+// modal's season-phase badge and LEAGUE_SCORING's regular-season point
+// locking (js/season-phase.js) — one source of truth instead of two
+// separately-verified ones.
+//
+// Two real gotchas found and deliberately worked around here:
+//  - Guessing "today's calendar year" as the season year is wrong for a
+//    season labeled by its ENDING year (NBA's "2026-27" season is core-
+//    API year 2027, not 2026) — so the cheap site API standings
+//    response is fetched first just for its correct `season.year`.
+//  - The core (hypermedia) API's per-type resource carries its own
+//    `type` field but the season resource's own "current type" POINTER
+//    field is unreliable — confirmed live, NBA's pointed at "Regular
+//    Season" even though today's date fell inside that league's own
+//    listed Off Season window. So this returns every phase's real date
+//    range and leaves the "which one is today in" comparison to the
+//    caller (js/season-phase.js), rather than trusting any pointer field.
+//
+// The type list's own $ref links come back as plain `http://` — fetched
+// as `https://` instead since a `https://` page (this app, in
+// production) can't fetch mixed-content `http://` without the browser
+// blocking it.
+// Shape returned: { year, types: [{ type, name, startDate, endDate }] } | null
+export async function fetchEspnSeasonTypes(siteSportPath, coreLeaguePath){
+  const standings = await fetchEspnJSON(`/apis/v2/sports/${siteSportPath}/standings`);
+  const year = standings && standings.season && standings.season.year;
+  if(!year) return null;
+  const listData = await fetchEspnCoreJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/types?lang=en&region=us`);
+  const items = (listData && listData.items) || [];
+  const types = await Promise.all(items.map(async item => {
+    const ref = item && item['$ref'];
+    if(!ref) return null;
+    const d = await fetchEspnCoreJSON(ref.replace(/^http:/, 'https:'));
+    return d ? { type: d.type, name: d.name, startDate: d.startDate, endDate: d.endDate } : null;
+  }));
+  const clean = types.filter(Boolean);
+  return clean.length ? { year, types: clean } : null;
 }
 
 // Real EPL table, all 20 clubs — verified live (2026-09-11): carries

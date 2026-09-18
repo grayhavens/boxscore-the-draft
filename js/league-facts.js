@@ -8,9 +8,13 @@
    password-gated admin page (js/admin.js), and every drafter who owns
    one of the teams involved is credited automatically. Rank rules
    (rankAuto in LEAGUE_SCORING) skip marking entirely and are read
-   straight off a live standings table once it loads (EPL only, for
-   now — see getLeagueRuleTeams). Adjustments are a flat manual point
-   delta per team, for whatever a rule can't express.
+   straight off a live ESPN standings table once it loads — every
+   league's division/conference/league-wide title and last-place rules
+   are on this model now (see getLeagueRuleTeams/rankAutoTables below);
+   only bracket-shaped rules (a conference championship, a bowl game, a
+   cup final) still require a mark, since nothing here reads ESPN's
+   postseason results yet. Adjustments are a flat manual point delta per
+   team, for whatever a rule can't express.
 
    Both are shared across everyone looking at the dashboard, not just
    saved in your own browser — held in Workers KV behind the same
@@ -26,12 +30,152 @@
    Storage shape: facts are { [ruleLabel]: [teamKey, ...] }; adjustments
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
-import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON } from './utils.js';
+import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
+import { espnWnbaStandingsCache } from './standings-wnba.js';
+import { findFlatTeamKey } from './standings-flat.js';
+import { espnCfbRecordsCache, computeCfbConferenceStandings } from './standings-cfb.js';
+import { espnCbbStandingsCache, computeCbbConferenceStandings, findCbbTeamKeyByEspnId } from './standings-cbb.js';
+import {
+  espnNflStandingsCache, espnNflDivisionCache,
+  computeNflConferenceStandings, computeNflDivisionStandings, findNflTeamKeyByEspnAbbr
+} from './standings-nfl.js';
+import {
+  espnNbaStandingsCache, espnNbaDivisionCache, nbaConferences,
+  computeNbaConferenceStandings, computeNbaDivisionStandings
+} from './standings-nba.js';
+import {
+  espnNhlStandingsCache, espnNhlDivisionCache, nhlConferences,
+  computeNhlConferenceStandings, computeNhlDivisionStandings
+} from './standings-nhl.js';
+import {
+  espnMlbStandingsCache, espnMlbDivisionCache, mlbConferences,
+  computeMlbConferenceStandings, computeMlbDivisionStandings
+} from './standings-mlb.js';
 import { renderStandings } from './board.js';
 import { renderAdminPage } from './admin.js';
+import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
+
+// Per-league config for rankAuto's 'conference'/'division' scopes —
+// NFL is kept separate (its own bespoke cache/lookup, not
+// createFlatStandingsBoard — see js/standings-nfl.js) since it doesn't
+// share NBA/NHL/MLB's generic shape (findFlatTeamKey, board.conferences,
+// etc — see js/standings-flat.js).
+const FLAT_RANK_AUTO_LEAGUES = {
+  nba: {
+    conferences: nbaConferences, cache: espnNbaStandingsCache, divisionCache: espnNbaDivisionCache,
+    computeConferenceStandings: computeNbaConferenceStandings, computeDivisionStandings: computeNbaDivisionStandings
+  },
+  nhl: {
+    conferences: nhlConferences, cache: espnNhlStandingsCache, divisionCache: espnNhlDivisionCache,
+    computeConferenceStandings: computeNhlConferenceStandings, computeDivisionStandings: computeNhlDivisionStandings
+  },
+  mlb: {
+    conferences: mlbConferences, cache: espnMlbStandingsCache, divisionCache: espnMlbDivisionCache,
+    computeConferenceStandings: computeMlbConferenceStandings, computeDivisionStandings: computeMlbDivisionStandings
+  }
+};
+
+// rankAuto's ranked source tables for one league/scope — an array of
+// tables, each ranked independently top-to-bottom (one table total for
+// a 'league'-scoped rule; one per conference/division otherwise). A
+// table entry is the resolved teamKey (or null for an undrafted ESPN
+// team) at that position, so its INDEX still reflects the team's real
+// rank — filtering nulls out before ranking would shift every drafted
+// team's position for no reason. Returns [] while the underlying cache
+// hasn't loaded yet, same "Pending" state the admin page already shows
+// for a rankAuto rule with no data.
+function rankAutoTables(leagueKey, scope){
+  if(leagueKey === 'epl'){
+    return eplStandingsCache.table
+      ? [eplStandingsCache.table.map(row => findEplTeamKeyByEspnName(row.teamName))]
+      : [];
+  }
+  if(leagueKey === 'wnba'){
+    return espnWnbaStandingsCache.table
+      ? [espnWnbaStandingsCache.table.map(row => findFlatTeamKey('wnba', row.teamNickname))]
+      : [];
+  }
+  if(leagueKey === 'nfl'){
+    if(scope === 'division'){
+      if(!espnNflDivisionCache.divisions) return [];
+      return ['AFC', 'NFC'].flatMap(abbr => computeNflDivisionStandings(abbr))
+        .map(div => div.teams.map(t => findNflTeamKeyByEspnAbbr(t.abbreviation)));
+    }
+    if(!espnNflStandingsCache.rows) return [];
+    return ['AFC', 'NFC'].map(abbr => computeNflConferenceStandings(abbr).map(row => findNflTeamKeyByEspnAbbr(row.abbreviation)));
+  }
+  // CFB/mcbb have no fixed, hardcodable conference list the way NFL's
+  // AFC/NFC or NBA's East/West are (10 real FBS conferences for CFB, 31
+  // for mcbb) — so unlike every league above, the set of conferences to
+  // rank within is read off the cache's own rows rather than a static
+  // list, same idea as Object.values(byDrafter) elsewhere in this app
+  // deriving its own grouping from live data instead of a fixed roster.
+  if(leagueKey === 'cfb'){
+    const rows = espnCfbRecordsCache.rows;
+    if(!rows) return [];
+    const conferences = [...new Set(rows.map(row => row.conference).filter(Boolean))];
+    return conferences.map(conf => computeCfbConferenceStandings(conf).map(row => findCfbTeamKeyByLocation(row.location)));
+  }
+  if(leagueKey === 'mcbb'){
+    const rows = espnCbbStandingsCache.rows;
+    if(!rows) return [];
+    const conferences = [...new Set(rows.map(row => row.conferenceAbbr).filter(Boolean))];
+    return conferences.map(conf => computeCbbConferenceStandings(conf).map(row => findCbbTeamKeyByEspnId(row.id)));
+  }
+  const api = FLAT_RANK_AUTO_LEAGUES[leagueKey];
+  if(!api) return [];
+  const confAbbrs = api.conferences.map(c => c.abbr);
+  if(scope === 'division'){
+    if(!api.divisionCache.divisions) return [];
+    return confAbbrs.flatMap(abbr => api.computeDivisionStandings(abbr))
+      .map(div => div.teams.map(t => findFlatTeamKey(leagueKey, t.teamNickname)));
+  }
+  if(!api.cache.rows) return [];
+  return confAbbrs.map(abbr => api.computeConferenceStandings(abbr).map(row => findFlatTeamKey(leagueKey, row.teamNickname)));
+}
+
+// Whether a 1-based rank within a table of `total` teams satisfies a
+// rankAuto spec — exactly one of `rank` (an exact placement), `top`
+// (placement <= N), or `bottom` (the worst N, e.g. relegation) is set
+// per rule (see the LEAGUE_SCORING comment in js/data.js).
+function rankAutoMatches(rank, total, spec){
+  if(spec.bottom) return rank > total - spec.bottom;
+  if(spec.top) return rank <= spec.top;
+  return rank === spec.rank;
+}
+
+// The flat, unranked rows a `clinched: true` rule reads (see the
+// LEAGUE_SCORING comment in js/data.js) — every conference/league
+// combined into one list, since clinching doesn't need ranking, just
+// ESPN's own clincherDescription text per team.
+function clinchAutoRows(leagueKey){
+  if(leagueKey === 'wnba') return espnWnbaStandingsCache.table || [];
+  if(leagueKey === 'nfl') return espnNflStandingsCache.rows || [];
+  const api = FLAT_RANK_AUTO_LEAGUES[leagueKey];
+  return (api && api.cache.rows) || [];
+}
+
+function clinchAutoTeams(leagueKey){
+  const resolve = leagueKey === 'nfl'
+    ? row => findNflTeamKeyByEspnAbbr(row.abbreviation)
+    : row => findFlatTeamKey(leagueKey, row.teamNickname);
+  return clinchAutoRows(leagueKey)
+    // Any "Clinched ___" wording guarantees a playoff spot, not just the
+    // literal "Clinched Playoff Berth" — confirmed live (2026-09-17),
+    // MLB's own division winners (the Brewers/Dodgers) show "Clinched
+    // Division" with no separate "Playoff Berth" mention at all, and
+    // winning a division always implies a playoff berth in every league
+    // here. "Clinched" also covers e.g. "...and Won Commissioner's Cup"/
+    // "...and a Bye" tacked onto either wording. Deliberately excludes
+    // "Eliminated (From Playoffs/from Playoff Contention)" and a team
+    // with no clincherDescription at all yet (still undetermined).
+    .filter(row => row.clincherDescription && /clinched/i.test(row.clincherDescription) && !/eliminated/i.test(row.clincherDescription))
+    .map(resolve)
+    .filter(Boolean);
+}
 
 const ACHIEVEMENTS_KEY = 'teamDashboardAchievements';
 const LEAGUE_FACTS_KEY = 'teamDashboardLeagueFacts';
@@ -241,23 +385,39 @@ function findLeagueRule(leagueKey, ruleLabel){
   return LEAGUE_SCORING[leagueKey].rules.find(r => r.label === ruleLabel);
 }
 
-// Teams currently satisfying a rule — auto-derived from the live table
-// for rankAuto rules (EPL only, for now), or read from the
-// manually-marked facts otherwise. obRuleTeams (js/overall.js) picks
-// this up automatically for any league listed in LEAGUE_FACTS_LEAGUES.
+// The live (still-moving) rankAuto answer for one rule — reads straight
+// off whatever ESPN's table shows right now, no lock/season-end
+// awareness at all. Exported so js/season-lock.js can call this exact
+// same logic one last time at the moment a league's regular season
+// ends, to build the frozen snapshot getLeagueRuleTeams (below) then
+// switches to reading instead. Everywhere else in the app should call
+// getLeagueRuleTeams, not this directly, or it'll keep reading a moving
+// target after a league is locked.
+export function computeLiveRankAutoTeams(leagueKey, rule){
+  if(rule.rankAuto.clinched) return clinchAutoTeams(leagueKey);
+  return rankAutoTables(leagueKey, rule.rankAuto.scope).flatMap(table => {
+    const total = table.length;
+    return table.filter((teamKey, i) => teamKey && rankAutoMatches(i + 1, total, rule.rankAuto));
+  });
+}
+
+// Teams currently satisfying a rule — a frozen snapshot for a rankAuto
+// rule whose league has already locked in its regular season
+// (js/season-lock.js), the live ESPN table otherwise (computeLiveRankAutoTeams
+// above), or the manually-marked facts for anything that isn't rankAuto
+// at all. obRuleTeams (js/overall.js) picks this up automatically for
+// any league listed in LEAGUE_FACTS_LEAGUES.
 export function getLeagueRuleTeams(leagueKey, rule){
   if(!LEAGUE_FACTS_LEAGUES.includes(leagueKey)) return null;
   if(rule.rankAuto){
-    const table = leagueKey === 'epl' ? eplStandingsCache.table : null;
-    if(!table) return [];
-    const total = table.length;
-    return table
-      .filter(row => {
-        const rank = row.rank;
-        return rule.rankAuto.bottom ? rank > total - rule.rankAuto.bottom : rank === rule.rankAuto.rank;
-      })
-      .map(row => findEplTeamKeyByEspnName(row.teamName))
-      .filter(Boolean);
+    // MLB/WNBA's live ESPN data is still last season's right now (see
+    // PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js) — a manual mark has an
+    // admin to catch that before crediting it; an automated rule doesn't,
+    // so it has to check this itself rather than silently scoring a
+    // season that isn't supposed to count yet.
+    if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return [];
+    if(isLeagueLocked(leagueKey)) return getLockedRuleTeams(leagueKey, rule.label);
+    return computeLiveRankAutoTeams(leagueKey, rule);
   }
   return currentLeagueFacts(leagueKey)[rule.label] || [];
 }
@@ -315,16 +475,25 @@ function computeTeamPoints(teamKey){
   return rulePts + (adj ? adj.pts : 0);
 }
 
+// A rankAuto rule stops being provisional the moment its league locks
+// in its regular season (js/season-lock.js) — from then on
+// getLeagueRuleTeams is reading a frozen snapshot, not a moving table,
+// so there's nothing left for this rule to still move on.
+export function isRuleProvisional(rule, leagueKey){
+  return !!rule.rankAuto && !isLeagueLocked(leagueKey);
+}
+
 // The slice of a team's points that comes from current-standings rules
 // (rankAuto) rather than a real, locked-in fact — these can still move
-// as the table changes before the season ends. EPL-only for now: no
-// other league has a rankAuto rule yet, so this is always 0 elsewhere.
-// Manual adjustments are never provisional — an admin decided them.
+// as the table changes before the season ends (every league's division/
+// conference/league-wide title and last-place rules are on this model
+// now — see rankAutoTables above). Manual adjustments are never
+// provisional — an admin decided them.
 function computeTeamProvisionalPoints(teamKey){
   const meta = TEAM_META[teamKey];
   const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
   if(!scoring) return 0;
-  return scoring.rules.reduce((sum, r) => sum + (r.rankAuto && getLeagueRuleTeams(meta.leagueKey, r).includes(teamKey) ? r.pts : 0), 0);
+  return scoring.rules.reduce((sum, r) => sum + (isRuleProvisional(r, meta.leagueKey) && getLeagueRuleTeams(meta.leagueKey, r).includes(teamKey) ? r.pts : 0), 0);
 }
 
 // Header row shown whether the tracker is collapsed or expanded: the
@@ -363,7 +532,7 @@ export function trackerSectionHtml(teamKey){
     // the time the season actually ends. Give those a visibly
     // different (amber, not green/red) state instead of the same
     // checkmark used for a real fact like "Win FA Cup".
-    const isProvisional = achieved && !!r.rankAuto;
+    const isProvisional = achieved && isRuleProvisional(r, meta.leagueKey);
     const stateClass = achieved ? (isProvisional ? 'provisional' : 'achieved') : '';
     return `
       <div class="tracker-item readonly ${stateClass}">
@@ -431,17 +600,22 @@ export function leagueFactRowHtml(league, rule){
         return `
           <span class="fact-chip">
             <span class="fact-chip-badge" style="${meta.badgeStyle}">${meta.badgeText}</span>
-            ${meta.name} <span class="fact-chip-owner">${drafter.name}</span>
+            ${meta.name} <span class="fact-chip-owner">${drafter.name}${meta.favoriteOnly ? ' · Favorite' : ''}</span>
             ${removeBtn}
           </span>
         `;
       }).join('')
     : `<span class="fact-empty">${isAuto ? 'Pending' : 'Not marked yet'}</span>`;
 
+  // favoriteOnly teams (js/data.js) excluded from the picker — they're
+  // not a real draft pick, and obDrafterAwards (js/overall.js) already
+  // filters them out of every points computation, so marking a fact
+  // against one would silently never count toward anyone. Offering it
+  // here would just be a confusing dead end.
   const pickerHtml = isAuto ? '' : `
     <select class="fact-picker" onchange="if(this.value){ addLeagueFact('${league.key}', '${rule.label}', this.value); this.value=''; }">
       <option value="">+ Mark a team…</option>
-      ${league.teams.map(teamKey => `<option value="${teamKey}">${TEAM_META[teamKey].name} — ${DRAFT_TEAMS.find(d => d.id === TEAM_META[teamKey].draftTeamId).name}</option>`).join('')}
+      ${league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly).map(teamKey => `<option value="${teamKey}">${TEAM_META[teamKey].name} — ${DRAFT_TEAMS.find(d => d.id === TEAM_META[teamKey].draftTeamId).name}</option>`).join('')}
     </select>
   `;
 

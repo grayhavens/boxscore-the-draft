@@ -226,7 +226,11 @@ export function fetchEspnCbbRankingsCached(){
   return espnCbbRankingsPromise;
 }
 
-function findCbbTeamKeyByEspnId(espnTeamId){
+// Exported for js/league-facts.js's rankAuto resolution ("Win conference
+// regular season"/"Finish last in conference") — same forward-direction
+// need as findNflTeamKeyByEspnAbbr in js/standings-nfl.js: rankAuto
+// starts from an ESPN row, not a drafted team's own meta.
+export function findCbbTeamKeyByEspnId(espnTeamId){
   const teams = LEAGUES.find(l => l.key === 'mcbb').teams;
   return teams.find(teamKey => TEAM_META[teamKey].espnTeamId === espnTeamId) || null;
 }
