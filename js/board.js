@@ -176,19 +176,18 @@ export function setBoardFilter(key){
 }
 window.setBoardFilter = setBoardFilter;
 
+// Hardcoded on purpose: the header tally is the size of the draft, not a
+// count of whatever's on the page (which now includes favorites).
+const DRAFT_TEAM_COUNT = 21;
+
 export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
-  let totalTeams = 0;
 
   chipsEl.innerHTML = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
     return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
   }).join('');
-
-  // The header tally always reflects the whole roster, not just the
-  // filtered-to league, so it stays put as chips are clicked.
-  for(const league of LEAGUES) totalTeams += teamsForCurrentDraftTeam(league).length;
 
   const shownLeagues = boardFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === boardFilterKey);
 
@@ -247,7 +246,7 @@ export function renderBoard(){
     `;
   }).join('');
 
-  document.getElementById('team-tally').textContent = `The Draft · ${LEAGUES.length} leagues · ${totalTeams} teams`;
+  document.getElementById('team-tally').textContent = `The Draft · ${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
 
   // The team rows above were just rebuilt from scratch, so every
   // row-status pill and CFB/EPL record chip starts blank again —

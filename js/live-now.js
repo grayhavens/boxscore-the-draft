@@ -457,7 +457,7 @@ export async function renderLiveNow(){
 
   if(subEl){
     subEl.textContent = inScope.length
-      ? `${inScope.length} game${inScope.length === 1 ? '' : 's'} \u00b7 ${liveCount || 'no'} live`
+      ? `${inScope.length} game${inScope.length === 1 ? '' : 's'}`
       : 'No games in this scope';
   }
   if(controlsEl) controlsEl.innerHTML = controlsHtml(liveCount);
