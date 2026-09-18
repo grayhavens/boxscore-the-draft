@@ -4,11 +4,12 @@
    league's rankAuto-heavy rule set is enough to read on its own; see
    js/admin.js's adminFilterKey for the identical no-All precedent).
 
-   Reached from the Leaderboard tab's "Scoring" ghost chip. Renders the
-   same rule data openLeagueModal (js/board.js) shows in a popup from
-   each Standings league card — that popup stays as-is for its own
-   in-context use there; this page is a second, dedicated destination
-   for browsing every league's rules without hopping between cards.
+   Reached from the Leaderboard tab's "Scoring" ghost chip. Replaces the
+   old per-league Scoring popup the Standings tab used to open from each
+   league card (openLeagueModal in js/board.js, now removed) with one
+   destination that covers every league behind the same filter chips
+   the Standings/admin pages already use, instead of hopping between
+   eight per-card popups.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING } from './data.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';

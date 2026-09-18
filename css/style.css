@@ -329,10 +329,11 @@ body{
 
 /* Standings-only header layout: the title gets its own top line (it
    can run long, e.g. "English Premier League") with the season
-   right-aligned alongside it, and the Scoring/Results chips sit on
-   their own line below — see leagueBlockHtml in js/board.js. The
-   Teams tab keeps the same title/season pairing on one line (see
-   renderBoard in js/board.js) since it has no separate chips row. */
+   right-aligned alongside it, and the prior-season note (MLB/WNBA
+   only) sits on its own line below — see leagueBlockHtml in
+   js/board.js. The Teams tab keeps the same title/season pairing on
+   one line (see renderBoard in js/board.js) since it has nothing
+   below it to stack. */
 .league-tab.standings-league-tab{
   flex-direction: column;
   align-items: stretch;
@@ -346,17 +347,6 @@ body{
   gap: 10px;
 }
 
-.league-tab-chips{
-  display:flex;
-  align-items:center;
-  gap: 8px;
-}
-
-/* Sized/weighted/colored to match the Scoring/Results ghost buttons
-   (see .scoring-chip below) rather than the smaller/dimmer default a
-   plain .n label would otherwise get, since the season sits on the
-   same header row as those buttons on both the Teams and Standings
-   tabs (see leagueBlockHtml/renderBoard in js/board.js). */
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
   font-size: 11.5px;
@@ -456,11 +446,13 @@ body{
   margin-top: 1px;
 }
 
-/* Ghost icon buttons — invisible until hovered, so they read as a
-   lightweight in-context action (open the Scoring/Results modal) rather
-   than a persistent pill. Negative margin cancels the button's own
-   left padding so its icon/text sits flush with the card's edge, same
-   as any other unpadded header text. */
+/* Ghost icon button — invisible until hovered, so it reads as a
+   lightweight in-context action rather than a persistent pill. Used by
+   the Leaderboard tab's toolbar (see .ob-toolbar below) to open the
+   Scoring page (js/scoring-page.js). Negative margin cancels the
+   button's own left padding so its icon/text sits flush with whatever
+   edge it's the first/last element against, same as any other
+   unpadded header text. */
 .scoring-chip{
   flex: 0 0 auto;
   display: flex;
@@ -1131,7 +1123,7 @@ body{
    openTeamModal in js/live-data.js) — this wrapper takes over the
    absolute corner positioning so .modal-close can drop its own
    (still used standalone everywhere else the class appears, e.g. the
-   League Scoring modal in js/board.js's openLeagueModal). */
+   identity-switcher and Scores-scope sheets in index.html). */
 .modal-actions{
   position: absolute;
   top: 16px;
@@ -2496,10 +2488,9 @@ body{
 /* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
    Sits below the header/subheader rather than in the header-top row
    beside the title, so the mode switch can be a plain two-button pill
-   (no phone-width squeeze) and the Scoring entry point (same ghost-chip
-   language as .scoring-chip's original Standings-tab use, see below)
-   reads as a lightweight in-page action rather than competing with the
-   identity picker up top. */
+   (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
+   defined above) reads as a lightweight in-page action rather than
+   competing with the identity picker up top. */
 .ob-toolbar{
   display: flex;
   align-items: center;
