@@ -246,7 +246,7 @@ export function renderBoard(){
     `;
   }).join('');
 
-  document.getElementById('team-tally').textContent = `The Draft · ${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
+  document.getElementById('team-tally').textContent = `${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
 
   // The team rows above were just rebuilt from scratch, so every
   // row-status pill and CFB/EPL record chip starts blank again —
