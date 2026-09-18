@@ -27,6 +27,7 @@ import {
   nflStandingsToggleHtml, renderAllNflCardRecords, espnNflStandingsCache, fetchEspnNflStandingsCached,
   loadEspnNflStandingsCache, espnNflDivisionCache, fetchEspnNflDivisionStandingsCached, loadEspnNflDivisionCache
 } from './standings-nfl.js';
+import { loadNflverseCaches } from './nflverse.js';
 import {
   espnNbaStandingsCache, loadEspnNbaStandingsCache, fetchEspnNbaStandingsCached, renderAllNbaCardRecords,
   computeNbaConferenceStandings, renderNbaStandingsRow, computeNbaDrafterCombined, renderNbaByDrafterRow,
@@ -688,6 +689,7 @@ loadEspnCfbRankingsCache();
 loadEspnCfbRecordsCache();
 loadEspnNflStandingsCache();
 loadEspnNflDivisionCache();
+loadNflverseCaches();
 loadEspnNbaStandingsCache();
 loadEspnNbaDivisionCache();
 loadEspnNhlStandingsCache();

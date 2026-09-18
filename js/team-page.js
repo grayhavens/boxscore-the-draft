@@ -7,17 +7,21 @@
    navigation, tab state, and the News/Roster/Stats fetches unique to
    this view.
 
-   Full 4-tab treatment (Schedule/News/Stats/Squad) ships for every
-   league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/CFB/CBB) —
-   News only needs a team's ESPN id and sportPath (see ensureNews
-   below), so it was never restricted the way Stats/Squad are.
-   Roster/team-stats endpoints were only curled and verified for EPL,
-   NFL and MLB (see js/espn.js's fetchEspnTeamRoster/
-   fetchEspnTeamStatistics header comments and FULL_STATS_SQUAD_LEAGUES
-   below) — every other FLAT_SCHEDULE_LEAGUES league (College Basketball
-   included, added 2026-09-17) gets a real page and a working News tab,
-   just a plain "not available yet" placeholder for Stats/Squad until
-   those get their own design pass.
+   Full tab treatment (Overview/Stats/Squad, +Injuries for NFL) ships
+   for every league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/
+   CFB/CBB). News used to be its own 4th tab but is now just a section
+   on Overview, below the schedule content (see scheduleTabHtml/
+   ensureNews) — it only ever needed a team's ESPN id and sportPath, so
+   it was never restricted the way Stats/Squad are, and folding it in
+   there instead of a separate tab means it's never a full empty tab of
+   its own when a team just has nothing new posted. Roster/team-stats
+   endpoints were only curled and verified for EPL, NFL and MLB (see
+   js/espn.js's fetchEspnTeamRoster/fetchEspnTeamStatistics header
+   comments and FULL_STATS_SQUAD_LEAGUES below) — every other
+   FLAT_SCHEDULE_LEAGUES league (College Basketball included, added
+   2026-09-17) gets a real page and a working News section, just a
+   plain "not available yet" placeholder for Stats/Squad until those
+   get their own design pass.
 
    Pushed/popped via the functions below, not switchView() — switchView
    also drives the bottom tab bar's active state off a fixed data-view
@@ -32,13 +36,18 @@ import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml } from '.
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics } from './espn.js';
 import {
   FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle,
-  renderStats, renderNext, formStripHtml, seasonStatus
+  renderStats, renderNext, seasonStatus
 } from './live-data.js';
 import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
 import { trackerSectionHtml } from './league-facts.js';
+import {
+  fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
+  getTeamDepthChart, getTeamInjuries, nflverseInjuryStatus,
+  nflverseInjuriesCache, nflverseDepthChartCache
+} from './nflverse.js';
 
 // The 3 leagues with a verified roster/team-stats source (see this
 // file's header comment) — every other FLAT_SCHEDULE_LEAGUES league
@@ -46,13 +55,18 @@ import { trackerSectionHtml } from './league-facts.js';
 // Stats/Squad.
 const FULL_STATS_SQUAD_LEAGUES = ['epl', 'nfl', 'mlb'];
 
+// News has no tab of its own anymore — it's a section on the Overview
+// tab now (see scheduleTabHtml below), folded in under the "Full
+// schedule ›" link.
 const TABS = {
-  epl: [{ key: 'schedule', label: 'Schedule' }, { key: 'news', label: 'News' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }],
-  nfl: [{ key: 'schedule', label: 'Schedule' }, { key: 'news', label: 'News' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }],
-  mlb: [{ key: 'schedule', label: 'Schedule' }, { key: 'news', label: 'News' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }]
+  epl: [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }],
+  // Injuries is NFL-only — nflverse (js/nflverse.js) has no equivalent
+  // structured injury-report data for any other league.
+  nfl: [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }, { key: 'injuries', label: 'Injuries' }],
+  mlb: [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }]
 };
 function tabsFor(leagueKey){
-  return TABS[leagueKey] || [{ key: 'schedule', label: 'Schedule' }, { key: 'news', label: 'News' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }];
+  return TABS[leagueKey] || [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }];
 }
 
 const EMPTY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"></path><path d="M15 3v4h4"></path><path d="M9 13h6M9 17h6"></path></svg>';
@@ -62,7 +76,13 @@ const EMPTY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // once, so this is a single object rather than a map — cached per-team
 // data lives in the *Cache objects below instead, so switching away and
 // back to the same team's page doesn't refetch.
-const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: 'all' };
+// squadFilter starts null (rather than a real group name) so
+// fullRosterHtml's own fallback — groups[0], i.e. whatever group a
+// team's roster lists first (Offense, for NFL) — picks the default the
+// first time a Roster tab renders, instead of hardcoding a group name
+// here that wouldn't exist for every league (MLB's groups aren't
+// Offense/Defense/Special Teams).
+const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: null };
 
 const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'|'error', items }
 const rosterCache = {}; // teamKey -> { status, items }
@@ -89,7 +109,7 @@ export function openTeamPage(teamKey, originView){
   state.originView = originView || 'board';
   state.originScrollY = window.scrollY;
   state.activeTab = 'schedule';
-  state.squadFilter = 'all';
+  state.squadFilter = null;
   setActiveView('view-team-page');
   window.scrollTo(0, 0);
   updateUrlParam('view', 'team');
@@ -230,10 +250,6 @@ function renderTabBody(){
 
   if(state.activeTab === 'schedule'){
     el.innerHTML = scheduleTabHtml(teamKey, meta, bundle);
-    return;
-  }
-  if(state.activeTab === 'news'){
-    el.innerHTML = newsTabHtml(teamKey);
     ensureNews(teamKey);
     return;
   }
@@ -252,6 +268,11 @@ function renderTabBody(){
     }
     el.innerHTML = squadTabHtml(teamKey);
     ensureRoster(teamKey);
+    return;
+  }
+  if(state.activeTab === 'injuries'){
+    el.innerHTML = injuriesTabHtml(meta);
+    ensureNflverse();
     return;
   }
 }
@@ -305,26 +326,40 @@ function upcomingRowHtml(evt){
 }
 
 function scheduleTabHtml(teamKey, meta, bundle){
-  if(!bundle) return `<div class="loading-note">Loading schedule…</div>`;
-  const sched = bundle.espnSchedule;
-  if(!sched) return `<div class="no-live-note">Schedule isn't available for this team yet.</div>`;
+  const sched = bundle && bundle.espnSchedule;
+  let scheduleHtml;
+  if(!bundle){
+    scheduleHtml = `<div class="loading-note">Loading schedule…</div>`;
+  } else if(!sched){
+    scheduleHtml = `<div class="no-live-note">Schedule isn't available for this team yet.</div>`;
+  } else {
+    // Last 5 results — the separate W/D/L summary strip and the
+    // Upcoming section below it used to live here too, but this tab is
+    // meant as a quick "how'd they do lately" glance now, not a mini
+    // schedule (that's what "Full schedule ›" and the Full Schedule
+    // screen are for). Each result row still carries its own W/D/L
+    // pill (resultRowHtml above), just not the separate summary strip.
+    const recentResults = sched.recent.slice(0, 5);
+    scheduleHtml = `
+      <div class="modal-section-title">Recent form</div>
+      ${recentResults.map(evt => resultRowHtml(teamKey, evt)).join('') || '<div class="loading-note">No results yet.</div>'}
+      <div style="text-align:center; padding-top:14px;">
+        <span class="boxscore-link" style="justify-content:center;" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
+      </div>
+    `;
+  }
 
-  const recent = sched.recent.slice(0, 3);
-  const upcoming = sched.upcoming.slice(0, 2);
-
+  // News used to be its own tab — it's a section here now, below the
+  // schedule content, so it still shows even while schedule/bundle data
+  // is loading or unavailable rather than being gated on it.
   return `
-    <div class="modal-section-title">Recent form</div>
-    ${formStripHtml(sched.recent)}
-    ${recent.map(evt => resultRowHtml(teamKey, evt)).join('') || '<div class="loading-note">No results yet.</div>'}
-    <div class="modal-section-title" style="margin-top:16px;">Upcoming</div>
-    ${upcoming.map(upcomingRowHtml).join('') || '<div class="loading-note">Nothing scheduled yet.</div>'}
-    <div style="text-align:center; padding-top:14px;">
-      <span class="boxscore-link" style="justify-content:center;" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
-    </div>
+    ${scheduleHtml}
+    <div class="modal-section-title" style="margin-top:16px;">News</div>
+    ${newsTabHtml(teamKey)}
   `;
 }
 
-// ---- News tab ----
+// ---- News (a section on the Overview tab, not its own tab) ----
 
 function timeAgo(iso){
   if(!iso) return '';
@@ -382,7 +417,7 @@ function ensureNews(teamKey){
   newsCache[teamKey] = { status: 'loading', items: [] };
   fetchEspnTeamNews(flat.sportPath, row.id).then(items => {
     newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [] };
-    if(state.teamKey === teamKey && state.activeTab === 'news') renderTabBody();
+    if(state.teamKey === teamKey && state.activeTab === 'schedule') renderTabBody();
   });
 }
 window.retryTeamPageNews = teamKey => {
@@ -524,8 +559,20 @@ function goalContribution(p){
   return (p.goals || 0) + (p.assists || 0);
 }
 
-function playerRowHtml(p){
-  const tagsHtml = p.injured ? `<span class="player-tag out">Out</span>` : '';
+// Real report_status ('Out'/'Doubtful'/'Questionable', from nflverse's
+// injury report — js/nflverse.js) when it's available for this player,
+// falling back to ESPN's plain injured boolean (see fetchEspnTeamRoster
+// in js/espn.js) for every league nflverse doesn't cover, or for an NFL
+// player hurt badly enough to be off the roster's injury report cadence
+// entirely (e.g. season-ending IR from before this week's report).
+function injuryTagHtml(p, meta){
+  const status = meta.leagueKey === 'nfl' ? nflverseInjuryStatus(p, meta) : null;
+  if(status) return `<span class="player-tag ${status.toLowerCase()}">${status}</span>`;
+  return p.injured ? `<span class="player-tag out">Out</span>` : '';
+}
+
+function playerRowHtml(p, meta){
+  const tagsHtml = injuryTagHtml(p, meta);
   const contribution = goalContribution(p);
   const statHtml = contribution !== null ? `<div class="player-stat">${p.goals || 0}G · ${p.assists || 0}A</div>` : '';
   return `
@@ -574,13 +621,15 @@ export function setSquadFilter(key){
 }
 window.setSquadFilter = setSquadFilter;
 
-// There's no real depth chart anywhere in ESPN's hidden API for NFL to
-// sort by — confirmed live 2026-09-19: /teams/{id}/depthchart returns
-// an empty {} for every team, and the per-athlete endpoint only links
-// out to ESPN's own HTML depth chart page rather than returning
-// structured data. This fixed position order is the next best thing:
-// good enough to read like a depth chart (quarterbacks before backup
-// linemen) without pretending to know who's actually WR1 vs WR3.
+// Fine-position display order — still the primary grouping key (see
+// sortNflRoster below): it keeps every "Wide Receiver" together, every
+// "Guard" together, etc., which nflverse's own per-formation pos_slot
+// numbering doesn't reliably do (see bestDepthChartRank's comment).
+// This alone used to be the ONLY ordering available at all (ESPN's own
+// /teams/{id}/depthchart returns an empty {} for every team, confirmed
+// live 2026-09-19 — no structured depth data anywhere in its hidden
+// API); nflverse now supplies the real starter-vs-backup order *within*
+// each of these positions instead of roster/jersey order.
 const NFL_POSITION_ORDER = [
   'Quarterback', 'Running Back', 'Fullback', 'Wide Receiver', 'Tight End',
   'Offensive Tackle', 'Guard', 'Center',
@@ -593,19 +642,153 @@ function nflPositionRank(position){
   return idx === -1 ? NFL_POSITION_ORDER.length : idx;
 }
 
-// Re-orders each broad group (Offense/Defense/...) by that position
-// priority instead of ESPN's own within-group order (closer to
-// alphabetical-by-first-name than anything position-based — see
-// fetchEspnTeamRoster's header comment in js/espn.js). Groups themselves
-// stay in place — `a.group !== b.group` returning 0 relies on Array.sort
-// being stable, so cross-group order is left exactly as fetched (the
-// active roster still comes before Injured Reserve/Practice Squad in
-// "All"; only the order *inside* each group changes).
-function sortNflRoster(items){
+// Real depth-chart rank (js/nflverse.js's pos_rank — starter=1,
+// backup=2, ...) per player, used below to put a team's actual starter
+// before its backups within a fine position instead of just roster
+// order. NOT sourced from pos_slot's raw ordering, deliberately: a
+// player's pos_slot is only a stable index WITHIN one nflverse pos_grp
+// (personnel package), not comparable across them — e.g. Detroit's
+// "3WR 1TE" package numbers its 3rd-WR slot (8) between the O-line
+// (3-7) and QB (9), so sorting fine positions by raw slot number would
+// put a backup WR ahead of the starting QB (confirmed live 2026-09-19).
+// Grouping by ESPN's own position label first (nflPositionRank below,
+// already reliable) and using rank only as the within-position tie-
+// break keeps receivers with receivers, linemen with linemen, while
+// still surfacing the real starter/backup order nflverse provides.
+// Also prefers a player's non-"Special Teams" pos_grp row when they
+// have both (e.g. a WR who's also the punt returner) — otherwise a
+// receiver's PR/KR special-teams rank would override their actual WR
+// depth rank.
+function bestDepthChartRank(depthChart){
+  const byId = {};
+  depthChart.forEach(r => {
+    if(!r.espn_id) return;
+    const key = String(r.espn_id);
+    const isST = r.pos_grp === 'Special Teams';
+    const rank = parseInt(r.pos_rank, 10) || 999;
+    const existing = byId[key];
+    if(!existing || (existing.isST && !isST) || (existing.isST === isST && rank < existing.rank)){
+      byId[key] = { rank, isST };
+    }
+  });
+  return byId;
+}
+
+// Re-orders each broad group (Offense/Defense/...) by fine position
+// (nflPositionRank), then by real depth-chart rank within that
+// position — see bestDepthChartRank above for why depth-chart order
+// alone isn't enough. Players nflverse doesn't chart at all (deep
+// bench, practice squad, IR) fall back to jersey number and sort after
+// every charted player at that position. Groups themselves stay in
+// place — `a.group !== b.group` returning 0 relies on Array.sort being
+// stable, so cross-group order is left exactly as fetched (the active
+// roster still comes before Injured Reserve/Practice Squad in "All";
+// only the order *inside* each group changes).
+function sortNflRoster(items, meta){
+  const byId = bestDepthChartRank(getTeamDepthChart(meta));
+  const jerseyOf = p => parseInt(p.jersey, 10) || 999;
+
   return [...items].sort((a, b) => {
     if(a.group !== b.group) return 0;
-    return nflPositionRank(a.position) - nflPositionRank(b.position) || ((parseInt(a.jersey, 10) || 999) - (parseInt(b.jersey, 10) || 999));
+    const posDiff = nflPositionRank(a.position) - nflPositionRank(b.position);
+    if(posDiff) return posDiff;
+    const ra = byId[String(a.id)], rb = byId[String(b.id)];
+    if(ra && rb) return ra.rank - rb.rank || (jerseyOf(a) - jerseyOf(b));
+    if(ra && !rb) return -1;
+    if(!ra && rb) return 1;
+    return jerseyOf(a) - jerseyOf(b);
   });
+}
+
+// The 3 broad NFL roster groups a real depth chart actually covers —
+// Injured Reserve/Practice Squad/Suspended stay the plain player-row
+// list (see fullRosterHtml below): a depth chart is inherently about
+// who plays which role at what order, which doesn't mean anything for
+// a player who isn't active.
+const NFL_GRID_GROUPS = new Set(['Offense', 'Defense', 'Special Teams']);
+
+// One row per real depth-chart SLOT, not per fine position — a fine
+// position can be more than one slot (e.g. a 3-WR personnel package has
+// 3 separate receiver slots, each with its own starter/backups; see
+// bestDepthChartRank's comment for the same pos_slot-is-per-role point).
+// `${pos_grp}|${pos_slot}` is the real per-role key nflverse uses;
+// sorted by pos_slot ascending within each pos_grp (there's normally
+// just one non-Special-Teams pos_grp per broad group, but the compound
+// key keeps this correct if a team ever has more than one personnel
+// package charted at once). Rows/cells are built entirely off the
+// roster's own `group` field (via the espn_id join), not off nflverse's
+// pos_grp text — nflverse's personnel-package names are scheme-specific
+// strings ("3WR 1TE", "Base 4-3 D", ...) with no fixed vocabulary to
+// pattern-match against, whereas the roster's Offense/Defense/Special
+// Teams grouping (js/espn.js's NFL_ROSTER_GROUP_LABELS) is already
+// reliable and is what every other grouping in this file uses.
+function depthChartRowsFor(groupLabel, items, meta){
+  const byEspnId = {};
+  items.forEach(p => { byEspnId[String(p.id)] = p; });
+
+  const bySlot = {};
+  getTeamDepthChart(meta).forEach(r => {
+    const player = byEspnId[String(r.espn_id)];
+    if(!player) return;
+    const isST = r.pos_grp === 'Special Teams';
+    // Special Teams pulls every row nflverse itself charts under
+    // "Special Teams", regardless of a player's own primary roster
+    // group — a punt/kick returner is almost always a WR/RB on
+    // offense first (confirmed live: Detroit's PR/KR slots are filled
+    // by Tom Kennedy/Jacob Saylors/Tay Martin/Sione Vaki, all
+    // roster-classified as Offense), so gating on roster group here
+    // would silently drop every returner slot. Offense/Defense do the
+    // opposite — excluding Special Teams rows and gating on the
+    // roster's own group — so a returner's PR/KR row doesn't also leak
+    // into their Offense grid entry alongside their real WR/RB slot.
+    const matches = groupLabel === 'Special Teams' ? isST : (!isST && player.group === groupLabel);
+    if(!matches) return;
+    const key = `${r.pos_grp}|${r.pos_slot}`;
+    const slotOrder = `${r.pos_grp} ${String(parseInt(r.pos_slot, 10) || 0).padStart(3, '0')}`;
+    if(!bySlot[key]) bySlot[key] = { label: r.pos_abb || r.pos_name || '', slotOrder, entries: [] };
+    bySlot[key].entries.push({ player, rank: parseInt(r.pos_rank, 10) || 999 });
+  });
+
+  return Object.values(bySlot)
+    .sort((a, b) => a.slotOrder < b.slotOrder ? -1 : (a.slotOrder > b.slotOrder ? 1 : 0))
+    .map(row => ({ label: row.label, entries: row.entries.sort((a, b) => a.rank - b.rank) }));
+}
+
+function depthChartCellHtml(entry, meta){
+  const tag = injuryTagHtml(entry.player, meta);
+  return `
+    <div class="depth-chart-cell">
+      <div class="depth-chart-player"><span class="num">${entry.player.jersey || '—'}</span>${entry.player.name}</div>
+      ${tag}
+    </div>
+  `;
+}
+
+// A real position-by-position depth chart grid (position label column
+// + one column per depth level, deepest first) instead of a flat
+// player list — see depthChartRowsFor above for how rows/columns are
+// derived. Columns are padded out to the widest row in this group so
+// every row's Nth column lines up (a real depth chart reads as a
+// spreadsheet, not a ragged list). Wrapped in an overflow-x scroller
+// (same pattern as .filter-chips elsewhere in this app) with the
+// position-label column pinned via position:sticky, since a full
+// offensive or defensive depth chart is wider than a phone screen.
+function depthChartGridHtml(groupLabel, items, meta){
+  const rows = depthChartRowsFor(groupLabel, items, meta);
+  if(!rows.length) return '';
+  const maxCols = rows.reduce((m, r) => Math.max(m, r.entries.length), 1);
+  const rowsHtml = rows.map(row => {
+    const cells = row.entries.map(e => depthChartCellHtml(e, meta)).join('');
+    const pad = '<div class="depth-chart-cell"></div>'.repeat(maxCols - row.entries.length);
+    return `<div class="depth-chart-pos">${row.label}</div>${cells}${pad}`;
+  }).join('');
+  return `
+    <div class="depth-chart-wrap">
+      <div class="depth-chart" style="grid-template-columns: 42px repeat(${maxCols}, minmax(104px, 1fr));">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
 }
 
 // NFL/MLB rosters (50-90 players, no reliable "star" signal to build a
@@ -613,18 +796,40 @@ function sortNflRoster(items){
 // separate full-screen pattern EPL uses below entirely: the whole
 // roster is listed right here in the tab, narrowed by the same
 // filter-chip look every other jump-nav in this app already uses,
-// instead of a "Full roster ›" link off to its own screen.
+// instead of a "Full roster ›" link off to its own screen. For NFL,
+// Offense/Defense/Special Teams render as a real depth-chart grid
+// (see depthChartGridHtml) once nflverse's data has loaded; Injured
+// Reserve/Practice Squad/Suspended (and everything for MLB, and NFL
+// before that data is ready) stay the plain player-row list — a depth
+// chart doesn't mean anything for players who aren't active.
 function fullRosterHtml(entry, meta){
   const groups = squadPositionGroups(entry.items);
-  const filter = groups.includes(state.squadFilter) ? state.squadFilter : 'all';
-  const chips = ['all', ...groups].map(g => {
-    const label = g === 'all' ? 'All' : g;
-    return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setSquadFilter('${g.replace(/'/g, '')}')">${label}</div>`;
+  // No "All" chip — a combined Offense+Defense+Special Teams+IR+...
+  // view doesn't read as one coherent thing once Offense/Defense/
+  // Special Teams are real depth-chart grids (see depthChartGridHtml)
+  // rather than plain rows, so this always shows exactly one group.
+  // groups[0] is Offense for NFL (ESPN's own roster group order —
+  // squadPositionGroups' comment), so that's the default the first
+  // time this renders for a team.
+  const filter = groups.includes(state.squadFilter) ? state.squadFilter : groups[0];
+  const chips = groups.map(g => {
+    return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setSquadFilter('${g.replace(/'/g, '')}')">${g}</div>`;
   }).join('');
-  const base = meta.leagueKey === 'nfl' ? sortNflRoster(entry.items) : entry.items;
-  const shown = filter === 'all' ? base : base.filter(p => p.group === filter);
-  const rows = shown.map(playerRowHtml).join('') || `<div class="no-live-note">No players in this group.</div>`;
-  return `<div class="filter-chips">${chips}</div>${rows}`;
+
+  const hasDepthChart = meta.leagueKey === 'nfl' && getTeamDepthChart(meta).length > 0;
+
+  const sectionHtml = group => {
+    if(hasDepthChart && NFL_GRID_GROUPS.has(group)){
+      const grid = depthChartGridHtml(group, entry.items, meta);
+      if(grid) return grid;
+    }
+    const base = meta.leagueKey === 'nfl' ? sortNflRoster(entry.items, meta) : entry.items;
+    return base.filter(p => p.group === group).map(p => playerRowHtml(p, meta)).join('');
+  };
+
+  const body = filter ? (sectionHtml(filter) || `<div class="no-live-note">No players in this group.</div>`) : `<div class="no-live-note">No players in this group.</div>`;
+
+  return `<div class="filter-chips">${chips}</div>${body}`;
 }
 
 function squadTabHtml(teamKey){
@@ -638,7 +843,7 @@ function squadTabHtml(teamKey){
   const top = keyPlayers(entry.items);
   return `
     <div class="modal-section-title">Key players</div>
-    ${top.map(playerRowHtml).join('')}
+    ${top.map(p => playerRowHtml(p, meta)).join('')}
     <div style="text-align:center; padding-top:14px;">
       <span class="boxscore-link" style="justify-content:center;" onclick="openFullSquad('${teamKey}')">Full squad <span class="chev">›</span></span>
     </div>
@@ -649,6 +854,7 @@ function ensureRoster(teamKey){
   const meta = TEAM_META[teamKey];
   const row = espnTeamRowFor(meta);
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
+  if(meta.leagueKey === 'nfl') ensureNflverse();
   if(!row || !flat){ rosterCache[teamKey] = { status: 'error', items: [] }; return; }
   if(rosterCache[teamKey] && rosterCache[teamKey].status !== 'error') return;
 
@@ -657,6 +863,61 @@ function ensureRoster(teamKey){
     rosterCache[teamKey] = items ? { status: 'ready', items } : { status: 'error', items: [] };
     if(state.teamKey === teamKey && state.activeTab === 'squad') renderTabBody();
   });
+}
+
+// ---- Injuries tab (NFL only — see TABS above) ----
+
+// One shared fetch covers every NFL team (js/nflverse.js's byTeam
+// blobs), so unlike ensureRoster/ensureStats/ensureNews above this
+// isn't keyed per team. Guarded the same way those are (bail once
+// there's nothing left to do) rather than unconditionally chaining a
+// re-render onto every call — renderTabBody() is itself a caller of
+// this function (via ensureRoster/the injuries tab), so an unguarded
+// version here would re-queue its own .then on every single render,
+// forever, the moment both caches are already warm.
+let nflverseRenderPending = false;
+function ensureNflverse(){
+  if(nflverseDepthChartCache.byTeam && nflverseInjuriesCache.byTeam) return;
+  if(nflverseRenderPending) return;
+  nflverseRenderPending = true;
+  Promise.all([fetchNflverseDepthChartCached(), fetchNflverseInjuriesCached()]).then(() => {
+    nflverseRenderPending = false;
+    const meta = TEAM_META[state.teamKey];
+    if(meta && meta.leagueKey === 'nfl' && (state.activeTab === 'squad' || state.activeTab === 'injuries')) renderTabBody();
+  });
+}
+
+const INJURY_STATUS_ORDER = { Out: 0, Doubtful: 1, Questionable: 2 };
+
+function injuryRowHtml(row){
+  const status = row.report_status || '';
+  const tag = status ? `<span class="player-tag ${status.toLowerCase()}">${status}</span>` : '';
+  const injury = row.report_primary_injury || row.practice_primary_injury || '';
+  return `
+    <div class="player-row">
+      <div class="player-main">
+        <div class="player-name">${row.full_name}${tag}</div>
+        <div class="player-sub">${row.position}${injury ? ' · ' + injury : ''}</div>
+      </div>
+      <div class="player-stat">${row.practice_status || ''}</div>
+    </div>
+  `;
+}
+
+function injuriesTabHtml(meta){
+  if(!nflverseInjuriesCache.byTeam) return `<div class="loading-note">Loading injury report…</div>`;
+  const rows = getTeamInjuries(meta);
+  if(!rows.length) return `<div class="no-live-note">No injuries reported for ${meta.name} this week.</div>`;
+
+  const sorted = [...rows].sort((a, b) => {
+    const oa = a.report_status in INJURY_STATUS_ORDER ? INJURY_STATUS_ORDER[a.report_status] : 3;
+    const ob = b.report_status in INJURY_STATUS_ORDER ? INJURY_STATUS_ORDER[b.report_status] : 3;
+    return oa - ob;
+  });
+  return `
+    <div class="modal-section-title">This week's injury report</div>
+    ${sorted.map(injuryRowHtml).join('')}
+  `;
 }
 
 // ---- Full Schedule screen ----
@@ -741,7 +1002,7 @@ function renderFullSquad(filter){
   let bodyHtml = `<div class="loading-note">Loading squad…</div>`;
   if(entry && entry.status === 'ready'){
     const shown = filter === 'all' ? entry.items : entry.items.filter(p => p.position === filter);
-    bodyHtml = shown.map(playerRowHtml).join('') || `<div class="no-live-note">No players in this group.</div>`;
+    bodyHtml = shown.map(p => playerRowHtml(p, meta)).join('') || `<div class="no-live-note">No players in this group.</div>`;
   } else if(entry && entry.status === 'error'){
     bodyHtml = `<div class="no-live-note">Squad list isn't available for this team right now.</div>`;
   }
