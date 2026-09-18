@@ -83,7 +83,7 @@
         <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
-        <h1>Overall</h1>
+        <h1>Leaderboard</h1>
         <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
              js/overall.js. Remove this control (and that block) once the
              season is far enough along that a fake preview is no
@@ -99,7 +99,7 @@
           <span class="id-circle"></span>
         </button>
       </div>
-      <div class="page-sub">All 10 drafters, ranked by total points across every league</div>
+      <div class="page-sub">Standings for &ldquo;The Draft&rdquo;. Tap a drafter for the point breakdown.</div>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="overall-content"></div>
@@ -197,8 +197,8 @@
     <span class="tab-label">Standings</span>
   </button>
   <button class="tab-btn" data-view="overall" onclick="switchView('overall')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.4" r="1.9" fill="currentColor" stroke="none"></circle><rect x="3.2" y="13" width="4.2" height="7" rx="1"></rect><rect x="9.9" y="8.6" width="4.2" height="11.4" rx="1"></rect><rect x="16.6" y="15.2" width="4.2" height="4.8" rx="1"></rect></svg>
-    <span class="tab-label">Overall</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 21v-9.5h5V21"></path><path d="M3 21v-6h6.5"></path><path d="M14.5 21H21v-8h-6.5"></path><path d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg>
+    <span class="tab-label">Leaderboard</span>
   </button>
 </nav>
 

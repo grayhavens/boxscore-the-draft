@@ -343,7 +343,7 @@ export const FILTER_CHIP_LABELS = {
 // is what marks this as an action now, so it reads as a lightweight
 // button rather than a pill. The old per-league "Results" chip moved to
 // the dedicated, password-gated admin page (js/admin.js) — see the
-// "Manage Scoring" link at the bottom of the Overall tab.
+// "Manage Scoring" link at the bottom of the Leaderboard tab.
 const SCORING_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>';
 
 function leagueBlockHtml(league, bodyHtml){
