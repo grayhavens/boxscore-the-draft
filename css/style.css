@@ -122,16 +122,6 @@ body{
   font-weight: 500;
 }
 
-/* Scores tab only: the game-count subhead shares its line with the new
-   team-scope chip (js/live-now.js) — text on the left, chip flush
-   right, same idea as .league-tab pairing a title with .scoring-chip. */
-.page-sub-row{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 /* Same ghost-button language as .scoring-chip below — invisible fill
    until touched. Sits in .page-header-top right before the identity
    circle (js/identity.js): margin-left:auto pushes this chip (and the
@@ -3175,10 +3165,6 @@ body{
   gap: 6px;
 }
 .game-card.live .game-card-eyebrow{ color: var(--live); }
-.game-card-line1{ font-size: 11.5px; font-weight: 600; color: var(--text-sub); margin-top: 2px; }
-.game-card.live .game-card-line1{ color: var(--text); }
-.game-card-opponent{ font-size: 15px; font-weight: 700; margin-top: 5px; }
-.game-card-line2{ font-size: 11px; font-weight: 500; color: var(--text-mute); margin-top: 1px; }
 
 .tab-body{ padding: 14px 20px 26px; min-height: 330px; }
 
@@ -3223,7 +3209,6 @@ body{
 .split-label{ font-size: 13px; font-weight: 600; }
 .split-values{ display: flex; align-items: center; gap: 14px; }
 .split-record{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13.5px; }
-.split-secondary{ font-size: 11.5px; font-weight: 600; color: var(--text-sub); }
 
 .player-row{ display: flex; align-items: center; gap: 12px; padding: 10px 0; }
 .player-row + .player-row{ border-top: 1px solid rgba(255,255,255,0.06); }
@@ -3243,7 +3228,6 @@ body{
   font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
   border-radius: 5px; padding: 2px 5px;
 }
-.player-tag.captain{ color: var(--accent); background: var(--accent-soft); }
 .player-tag.out{ color: var(--loss); background: var(--loss-soft); }
 .player-stat{ text-align: right; font-size: 11.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
 

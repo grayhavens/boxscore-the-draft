@@ -31,7 +31,7 @@
    ============================================================ */
 import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
-import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES } from './live-data.js';
+import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
@@ -51,12 +51,14 @@ const scopeFilter = { mine: false, fav: false };
 function scopeIsAll(){ return !scopeFilter.mine && !scopeFilter.fav; }
 
 // ---- Day slate fetching ----
-// One scoreboard request per sportPath per day. Today's slate is live
-// and has to stay fresh (same 60s figure ESPN_SCOREBOARD_TTL_MS uses
-// in js/live-data.js); any other day is finished or not started, so it
-// can be cached hard — walking back and forth through the arrows
-// shouldn't refetch anything.
-const TODAY_TTL_MS = 60 * 1000;
+// One scoreboard request per sportPath per day. Today (offset 0) goes
+// through live-data.js's own fetchEspnScoreboardCached instead of a
+// second cache here — that same "today" scoreboard is already being
+// fetched/cached there for the background refresh/sweep loops, so a
+// separate cache in this file would just double the real ESPN calls
+// while the Today tab is open. Any other day is finished or not
+// started, so it's cached hard here — walking back and forth through
+// the arrows shouldn't refetch anything.
 const OTHER_DAY_TTL_MS = 15 * 60 * 1000;
 const dayScoreboardCache = {}; // `${sportPath}|${yyyymmdd}` -> { data, fetchedAt }
 
@@ -74,10 +76,10 @@ function dateForOffset(offset){
 }
 
 async function fetchDayScoreboard(sportPath, offset){
+  if(offset === 0) return fetchEspnScoreboardCached(sportPath);
   const key = `${sportPath}|${yyyymmdd(dateForOffset(offset))}`;
-  const ttl = offset === 0 ? TODAY_TTL_MS : OTHER_DAY_TTL_MS;
   const cached = dayScoreboardCache[key];
-  if(cached && Date.now() - cached.fetchedAt < ttl) return cached.data;
+  if(cached && Date.now() - cached.fetchedAt < OTHER_DAY_TTL_MS) return cached.data;
   const data = await fetchEspnScoreboard(sportPath, yyyymmdd(dateForOffset(offset)));
   dayScoreboardCache[key] = { data, fetchedAt: Date.now() };
   return data;
