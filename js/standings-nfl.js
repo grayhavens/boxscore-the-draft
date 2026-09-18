@@ -145,7 +145,13 @@ const NFL_ESPN_ABBR_OVERRIDES = {
   'WSH': 'WAS'
 };
 
-function findNflTeamKeyByEspnAbbr(abbr){
+// Exported for js/league-facts.js's rankAuto resolution (division/
+// conference title rules) — every other caller of this file's division/
+// conference tables already had its own reverse lookup (findEspnNflRow,
+// findNflDivisionForMeta), but rankAuto starts from an ESPN row/team
+// object, not a drafted team's own meta, so it needs the forward
+// direction this function already provides.
+export function findNflTeamKeyByEspnAbbr(abbr){
   const wanted = NFL_ESPN_ABBR_OVERRIDES[abbr] || abbr;
   const teams = LEAGUES.find(l => l.key === 'nfl').teams;
   return teams.find(teamKey => TEAM_META[teamKey].badgeText === wanted) || null;

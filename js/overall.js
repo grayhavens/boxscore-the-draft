@@ -8,7 +8,7 @@
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
 import { updateUrlParam } from './utils.js';
-import { getLeagueRuleTeams, getTeamAdjustment } from './league-facts.js';
+import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 
 // League color for the mix bar / legend dots. Deliberately NOT each
@@ -49,11 +49,16 @@ function obPtsClass(n){
 
 /* ---- The seam a new league's scoring model plugs into ----
 
-   obIsProvisional(rule): whether a rule's points can still move. Any
-   rule carrying `rankAuto` (derived from a standings table) or an
-   explicit `live: true` in LEAGUE_SCORING counts as provisional —
-   league-agnostic, so tagging a new rule in js/data.js is all it takes
-   for it to show up as provisional everywhere in this view.
+   obIsProvisional(rule, leagueKey): whether a rule's points can still
+   move. Any rule carrying `rankAuto` (derived from a standings table)
+   counts as provisional UNLESS that league has already locked in its
+   regular season (js/season-lock.js) — see isRuleProvisional in
+   js/league-facts.js, the single source of truth this defers to so a
+   locked league's points stop reading as provisional here too. An
+   explicit `live: true` in LEAGUE_SCORING is league-agnostic and always
+   provisional, no lock involved. leagueKey is optional — the simulated-
+   data preview below has no real lock state to check, so it falls back
+   to the plain rankAuto/live check.
 
    Who satisfies a rule right now comes from getLeagueRuleTeams
    (js/league-facts.js) directly — every league is on that shared
@@ -64,7 +69,8 @@ function obRuleTeams(league, rule){
   return getLeagueRuleTeams(league.key, rule) || [];
 }
 
-function obIsProvisional(rule){
+function obIsProvisional(rule, leagueKey){
+  if(leagueKey) return isRuleProvisional(rule, leagueKey) || !!rule.live;
   return !!(rule.rankAuto || rule.live);
 }
 
@@ -228,7 +234,7 @@ function obDrafterAwards(draftTeamId){
           teamName: meta.name,
           label: rule.label,
           pts: rule.pts,
-          provisional: obIsProvisional(rule)
+          provisional: obIsProvisional(rule, league.key)
         });
       });
     });

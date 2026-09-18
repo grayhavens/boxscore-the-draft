@@ -17,6 +17,7 @@ import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisio
 import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
 import { favoriteStarHtml } from './favorites.js';
+import { getSeasonPhaseLabel } from './season-phase.js';
 
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
@@ -321,8 +322,7 @@ export async function fetchTeamBundle(teamKey){
         fetchEspnScoreboardCached(flatSchedule.sportPath)
       ]);
       const espnLive = findEspnScoreboardLine(scoreboard ? scoreboard.events : null, row.id);
-      const espnSeason = scoreboard ? scoreboard.season : null;
-      const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, espnSeason, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
+      const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
       setTeamBundle(teamKey, bundle);
       return bundle;
     }
@@ -376,26 +376,15 @@ function softZoneTint(hex, alpha){
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// ESPN's standard season-phase enum — confirmed against the core API's
-// leagues/{league}/seasons/{year}/types listing (NFL: 1 Preseason 2026-
-// 08-06→09-06, 2 Regular Season 09-06→2027-01-13, 3 Postseason →02-16,
-// 4 Off Season →08-01) — mapped to the modal-head season badge below.
-const ESPN_SEASON_TYPE = {
-  1: { label: 'Pre-Season', cls: 'pre' },
-  2: { label: 'In-Season', cls: 'in' },
-  3: { label: 'Post-Season', cls: 'post' },
-  4: { label: 'Season Complete', cls: 'complete' }
-};
-
 // EPL's ESPN season has no pre/post/off split at all — the core API
 // lists exactly one continuous "types" entry for the whole Aug-May
-// campaign, unlike NFL/NBA/etc's four. So instead of a real
-// season.type, this reads the same schedule already fetched for the
-// modal (bundle.espnSchedule) and infers phase from what's actually on
-// it: nothing played and nothing left means the close season, nothing
-// played yet but fixtures exist means it hasn't kicked off, and
-// everything else (or a full but exhausted fixture list) is scored as
-// either mid-season or wrapped up.
+// campaign, unlike NFL/NBA/etc's four (see js/season-phase.js, which
+// covers those). So instead of a real season.type, this reads the same
+// schedule already fetched for the modal (bundle.espnSchedule) and
+// infers phase from what's actually on it: nothing played and nothing
+// left means the close season, nothing played yet but fixtures exist
+// means it hasn't kicked off, and everything else (or a full but
+// exhausted fixture list) is scored as either mid-season or wrapped up.
 function eplSeasonStatus(bundle){
   const sched = bundle.espnSchedule;
   if(!sched) return null;
@@ -410,14 +399,18 @@ function eplSeasonStatus(bundle){
 // What phase of its season this team's league is actually in right
 // now — not just "do we have live data hooked up" (that's hasLive in
 // openTeamModal, which only gates whether this badge's slot exists at
-// all). Returns null when there's no reliable signal (college
-// basketball has no ESPN wiring at all — see FLAT_SCHEDULE_LEAGUES —
-// so its bundle carries neither espnSeason nor espnSchedule), in which
-// case the badge stays hidden rather than guessing.
+// all). NFL/NBA/NHL/MLB/WNBA/CFB/mcbb read js/season-phase.js's shared,
+// date-range-verified cache (see that module's header comment for why
+// this used to read a since-removed bundle.espnSeason pointer field
+// instead, and why that was unreliable); EPL keeps its own schedule-
+// based inference above, and college basketball has no ESPN wiring at
+// all (see FLAT_SCHEDULE_LEAGUES) so it falls through to null. Returns
+// null when there's no reliable signal (that league's phase cache
+// hasn't loaded yet, or never will), in which case the badge stays
+// hidden rather than guessing.
 export function seasonStatus(meta, bundle){
   if(meta.leagueKey === 'epl') return eplSeasonStatus(bundle);
-  if(bundle.espnSeason && ESPN_SEASON_TYPE[bundle.espnSeason.type]) return ESPN_SEASON_TYPE[bundle.espnSeason.type];
-  return null;
+  return getSeasonPhaseLabel(meta.leagueKey);
 }
 
 function renderSeasonBadge(meta, bundle){

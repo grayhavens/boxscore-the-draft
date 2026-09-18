@@ -61,6 +61,8 @@ import {
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode } from './overall.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
+import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
+import { checkSeasonLocks } from './season-lock.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
@@ -695,6 +697,7 @@ loadEspnMlbDivisionCache();
 loadEspnWnbaStandingsCache();
 loadEspnCbbRankingsCache();
 loadEspnCbbStandingsCache();
+loadSeasonPhaseCache();
 loadTeamInfoCache();
 renderBoard();
 paintIdentityChrome(currentDraftTeamId);
@@ -715,8 +718,35 @@ fetchEspnNbaStandingsCached();
 fetchEspnNhlStandingsCached();
 fetchEspnMlbStandingsCached();
 fetchEspnWnbaStandingsCached();
+
+// NFL/NBA/NHL/MLB's division tables used to be fetched lazily (only
+// once the Standings tab's Divisions view or a team modal in that
+// league was opened) — now that LEAGUE_SCORING's Division title/Last
+// place rules read them too (js/league-facts.js's rankAutoTables),
+// those rules would sit "Pending" on the admin page and undercount
+// every drafter's points until something happened to trigger one of
+// those lazy paths. Fetched eagerly here for the same reason the flat
+// standings above already are.
+fetchEspnNflDivisionStandingsCached();
+fetchEspnNbaDivisionStandingsCached();
+fetchEspnNhlDivisionStandingsCached();
+fetchEspnMlbDivisionStandingsCached();
 fetchEspnCbbRankingsCached();
 fetchEspnCbbStandingsCached();
+
+// Season phase (js/season-phase.js) backs both the team modal's season
+// badge and, via checkSeasonLocks just below, whether a league's
+// regular-season rankAuto rules should already be frozen — eager here
+// for the same "don't wait on some other tab being opened first" reason
+// as the standings caches above.
+SEASON_PHASE_LEAGUES.forEach(fetchSeasonPhaseCached);
+// One-time-per-league check: has each league's regular season actually
+// ended, and if so, lock in its rankAuto rules (js/season-lock.js) —
+// already-locked leagues return immediately, so this is cheap on every
+// normal boot. Deliberately not awaited — nothing else in this boot
+// sequence depends on it finishing, and its own persistLock re-renders
+// whatever needs it once a lock actually happens.
+checkSeasonLocks();
 
 // Both ticks below already patch the Teams tab's own row-status pills
 // and an open team modal in place (see js/live-data.js) — Live Now

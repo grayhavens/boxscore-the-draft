@@ -97,9 +97,9 @@ export const TEAM_META = {
   // schools' basketball programs (only their football teams), so
   // sportsdbId stays null — TheRundown (rundownTeamId, sport_id 5)
   // is their only live source, not just a live-state supplement.
-  houston:    { name:'Houston',     leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Cougars',      sub:'Cougars',      accent:'#C8102E', badgeStyle:'background:#C8102E; color:#FFFFFF;', badgeText:'HOU', sportsdbId:null, rundownTeamId:275, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/248.png' },
-  purdue:     { name:'Purdue',      leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Boilermakers', sub:'Boilermakers', accent:'#000000', badgeStyle:'background:#000000; color:#CEB888;', badgeText:'PUR', sportsdbId:null, rundownTeamId:321, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png' },
-  utahstate:  { name:'Utah State',  leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Aggies',       sub:'Aggies',       accent:'#0F2439', badgeStyle:'background:#0F2439; color:#FFFFFF;', badgeText:'USU', sportsdbId:null, rundownTeamId:348, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/328.png', badgeUrlDark:'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/328.png' },
+  houston:    { name:'Houston',     leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Cougars',      sub:'Cougars',      accent:'#C8102E', badgeStyle:'background:#C8102E; color:#FFFFFF;', badgeText:'HOU', sportsdbId:null, espnTeamId:'248', rundownTeamId:275, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/248.png' },
+  purdue:     { name:'Purdue',      leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Boilermakers', sub:'Boilermakers', accent:'#000000', badgeStyle:'background:#000000; color:#CEB888;', badgeText:'PUR', sportsdbId:null, espnTeamId:'2509', rundownTeamId:321, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png' },
+  utahstate:  { name:'Utah State',  leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Aggies',       sub:'Aggies',       accent:'#0F2439', badgeStyle:'background:#0F2439; color:#FFFFFF;', badgeText:'USU', sportsdbId:null, espnTeamId:'328', rundownTeamId:348, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/328.png', badgeUrlDark:'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/328.png' },
   // Same "just for Josh, outside the real draft" addition as
   // `oklahomastate` above, on the CBB side — espnTeamId 197 (ESPN reuses
   // the same numeric team id across a school's sports) is what
@@ -329,14 +329,37 @@ export const LEAGUES = [
 export const PRIOR_SEASON_DISPLAY_LEAGUES = ['mlb', 'wnba'];
 
 export const LEAGUE_SCORING = {
+  // rankAuto rules are derived automatically from live ESPN data rather
+  // than marked by hand (see getLeagueRuleTeams in js/league-facts.js).
+  // Two shapes:
+  //  - A placement rule reads a live standings table. `scope` picks
+  //    which table to rank within — 'league' (the default, one flat
+  //    table — EPL/WNBA), 'conference', or 'division' (NFL/NBA/NHL/MLB,
+  //    ranked separately within EACH conference/division rather than
+  //    across the whole league). Exactly one of `rank` (an exact
+  //    placement, e.g. `rank: 1` for a title), `top` (placement <= N,
+  //    e.g. WNBA's top-two), or `bottom` (the worst N, e.g. relegation)
+  //    selects which end of the table matches.
+  //  - `clinched: true` ("Make the playoffs") reads ESPN's own real-world
+  //    playoff-clinch determination instead of a table position — see
+  //    the `clincherDescription` comment in js/espn.js for why this
+  //    can't be inferred from a rank/seed number. Confirmed live only for
+  //    WNBA/MLB so far (both late-season now); NFL/NBA/NHL carry no
+  //    clincher data this early in their season, so this rule just stays
+  //    "Pending" there until something actually clinches — re-verify
+  //    against a live payload once one does, same as every other ESPN
+  //    field in this app.
+  // Every rankAuto rule resolves to nothing for MLB/WNBA while they're
+  // still in PRIOR_SEASON_DISPLAY_LEAGUES (js/league-facts.js gates
+  // this explicitly) — their live standings right now are last season's,
+  // and an automated rule has no admin in the loop to catch that the way
+  // a manual mark does.
+  // exclusive rules can only ever be true for one team at a time —
+  // marking a new team for them replaces whoever was marked before.
   epl: {
     name: 'EPL',
     full: 'Premier League Scoring',
     accent: '#3D195B',
-    // rankAuto rules are derived automatically from the live standings
-    // table (see getLeagueRuleTeams in js/league-facts.js) rather than marked by hand.
-    // exclusive rules can only ever be true for one team at a time —
-    // marking a new team for them replaces whoever was marked before.
     rules: [
       { label: 'Win League Cup', pts: 1, exclusive: true },
       { label: 'Win FA Cup', pts: 2, exclusive: true },
@@ -354,14 +377,14 @@ export const LEAGUE_SCORING = {
     full: 'NFL Scoring',
     accent: '#013369',
     rules: [
-      { label: 'Make the playoffs', pts: 1 },
-      { label: 'Division title', pts: 2 },
-      { label: 'Best record in conference', pts: 3 },
+      { label: 'Make the playoffs', pts: 1, rankAuto: { clinched: true } },
+      { label: 'Division title', pts: 2, rankAuto: { scope: 'division', rank: 1 } },
+      { label: 'Best record in conference', pts: 3, rankAuto: { scope: 'conference', rank: 1 } },
       { label: 'Make conference championship', pts: 2 },
       { label: 'Make Super Bowl', pts: 3 },
       { label: 'Win Super Bowl', pts: 5 },
-      { label: 'Last place in division', pts: -2 },
-      { label: 'Worst record in conference', pts: -3 }
+      { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
+      { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -370,14 +393,14 @@ export const LEAGUE_SCORING = {
     full: 'NBA Scoring',
     accent: '#C9082A',
     rules: [
-      { label: 'Make the playoffs', pts: 1 },
-      { label: 'Division title', pts: 2 },
-      { label: 'Best record in conference', pts: 3 },
+      { label: 'Make the playoffs', pts: 1, rankAuto: { clinched: true } },
+      { label: 'Division title', pts: 2, rankAuto: { scope: 'division', rank: 1 } },
+      { label: 'Best record in conference', pts: 3, rankAuto: { scope: 'conference', rank: 1 } },
       { label: 'Make conference finals', pts: 2 },
       { label: 'Make Finals', pts: 3 },
       { label: 'Win Finals', pts: 5 },
-      { label: 'Last place in division', pts: -2 },
-      { label: 'Worst record in conference', pts: -3 }
+      { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
+      { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -386,14 +409,14 @@ export const LEAGUE_SCORING = {
     full: 'NHL Scoring',
     accent: '#111111',
     rules: [
-      { label: 'Make the playoffs', pts: 1 },
-      { label: 'Division title', pts: 2 },
-      { label: 'Best record in conference', pts: 3 },
+      { label: 'Make the playoffs', pts: 1, rankAuto: { clinched: true } },
+      { label: 'Division title', pts: 2, rankAuto: { scope: 'division', rank: 1 } },
+      { label: 'Best record in conference', pts: 3, rankAuto: { scope: 'conference', rank: 1 } },
       { label: 'Make conference finals', pts: 2 },
       { label: 'Make Stanley Cup Finals', pts: 3 },
       { label: 'Win Stanley Cup Finals', pts: 5 },
-      { label: 'Last place in division', pts: -2 },
-      { label: 'Worst record in conference', pts: -3 }
+      { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
+      { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -402,14 +425,18 @@ export const LEAGUE_SCORING = {
     full: 'MLB Scoring',
     accent: '#041E42',
     rules: [
-      { label: 'Make the playoffs', pts: 1 },
-      { label: 'Division title', pts: 2 },
-      { label: 'Best record in league', pts: 3 },
+      { label: 'Make the playoffs', pts: 1, rankAuto: { clinched: true } },
+      { label: 'Division title', pts: 2, rankAuto: { scope: 'division', rank: 1 } },
+      // "league" here means AL/NL — ESPN's own standings group these
+      // under the generic `conference` field (see fetchEspnMlbStandings
+      // in js/espn.js), same as every other sport's real conference, so
+      // scope stays 'conference' even though the rule label says "league".
+      { label: 'Best record in league', pts: 3, rankAuto: { scope: 'conference', rank: 1 } },
       { label: 'Make LCS', pts: 2 },
       { label: 'Make World Series', pts: 3 },
       { label: 'Win World Series', pts: 5 },
-      { label: 'Last place in division', pts: -2 },
-      { label: 'Worst record in league', pts: -3 }
+      { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
+      { label: 'Worst record in league', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -418,15 +445,15 @@ export const LEAGUE_SCORING = {
     full: 'WNBA Scoring',
     accent: '#FF6900',
     rules: [
-      { label: 'Make the playoffs', pts: 1 },
-      { label: 'Top-two regular-season record', pts: 2 },
+      { label: 'Make the playoffs', pts: 1, rankAuto: { clinched: true } },
+      { label: 'Top-two regular-season record', pts: 2, rankAuto: { top: 2 } },
       { label: 'Reach Commissioner’s Cup Final', pts: 1 },
       { label: 'Win Commissioner’s Cup', pts: 2 },
       { label: 'Reach the semifinals', pts: 2 },
       { label: 'Reach the Finals', pts: 3 },
       { label: 'Win the Finals', pts: 5 },
       { label: 'Missing the playoffs', pts: -3 },
-      { label: 'Bottom-three record', pts: -2 }
+      { label: 'Bottom-three record', pts: -2, rankAuto: { bottom: 3 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -443,7 +470,7 @@ export const LEAGUE_SCORING = {
       { label: 'Make National Championship', pts: 3 },
       { label: 'Win National Championship', pts: 5 },
       { label: 'Don’t make a bowl', pts: -2 },
-      { label: 'Finish last in conference', pts: -3 }
+      { label: 'Finish last in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   },
@@ -454,12 +481,12 @@ export const LEAGUE_SCORING = {
     rules: [
       { label: 'Make NCAA Tournament', pts: 1 },
       { label: 'Win conference tournament', pts: 2 },
-      { label: 'Win conference regular season', pts: 3 },
+      { label: 'Win conference regular season', pts: 3, rankAuto: { scope: 'conference', rank: 1 } },
       { label: 'Make Elite Eight', pts: 2 },
       { label: 'Make National Championship game', pts: 3 },
       { label: 'Win National Championship', pts: 5 },
       { label: 'Don’t make NCAA tournament', pts: -2 },
-      { label: 'Finish last in conference', pts: -3 }
+      { label: 'Finish last in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
     bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
   }
