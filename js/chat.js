@@ -289,11 +289,47 @@ function syncViewport(){
   if(list && open) list.scrollTop = list.scrollHeight;
 }
 
+// lockBodyScroll (position: fixed on <body>) isn't enough on iOS: a swipe
+// that starts on the header/composer, or that overshoots the end of the
+// message list, still pans the page behind the overlay (older iOS ignores
+// `overscroll-behavior` entirely, and even new versions only honor it on
+// the scroller itself). So take those gestures away explicitly: nothing
+// outside the message list (and the composer's own textarea) scrolls,
+// and a swipe in the list that would scroll past its top/bottom is
+// cancelled instead of chaining out to the page. Needs a non-passive
+// listener, since passive ones can't preventDefault.
+function guardTouchScroll(screen){
+  let lastY = 0;
+  screen.addEventListener('touchstart', event => {
+    lastY = event.touches[0].clientY;
+  }, { passive: true });
+
+  screen.addEventListener('touchmove', event => {
+    const y = event.touches[0].clientY;
+    const dy = y - lastY;
+    lastY = y;
+
+    const target = event.target;
+    if(target.closest && target.closest('#chat-input')) return;
+
+    const list = listEl();
+    if(!list || !list.contains(target)){
+      event.preventDefault();
+      return;
+    }
+
+    const atTop = list.scrollTop <= 0;
+    const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+    if((atTop && dy > 0) || (atBottom && dy < 0)) event.preventDefault();
+  }, { passive: false });
+}
+
 export function openChat(){
   const el = screenEl();
   if(!el || open) return;
   open = true;
   lockBodyScroll();
+  document.documentElement.classList.add('chat-open');
   el.classList.add('open');
   el.classList.remove('view-push-in');
   void el.offsetWidth;
@@ -313,6 +349,7 @@ export function closeChat(){
   open = false;
   el.classList.remove('open');
   inputEl().blur();
+  document.documentElement.classList.remove('chat-open');
   unlockBodyScroll();
   paintBadges();
 }
@@ -358,6 +395,7 @@ export function initChat(){
   document.addEventListener('keydown', event => {
     if(event.key === 'Escape' && open) closeChat();
   });
+  if(screenEl()) guardTouchScroll(screenEl());
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewport);
     window.visualViewport.addEventListener('scroll', syncViewport);

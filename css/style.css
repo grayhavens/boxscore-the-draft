@@ -3275,6 +3275,14 @@ body{
 }
 .chat-screen.open{ display: flex; }
 
+/* Set on <html> while chat is open (js/chat.js's openChat) — the page
+   behind must not scroll or bounce; see guardTouchScroll there for the
+   half of this that CSS alone can't cover on iOS. */
+html.chat-open{
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .chat-head{
   flex: 0 0 auto;
   display: flex;
