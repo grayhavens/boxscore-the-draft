@@ -1,5 +1,5 @@
 /* ============================================================
-   Leaderboard view: cross-drafter standings.
+   Points view (formerly "Leaderboard"): cross-drafter standings.
 
    The LIST is deliberately plain — rank, name, one confirmed total.
    No per-league composition here at all (no mix bar, no legend); tap a
@@ -432,7 +432,7 @@ function obDetailHtml(row){
     : '';
 
   return `
-    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Leaderboard</button>
+    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Points</button>
     <div class="ob-detail-head">
       <div class="ob-detail-left">
         <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>

@@ -69,6 +69,7 @@ import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { currentProfileId, paintIdentityChrome } from './identity.js';
+import { initChat, paintBadges as paintChatBadges } from './chat.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
@@ -158,6 +159,7 @@ export function setDraftTeam(id){
   const standingsView = document.getElementById('view-standings');
   if(standingsView && standingsView.classList.contains('active')) renderStandings();
   paintIdentityChrome(id);
+  paintChatBadges();
 }
 window.setDraftTeam = setDraftTeam;
 
@@ -644,6 +646,7 @@ loadSeasonPhaseCache();
 loadTeamInfoCache();
 renderBoard();
 paintIdentityChrome(currentDraftTeamId);
+initChat();
 applyUrlState();
 
 // renderBoard() already repaints row-status pills and CFB/EPL/NFL
