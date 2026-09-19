@@ -34,7 +34,7 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -333,10 +333,7 @@ export function renderNflStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  // favoriteOnly (js/data.js) is a personal add-on outside the real
-  // draft — flagged here as "· Favorite" so the owner name doesn't read
-  // as one of that drafter's 3 real NFL picks.
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
+  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
   const recordLabel = `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderNflByDrafterRow

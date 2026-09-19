@@ -31,7 +31,7 @@
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation } from './utils.js';
+import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation, draftOwnerName } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
 import { espnWnbaStandingsCache } from './standings-wnba.js';
@@ -595,12 +595,11 @@ export function leagueFactRowHtml(league, rule){
   const chipsHtml = selected.length
     ? selected.map(teamKey => {
         const meta = TEAM_META[teamKey];
-        const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
         const removeBtn = isAuto ? '' : `<button class="fact-chip-x" onclick="removeLeagueFact('${league.key}', '${rule.label}', '${teamKey}')" aria-label="Remove ${meta.name}">&times;</button>`;
         return `
           <span class="fact-chip">
             <span class="fact-chip-badge" style="${meta.badgeStyle}">${meta.badgeText}</span>
-            ${meta.name} <span class="fact-chip-owner">${drafter.name}${meta.favoriteOnly ? ' · Favorite' : ''}</span>
+            ${meta.name} <span class="fact-chip-owner">${draftOwnerName(teamKey)}</span>
             ${removeBtn}
           </span>
         `;

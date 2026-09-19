@@ -29,10 +29,10 @@
    draftedTeamFor match goes by ESPN team id, not name — see that
    function's own comment for why.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
+import { TEAM_META, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
 
@@ -120,9 +120,16 @@ function draftedTeamFor(leagueKey, competitor){
   return exact || findDraftedTeamByName(leagueKey, competitor.teamName);
 }
 
-function ownerName(draftTeamId){
-  const d = DRAFT_TEAMS.find(x => x.id === draftTeamId);
-  return d ? d.name : '';
+// draftedTeamFor, minus anyone else's favorites: a favoriteOnly team
+// (js/data.js) isn't in the draft, so it's only a tracked team for a
+// viewer who favorited it. For everyone else it's just another
+// opponent — its games neither appear on their own nor carry the
+// drafted-team treatment — so a drafter's favorite never shows up
+// outside their own view.
+function visibleTeamFor(leagueKey, competitor){
+  const teamKey = draftedTeamFor(leagueKey, competitor);
+  if(teamKey && TEAM_META[teamKey].favoriteOnly && !isFavorite(teamKey)) return null;
+  return teamKey;
 }
 
 // Drafted college teams show as the bare school ("Wake Forest" — that's
@@ -160,12 +167,12 @@ function buildGame(league, event){
   if(!home || !away) return null;
 
   const sides = [away, home].map(c => {
-    const teamKey = draftedTeamFor(league.key, c);
+    const teamKey = visibleTeamFor(league.key, c);
     const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(opponentDisplayName(league.key, c), c.logoUrl);
     return {
       teamKey,
       meta,
-      owner: teamKey ? ownerName(meta.draftTeamId) : '',
+      owner: teamKey ? draftOwnerName(teamKey) : '',
       isMine: !!teamKey && meta.draftTeamId === currentProfileId,
       isFav: !!teamKey && isFavorite(teamKey),
       score: c.score,

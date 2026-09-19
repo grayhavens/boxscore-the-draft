@@ -35,18 +35,18 @@ export const DRAFT_TEAMS = [
 // leagueKey links each team to its LEAGUE_SCORING entry below.
 // draftTeamId links each team to its owner in DRAFT_TEAMS above.
 // favoriteOnly:true marks a team that isn't part of anyone's real draft
-// roster — it can still carry a draftTeamId (so it renders on that
-// person's own board and can be favorited/tracked from there), but every
-// points-adjacent computation (each league's computeXDrafterCombined,
-// js/overall.js's award/point totals) must filter these out first.
-// Currently just oklahomastate/oklahomastate_cbb below.
+// roster. It has NO draftTeamId — nobody owns it — and exists only so a
+// drafter can favorite it (js/favorites.js) and see it on their own
+// Teams tab. It must never be presented as a drafter's team anywhere
+// (owner labels, other people's boards, Scores for anyone who hasn't
+// favorited it), and every points-adjacent computation (each league's
+// computeXDrafterCombined, js/overall.js's award/point totals) must
+// filter it out first. Currently just oklahomastate/oklahomastate_cbb
+// below.
 //
-// Josh's 23 teams (the real 21-team draft roster plus two personal
-// add-ons outside the draft — oklahomastate/oklahomastate_cbb, kept
-// only so Josh can follow and favorite Oklahoma State — see their own
-// comments below) and all 18 other EPL clubs (below) have full
-// metadata (real badge colors, live sportsdbId/rundownTeamId) filled
-// in. The remaining 171 teams — one roster per drafter, pulled from
+// Josh's 21 teams (the real draft roster) and all 18 other EPL clubs
+// (below) have full metadata (real badge colors, live
+// sportsdbId/rundownTeamId) filled in. The remaining 171 teams — one roster per drafter, pulled from
 // the shared draft spreadsheet, across NFL/NBA/NHL/MLB/WNBA/CFB/CBB —
 // are appended further down as a skeleton: correct name/league/owner,
 // a league-colored placeholder badge, and no live data yet. Fill
@@ -76,22 +76,16 @@ export const TEAM_META = {
   oregon:     { name:'Oregon',      leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Ducks',       sub:"Ducks",  accent:'#154733', badgeStyle:'background:#154733; color:#FEE123;', badgeText:'ORE',  sportsdbId:'136938', recentLabel:'Results So Far', rundownTeamId:198, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/p7qmdy1564336566.png' },
   texasam:    { name:'Texas A&M',   leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Aggies',      sub:"Aggies",  accent:'#500000', badgeStyle:'background:#500000; color:#FFFFFF;', badgeText:'A&M',  sportsdbId:'136959', recentLabel:'Results So Far', rundownTeamId:218, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/tsu3lj1564336806.png' },
   arizona:    { name:'Arizona',     leagueKey:'cfb',  draftTeamId:'josh', boardSub:'Wildcats',    sub:"Wildcats",  accent:'#AB0520', badgeStyle:'background:#AB0520; color:#0C234B;', badgeText:'ARIZ', sportsdbId:'136171', recentLabel:'Results So Far', rundownTeamId:125, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/kq29h81564335468.png' },
-  // Added outside the real draft, just for Josh's own board — not part
-  // of anyone's drafted 30. Same real-data treatment as every drafted
-  // CFB team otherwise: findCfbTeamKeyByLocation (js/utils.js) matches
-  // it against ESPN's standings/schedule by `name` ("Oklahoma State",
+  // Josh's personal favorite, not part of anyone's draft (see
+  // favoriteOnly above) — so no draftTeamId. It only shows up on the
+  // Teams tab of a drafter who has favorited it (teamsForCurrentDraftTeam
+  // in js/board.js) and on Scores for that same drafter (draftedTeamFor
+  // in js/live-now.js). Same real-data treatment as every drafted CFB
+  // team otherwise: findCfbTeamKeyByLocation (js/utils.js) matches it
+  // against ESPN's standings/schedule by `name` ("Oklahoma State",
   // ESPN's own `location` field for team id 197), so it gets a real
   // record, schedule and Game Details sheet, not a placeholder.
-  // draftTeamId is 'josh' only so it renders on Josh's own board (see
-  // teamsForCurrentDraftTeam in js/board.js) — it is NOT one of his 3
-  // real CFB picks. favoriteOnly:true is what actually enforces that:
-  // every drafter-combined/points computation (computeCfbDrafterCombined
-  // in js/standings-cfb.js, and the equivalent in every other league
-  // file) must filter it out before counting wins/losses toward any
-  // drafter's bonus or points — favoriting a team, drafted-elsewhere or
-  // hardcoded like this one, tracks it for fun and must never itself add
-  // to a drafter's score.
-  oklahomastate: { name:'Oklahoma State', leagueKey:'cfb', draftTeamId:'josh', favoriteOnly:true, boardSub:'Cowboys', sub:"Cowboys", accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:'136936', recentLabel:'Results So Far', rundownTeamId:196, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
+  oklahomastate: { name:'Oklahoma State', leagueKey:'cfb', favoriteOnly:true, boardSub:'Cowboys', sub:"Cowboys", accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:'136936', recentLabel:'Results So Far', rundownTeamId:196, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
 
   // TheSportsDB doesn't carry a distinct entry for these three
   // schools' basketball programs (only their football teams), so
@@ -100,7 +94,7 @@ export const TEAM_META = {
   houston:    { name:'Houston',     leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Cougars',      sub:'Cougars',      accent:'#C8102E', badgeStyle:'background:#C8102E; color:#FFFFFF;', badgeText:'HOU', sportsdbId:null, espnTeamId:'248', rundownTeamId:275, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/248.png' },
   purdue:     { name:'Purdue',      leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Boilermakers', sub:'Boilermakers', accent:'#000000', badgeStyle:'background:#000000; color:#CEB888;', badgeText:'PUR', sportsdbId:null, espnTeamId:'2509', rundownTeamId:321, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png' },
   utahstate:  { name:'Utah State',  leagueKey:'mcbb', draftTeamId:'josh', boardSub:'Aggies',       sub:'Aggies',       accent:'#0F2439', badgeStyle:'background:#0F2439; color:#FFFFFF;', badgeText:'USU', sportsdbId:null, espnTeamId:'328', rundownTeamId:348, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/328.png', badgeUrlDark:'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/328.png' },
-  // Same "just for Josh, outside the real draft" addition as
+  // Same "Josh's favorite, outside the real draft" addition as
   // `oklahomastate` above, on the CBB side — espnTeamId 197 (ESPN reuses
   // the same numeric team id across a school's sports) is what
   // findCbbTeamKeyByEspnId (js/standings-cbb.js) matches against, same
@@ -109,7 +103,7 @@ export const TEAM_META = {
   // Houston/Purdue/Utah State above. favoriteOnly:true — see
   // `oklahomastate`'s comment above; same rule applies here for
   // computeCbbDrafterCombined (js/standings-cbb.js).
-  oklahomastate_cbb: { name:'Oklahoma State', leagueKey:'mcbb', draftTeamId:'josh', favoriteOnly:true, boardSub:'Cowboys', sub:'Cowboys', accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:null, espnTeamId:'197', rundownTeamId:315, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
+  oklahomastate_cbb: { name:'Oklahoma State', leagueKey:'mcbb', favoriteOnly:true, boardSub:'Cowboys', sub:'Cowboys', accent:'#FE5C00', badgeStyle:'background:#FE5C00; color:#000000;', badgeText:'OKST', sportsdbId:null, espnTeamId:'197', rundownTeamId:315, badgeUrl:'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png' },
 
   // ---- Skeleton: the other 9 drafters' rosters (189 teams) ----
   isaac_arsenal: { name:'Arsenal', leagueKey:'epl', draftTeamId:'isaac', boardSub:'Premier League', sub:"", accent:'#EF0107', badgeStyle:'background:#EF0107; color:#FFFFFF;', badgeText:'ARS', sportsdbId:'133604', rundownTeamId:3436, badgeUrl:'https://r2.thesportsdb.com/images/media/team/badge/uyhbfe1612467038.png' },
