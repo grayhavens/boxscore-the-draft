@@ -41,7 +41,10 @@ import { isFavorite, favoriteStarHtml } from './favorites.js';
 // re-pick and stale the moment the slate changes). `dayOffset` is in
 // whole days from today; 0 is today. ----
 let dayOffset = 0;
-let filterKey = 'all'; // 'live' | 'upcoming' | 'all' — game STATE
+let filterKey = 'live'; // 'live' | 'upcoming' | 'completed' — game STATE
+// False until the user taps a filter; until then the first render picks the
+// most useful tab itself (there's no catch-all tab to fall back on).
+let filterPicked = false;
 
 // Team SCOPE — a different axis from filterKey above, and independent
 // toggles rather than one exclusive choice: both can be on at once
@@ -227,7 +230,7 @@ function timeLabel(date){
 // period when live, a short "F"/"F/10" when done (never the word
 // "Final" twice, once here and once in the card).
 function railHtml(game){
-  if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail}</div></div>`;
+  if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail.replace(/\s+-\s+/, '<br>')}</div></div>`;
   if(game.state === 'final') return `<div class="tg-rail"><div class="tg-rail-top">${game.detail.replace('Final', 'F')}</div></div>`;
   const t = timeLabel(game.date);
   return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
@@ -311,6 +314,7 @@ function sectionHtml(label, labelClass, games){
 
 export function setTodayFilter(key){
   filterKey = key;
+  filterPicked = true;
   renderLiveNow();
 }
 
@@ -323,7 +327,8 @@ export function stepTodayDay(delta){
 // lands on today rather than wherever the arrows were left.
 export function resetTodayDay(){
   dayOffset = 0;
-  filterKey = 'all';
+  filterKey = 'live';
+  filterPicked = false;
   scopeFilter.mine = false;
   scopeFilter.fav = false;
 }
@@ -401,7 +406,7 @@ function controlsHtml(liveCount){
   const segments = [
     { key: 'live', label: `Live${liveCount ? ' &middot; ' + liveCount : ''}` },
     { key: 'upcoming', label: 'Upcoming' },
-    { key: 'all', label: 'All' }
+    { key: 'completed', label: 'Completed' }
   ];
   return `
     <div class="tg-daynav">
@@ -417,12 +422,21 @@ function controlsHtml(liveCount){
   `;
 }
 
-function emptyHtml(){
+const EMPTY_COPY = {
+  live: ['Nothing live', 'No game is in progress right now. Check Upcoming or Completed, or use the arrows to change day.'],
+  upcoming: ['Nothing upcoming', 'No games left to start on this date. Use the arrows to find the next slate.'],
+  completed: ['Nothing completed', 'No game has finished on this date yet.']
+};
+
+function emptyHtml(hasGames){
+  const [title, sub] = hasGames
+    ? EMPTY_COPY[filterKey]
+    : ['Nothing scheduled', 'No drafted team plays on this date. Use the arrows to find the next slate.'];
   return `
     <div class="empty-panel">
       <div class="tg-empty-ring"></div>
-      <div class="empty-title">Nothing scheduled</div>
-      <div class="empty-sub">No drafted team plays on this date. Use the arrows to find the next slate.</div>
+      <div class="empty-title">${title}</div>
+      <div class="empty-sub">${sub}</div>
     </div>
   `;
 }
@@ -455,6 +469,12 @@ export async function renderLiveNow(){
   const inScope = all.filter(gameMatchesScope);
   const liveCount = inScope.filter(g => g.state === 'live').length;
 
+  if(!filterPicked){
+    filterKey = liveCount ? 'live'
+      : inScope.some(g => g.state === 'pre') ? 'upcoming'
+      : 'completed';
+  }
+
   if(subEl){
     // Leagues counted off the same scope-filtered set the list renders
     // from, so the number matches the league sections actually shown.
@@ -469,8 +489,9 @@ export async function renderLiveNow(){
   let shown = inScope;
   if(filterKey === 'live') shown = shown.filter(g => g.state === 'live');
   if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
+  if(filterKey === 'completed') shown = shown.filter(g => g.state === 'final');
 
-  if(!shown.length){ listEl.innerHTML = emptyHtml(); return; }
+  if(!shown.length){ listEl.innerHTML = emptyHtml(inScope.length > 0); return; }
 
   const html = [];
   // Live pinned above everything, across leagues — the one thing worth
