@@ -47,7 +47,7 @@ function needsWelcome(){
   }
 }
 
-// "Josh" -> "J", "Eric Prister" -> "EP" — the header stays quiet
+// "Josh" -> "J", "Eric P" -> "EP" — the header stays quiet
 // everywhere; the switcher sheet below always shows full names, so
 // nothing about "who" is ever actually ambiguous.
 function initials(name){
