@@ -39,7 +39,7 @@
    labels, and how a record renders/sorts/combines).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml } from './utils.js';
+import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, draftOwnerName } from './utils.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 
@@ -304,10 +304,7 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    // favoriteOnly (js/data.js) is a personal add-on outside the real
-    // draft — flagged here as "· Favorite" so the owner name doesn't
-    // read as one of that drafter's real picks in this league.
-    const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
+    const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
     // Same two-tier record treatment as the Drafted view's row (see
     // .person-record-chip) — combinedLabel works unchanged on a single
     // ESPN row, not just an aggregated per-drafter bucket, since both
