@@ -77,7 +77,7 @@ import { favoriteStarHtml, isFavorite } from './favorites.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.18-1';
+const APP_VERSION = '2026.09.18-2';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the

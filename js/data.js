@@ -12,10 +12,10 @@ export const DRAFT_TEAMS = [
   { id:'drew', name:'Drew' },
   { id:'douglas', name:'Douglas' },
   { id:'collin', name:'Collin' },
-  { id:'erichylok', name:'Eric Hylok' },
+  { id:'erichylok', name:'Eric H' },
   { id:'patrick', name:'Patrick' },
   { id:'peter', name:'Peter' },
-  { id:'ericprister', name:'Eric Prister' },
+  { id:'ericprister', name:'Eric P' },
   { id:'donny', name:'Donny' }
 ];
 
