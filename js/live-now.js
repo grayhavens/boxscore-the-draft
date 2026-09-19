@@ -158,7 +158,8 @@ function buildGame(league, event){
       owner: teamKey ? ownerName(meta.draftTeamId) : '',
       isMine: !!teamKey && meta.draftTeamId === currentProfileId,
       isFav: !!teamKey && isFavorite(teamKey),
-      score: c.score
+      score: c.score,
+      rank: c.rank
     };
   });
   if(!sides.some(s => s.teamKey)) return null;
@@ -242,11 +243,14 @@ function sideHtml(side, dim){
   const nameClass = `tg-name${dim ? ' dim' : ''}`;
   const scoreClass = `tg-score${dim ? ' dim' : ''}`;
   const score = side.score === null || side.score === undefined ? '' : side.score;
+  // AP Top 25 rank (CFB / College Basketball) — the usual "#5 Texas Tech"
+  // convention, shown for undrafted opponents too.
+  const rankHtml = side.rank ? `<span class="tg-rank" aria-label="Ranked ${side.rank}">${side.rank}</span>` : '';
   if(!side.teamKey){
     return `
       <div class="tg-side">
         ${teamBadgeHtml(side.meta)}
-        <div class="tg-label"><span class="${nameClass}">${side.meta.name}</span></div>
+        <div class="tg-label">${rankHtml}<span class="${nameClass}">${side.meta.name}</span></div>
         <span class="${scoreClass}">${score}</span>
       </div>
     `;
@@ -259,7 +263,7 @@ function sideHtml(side, dim){
     <div class="tg-side">
       <button type="button" class="tg-badge-btn" ${openTeam} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
       <div class="tg-label">
-        <span class="${nameClass}">${side.meta.name}</span>
+        ${rankHtml}<span class="${nameClass}">${side.meta.name}</span>
         <span class="tg-owner">${side.owner}</span>
       </div>
       ${favHtml}
