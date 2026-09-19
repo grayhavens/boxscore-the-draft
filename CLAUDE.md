@@ -98,6 +98,16 @@ worker, so local testing can't post into the real room. The first deploy after a
 `[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
 header icon ships pointing at a room that doesn't exist yet.
 
+**Chat reactions** (Slack-style: several per person, one of each emoji): tapping a message opens a
+row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and
+`worker/chat-room.js`, and the worker rejects anything not in its copy); tapping a pill under a
+message toggles your own. The client sends `{type:'react', from, messageId, emoji}` and the room
+answers everyone with that message's full reaction set. Reactions live in their own SQLite table (not
+on the message) since they change after it's sent, so the `history` frame always carries a snapshot
+of every retained message's reactions — a reconnect (`?after=<lastId>`) fetches no old messages and
+would otherwise never see a reaction added to one. **Deploy the worker before the static site:** an
+old worker silently ignores `react` frames, so the buttons would do nothing.
+
 **Chat GIFs** (`js/gifs.js`, `js/gif-picker.js`): a GIF button in the chat composer opens a picker
 backed by KLIPY (Tenor's API shut down 2026-06-30). **This is the one upstream that deliberately
 breaks the "everything goes through the worker" rule above:** KLIPY's integration requirements say
