@@ -983,6 +983,17 @@ body{
   text-align: left;
 }
 
+/* AP Top 25 rank, sitting just before the name. Small and muted so it
+   reads as a prefix, not a second name; tabular so 1 and 25 align. */
+.tg-rank{
+  flex: 0 0 auto;
+  margin-right: -3px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-sub);
+}
+
 .tg-name{
   font-weight: 700;
   font-size: 13.5px;
