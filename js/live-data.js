@@ -80,8 +80,11 @@ function resolveGameDetailSide(team, leagueKey){
   const teamKey = leagueKey === 'cfb'
     ? findCfbTeamKeyByLocation(team.location)
     : findDraftedTeamByName(leagueKey, team.name);
+  const isCollege = leagueKey === 'cfb' || leagueKey === 'mcbb';
   const meta = teamKey ? TEAM_META[teamKey] : {
-    name: team.name || team.abbr || '',
+    // College opponents show as the bare school, matching drafted
+    // college teams (TEAM_META.name) and the Scores tab.
+    name: (isCollege && team.location) || team.name || team.abbr || '',
     badgeStyle: 'background: rgba(255,255,255,0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
     badgeText: team.abbr || abbrFromName(team.name),
     badgeUrl: team.logoUrl || null

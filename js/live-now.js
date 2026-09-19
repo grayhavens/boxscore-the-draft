@@ -125,6 +125,16 @@ function ownerName(draftTeamId){
   return d ? d.name : '';
 }
 
+// Drafted college teams show as the bare school ("Wake Forest" — that's
+// TEAM_META.name), so an undrafted college opponent has to match that
+// or the row breaks the pattern next to it. ESPN's `teamName` is the
+// full "Wake Forest Demon Deacons"; its `location` is the school alone.
+// Pro leagues keep the full name — there the nickname is the team.
+function opponentDisplayName(leagueKey, competitor){
+  const isCollege = leagueKey === 'cfb' || leagueKey === 'mcbb';
+  return (isCollege && competitor.location) || competitor.teamName;
+}
+
 // A synthetic "team" for a side nobody drafted. ESPN's scoreboard
 // already hands back that side's own real crest (competitor.logoUrl) —
 // same "real logo over a generic monogram" treatment
@@ -151,7 +161,7 @@ function buildGame(league, event){
 
   const sides = [away, home].map(c => {
     const teamKey = draftedTeamFor(league.key, c);
-    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(c.teamName, c.logoUrl);
+    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(opponentDisplayName(league.key, c), c.logoUrl);
     return {
       teamKey,
       meta,
