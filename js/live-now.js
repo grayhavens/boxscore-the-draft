@@ -154,7 +154,13 @@ function buildGame(league, event){
 
   const sides = [away, home].map(c => {
     const teamKey = draftedTeamFor(league.key, c);
-    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(c.teamName, c.logoUrl);
+    // Mascot only ("Blackhawks"), like every drafted team's own
+    // TEAM_META.name. The college leagues keep ESPN's full name: their
+    // drafted teams are labelled by school ("Texas"), so a bare mascot
+    // ("Spartans") would be ambiguous on an opponent.
+    const isCollege = league.key === 'cfb' || league.key === 'mcbb';
+    const opponentName = (!isCollege && c.teamNickname) || c.teamName;
+    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(opponentName, c.logoUrl);
     return {
       teamKey,
       meta,
