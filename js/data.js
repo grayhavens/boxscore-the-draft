@@ -364,7 +364,7 @@ export const LEAGUE_SCORING = {
       { label: 'Win EPL', pts: 9, rankAuto: { rank: 1 } },
       { label: 'Relegation', pts: -5, rankAuto: { bottom: 3 } }
     ],
-    bonus: { label: 'Highest combined win-loss-draw point total across your teams', pts: 5 }
+    bonus: { label: 'Highest combined EPL point total', pts: 5 }
   },
   nfl: {
     name: 'NFL',
@@ -380,7 +380,7 @@ export const LEAGUE_SCORING = {
       { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
       { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   nba: {
     name: 'NBA',
@@ -396,7 +396,7 @@ export const LEAGUE_SCORING = {
       { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
       { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   nhl: {
     name: 'NHL',
@@ -412,7 +412,7 @@ export const LEAGUE_SCORING = {
       { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
       { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   mlb: {
     name: 'MLB',
@@ -432,7 +432,7 @@ export const LEAGUE_SCORING = {
       { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
       { label: 'Worst record in league', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   wnba: {
     name: 'WNBA',
@@ -449,7 +449,7 @@ export const LEAGUE_SCORING = {
       { label: 'Missing the playoffs', pts: -3 },
       { label: 'Bottom-three record', pts: -2, rankAuto: { bottom: 3 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   cfb: {
     name: 'College FB',
@@ -466,7 +466,7 @@ export const LEAGUE_SCORING = {
       { label: 'Don’t make a bowl', pts: -2 },
       { label: 'Finish last in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   },
   mcbb: {
     name: 'College BB',
@@ -482,6 +482,6 @@ export const LEAGUE_SCORING = {
       { label: 'Don’t make NCAA tournament', pts: -2 },
       { label: 'Finish last in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win percentage across your teams', pts: 5 }
+    bonus: { label: 'Best combined win %', pts: 5 }
   }
 };

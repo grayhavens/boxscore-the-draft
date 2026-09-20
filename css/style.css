@@ -1007,17 +1007,15 @@ body{
 .tg-name.dim,
 .tg-score.dim{ color: var(--text-sub); }
 
-/* Owner designation. Micro-caps behind a hairline — unmistakably
-   metadata, still legible at 4.5:1+ — rather than full-strength accent
-   gold, which read as louder than the scores on a line that already
-   has a crest, a club and a score. */
+/* Owner designation. Same weight and case as the Standings tab's
+   .team-sub owner line, kept inline behind a hairline so the row's
+   layout is unchanged. */
 .tg-owner{
   flex: 0 0 auto;
   font-family: 'Manrope', sans-serif;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.9px;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   color: var(--text-sub);
   white-space: nowrap;
   padding-left: 7px;
@@ -1968,21 +1966,15 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 12.5px;
-  padding: 3px 9px;
-  border-radius: 20px;
+  font-size: 15px;
+  text-align: right;
   white-space: nowrap;
 }
 
-.scoring-value.pos{
-  background: var(--win-soft);
-  color: var(--win);
-}
-
-.scoring-value.neg{
-  background: var(--loss-soft);
-  color: var(--loss);
-}
+/* Plain green/red numbers, no pill — same treatment as .ob-rule-pts on
+   the drafter breakdowns. */
+.scoring-value.pos{ color: var(--win); }
+.scoring-value.neg{ color: var(--loss); }
 
 /* ---- Scoring page (js/scoring-page.js) ----
    The filter-chip-selected league's rules, reusing openLeagueModal's own
@@ -2744,7 +2736,12 @@ body{
 .ob-rank.rank-mid{ color: var(--lb-rank-mid); }
 .ob-rank.rank-1{ color: var(--accent); }
 
-.ob-identity{ min-width: 0; }
+.ob-identity{
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .ob-name{
   font-family: 'Space Grotesk', sans-serif;
   font-size: 18px;
