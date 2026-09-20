@@ -44,7 +44,7 @@ function leagueRulesHtml(league){
   const rulesHtml = data.rules.map(r => `
     <div class="scoring-item">
       <div class="scoring-label">${r.label}</div>
-      <div class="scoring-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts} pt${Math.abs(r.pts) === 1 ? '' : 's'}</div>
+      <div class="scoring-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts}</div>
     </div>
   `).join('');
 
@@ -55,7 +55,7 @@ function leagueRulesHtml(league){
     <div class="scoring-list">
       <div class="scoring-item">
         <div class="scoring-label">${data.bonus.label}</div>
-        <div class="scoring-value pos">+${data.bonus.pts} pts</div>
+        <div class="scoring-value pos">+${data.bonus.pts}</div>
       </div>
     </div>
   ` : '';
