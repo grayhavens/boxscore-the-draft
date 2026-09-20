@@ -29,10 +29,10 @@
    draftedTeamFor match goes by ESPN team id, not name — see that
    function's own comment for why.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, LEAGUES } from './data.js';
+import { TEAM_META, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
 
@@ -123,9 +123,26 @@ function draftedTeamFor(leagueKey, competitor){
   return exact || findDraftedTeamByName(leagueKey, competitor.teamName);
 }
 
-function ownerName(draftTeamId){
-  const d = DRAFT_TEAMS.find(x => x.id === draftTeamId);
-  return d ? d.name : '';
+// draftedTeamFor, minus anyone else's favorites: a favoriteOnly team
+// (js/data.js) isn't in the draft, so it's only a tracked team for a
+// viewer who favorited it. For everyone else it's just another
+// opponent — its games neither appear on their own nor carry the
+// drafted-team treatment — so a drafter's favorite never shows up
+// outside their own view.
+function visibleTeamFor(leagueKey, competitor){
+  const teamKey = draftedTeamFor(leagueKey, competitor);
+  if(teamKey && TEAM_META[teamKey].favoriteOnly && !isFavorite(teamKey)) return null;
+  return teamKey;
+}
+
+// Drafted college teams show as the bare school ("Wake Forest" — that's
+// TEAM_META.name), so an undrafted college opponent has to match that
+// or the row breaks the pattern next to it. ESPN's `teamName` is the
+// full "Wake Forest Demon Deacons"; its `location` is the school alone.
+// Pro leagues keep the full name — there the nickname is the team.
+function opponentDisplayName(leagueKey, competitor){
+  const isCollege = leagueKey === 'cfb' || leagueKey === 'mcbb';
+  return (isCollege && competitor.location) || competitor.teamName;
 }
 
 // A synthetic "team" for a side nobody drafted. ESPN's scoreboard
@@ -153,21 +170,16 @@ function buildGame(league, event){
   if(!home || !away) return null;
 
   const sides = [away, home].map(c => {
-    const teamKey = draftedTeamFor(league.key, c);
-    // Same short label a drafted team gets from TEAM_META.name: mascot
-    // only for the pros ("Blackhawks"), school only for the colleges
-    // ("Michigan State", ESPN's `location`), whose drafted teams are
-    // labelled by school too.
-    const isCollege = league.key === 'cfb' || league.key === 'mcbb';
-    const opponentName = (isCollege ? c.location : c.teamNickname) || c.teamName;
-    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(opponentName, c.logoUrl);
+    const teamKey = visibleTeamFor(league.key, c);
+    const meta = teamKey ? TEAM_META[teamKey] : opponentMeta(opponentDisplayName(league.key, c), c.logoUrl);
     return {
       teamKey,
       meta,
-      owner: teamKey ? ownerName(meta.draftTeamId) : '',
+      owner: teamKey ? draftOwnerName(teamKey) : '',
       isMine: !!teamKey && meta.draftTeamId === currentProfileId,
       isFav: !!teamKey && isFavorite(teamKey),
-      score: c.score
+      score: c.score,
+      rank: c.rank
     };
   });
   if(!sides.some(s => s.teamKey)) return null;
@@ -251,11 +263,14 @@ function sideHtml(side, dim){
   const nameClass = `tg-name${dim ? ' dim' : ''}`;
   const scoreClass = `tg-score${dim ? ' dim' : ''}`;
   const score = side.score === null || side.score === undefined ? '' : side.score;
+  // AP Top 25 rank (CFB / College Basketball) — the usual "#5 Texas Tech"
+  // convention, shown for undrafted opponents too.
+  const rankHtml = side.rank ? `<span class="tg-rank" aria-label="Ranked ${side.rank}">${side.rank}</span>` : '';
   if(!side.teamKey){
     return `
       <div class="tg-side">
         ${teamBadgeHtml(side.meta)}
-        <div class="tg-label"><span class="${nameClass}">${side.meta.name}</span></div>
+        <div class="tg-label">${rankHtml}<span class="${nameClass}">${side.meta.name}</span></div>
         <span class="${scoreClass}">${score}</span>
       </div>
     `;
@@ -268,7 +283,7 @@ function sideHtml(side, dim){
     <div class="tg-side">
       <button type="button" class="tg-badge-btn" ${openTeam} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
       <div class="tg-label">
-        <span class="${nameClass}">${side.meta.name}</span>
+        ${rankHtml}<span class="${nameClass}">${side.meta.name}</span>
         <span class="tg-owner">${side.owner}</span>
       </div>
       ${favHtml}

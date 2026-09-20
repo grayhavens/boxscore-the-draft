@@ -993,7 +993,10 @@ export async function fetchEspnTeamStatistics(sportLeaguePath, espnTeamId){
 // on this same request instead of needing its own.
 // Shape returned: { events: [{ id, date, state, detail, completed,
 // competitors: [{ teamId, teamName, teamNickname, location, logoUrl, abbreviation,
-// homeAway, score }] }], season: { type, year } | null }
+// homeAway, score, rank }] }], season: { type, year } | null }
+// `rank` is the AP Top 25 rank ESPN attaches to college competitors
+// (`curatedRank.current`, 1-25; it reports 99 for "unranked", and pro
+// leagues don't send it at all) — null unless actually ranked.
 export async function fetchEspnScoreboard(sportLeaguePath, dates){
   // ESPN's scoreboard defaults to today; `?dates=YYYYMMDD` returns that
   // day's slate instead — same response shape, verified against both.
@@ -1034,7 +1037,8 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
       logoUrl: (c.team && c.team.logo) || null,
       abbreviation: c.team && c.team.abbreviation,
       homeAway: c.homeAway,
-      score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null
+      score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
+      rank: (c.curatedRank && c.curatedRank.current >= 1 && c.curatedRank.current <= 25) ? c.curatedRank.current : null
     }));
     return {
       id: event.id,

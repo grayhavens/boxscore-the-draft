@@ -30,6 +30,10 @@ const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> s
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
 
+// Mirrors REACTION_EMOJI in worker/chat-room.js (which rejects anything
+// else). Also the order the picker and a message's pills are shown in.
+const REACTION_EMOJI = ['👍', '👎', '😂', '😮', '😢', '🔥', '😎'];
+
 function chatSocketUrl(after){
   return `${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`;
 }
@@ -42,6 +46,7 @@ let reconnectDelay = 1000;
 let reconnectTimer = null;
 let lastHeard = 0;
 let open = false;
+let pickerId = null;         // id of the message whose reaction picker is showing, if any
 
 function loadCachedMessages(){
   try {
@@ -144,16 +149,31 @@ function handleFrame(raw){
   try { frame = JSON.parse(raw); } catch (e){ return; }
 
   if(frame.type === 'history' && Array.isArray(frame.messages)){
-    mergeMessages(frame.messages);
+    mergeMessages(frame.messages, frame.reactions);
   } else if(frame.type === 'message' && frame.message){
     mergeMessages([frame.message]);
+  } else if(frame.type === 'reactions' && frame.reactions){
+    applyReactions(frame.messageId, frame.reactions);
   }
 }
 
-function mergeMessages(incoming){
+// A message's reactions live on the message itself (`m.reactions`, same
+// shape as the wire: { emoji: [drafterId] }) so they're cached to
+// localStorage with it. `snapshot` is the history frame's reactions for
+// every message the room still holds — the only way a reconnect learns
+// about a reaction added to an older message while it was away — and it's
+// authoritative for the messages it covers, so a message missing from it
+// has none.
+function mergeMessages(incoming, snapshot){
   const byId = new Map(messages.map(m => [m.id, m]));
   incoming.forEach(m => byId.set(m.id, m));
   messages = [...byId.values()].sort((a, b) => a.id - b.id).slice(-MAX_MESSAGES_KEPT);
+  if(snapshot){
+    messages.forEach(m => {
+      if(snapshot[m.id]) m.reactions = snapshot[m.id];
+      else delete m.reactions;
+    });
+  }
   saveCachedMessages();
 
   // First history this device has ever seen: everything already in the
@@ -165,6 +185,15 @@ function mergeMessages(incoming){
   if(open) markSeen();
   paintBadges();
   if(open) renderList(incoming.some(m => m.from === currentProfileId));
+}
+
+function applyReactions(messageId, reactions){
+  const m = messages.find(x => x.id === messageId);
+  if(!m) return;
+  if(Object.keys(reactions).length) m.reactions = reactions;
+  else delete m.reactions;
+  saveCachedMessages();
+  if(open) renderList(false);
 }
 
 // Ping loop: keeps the connection warm through idle-timeouts and
@@ -244,7 +273,36 @@ function timeLabel(ts){
 // position) as each one arrives. The URL is used exactly as KLIPY gave it
 // — the worker only ever stores hosts it recognizes (worker/chat-room.js).
 function gifBubbleHtml(m, mine){
-  return `<div class="chat-gif ${mine ? 'mine' : ''}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async"></div>`;
+  return `<div class="chat-gif ${mine ? 'mine' : ''}" data-msg="${m.id}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async"></div>`;
+}
+
+// Tapping a message toggles its picker (an in-flow row of the six emoji,
+// with the ones you've already used highlighted); tapping an emoji there,
+// or a pill under the message, toggles that reaction for you. Both carry
+// data-react/data-mid and are handled by one delegated listener (see
+// onListClick) since renderList rebuilds the list's innerHTML.
+function reactionButtonHtml(cls, m, emoji, inner, label, extraAttrs = ''){
+  return `<button type="button" class="${cls}" data-react="${emoji}" data-mid="${m.id}" aria-label="${esc(label)}"${extraAttrs}>${inner}</button>`;
+}
+
+function reactionsHtml(m, mine){
+  const reactions = m.reactions || {};
+  const pills = REACTION_EMOJI.filter(e => reactions[e] && reactions[e].length).map(e => {
+    const who = reactions[e];
+    const on = who.includes(currentProfileId);
+    const names = who.map(drafterName).join(', ');
+    return reactionButtonHtml(`chat-react-pill${on ? ' on' : ''}`, m, e, `${e}<span>${who.length}</span>`, `${e} ${names}`, ` title="${esc(names)}" aria-pressed="${on}"`);
+  }).join('');
+  return pills ? `<div class="chat-reactions ${mine ? 'mine' : ''}">${pills}</div>` : '';
+}
+
+function pickerHtml(m, mine){
+  const reactions = m.reactions || {};
+  const buttons = REACTION_EMOJI.map(e => {
+    const on = (reactions[e] || []).includes(currentProfileId);
+    return reactionButtonHtml(`chat-react-opt${on ? ' on' : ''}`, m, e, e, `React ${e}`);
+  }).join('');
+  return `<div class="chat-react-bar ${mine ? 'mine' : ''}">${buttons}</div>`;
 }
 
 function renderList(forceScroll){
@@ -270,12 +328,46 @@ function renderList(forceScroll){
     if(m.gif) html += gifBubbleHtml(m, mine);
     // A GIF's text is an optional caption (the picker never sends one, but
     // the worker accepts one) — shown under it rather than silently dropped.
-    if(m.text) html += `<div class="chat-bubble ${mine ? 'mine' : ''}">${esc(m.text)}</div>`;
+    if(m.text) html += `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`;
+    if(pickerId === m.id) html += pickerHtml(m, mine);
+    html += reactionsHtml(m, mine);
     prev = m;
   });
   el.innerHTML = html;
 
   if(forceScroll || nearBottom) el.scrollTop = el.scrollHeight;
+}
+
+function toggleReaction(messageId, emoji){
+  if(!socket || socket.readyState !== WebSocket.OPEN){
+    reconnectNow();
+    return;
+  }
+  socket.send(JSON.stringify({ type: 'react', from: currentProfileId, messageId, emoji }));
+  // The new state arrives back over the socket like everyone else's
+  // (the room broadcasts to the sender too) — nothing to apply here.
+  if(pickerId !== null){
+    pickerId = null;
+    renderList(false);
+  }
+}
+
+function onListClick(event){
+  const target = event.target;
+  const button = target.closest('[data-react]');
+  if(button){
+    toggleReaction(Number(button.dataset.mid), button.dataset.react);
+    return;
+  }
+  if(target.closest('.chat-react-bar')) return;
+  // Finishing a text selection (long-press, drag) ends in a click too.
+  if(window.getSelection().toString()) return;
+
+  const message = target.closest('[data-msg]');
+  const next = message && Number(message.dataset.msg) !== pickerId ? Number(message.dataset.msg) : null;
+  if(next === pickerId) return;
+  pickerId = next;
+  renderList(false);
 }
 
 // The chat screen tracks the visual viewport, not the layout viewport:
@@ -359,6 +451,7 @@ export function closeChat(){
   if(!el || !open) return;
   open = false;
   closeGifPicker();
+  pickerId = null;
   el.classList.remove('open');
   inputEl().blur();
   document.documentElement.classList.remove('chat-open');
@@ -444,6 +537,7 @@ export function initChat(){
     if(event.key === 'Escape' && open) closeChat();
   });
   if(screenEl()) guardTouchScroll(screenEl());
+  if(listEl()) listEl().addEventListener('click', onListClick);
   setUpGifs();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewport);

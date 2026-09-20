@@ -3,7 +3,7 @@
    fetch, formatting, modal scroll-lock, team-name matching, and
    the small badge/icon markup every view reuses.
    ============================================================ */
-import { LEAGUES, TEAM_META } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 
 // Every fetch helper below used to have no timeout at all — a request
 // that never resolves (a network filter silently dropping traffic to a
@@ -271,6 +271,14 @@ const TEAM_NAME_ALIASES = {
 export function normalizeTeamName(name){
   let n = (name || '').toLowerCase().trim().replace(/\bafc\b/g, '').replace(/\bfc\b/g, '').replace(/\s+/g, ' ').trim();
   return TEAM_NAME_ALIASES[n] || n;
+}
+
+// The drafter who actually drafted this team, or '' — a favoriteOnly
+// team (js/data.js) has no owner, and a drafter's favorites are only
+// ever shown on their own Teams tab, never as an owner credit anywhere.
+export function draftOwnerName(teamKey){
+  const drafter = DRAFT_TEAMS.find(d => d.id === TEAM_META[teamKey]?.draftTeamId);
+  return drafter ? drafter.name : '';
 }
 
 export function findDraftedTeamByName(leagueKey, realName){

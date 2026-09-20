@@ -65,8 +65,22 @@ async function fetchFavorites(id){
   // it with the now-stale GET.
   if(cache.data !== null) return;
   if(Array.isArray(data)){
+    const rendered = loadLocalFavorites(id);
     cache.data = data;
-    if(id === currentProfileId) repaintAllStars();
+    if(id === currentProfileId){
+      repaintAllStars();
+      // A favorited team you didn't draft only appears on the Teams tab
+      // once it's in this list (see teamsForCurrentDraftTeam in
+      // js/board.js), so if the shared store disagrees with the
+      // localStorage fallback the first render used (e.g. a new
+      // device), the star repaint above isn't enough — the row itself
+      // has to appear or disappear.
+      const changed = data.length !== rendered.length || data.some(k => !rendered.includes(k));
+      if(changed){
+        saveLocalFavorites(id, data);
+        renderBoard();
+      }
+    }
   } else {
     cache.error = true;
   }

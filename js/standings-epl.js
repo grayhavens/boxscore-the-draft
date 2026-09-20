@@ -9,7 +9,7 @@
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml } from './utils.js';
+import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml, draftOwnerName } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
@@ -145,10 +145,7 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  // favoriteOnly (js/data.js) is a personal add-on outside the real
-  // draft — flagged here as "· Favorite" so the owner name doesn't read
-  // as one of that drafter's real EPL picks.
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
+  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderEplByDrafterRow
   // below) — the real W-D-L record as the bold line, league points

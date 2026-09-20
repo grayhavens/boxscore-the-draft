@@ -28,7 +28,7 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, draftOwnerName } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings } from './board.js';
@@ -358,10 +358,7 @@ export function renderCfbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  // favoriteOnly (js/data.js) is a personal add-on outside the real
-  // draft — flagged here as "· Favorite" so the owner name doesn't read
-  // as one of that drafter's 3 real CFB picks.
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</div>`;
+  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCfbByDrafterRow
   // below) — the raw W-L record as the bold line, win% called out

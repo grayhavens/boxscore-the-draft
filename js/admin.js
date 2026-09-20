@@ -146,7 +146,8 @@ function leagueSectionHtml(league){
   if(!scoring) return '';
   const rulesHtml = scoring.rules.map(r => leagueFactRowHtml(league, r)).join('');
   const adjustments = currentLeagueAdjustments(league.key);
-  const adjRowsHtml = league.teams.map(teamKey => adjustmentRowHtml(teamKey, adjustments)).join('');
+  // favoriteOnly teams (js/data.js) have no owner and never score.
+  const adjRowsHtml = league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly).map(teamKey => adjustmentRowHtml(teamKey, adjustments)).join('');
 
   return `
     <div class="admin-league" style="border-top-color: ${scoring.accent};">
