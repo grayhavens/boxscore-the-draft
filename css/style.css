@@ -809,7 +809,6 @@ body{
   color: var(--text);
 }
 
-.tg-section-label.live{ color: var(--live); }
 
 .tg-section-rule{
   flex: 1;

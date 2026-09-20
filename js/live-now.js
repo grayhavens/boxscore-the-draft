@@ -1,6 +1,6 @@
 /* ============================================================
-   Today: every drafted team's game for one calendar day, live games
-   pinned to the top and the rest grouped by league — the whole slate,
+   Today: every drafted team's game for one calendar day, grouped by
+   league under a Live / Upcoming / Completed filter — the whole slate,
    not just what's in progress (which is all the old "Live Now" could
    show). Three things this needs that the old view didn't:
 
@@ -301,10 +301,10 @@ function gameHtml(game){
   `;
 }
 
-function sectionHtml(label, labelClass, games){
+function sectionHtml(label, games){
   return `
     <div class="tg-section">
-      <div class="tg-section-head"><span class="tg-section-label ${labelClass}">${label}</span><span class="tg-section-rule"></span></div>
+      <div class="tg-section-head"><span class="tg-section-label">${label}</span><span class="tg-section-rule"></span></div>
       ${games.map(gameHtml).join('')}
     </div>
   `;
@@ -493,20 +493,13 @@ export async function renderLiveNow(){
 
   if(!shown.length){ listEl.innerHTML = emptyHtml(inScope.length > 0); return; }
 
+  // Every filter groups by league; a live game keeps its "LIVE" rail
+  // label and node on the row itself rather than a section of its own.
   const html = [];
-  // Live pinned above everything, across leagues — the one thing worth
-  // breaking the per-league grouping for. Only when live games aren't
-  // already the entire list (the 'live' filter), which would otherwise
-  // render the same games under a "Live now" header and then again
-  // under each league.
-  const pinLive = filterKey !== 'upcoming';
-  const liveGames = shown.filter(g => g.state === 'live');
-  if(pinLive && liveGames.length) html.push(sectionHtml('Live now', 'live', liveGames));
-
   LEAGUES.forEach(league => {
-    const games = shown.filter(g => g.league.key === league.key && !(pinLive && g.state === 'live'));
+    const games = shown.filter(g => g.league.key === league.key);
     if(!games.length) return;
-    html.push(sectionHtml(league.label, '', games));
+    html.push(sectionHtml(league.label, games));
   });
 
   listEl.innerHTML = html.join('');
