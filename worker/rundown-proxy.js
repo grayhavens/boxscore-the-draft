@@ -713,6 +713,95 @@ function handleGifConfig(request, env, headers){
   return json({ appKey: env.KLIPY_APP_KEY || null }, 200, { ...headers, 'Cache-Control': 'no-store' });
 }
 
+
+// ---- Activity feed (rule-change log) ----
+//
+// The browser is the only place scoring logic exists (standings -> who
+// holds a division lead -> drafter points), so detection happens there
+// (js/activity.js): an open app diffs today's scoring state against the
+// last shared snapshot and PUTs whatever changed. This route only stores
+// and serves it — one KV blob { snapshot, events } under a single key.
+//
+// The PUT is a compare-and-swap: the client sends the snapshot.dataAt it
+// diffed FROM as `base`, and it only lands if that is still the stored
+// one. Two people opening the app at once would otherwise both log the
+// same change; here the second gets a 409 and simply re-reads. Same
+// no-auth trust tier as favorites (an Origin check only, no admin
+// password) — the worst a caller can do is add a bogus feed line.
+const ACTIVITY_KEY = 'activity:state';
+const ACTIVITY_MAX_EVENTS = 150;
+const ACTIVITY_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+const ACTIVITY_EVENT_TYPES = ['rule', 'bonus', 'rank'];
+
+function cleanStr(v, max){
+  return typeof v === 'string' ? v.slice(0, max) : '';
+}
+
+function cleanActivityEvent(e){
+  if(!e || typeof e !== 'object') return null;
+  if(!ACTIVITY_EVENT_TYPES.includes(e.type)) return null;
+  if(typeof e.ts !== 'number' || !isFinite(e.ts)) return null;
+  const id = cleanStr(e.id, 80);
+  if(!id) return null;
+  const deltas = (Array.isArray(e.deltas) ? e.deltas : []).slice(0, 10)
+    .filter(d => d && KNOWN_DRAFT_TEAM_IDS.includes(d.id) && Number.isInteger(d.pts))
+    .map(d => ({ id: d.id, pts: d.pts, prov: !!d.prov }));
+  const moves = (Array.isArray(e.moves) ? e.moves : []).slice(0, 10)
+    .filter(m => m && KNOWN_DRAFT_TEAM_IDS.includes(m.id) && Number.isInteger(m.from) && Number.isInteger(m.to))
+    .map(m => ({ id: m.id, from: m.from, to: m.to }));
+  return {
+    id, type: e.type, ts: e.ts,
+    league: KNOWN_LEAGUES.includes(e.league) ? e.league : '',
+    title: cleanStr(e.title, 140), sub: cleanStr(e.sub, 140),
+    teamKey: cleanStr(e.teamKey, 60),
+    drafterId: KNOWN_DRAFT_TEAM_IDS.includes(e.drafterId) ? e.drafterId : '',
+    deltas, moves
+  };
+}
+
+async function handleActivity(request, env, headers){
+  if(request.method === 'GET'){
+    const stored = await env.LEAGUE_FACTS.get(ACTIVITY_KEY, 'json');
+    return json(stored || { snapshot: null, events: [] }, 200, { ...headers, 'Cache-Control': 'no-store' });
+  }
+
+  if(request.method === 'PUT'){
+    if(!isAllowedOrigin(request.headers.get('Origin') || '')){
+      return new Response('Forbidden', { status: 403, headers });
+    }
+    let body;
+    try {
+      body = await request.json();
+    } catch (e){
+      return new Response('Invalid JSON body', { status: 400, headers });
+    }
+    const snap = body && body.snapshot;
+    if(!snap || typeof snap !== 'object' || typeof snap.dataAt !== 'number' || JSON.stringify(snap).length > 60000){
+      return new Response('Invalid snapshot', { status: 400, headers });
+    }
+    const incoming = (Array.isArray(body.events) ? body.events : []).slice(0, 40).map(cleanActivityEvent).filter(Boolean);
+
+    const stored = (await env.LEAGUE_FACTS.get(ACTIVITY_KEY, 'json')) || { snapshot: null, events: [] };
+    const storedAt = stored.snapshot ? stored.snapshot.dataAt : null;
+    const base = typeof body.base === 'number' ? body.base : null;
+    if(base !== storedAt || (storedAt !== null && snap.dataAt <= storedAt)){
+      return json(stored, 409, headers);
+    }
+
+    const seen = new Set(stored.events.map(e => e.id));
+    const cutoff = Date.now() - ACTIVITY_MAX_AGE_MS;
+    const events = incoming.filter(e => !seen.has(e.id)).concat(stored.events)
+      .filter(e => e.ts >= cutoff)
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, ACTIVITY_MAX_EVENTS);
+    const next = { snapshot: snap, events };
+    await env.LEAGUE_FACTS.put(ACTIVITY_KEY, JSON.stringify(next));
+    return json(next, 200, headers);
+  }
+
+  return new Response('Method not allowed', { status: 405, headers });
+}
+
 export default {
   async fetch(request, env, ctx){
     const url = new URL(request.url);
@@ -733,6 +822,8 @@ export default {
     if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
 
     if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
+
+    if(url.pathname === '/activity') return handleActivity(request, env, headers);
 
     const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
     if(factsMatch) return handleLeagueFacts(request, env, factsMatch[1], headers);

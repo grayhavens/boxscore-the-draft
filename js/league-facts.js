@@ -193,6 +193,19 @@ export function loadAchievements(){
 
 export const LEAGUE_FACTS_LEAGUES = LEAGUES.map(l => l.key);
 
+// Whether every league's shared facts and manual adjustments have
+// finished loading (or failed for good). Points totals read both through
+// the local fallback until then, so a total computed before this is true
+// can briefly be short — js/activity.js waits on it before trusting a
+// rank change.
+export function leagueInputsSettled(){
+  if(!DASHBOARD_WORKER_BASE) return true;
+  return LEAGUES.every(l => {
+    const f = factsCacheFor(l.key), a = adjustmentsCacheFor(l.key);
+    return (f.data !== null || f.error) && (a.data !== null || a.error);
+  });
+}
+
 const leagueFactsCache = {}; // leagueKey -> { data, loading, error }
 function factsCacheFor(leagueKey){
   return leagueFactsCache[leagueKey] || (leagueFactsCache[leagueKey] = { data: null, loading: false, error: false });

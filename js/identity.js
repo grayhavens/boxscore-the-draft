@@ -98,6 +98,8 @@ function renderSettingsMain(){
       </span>
       <span class="settings-chev">&rsaquo;</span>
     </button>
+    <div class="settings-section">Points Tab Data</div>
+    <div class="settings-row"><span>Data<span class="sheet-desc">Fake = preview</span></span>${segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], window.getObMode ? window.getObMode() : 'real', 'setSheetObMode')}</div>
     <div class="settings-section">Chat</div>
     <div class="settings-row">
       <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>
@@ -148,6 +150,10 @@ window.chooseLanding = v => {
 };
 
 // Redraws in place so the sheet stays open while a control is toggled.
+window.setSheetObMode = v => {
+  window.setObMode(v);
+  renderSettingsMain();
+};
 window.setSheetTheme = v => window.setSheetSetting('theme', v);
 window.setSheetSetting = (key, value) => {
   window.setSetting(key, value);

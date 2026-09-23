@@ -2856,20 +2856,22 @@ body{
    (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
    defined above) reads as a lightweight in-page action rather than
    competing with the identity picker up top. */
-.ob-toolbar{
+.page-sub-row{
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 2px 0 16px;
 }
+/* The chips are 30px tall against a ~18px sub line; negative vertical
+   margins keep them from stretching the header row, and the right
+   margin lines their text up with the page edge. */
+.page-sub-row .scoring-chip{ margin-top: -6px; margin-bottom: -6px; }
+.page-sub-row .ob-toolbar-right{ margin-right: -9px; }
 
 /* TEMPORARY: a preview aid for showing the page's shape before the
    season produces real results. Safe to delete this block (and the
    matching "TEMPORARY" block in js/overall.js, and the toggle markup in
    index.html) once real data makes it unnecessary. */
-.ob-mode-switch{ width: 132px; }
-.ob-mode-switch .seg{ margin-bottom: 0; }
 .ob-sim-banner{
   display: flex;
   align-items: center;
@@ -4306,3 +4308,58 @@ html.chat-kb .tab-bar{ display: none; }
 .cmp-team-owner.a{ color: var(--accent); }
 .cmp-team-rec{ font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
 .cmp-same-note{ margin-top: 4px; font-size: var(--fs-12); color: var(--text-sub); line-height: 1.45; }
+
+/* ============================================================
+   Activity feed — see js/activity.js. Existing tokens only.
+   ============================================================ */
+.ob-toolbar-right{ display: flex; align-items: center; gap: 4px; }
+.ob-icon-dot{
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--accent);
+}
+.ob-icon-dot[hidden]{ display: none; }
+
+.act-tile{
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; font-size: 9.5px; font-weight: 700;
+}
+.act-tile.rank{ background: var(--accent-soft); color: var(--accent); font-size: 12px; }
+.act-body{ display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: left; }
+.act-title{ font-size: var(--fs-13); font-weight: 600; color: var(--text); line-height: 1.3; }
+.act-sub{ font-size: 11.5px; color: var(--text-sub); }
+.act-chips{ display: flex; flex-wrap: wrap; gap: 5px; margin-top: 1px; }
+.act-chips:empty{ display: none; }
+.act-chip{ font-size: var(--fs-11); font-weight: 700; padding: 2px 6px; border-radius: 6px; border: 1px solid transparent; }
+.act-chip.prov{ color: var(--provisional); background: var(--provisional-soft); border-color: var(--provisional-border); }
+.act-chip.win{ color: var(--win); background: var(--win-soft); }
+.act-chip.loss{ color: var(--loss); background: var(--loss-soft); }
+.act-chip.rank{ color: var(--lb-ink-2); background: rgba(var(--ink-rgb),0.06); }
+.act-time{ font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); }
+
+/* Home card */
+#activity-home:empty{ display: none; }
+.act-card{ margin-bottom: 16px; }
+.act-card-head{ display: flex; align-items: center; gap: 8px; padding: 13px 16px 10px; }
+.act-dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.act-card-title{ font-family: 'Space Grotesk', sans-serif; font-size: var(--fs-15); font-weight: 700; flex: 1; }
+.act-see-all{ background: none; border: none; color: var(--accent); font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 700; cursor: pointer; padding: 4px 0 4px 8px; }
+.act-item{
+  display: grid; grid-template-columns: 30px 1fr auto; gap: 11px; align-items: start;
+  width: 100%; padding: 10px 16px 11px; background: none; border: none;
+  border-top: 1px solid rgba(var(--ink-rgb),0.06); cursor: pointer; text-align: left; color: var(--text);
+}
+
+/* Full list */
+.act-h{ margin-top: 2px; }
+.act-sub-copy{ margin: 6px 0 16px; }
+.act-filter{ margin-bottom: 4px; }
+.act-day{ padding: 16px 2px 8px; }
+.act-group{ padding: 0; overflow: hidden; }
+.act-row{
+  display: grid; grid-template-columns: 30px 1fr auto; gap: 11px; align-items: start;
+  width: 100%; padding: 11px 12px 11px 13px; background: none; border: none;
+  border-bottom: 1px solid var(--lb-divider); cursor: pointer; text-align: left; color: var(--text);
+}
+.act-row:last-child{ border-bottom: none; }
+.act-time-col{ display: flex; align-items: center; gap: 6px; padding-top: 2px; color: var(--lb-stroke); }
