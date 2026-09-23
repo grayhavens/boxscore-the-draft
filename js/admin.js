@@ -12,7 +12,7 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort, CHEVRON_LEFT_SVG } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
@@ -79,7 +79,7 @@ window.saveTeamAdjustment = function(teamKey){
 };
 
 function gateHtml(){
-  const backHtml = `<button class="ob-back" onclick="switchView('overall')">&larr; Back to Points</button>`;
+  const backHtml = `<button class="ob-back" onclick="switchView('overall')">${CHEVRON_LEFT_SVG}Points</button>`;
   if(verifying){
     return `${backHtml}<div class="admin-gate"><div class="admin-gate-title">Checking password…</div></div>`;
   }
@@ -173,7 +173,7 @@ function unlockedHtml(){
   const shownLeague = LEAGUES.find(l => l.key === adminFilterKey) || LEAGUES[0];
   return `
     <div class="admin-toolbar">
-      <button class="ob-back" onclick="switchView('overall')">&larr; Back to Points</button>
+      <button class="ob-back" onclick="switchView('overall')">${CHEVRON_LEFT_SVG}Points</button>
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
     ${filterChipsHtml()}

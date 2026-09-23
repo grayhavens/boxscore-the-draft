@@ -7,11 +7,12 @@
    cache only when there's no connectivity — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v5';
+const CACHE_NAME = 'boxscore-v6';
 const SHELL_FILES = [
   './',
   './index.html',
   './css/style.css',
+  './js/page-header.js',
   './js/data.js',
   './js/utils.js',
   './js/api.js',
@@ -32,7 +33,8 @@ const SHELL_FILES = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './icons/logo-header.png'
 ];
 
 self.addEventListener('install', (event) => {

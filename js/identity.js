@@ -90,6 +90,14 @@ function renderSettingsMain(){
       <span class="settings-value">${LANDING_OPTIONS.find(([v]) => v === s.landing)[1]}</span>
       <span class="settings-chev">&rsaquo;</span>
     </button>
+    <div class="settings-section">Scoring</div>
+    <button class="sheet-row" onclick="closeIdentitySheet(); switchView('admin')">
+      <span class="sheet-row-text">
+        Manage scoring
+        <span class="sheet-desc" style="display:block">Mark results and adjustments · password required</span>
+      </span>
+      <span class="settings-chev">&rsaquo;</span>
+    </button>
     <div class="settings-section">Chat</div>
     <div class="settings-row">
       <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>

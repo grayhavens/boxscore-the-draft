@@ -4,9 +4,9 @@
   color-scheme: dark;
   --ink-rgb: 255,255,255;
   --hero-fade-rgb: 10,11,13;
-  --cta-bg: var(--accent-soft);
-  --cta-border: var(--accent-border);
-  --cta-color: var(--accent);
+  --cta-bg: var(--accent-fill);
+  --cta-border: transparent;
+  --cta-color: var(--on-accent);
   --star-idle: var(--text-mute);
   --card-yellow: var(--accent-fill);
   --card-ring: transparent;
@@ -188,6 +188,42 @@ html{ background: var(--bg); }
    scroll-repaint at all (it isn't part of the scrolling layer), so it
    guarantees that strip always shows solid background regardless of
    what the sticky element underneath is doing mid-scroll. */
+/* ==== Design tokens: scales (UI consistency pass) ====
+   New rules should reach for these instead of literal values. Existing
+   rules migrate over incrementally. */
+:root{
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-ui: 'Manrope', sans-serif;
+  --fs-10: 10px; --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-15: 15px;
+  --fs-17: 17px; --fs-20: 20px; --fs-24: 24px; --fs-30: 30px;
+  --track-tight: -0.02em; --track-snug: -0.01em;
+  --track-tag: 0.06em; --track-label: 0.08em;
+  --r-xs: 6px; --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-sheet: 28px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px;
+  --dur-press: 120ms; --dur-ui: 200ms; --dur-move: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --text-strong: #FFFFFF;
+  --on-accent: #0A0B0D;
+  --hover: rgba(var(--ink-rgb), 0.04);
+  --press: rgba(var(--ink-rgb), 0.07);
+  --live-soft: rgba(229, 72, 77, 0.12);
+  --live-border: rgba(229, 72, 77, 0.36);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+[data-theme="light"]{
+  --text-strong: #0B0C0F;
+  --on-accent: #16171B;
+  --live-soft: rgba(229, 72, 77, 0.10);
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+    --text-strong: #0B0C0F;
+    --on-accent: #16171B;
+    --live-soft: rgba(229, 72, 77, 0.10);
+  }
+}
+
 .safe-area-top{
   position: fixed;
   top: 0;
@@ -245,13 +281,13 @@ body{
 .page-header h1{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 30px;
+  font-size: var(--fs-30);
   letter-spacing: -0.5px;
   line-height: 1;
 }
 
 .page-sub{
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   font-weight: 500;
 }
@@ -270,7 +306,7 @@ body{
   align-items: center;
   gap: 5px;
   font-family: 'Manrope', sans-serif;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--text-sub);
   background: transparent;
@@ -348,7 +384,7 @@ body{
   background: var(--live);
   color: #fff;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -371,7 +407,7 @@ body{
   border-radius: 10px;
   padding: 10px 12px;
   margin-bottom: 14px;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--accent);
 }
@@ -380,15 +416,17 @@ body{
 
 .peek-banner button{
   flex: 0 0 auto;
-  font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
-  font-weight: 800;
-  color: var(--accent);
-  background: none;
+  min-height: 32px;
+  padding: 0 12px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-12);
+  font-weight: 700;
+  color: var(--on-accent);
+  background: var(--accent-fill);
   border: none;
+  border-radius: var(--r-sm);
   cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 /* ---- League filter chips (mobile jump-nav) ---- */
@@ -405,22 +443,22 @@ body{
 .filter-chip{
   flex: 0 0 auto;
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   letter-spacing: 0.1px;
-  color: var(--lb-ink-3);
+  color: var(--text-sub);
   background: var(--surface);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-strong);
   border-radius: 999px;
   padding: 8px 16px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
 }
 
 .filter-chip:active{
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent);
+  background: var(--press);
+  color: var(--text);
 }
 
 /* Persistent selection (Standings' league filter) rather than the
@@ -429,7 +467,7 @@ body{
 .filter-chip.active{
   background: var(--accent-fill);
   border-color: var(--accent-fill);
-  color: #0A0B0D;
+  color: var(--on-accent);
 }
 
 .leagues{
@@ -449,7 +487,7 @@ body{
 .league-tab{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--fs-15);
   letter-spacing: -0.2px;
   padding: 15px 18px;
   border-bottom: 1px solid var(--hairline);
@@ -486,7 +524,7 @@ body{
 
 .league-tab .n{
   font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--text-sub);
   letter-spacing: normal;
@@ -510,7 +548,7 @@ body{
   border: 1px solid var(--accent-border);
   border-radius: 10px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--accent);
   line-height: 1.4;
@@ -540,7 +578,7 @@ body{
   justify-content:center;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--fs-15);
   letter-spacing: 0.2px;
   border-radius: 13px;
   border: 1px solid rgba(var(--ink-rgb),0.14);
@@ -570,13 +608,13 @@ body{
 
 .team-name{
   font-weight: 700;
-  font-size: 16.5px;
+  font-size: var(--fs-17);
   line-height: 1.15;
   letter-spacing: -0.1px;
 }
 
 .team-sub{
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--text-sub);
   font-weight: 500;
   letter-spacing: 0.1px;
@@ -597,7 +635,7 @@ body{
   gap: 5px;
   margin-left: -9px;
   font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--text-sub);
   background: transparent;
@@ -690,9 +728,9 @@ body{
 
 .meta-label{
   font-family: 'Manrope', sans-serif;
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 800;
-  letter-spacing: 0.7px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--text-mute);
   display: flex;
@@ -703,7 +741,7 @@ body{
 
 .meta-value{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14.5px;
+  font-size: var(--fs-15);
   font-weight: 700;
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -720,7 +758,7 @@ body{
    instead reads as "clickable" without implying a color change. */
 .status-slot.linkable{ cursor: pointer; }
 .status-slot.linkable .meta-value{ display: flex; align-items: center; gap: 3px; }
-.status-slot.linkable .chev{ color: var(--text-mute); font-size: 12px; }
+.status-slot.linkable .chev{ color: var(--text-mute); font-size: var(--fs-12); }
 .status-slot.linkable.live:hover .meta-value{ color: var(--live); }
 .status-slot.linkable:not(.live):hover .meta-value{ text-decoration: underline; }
 
@@ -744,8 +782,8 @@ body{
 
 /* ---- Live Now: empty state ---- */
 .empty-panel{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding: 40px 20px 26px; color: var(--text-sub); }
-.empty-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:17px; color:var(--text); }
-.empty-sub{ font-size:12.5px; line-height:1.5; max-width:270px; }
+.empty-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:var(--fs-17); color:var(--text); }
+.empty-sub{ font-size:var(--fs-13); line-height:1.5; max-width:270px; }
 
 /* ============================================================
    Today tab (js/live-now.js) — replaces the old "Live Now" game-card
@@ -772,7 +810,7 @@ body{
   border: none;
   background: none;
   color: var(--text-mute);
-  font-size: 22px;
+  font-size: var(--fs-24);
   line-height: 1;
   cursor: pointer;
   font-family: inherit;
@@ -794,14 +832,14 @@ body{
 .tg-day{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: var(--fs-17);
   letter-spacing: -0.2px;
 }
 
 .tg-date{
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--text-mute);
 }
@@ -859,7 +897,7 @@ body{
   background: none;
   padding: 6px 0;
   font-family: 'Manrope', sans-serif;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   font-weight: 700;
   color: var(--text-sub);
   cursor: pointer;
@@ -891,9 +929,9 @@ body{
 
 .tg-section-label{
   font-family: 'Manrope', sans-serif;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 800;
-  letter-spacing: 1.2px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--text);
 }
@@ -902,7 +940,7 @@ body{
 .tg-section-rule{
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--ink-rgb), 0.06);
 }
 
 /* ---- One game on the rail ---- */
@@ -922,7 +960,7 @@ body{
 .tg-rail-top{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   letter-spacing: -0.2px;
   color: var(--text-sub);
 }
@@ -934,22 +972,22 @@ body{
    labels since a scheduled game's kickoff time is this rail's whole
    point, not a secondary detail. */
 .tg-rail-top.pre{
-  font-size: 15px;
+  font-size: var(--fs-15);
   color: var(--provisional);
 }
 
 .tg-rail-bot{
   font-family: 'Manrope', sans-serif;
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--text-mute);
   margin-top: 3px;
 }
 
 .tg-rail-bot.pre{
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   letter-spacing: 0;
   color: var(--provisional);
@@ -964,7 +1002,7 @@ body{
   top: 8px;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--ink-rgb), 0.08);
 }
 
 /* The node sits ON the rail; its bg ring is the page background, so
@@ -1029,9 +1067,9 @@ body{
 .tg-tag{
   margin-bottom: -3px;
   font-family: 'Manrope', sans-serif;
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 800;
-  letter-spacing: 0.6px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--text-sub);
 }
@@ -1044,7 +1082,7 @@ body{
    since that's the part that visually reads as "this game". */
 .tg-card{ transition: background 0.15s ease; }
 .tg-row.clickable{ cursor: pointer; }
-.tg-row.clickable:hover .tg-card{ background: rgba(255, 255, 255, 0.03); }
+.tg-row.clickable:hover .tg-card{ background: rgba(var(--ink-rgb), 0.03); }
 
 .tg-side{
   display: flex;
@@ -1057,7 +1095,7 @@ body{
   flex: 0 0 26px;
   width: 26px;
   height: 26px;
-  font-size: 9px;
+  font-size: var(--fs-10);
   border-radius: 8px;
 }
 
@@ -1090,7 +1128,7 @@ body{
 .tg-rank{
   flex: 0 0 auto;
   margin-right: -3px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-sub);
@@ -1098,7 +1136,7 @@ body{
 
 .tg-name{
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: var(--fs-13);
   letter-spacing: -0.1px;
   white-space: nowrap;
   overflow: hidden;
@@ -1116,7 +1154,7 @@ body{
 .tg-owner{
   flex: 0 0 auto;
   font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 500;
   letter-spacing: 0.1px;
   color: var(--text-sub);
@@ -1136,7 +1174,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: var(--fs-17);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1234,21 +1272,22 @@ body{
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .modal-head h2{
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 19px;
-  letter-spacing: -0.3px;
+  font-size: var(--fs-20);
+  letter-spacing: var(--track-snug);
+  line-height: 1.2;
 }
 
 .modal-head .modal-sub{
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   font-weight: 500;
   margin-top: 3px;
@@ -1298,20 +1337,22 @@ body{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 18px 22px 10px;
+  gap: 12px;
+  padding: 18px 22px 12px;
 }
 
 .sheet-title{
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
-  letter-spacing: -0.3px;
+  font-size: var(--fs-20);
+  letter-spacing: var(--track-snug);
+  line-height: 1.2;
 }
 
 /* Only the scope sheet uses this (explaining that rows combine); the
    identity sheet's title stands alone. */
 .sheet-title-sub{
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text-mute);
   margin-top: 4px;
   max-width: 240px;
@@ -1329,7 +1370,7 @@ body{
   padding: 12px 22px;
   color: var(--text);
   font-family: 'Manrope', sans-serif;
-  font-size: 14.5px;
+  font-size: var(--fs-15);
   font-weight: 600;
   min-height: 44px;
 }
@@ -1337,7 +1378,7 @@ body{
 .sheet-row-text{ flex: 1; }
 
 .sheet-desc{
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 500;
   color: var(--text-mute);
   margin-top: 1px;
@@ -1374,9 +1415,9 @@ body{
 .welcome-head{ padding: 22px 22px 12px; }
 
 .welcome-eyebrow{
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -1384,20 +1425,20 @@ body{
 .welcome-title{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 24px;
+  font-size: var(--fs-24);
   letter-spacing: -0.5px;
   margin-top: 4px;
 }
 
 .welcome-sub{
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1.45;
   color: var(--text-sub);
   margin-top: 6px;
 }
 
 .welcome-names{ border-top: 1px solid var(--hairline); }
-.welcome-chev{ margin-left: auto; color: var(--text-mute); font-size: 20px; line-height: 1; }
+.welcome-chev{ margin-left: auto; color: var(--text-mute); font-size: var(--fs-20); line-height: 1; }
 
 .welcome-steps{
   list-style: none;
@@ -1419,20 +1460,20 @@ body{
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
   color: var(--accent);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.welcome-step-text{ font-size: 14px; line-height: 1.5; padding-top: 1px; }
+.welcome-step-text{ font-size: var(--fs-15); line-height: 1.5; padding-top: 1px; }
 .welcome-step-text b{ font-weight: 700; }
 
 .welcome-step-alt{
   display: block;
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text-mute);
 }
 
@@ -1445,7 +1486,7 @@ body{
 
 .welcome-note{
   margin: 6px 22px 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.45;
   color: var(--text-mute);
 }
@@ -1462,7 +1503,7 @@ body{
   border: none;
   color: var(--text-mute);
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1486,16 +1527,16 @@ body{
 .stat-cell .num{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 19px;
+  font-size: var(--fs-20);
   letter-spacing: -0.3px;
 }
 
 .stat-cell .lbl{
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 600;
   color: var(--text-mute);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--track-tag);
   margin-top: 3px;
 }
 
@@ -1504,11 +1545,11 @@ body{
 }
 
 .modal-section-title{
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   font-weight: 700;
   color: var(--text-mute);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: var(--track-label);
   margin-bottom: 8px;
 }
 
@@ -1532,7 +1573,7 @@ body{
   justify-content: center;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 .form-pill.w{ background: var(--win-soft); color: var(--win); }
@@ -1549,7 +1590,7 @@ body{
 }
 
 .form-detail{
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   flex: 1;
 }
@@ -1561,7 +1602,7 @@ body{
 .form-detail .meta{
   color: var(--text-sub);
   font-weight: 500;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   margin-top: 1px;
 }
 
@@ -1582,7 +1623,7 @@ body{
 .form-score{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .next-match{
@@ -1594,11 +1635,11 @@ body{
 
 .next-match .nm-teams{
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--fs-15);
 }
 
 .next-match .nm-when{
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   font-weight: 500;
   margin-top: 2px;
@@ -1609,7 +1650,7 @@ body{
    than folded in, since kickoff time + venue + network together can
    run long ("Fri, Sep 12 at 10:00 AM EDT · Home · Anfield · Peacock"). */
 .next-match .nm-venue{
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-mute);
   font-weight: 500;
   margin-top: 1px;
@@ -1626,7 +1667,7 @@ body{
   align-items: center;
   gap: 2px;
   font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--accent);
   cursor: pointer;
@@ -1637,7 +1678,7 @@ body{
 
 .boxscore-link:hover{ text-decoration: underline; }
 
-.boxscore-link .chev{ font-size: 13px; }
+.boxscore-link .chev{ font-size: var(--fs-13); }
 
 /* ---- Game Details sheet — a second, wider overlay stacked on top of
    the team modal (see openGameDetail/closeGameDetail in
@@ -1672,16 +1713,17 @@ body{
   color: var(--text-sub);
   cursor: pointer;
   padding: 0;
-  font-size: 17px;
 }
+.gd-back svg{ width: 16px; height: 16px; }
 
 .gd-back:hover{ color: var(--text); background: rgba(var(--ink-rgb),0.1); }
 
 .gd-title{
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 17px;
-  letter-spacing: -0.2px;
+  font-size: var(--fs-20);
+  letter-spacing: var(--track-snug);
+  line-height: 1.2;
 }
 
 /* Space Grotesk + uppercase/letter-spacing to match .gd-score-title
@@ -1698,9 +1740,9 @@ body{
   align-items: center;
   gap: 6px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-sub);
   margin-top: 4px;
@@ -1730,7 +1772,7 @@ body{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--fs-15);
   font-weight: 600;
   color: var(--text);
   letter-spacing: 0.2px;
@@ -1745,11 +1787,11 @@ body{
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  font-size: 8px;
+  font-size: var(--fs-10);
 }
 
 .gd-score-team b{
-  font-size: 22px;
+  font-size: var(--fs-24);
   font-weight: 700;
   letter-spacing: -0.3px;
 }
@@ -1758,15 +1800,15 @@ body{
 
 /* Upcoming game — no score, so the names carry the header on their own
    at the old plain title's size, with a muted "at" between the sides. */
-.gd-score-title.no-score .gd-score-team{ font-size: 17px; }
+.gd-score-title.no-score .gd-score-team{ font-size: var(--fs-17); }
 .gd-score-title.no-score .gd-score-team .badge{
   flex-basis: 24px;
   width: 24px;
   height: 24px;
-  font-size: 9px;
+  font-size: var(--fs-10);
 }
 .gd-at{
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text-mute);
 }
@@ -1780,7 +1822,7 @@ body{
   gap: 4px;
   color: var(--live);
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
 }
 
@@ -1789,7 +1831,7 @@ body{
   border: 1px solid var(--hairline);
   border-radius: 9px;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   margin-bottom: 16px;
 }
@@ -1812,14 +1854,14 @@ body{
 .gd-recap-headline{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--fs-15);
   line-height: 1.3;
   letter-spacing: -0.1px;
   margin-top: 10px;
 }
 
 .gd-recap-summary{
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
   color: var(--text-sub);
   margin-top: 4px;
@@ -1848,7 +1890,7 @@ body{
 }
 
 .gd-topplay-caption{
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--text-sub);
   margin-top: 6px;
@@ -1891,14 +1933,14 @@ body{
   flex-wrap: wrap;
   gap: 4px 14px;
   margin: 10px 0 14px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text-sub);
 }
 
 .gd-decision{ display: inline-flex; align-items: center; gap: 5px; }
 
 .gd-decision b{
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 800;
   letter-spacing: 0.3px;
   color: var(--bg);
@@ -1921,7 +1963,7 @@ body{
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid var(--hairline);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-mute);
   text-align: center;
 }
@@ -1962,7 +2004,7 @@ body{
   gap: 7px;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--hairline);
@@ -1977,7 +2019,7 @@ body{
   align-items: center;
   gap: 7px;
   padding: 6px 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
 }
 
@@ -1985,7 +2027,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   color: var(--text-mute);
   min-width: 26px;
 }
@@ -2010,7 +2052,7 @@ body{
 .gd-card-chip.r{ background: var(--live); }
 
 .gd-event-empty{
-  font-size: 11.5px; color: var(--text-mute); font-weight: 500; padding: 6px 0;
+  font-size: var(--fs-12); color: var(--text-mute); font-weight: 500; padding: 6px 0;
 }
 
 /* ---- NHL scoring summary (hockeyGoalsHtml in js/live-data.js) —
@@ -2019,7 +2061,7 @@ body{
 .gd-goal-period{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   padding: 8px 0 2px;
 }
@@ -2029,7 +2071,7 @@ body{
   align-items: flex-start;
   gap: 8px;
   padding: 6px 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   border-bottom: 1px solid var(--hairline);
 }
@@ -2039,7 +2081,7 @@ body{
   flex: 0 0 34px;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   padding-top: 1px;
 }
@@ -2047,14 +2089,14 @@ body{
 .gd-goal-body{ flex: 1; min-width: 0; }
 
 .gd-goal-assists{
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
   color: var(--text-sub);
   margin-top: 2px;
 }
 
 .gd-goal-tag{
-  font-size: 9px;
+  font-size: var(--fs-10);
   font-weight: 800;
   letter-spacing: 0.4px;
   color: var(--accent);
@@ -2064,7 +2106,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -2073,7 +2115,7 @@ body{
 .gd-teamstats{
   width: 100%;
   border-collapse: collapse;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
 }
 .gd-teamstats th, .gd-teamstats td{
@@ -2082,7 +2124,7 @@ body{
   font-weight: 700;
   color: var(--text);
 }
-.gd-teamstats th{ font-size: 9.5px; letter-spacing: 0.3px; color: var(--text-mute); }
+.gd-teamstats th{ font-size: var(--fs-10); letter-spacing: 0.3px; color: var(--text-mute); }
 .gd-teamstats th:first-child, .gd-teamstats td:first-child{ text-align: left; }
 .gd-teamstats th:last-child, .gd-teamstats td:last-child{ text-align: right; }
 .gd-teamstats td.label{ text-align: center; font-weight: 500; color: var(--text-sub); }
@@ -2090,7 +2132,7 @@ body{
 .linescore-table{
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2101,14 +2143,14 @@ body{
   border-bottom: 1px solid var(--hairline);
 }
 
-.linescore-table th{ font-weight: 700; color: var(--text-mute); font-size: 9.5px; letter-spacing: 0.3px; }
+.linescore-table th{ font-weight: 700; color: var(--text-mute); font-size: var(--fs-10); letter-spacing: 0.3px; }
 .linescore-table td.team{ text-align: left; font-weight: 700; color: var(--text); }
 .linescore-table td.tot{ font-weight: 700; color: var(--text); }
 
 .box-table{
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2118,7 +2160,7 @@ body{
   border-bottom: 1px solid var(--hairline);
 }
 
-.box-table th{ color: var(--text-mute); font-weight: 700; font-size: 9px; letter-spacing: 0.3px; }
+.box-table th{ color: var(--text-mute); font-weight: 700; font-size: var(--fs-10); letter-spacing: 0.3px; }
 .box-table td.name{ text-align: left; color: var(--text); font-weight: 600; }
 .box-table td{ color: var(--text-sub); }
 
@@ -2140,7 +2182,7 @@ body{
 }
 
 .scoring-label{
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
 }
 
@@ -2148,7 +2190,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--fs-15);
   text-align: right;
   white-space: nowrap;
 }
@@ -2172,11 +2214,11 @@ body{
 .scoring-page-title{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 19px;
+  font-size: var(--fs-20);
   letter-spacing: -0.3px;
 }
 .scoring-page-sub{
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   font-weight: 500;
   margin: 3px 0 18px;
@@ -2202,7 +2244,7 @@ body{
 }
 
 .tracker-total{
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--text-sub);
   font-weight: 600;
 }
@@ -2279,7 +2321,7 @@ body{
 
 .tracker-label{
   flex: 1;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text-sub);
 }
@@ -2292,7 +2334,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--fs-11);
   padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
@@ -2334,9 +2376,9 @@ body{
   display: inline-block;
   margin-left: 6px;
   font-family: 'Manrope', sans-serif;
-  font-size: 8.5px;
+  font-size: var(--fs-10);
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--provisional);
   background: var(--provisional-soft);
@@ -2378,7 +2420,7 @@ body{
 
 .fact-label{
   flex: 1;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
 }
 
@@ -2386,7 +2428,7 @@ body{
   flex: 0 0 auto;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   padding: 3px 9px;
   border-radius: 20px;
   white-space: nowrap;
@@ -2406,7 +2448,7 @@ body{
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 700;
   color: var(--text);
   background: rgba(var(--ink-rgb),0.05);
@@ -2424,7 +2466,7 @@ body{
   justify-content: center;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 8.5px;
+  font-size: var(--fs-10);
   border-radius: 7px;
   border: 1px solid rgba(var(--ink-rgb),0.14);
 }
@@ -2438,7 +2480,7 @@ body{
   border: none;
   background: none;
   color: var(--text-mute);
-  font-size: 14px;
+  font-size: var(--fs-15);
   line-height: 1;
   cursor: pointer;
   padding: 0 0 0 2px;
@@ -2448,7 +2490,7 @@ body{
 .fact-chip-x:hover{ color: var(--loss); }
 
 .fact-empty{
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--text-mute);
   font-style: italic;
 }
@@ -2456,7 +2498,7 @@ body{
 .fact-picker{
   width: 100%;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text-sub);
   background: rgba(var(--ink-rgb),0.05);
@@ -2476,7 +2518,7 @@ body{
 }
 
 .admin-gate-title{
-  font-size: 14px;
+  font-size: var(--fs-15);
   font-weight: 700;
   color: var(--text-sub);
   margin-bottom: 4px;
@@ -2485,7 +2527,7 @@ body{
 .admin-gate-input{
   width: 100%;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--hairline-strong);
@@ -2495,7 +2537,7 @@ body{
 }
 
 .admin-gate-error{
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--loss);
 }
 
@@ -2506,7 +2548,7 @@ body{
   border-radius: 10px;
   color: var(--accent);
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 700;
   cursor: pointer;
 }
@@ -2523,7 +2565,7 @@ body{
   border: none;
   color: var(--text-mute);
   font-family: 'Manrope', sans-serif;
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   font-weight: 600;
   min-height: 36px;
   cursor: pointer;
@@ -2538,7 +2580,7 @@ body{
 .admin-league:first-of-type{ margin-top: 0; }
 
 .admin-league-title{
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 800;
   margin: 0 0 14px;
 }
@@ -2560,7 +2602,7 @@ body{
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--text);
   min-width: 0;
@@ -2571,7 +2613,7 @@ body{
 
 .admin-adj-pts, .admin-adj-note{
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 16px;
   color: var(--text);
   background: rgba(var(--ink-rgb),0.05);
   border: 1px solid var(--hairline-strong);
@@ -2586,7 +2628,7 @@ body{
   border-radius: 8px;
   color: var(--accent);
   font-family: 'Manrope', sans-serif;
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   font-weight: 700;
   padding: 7px 10px;
   cursor: pointer;
@@ -2602,7 +2644,7 @@ body{
 .season-badge{
   display: inline-block;
   font-family: 'Manrope', sans-serif;
-  font-size: 9px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.3px;
   border-radius: 20px;
@@ -2624,7 +2666,7 @@ body{
 .zone-tag{
   display: inline-block;
   font-family: 'Manrope', sans-serif;
-  font-size: 9px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.3px;
   border-radius: 20px;
@@ -2634,7 +2676,7 @@ body{
 }
 
 .no-live-note{
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   font-style: italic;
   line-height: 1.5;
@@ -2642,7 +2684,7 @@ body{
 }
 
 .loading-note{
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   padding: 4px 0;
 }
@@ -2710,26 +2752,6 @@ body{
   padding-top: 0;
 }
 
-.toggle-btn{
-  flex: 1;
-  font-family: 'Manrope', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  color: var(--text-sub);
-  background: rgba(var(--ink-rgb),0.05);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
-  padding: 7px 12px;
-  cursor: pointer;
-}
-
-.toggle-btn.active{
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-}
-
 .standings-grid{
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2755,14 +2777,14 @@ body{
   border-top: 1px solid rgba(var(--ink-rgb),0.06);
 }
 
-.standings-row .team-name{ font-size: 15px; }
+.standings-row .team-name{ font-size: var(--fs-15); }
 
 .standings-rank{
   flex: 0 0 18px;
   text-align: center;
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--text-mute);
 }
 
@@ -2772,9 +2794,9 @@ body{
    32 teams. */
 .standings-group-header{
   font-family: 'Manrope', sans-serif;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.3px;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-mute);
   background: rgba(var(--ink-rgb),0.02);
@@ -2807,14 +2829,14 @@ body{
 }
 .person-record-primary{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 14.5px;
+  font-size: var(--fs-15);
   font-weight: 700;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 .person-record-secondary{
   font-family: 'Manrope', sans-serif;
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   font-weight: 800;
   letter-spacing: 0.4px;
   color: var(--record);
@@ -2857,7 +2879,7 @@ body{
   border: 1px solid var(--accent-border);
   border-radius: 10px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--accent);
 }
@@ -2890,7 +2912,7 @@ body{
 
 .ob-rank{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 700;
   color: var(--lb-rank-low);
 }
@@ -2905,7 +2927,7 @@ body{
 }
 .ob-name{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 18px;
+  font-size: var(--fs-20);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -2914,7 +2936,7 @@ body{
   text-overflow: ellipsis;
 }
 .ob-sub{
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--text-sub);
   margin-top: 4px;
   white-space: nowrap;
@@ -2925,7 +2947,7 @@ body{
 .ob-totalwrap{ display: flex; align-items: center; gap: 8px; }
 .ob-total{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 26px;
+  font-size: var(--fs-24);
   font-weight: 700;
   line-height: 0.95;
   color: var(--lb-ink-2);
@@ -2936,15 +2958,15 @@ body{
 
 @media (max-width: 480px){
   .ob-row{ grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 13px 12px; }
-  .ob-rank{ font-size: 13px; }
-  .ob-name{ font-size: 16px; }
-  .ob-total{ font-size: 22px; }
+  .ob-rank{ font-size: var(--fs-13); }
+  .ob-name{ font-size: var(--fs-17); }
+  .ob-total{ font-size: var(--fs-24); }
 }
 
 .ob-section-title{
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-sub);
   padding: 0 2px 10px;
@@ -2960,7 +2982,7 @@ body{
   border-radius: 10px;
   color: var(--accent);
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 700;
   cursor: pointer;
 }
@@ -2973,17 +2995,19 @@ body{
 .ob-back{
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 4px;
   background: transparent;
   border: none;
   color: var(--text-sub);
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
+  font-weight: 700;
   min-height: 44px;
-  padding: 10px 2px;
+  padding: 6px 8px 6px 2px;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
+.ob-back svg{ width: 17px; height: 17px; }
 .ob-back:hover{ color: var(--text); }
 
 .ob-detail-head{
@@ -2995,15 +3019,15 @@ body{
 }
 .ob-detail-left{ min-width: 0; }
 .ob-detail-eyebrow{
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--accent);
 }
 .ob-detail-name{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 30px;
+  font-size: var(--fs-30);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.05;
@@ -3011,7 +3035,7 @@ body{
   margin: 7px 0 0;
 }
 .ob-detail-meta{
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   margin-top: 8px;
 }
@@ -3024,9 +3048,9 @@ body{
   color: var(--text);
 }
 .ob-detail-total-label{
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-sub);
   margin-top: 7px;
@@ -3045,7 +3069,7 @@ body{
   margin-bottom: 18px;
 }
 .ob-prov-text{
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--lb-ink-3);
   line-height: 1.4;
   text-wrap: pretty;
@@ -3088,21 +3112,21 @@ body{
   white-space: nowrap;
   color: var(--win);
 }
-.ob-card-pts{ font-size: 20px; text-align: left; }
-.ob-rule-pts{ font-size: 15px; text-align: right; }
+.ob-card-pts{ font-size: var(--fs-20); text-align: left; }
+.ob-rule-pts{ font-size: var(--fs-15); text-align: right; }
 .ob-card-pts.neg, .ob-rule-pts.neg{ color: var(--loss); }
 .ob-card-pts.zero, .ob-rule-pts.zero{ color: var(--text-mute); }
 
 .ob-card-main{ min-width: 0; }
 .ob-card-title{
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
 }
 .ob-card-sub{
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--text-sub);
   margin-top: 4px;
   white-space: nowrap;
@@ -3115,7 +3139,7 @@ body{
   width: 54px;
   height: 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--ink-rgb), 0.06);
   overflow: hidden;
   display: flex;
 }
@@ -3143,7 +3167,7 @@ body{
 .ob-rule:last-child{ border-bottom: none; }
 .ob-rule-main{ min-width: 0; }
 .ob-rule-label{
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text);
   line-height: 1.3;
@@ -3157,13 +3181,13 @@ body{
   margin-top: 5px;
 }
 .ob-rule-meta span:first-child{
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--text-sub);
 }
 .ob-prov-tag{
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--track-tag);
   text-transform: uppercase;
   color: var(--provisional);
   border: 1px solid var(--provisional-border);
@@ -3173,20 +3197,20 @@ body{
 
 .ob-idle-block{
   margin-top: 14px;
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(var(--ink-rgb), 0.025);
   border: 1px dashed var(--hairline-strong);
   border-radius: 12px;
   padding: 12px 14px;
 }
 .ob-idle-title{
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-sub);
 }
 .ob-idle-body{
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   margin-top: 6px;
   line-height: 1.45;
@@ -3203,7 +3227,7 @@ body{
   position: fixed;
   left: 10px;
   bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 6px);
-  font-size: 9px;
+  font-size: var(--fs-10);
   font-weight: 600;
   letter-spacing: 0.2px;
   color: var(--text-mute);
@@ -3263,7 +3287,7 @@ body{
 .tab-label{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 10px;
+  font-size: var(--fs-10);
   letter-spacing: 0.1px;
 }
 
@@ -3279,7 +3303,7 @@ body{
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 /* Slide-in entrance for a pushed Team Page/full-screen — applied once
@@ -3306,11 +3330,13 @@ body{
   border: none;
   background: none;
   color: var(--text-sub);
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
   font-weight: 700;
   cursor: pointer;
-  padding: 6px 2px;
+  min-height: 44px;
+  padding: 6px 8px 6px 2px;
+  border-radius: var(--r-sm);
 }
 .team-page-back:hover{ color: var(--text); }
 .team-page-back svg{ width: 17px; height: 17px; }
@@ -3350,7 +3376,7 @@ body{
 .team-hero-name{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 30px;
+  font-size: var(--fs-30);
   letter-spacing: -0.9px;
   line-height: 1.02;
   text-wrap: balance;
@@ -3361,15 +3387,15 @@ body{
   flex-wrap: wrap;
   gap: 7px;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 600;
   color: var(--text-sub);
 }
 .team-hero-meta .status-pill{
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--track-tag);
   color: var(--win);
   background: var(--win-soft);
   border-radius: 6px;
@@ -3389,10 +3415,10 @@ body{
 }
 .game-card.live{ border-color: rgba(229,72,77,0.4); }
 .game-card-eyebrow{
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.7px;
+  letter-spacing: var(--track-tag);
   color: var(--text-mute);
   display: flex;
   align-items: center;
@@ -3411,9 +3437,9 @@ body{
 }
 .news-card + .news-card{ margin-top: 10px; }
 .news-card:hover{ background: var(--surface-2); }
-.news-card .headline{ font-size: 14px; font-weight: 700; line-height: 1.3; text-wrap: pretty; }
-.news-card .news-meta{ font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-mute); margin-top: 8px; }
-.news-footer-note{ text-align: center; font-size: 11px; font-weight: 600; color: var(--text-mute); margin-top: 4px; }
+.news-card .headline{ font-size: var(--fs-15); font-weight: 700; line-height: 1.3; text-wrap: pretty; }
+.news-card .news-meta{ font-size: var(--fs-11); font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-label); color: var(--text-mute); margin-top: 8px; }
+.news-footer-note{ text-align: center; font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); margin-top: 4px; }
 
 @keyframes skel{ 0%, 100%{ opacity: 1; } 50%{ opacity: 0.4; } }
 .skel-bar{ background: rgba(var(--ink-rgb),0.07); border-radius: 6px; height: 13px; animation: skel 1.5s ease-in-out infinite; }
@@ -3428,21 +3454,21 @@ body{
   gap: 10px;
   padding: 40px 34px 44px;
 }
-.empty-state svg{ width: 26px; height: 26px; stroke: #3A3B41; }
-.empty-state .title{ font-size: 13.5px; font-weight: 700; }
-.empty-state .body{ font-size: 12px; font-weight: 500; color: var(--text-sub); line-height: 1.5; text-wrap: pretty; }
+.empty-state svg{ width: 26px; height: 26px; stroke: var(--text-mute); }
+.empty-state .title{ font-size: var(--fs-13); font-weight: 700; }
+.empty-state .body{ font-size: var(--fs-12); font-weight: 500; color: var(--text-sub); line-height: 1.5; text-wrap: pretty; }
 
 .stat-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat-tile{ background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 13px 14px; }
-.stat-tile .num{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.4px; }
-.stat-tile .lbl{ font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-mute); margin-top: 3px; }
+.stat-tile .num{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-24); letter-spacing: -0.4px; }
+.stat-tile .lbl{ font-size: var(--fs-10); font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-tag); color: var(--text-mute); margin-top: 3px; }
 
 .split-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; margin-top: 16px; }
 .split-row{ display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
 .split-row + .split-row{ border-top: 1px solid rgba(var(--ink-rgb),0.06); }
-.split-label{ font-size: 13px; font-weight: 600; }
+.split-label{ font-size: var(--fs-13); font-weight: 600; }
 .split-values{ display: flex; align-items: center; gap: 14px; }
-.split-record{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13.5px; }
+.split-record{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-13); }
 
 .player-row{ display: flex; align-items: center; gap: 12px; padding: 10px 0; }
 .player-row + .player-row{ border-top: 1px solid rgba(var(--ink-rgb),0.06); }
@@ -3452,25 +3478,25 @@ body{
   background: var(--surface-2);
   border: 1px solid var(--hairline);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-12);
   color: var(--text-sub);
 }
 .player-main{ flex: 1; min-width: 0; }
-.player-name{ font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
-.player-sub{ font-size: 11.5px; font-weight: 500; color: var(--text-sub); margin-top: 1px; }
+.player-name{ font-size: var(--fs-13); font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.player-sub{ font-size: var(--fs-12); font-weight: 500; color: var(--text-sub); margin-top: 1px; }
 .player-tag{
-  font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  font-size: var(--fs-10); font-weight: 800; text-transform: uppercase; letter-spacing: var(--track-tag);
   border-radius: 5px; padding: 2px 5px;
 }
 .player-tag.out{ color: var(--loss); background: var(--loss-soft); }
 .player-tag.doubtful{ color: var(--loss); background: var(--loss-soft); }
 .player-tag.questionable{ color: var(--draw); background: var(--draw-soft); }
-.player-stat{ text-align: right; font-size: 11.5px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
-.player-stat .sub{ font-size: 10.5px; color: var(--text-mute); margin-top: 2px; }
+.player-stat{ text-align: right; font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+.player-stat .sub{ font-size: var(--fs-11); color: var(--text-mute); margin-top: 2px; }
 /* Stats tab "Team leaders" rows (js/team-page.js's leaderRowsHtml) — the
    number chip carries the stat's abbreviation instead of a jersey. */
-.number-chip.leader-chip{ flex-basis: 40px; width: 40px; font-size: 10px; letter-spacing: 0.2px; }
-.leader-value{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; white-space: nowrap; }
+.number-chip.leader-chip{ flex-basis: 40px; width: 40px; font-size: var(--fs-10); letter-spacing: 0.2px; }
+.leader-value{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-17); white-space: nowrap; }
 
 /* NFL Roster tab: real depth-chart grid (js/team-page.js's
    depthChartGridHtml) — one row per charted position slot, one column
@@ -3485,8 +3511,8 @@ body{
   position: sticky; left: 0; z-index: 1;
   background: var(--bg);
   display: flex; align-items: center;
-  font-size: 10.5px; font-weight: 800; color: var(--text-sub);
-  text-transform: uppercase; letter-spacing: 0.4px;
+  font-size: var(--fs-11); font-weight: 800; color: var(--text-sub);
+  text-transform: uppercase; letter-spacing: var(--track-label);
   padding: 9px 8px 9px 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -3495,14 +3521,14 @@ body{
   min-width: 0; padding: 9px 0;
   border-bottom: 1px solid var(--hairline);
 }
-.depth-chart-player{ font-size: 11.5px; font-weight: 600; overflow-wrap: break-word; }
+.depth-chart-player{ font-size: var(--fs-12); font-weight: 600; overflow-wrap: break-word; }
 .depth-chart-player .num{ color: var(--text-mute); font-weight: 700; margin-right: 4px; }
 .depth-chart-cell .player-tag{ align-self: flex-start; }
 
 .placeholder-tab{
   text-align: center;
   padding: 40px 20px;
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--text-sub);
   line-height: 1.5;
 }
@@ -3521,13 +3547,13 @@ body{
   border-radius: 12px;
   color: var(--cta-color);
   font-family: 'Manrope', sans-serif;
-  font-size: 13.5px;
+  font-size: var(--fs-13);
   font-weight: 700;
   cursor: pointer;
 }
 .modal-cta-note{
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 600;
   color: var(--text-mute);
   margin-top: 8px;
@@ -3537,7 +3563,7 @@ body{
    strong contrast in both themes) and a full-strength label, instead of
    only recoloring the icon, which nearly vanished on the light theme. */
 .tab-btn.active{ color: var(--text); }
-.tab-btn.active .tab-icon{ background: var(--accent-fill); color: #0A0B0D; }
+.tab-btn.active .tab-icon{ background: var(--accent-fill); color: var(--on-accent); }
 
 /* ============================================================
    Chat screen (js/chat.js) — the Chat tab (#view-chat). Unlike the
@@ -3581,7 +3607,7 @@ html.chat-kb .tab-bar{ display: none; }
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--text-mute);
 }
@@ -3614,7 +3640,7 @@ html.chat-kb .tab-bar{ display: none; }
 .chat-empty{
   margin: auto;
   text-align: center;
-  font-size: 13.5px;
+  font-size: var(--fs-13);
   font-weight: 500;
   color: var(--text-mute);
   line-height: 1.5;
@@ -3622,7 +3648,7 @@ html.chat-kb .tab-bar{ display: none; }
 .chat-day{
   align-self: center;
   margin: 14px 0 6px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   letter-spacing: 0.3px;
   color: var(--text-mute);
@@ -3634,8 +3660,8 @@ html.chat-kb .tab-bar{ display: none; }
   margin: 10px 4px 3px;
 }
 .chat-meta.mine{ align-self: flex-end; }
-.chat-name{ font-size: 12px; font-weight: 800; color: var(--text-sub); }
-.chat-time{ font-size: 11px; font-weight: 600; color: var(--text-mute); }
+.chat-name{ font-size: var(--fs-12); font-weight: 800; color: var(--text-sub); }
+.chat-time{ font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); }
 .chat-bubble{
   align-self: flex-start;
   max-width: min(82%, 520px);
@@ -3643,7 +3669,7 @@ html.chat-kb .tab-bar{ display: none; }
   padding: 8px 12px;
   border-radius: 16px 16px 16px 5px;
   background: var(--surface-2);
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 500;
   line-height: 1.38;
   white-space: pre-wrap;
@@ -3695,7 +3721,7 @@ html.chat-kb .tab-bar{ display: none; }
   border: none;
   border-radius: 50%;
   background: var(--accent-fill);
-  color: #0A0B0D;
+  color: var(--on-accent);
   cursor: pointer;
 }
 .chat-send svg{ width: 20px; height: 20px; }
@@ -3773,7 +3799,7 @@ html.chat-kb .tab-bar{ display: none; }
   border: 0;
   border-radius: 50%;
   background: transparent;
-  font-size: 20px;
+  font-size: var(--fs-20);
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -3790,13 +3816,13 @@ html.chat-kb .tab-bar{ display: none; }
   border: 1px solid var(--hairline-strong);
   background: var(--surface-2);
   color: var(--text-sub);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.chat-react-pill span{ font-size: 12px; font-variant-numeric: tabular-nums; }
+.chat-react-pill span{ font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
 .chat-react-pill.on{
   background: var(--accent-soft);
   border-color: var(--accent-border);
@@ -3813,7 +3839,7 @@ html.chat-kb .tab-bar{ display: none; }
   background: none;
   color: var(--text-sub);
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -3914,13 +3940,13 @@ html.chat-kb .tab-bar{ display: none; }
   flex: 0 0 auto;
   padding: 8px 0;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text-mute);
 }
 .gif-retry{
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 800;
   color: var(--accent);
   background: none;
@@ -3932,7 +3958,7 @@ html.chat-kb .tab-bar{ display: none; }
   flex: 0 0 auto;
   padding: 6px 0 4px;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   letter-spacing: 0.3px;
   color: var(--text-mute);
@@ -3942,9 +3968,9 @@ html.chat-kb .tab-bar{ display: none; }
 .settings-section{
   padding: 14px 22px 4px;
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
-  letter-spacing: 0.8px;
+  letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-mute);
 }
@@ -3956,7 +3982,7 @@ html.chat-kb .tab-bar{ display: none; }
   gap: 14px;
   padding: 10px 22px;
   min-height: 48px;
-  font-size: 14.5px;
+  font-size: var(--fs-15);
   font-weight: 600;
   color: var(--text);
 }
@@ -3971,7 +3997,7 @@ html.chat-kb .tab-bar{ display: none; }
   font-weight: 600;
 }
 
-.settings-chev{ color: var(--text-mute); font-size: 18px; margin-left: 8px; }
+.settings-chev{ color: var(--text-mute); font-size: var(--fs-20); margin-left: 8px; }
 
 .settings-row .seg{ flex: 0 0 auto; width: 210px; margin-bottom: 0; }
 .settings-row .seg-btn{ min-height: 30px; padding: 5px 0; }
@@ -4008,8 +4034,111 @@ html.chat-kb .tab-bar{ display: none; }
   background: none;
   color: var(--accent);
   font-family: 'Manrope', sans-serif;
-  font-size: 14px;
+  font-size: var(--fs-15);
   font-weight: 700;
   cursor: pointer;
   padding: 0;
 }
+
+
+/* ==== UI consistency pass — interaction layer ====
+   Appended last so it layers over the component rules above. */
+
+/* Press feedback (R3). Card surfaces get a tint overlay via
+   background-image so their own background color survives. */
+.ob-row, .news-card, .tg-card, .game-card, .ob-card-head,
+.standings-row.clickable, .sheet-row, .team.clickable{
+  transition: background-color var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.ob-row:active, .news-card:active, .tg-row.clickable:active .tg-card{
+  background-image: linear-gradient(var(--press), var(--press));
+  transform: scale(0.985);
+}
+.standings-row.clickable:active, .sheet-row:active, .ob-card-head:active{ background-color: var(--press); }
+
+.modal-cta, .admin-gate-btn, .ob-detail-link, .admin-adj-save, .chat-send,
+.scope-chip, .scoring-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
+  transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
+}
+.modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
+.chat-send:active, .peek-banner button:active{ transform: scale(0.97); }
+.scope-chip:active, .scoring-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
+.gd-back:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
+.tab-btn:active .tab-icon{ transform: scale(0.94); }
+
+/* Keyboard focus (R4) */
+:where(button, a, [role="button"], [role="switch"], [tabindex]):focus-visible{
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+:where(input, textarea, select):focus-visible{
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Tab switch fade (R5) — opacity only so sticky/fixed children are
+   unaffected. Pushed views keep their own slide-in. */
+@keyframes view-in{ from{ opacity: 0; } to{ opacity: 1; } }
+.board > .view.active:not(.view-push-in){ animation: view-in 180ms var(--ease-out); }
+
+/* Sticky peek banner (R7). Opaque base under the tonal wash so content
+   doesn't show through while scrolling. Standings already pins its
+   own filter row at this offset, so the banner stays static there. */
+.peek-banner{
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 8px);
+  z-index: 6;
+  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg);
+}
+#view-standings .peek-banner{ position: static; }
+
+/* Tabular numerals on every number column (R10) */
+.standings-row, .person-record-chip, .league-tab .n,
+.ob-rank, .ob-total, .ob-detail-total, .ob-card-pts, .ob-rule-pts,
+.stat-cell .num, .stat-tile .num, .form-score, .tracker-total, .tracker-value,
+.scoring-value, .fact-pts, .tg-score, .tg-rail-top, .gd-score-team b,
+.linescore-table, .box-table, .gd-teamstats, .chat-time, .chat-badge{
+  font-variant-numeric: tabular-nums;
+}
+
+/* Skeleton placeholders (R6) — shapes match .standings-row and the
+   team modal's form/next-match blocks so nothing jumps on load. */
+.skel-rows{ display: flex; flex-direction: column; }
+.skel-row{ display: flex; align-items: center; gap: 12px; padding: 12px 18px; min-height: 44px; }
+.skel-row + .skel-row{ border-top: 1px solid var(--hairline); }
+.skel-dot{ flex: 0 0 28px; height: 28px; border-radius: 8px; background: rgba(var(--ink-rgb),0.07); animation: skel 1.5s ease-in-out infinite; }
+.skel-row .skel-bar{ flex: 0 1 var(--w, 50%); }
+.skel-row .skel-bar.end{ flex: 0 0 34px; margin-left: auto; }
+.skel-lines{ display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.skel-lines .skel-bar{ width: var(--w, 100%); }
+
+@media (prefers-reduced-motion: reduce){
+  .board > .view.active:not(.view-push-in){ animation: none; }
+  .skel-dot{ animation: none; }
+  .ob-row:active, .news-card:active, .tg-row.clickable:active .tg-card,
+  .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
+  .chat-send:active, .peek-banner button:active, .gd-back:active, .modal-close:active,
+  .picker-hit:active .settings-icon, .tab-btn:active .tab-icon{ transform: none; }
+}
+
+
+/* ==== Tags: one shape for every status pill (R9) ====
+   season-badge, zone-tag, provisional-tag and status-pill all share
+   the same recipe; each keeps only its own color. */
+.season-badge, .zone-tag, .provisional-tag, .status-pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-10);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: var(--track-tag);
+  text-transform: uppercase;
+  border-radius: var(--r-xs);
+  padding: 4px 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.provisional-tag{ border: none; }

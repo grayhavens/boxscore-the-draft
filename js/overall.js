@@ -12,7 +12,7 @@
    the full visual spec this implements.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
-import { updateUrlParam, segmentedControlHtml } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 
@@ -432,7 +432,7 @@ function obDetailHtml(row){
     : '';
 
   return `
-    <button type="button" class="ob-back" onclick="obCloseDetail()">&larr; Points</button>
+    <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
     <div class="ob-detail-head">
       <div class="ob-detail-left">
         <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>

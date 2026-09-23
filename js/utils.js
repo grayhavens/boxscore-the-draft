@@ -362,6 +362,29 @@ export function segmentedControlHtml(segments, activeKey, onClickFnName){
   `;
 }
 
+// Shared back chevron — every back control (pushed pages, sheets) uses
+// this same glyph so navigation reads identically across the app.
+export const CHEVRON_LEFT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>';
+
+// Loading placeholders shaped like the content they stand in for
+// (see .skel-* in css/style.css). role=status so screen readers still
+// hear "Loading" the way the old text notes announced it.
+export function skeletonRowsHtml(count = 6){
+  const widths = [58, 44, 52, 38, 48, 42, 55, 40];
+  const rows = Array.from({ length: count }, (_, i) =>
+    `<div class="skel-row"><span class="skel-dot"></span><span class="skel-bar" style="--w:${widths[i % widths.length]}%"></span><span class="skel-bar end"></span></div>`
+  ).join('');
+  return `<div class="skel-rows" role="status" aria-label="Loading">${rows}</div>`;
+}
+
+export function skeletonLinesHtml(count = 3){
+  const widths = [92, 74, 84, 60, 88, 70];
+  const bars = Array.from({ length: count }, (_, i) =>
+    `<div class="skel-bar" style="--w:${widths[i % widths.length]}%"></div>`
+  ).join('');
+  return `<div class="skel-lines" role="status" aria-label="Loading">${bars}</div>`;
+}
+
 export const CLOSE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6L18 18"></path><path d="M18 6L6 18"></path></svg>';
 export const CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#0A0B0D" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>';
 export const CHEVRON_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>';
