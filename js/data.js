@@ -412,7 +412,7 @@ export const LEAGUE_SCORING = {
       { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } },
       { label: 'Worst record in conference', pts: -3, rankAuto: { scope: 'conference', bottom: 1 } }
     ],
-    bonus: { label: 'Best combined win %', pts: 5 }
+    bonus: { label: 'Highest combined NHL point total', pts: 5 }
   },
   mlb: {
     name: 'MLB',

@@ -12,9 +12,10 @@
    the full visual spec this implements.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
+import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
 // each league's real modal accent (LEAGUE_SCORING[key].accent) — those
@@ -41,12 +42,12 @@ const OB_LEAGUE_FULL_NAME = {
   nba: 'NBA', nhl: 'NHL', mlb: 'MLB', wnba: 'WNBA'
 };
 
-function obLeagueColor(leagueKey){
+export function obLeagueColor(leagueKey){
   const scoring = LEAGUE_SCORING[leagueKey];
   return OB_LEAGUE_CHART_COLOR[leagueKey] || (scoring && scoring.accent) || 'var(--text-mute)';
 }
 
-function obLeagueFullName(leagueKey){
+export function obLeagueFullName(leagueKey){
   return OB_LEAGUE_FULL_NAME[leagueKey] || (LEAGUES.find(l => l.key === leagueKey) || {}).label || leagueKey;
 }
 
@@ -56,8 +57,10 @@ function obLeagueFullName(leagueKey){
 // (obOpenDetail / obCloseDetail) per the design spec.
 let obDetailId = null;
 let obOpenLeagueKey = null;
+// Opponent when the Compare (head to head) view is open on top of obDetailId.
+let obCompareId = null;
 
-function obSignedPts(n){
+export function obSignedPts(n){
   return (n > 0 ? '+' : '') + n;
 }
 
@@ -432,7 +435,13 @@ function obDetailHtml(row){
     : '';
 
   return `
-    <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
+    <div class="ob-back-row">
+      <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
+      <button type="button" class="cmp-btn" onclick="obOpenComparePicker()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h12"></path><path d="M16 3l4 4-4 4"></path><path d="M16 17H4"></path><path d="M8 13l-4 4 4 4"></path></svg>
+        Compare
+      </button>
+    </div>
     <div class="ob-detail-head">
       <div class="ob-detail-left">
         <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>
@@ -457,6 +466,7 @@ function obDetailHtml(row){
 export function obOpenDetail(id){
   obDetailId = id;
   obOpenLeagueKey = null;
+  obCompareId = null;
   window.scrollTo(0, 0);
   renderOverallStandings();
 }
@@ -465,6 +475,7 @@ window.obOpenDetail = obOpenDetail;
 export function obCloseDetail(){
   obDetailId = null;
   obOpenLeagueKey = null;
+  obCompareId = null;
   renderOverallStandings();
 }
 window.obCloseDetail = obCloseDetail;
@@ -475,6 +486,51 @@ export function obToggleLeague(key){
 }
 window.obToggleLeague = obToggleLeague;
 
+// ---- Compare (head to head) ----
+
+const comparePickerOverlay = () => document.getElementById('compare-sheet-overlay');
+
+export function obOpenComparePicker(){
+  if(!obDetailId || !comparePickerOverlay()) return;
+  const rows = obRankedRows();
+  const me = rows.find(r => r.id === obDetailId);
+  if(!me) return;
+  document.getElementById('compare-sheet-title').textContent = 'Compare ' + me.name + ' with\u2026';
+  document.getElementById('compare-sheet-rows').innerHTML = comparePickerHtml(rows, obDetailId, obCompareId);
+  comparePickerOverlay().classList.add('open');
+  lockBodyScroll();
+}
+window.obOpenComparePicker = obOpenComparePicker;
+
+export function obCloseComparePicker(){
+  const el = comparePickerOverlay();
+  if(!el || !el.classList.contains('open')) return;
+  el.classList.remove('open');
+  unlockBodyScroll();
+}
+window.obCloseComparePicker = obCloseComparePicker;
+
+// Picking from the detail view pushes the compare screen; picking from
+// within it (Change) swaps the opponent in place.
+export function obPickOpponent(id){
+  const fromCompare = !!obCompareId;
+  obCloseComparePicker();
+  obCompareId = id;
+  if(!fromCompare) window.scrollTo(0, 0);
+  renderOverallStandings({ push: !fromCompare });
+}
+window.obPickOpponent = obPickOpponent;
+
+export function obCloseCompare(){
+  obCompareId = null;
+  window.scrollTo(0, 0);
+  renderOverallStandings();
+}
+window.obCloseCompare = obCloseCompare;
+
+const compareSheet = document.getElementById('compare-sheet-content');
+if(compareSheet) enableSheetSwipeToDismiss(compareSheet, obCloseComparePicker);
+
 // TEMPORARY: see the block above obDrafterAwards — delete alongside it.
 function obSyncModeToggle(){
   const el = document.getElementById('ob-mode-switch');
@@ -483,7 +539,7 @@ function obSyncModeToggle(){
 
 const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; switch data to Real for live standings.</div>`;
 
-export function renderOverallStandings(){
+export function renderOverallStandings(opts){
   const container = document.getElementById('overall-content');
   if(!container) return;
   obSyncModeToggle();
@@ -493,10 +549,19 @@ export function renderOverallStandings(){
   if(obDetailId){
     const row = rows.find(r => r.id === obDetailId);
     if(row){
+      if(obCompareId && rows.some(r => r.id === obCompareId)){
+        container.innerHTML = `${simBanner}<div class="ob-detail cmp ${opts && opts.push ? 'view-push-in' : ''}">${compareHtml(rows, obDetailId, obCompareId)}</div>`;
+        setupCompareSticky();
+        fillSameRace(rows, obDetailId, obCompareId);
+        return;
+      }
+      obCompareId = null;
       container.innerHTML = `${simBanner}<div class="ob-detail">${obDetailHtml(row)}</div>`;
+      setupCompareSticky();
       return;
     }
     obDetailId = null;
+    obCompareId = null;
   }
 
   container.innerHTML = simBanner + obListHtml(rows);

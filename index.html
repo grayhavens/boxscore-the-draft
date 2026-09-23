@@ -156,6 +156,19 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="compare-sheet-overlay" onclick="if(event.target===this) obCloseComparePicker()">
+  <div class="modal" id="compare-sheet-content">
+    <div class="sheet-title-row">
+      <div>
+        <div class="sheet-title" id="compare-sheet-title">Compare</div>
+        <div class="sheet-title-sub">Confirmed points, by rank</div>
+      </div>
+      <button class="modal-close" onclick="obCloseComparePicker()">&times;</button>
+    </div>
+    <div id="compare-sheet-rows" class="cmp-pick-list"></div>
+  </div>
+</div>
+
 <!-- First-run welcome (pick your name, then how to add to Home Screen) and
      the reusable install guide — see js/identity.js's maybeShowWelcome. -->
 <div class="modal-overlay" id="welcome-overlay" onclick="if(event.target===this) dismissWelcomeOverlay()">
