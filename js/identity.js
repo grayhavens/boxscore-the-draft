@@ -1,9 +1,10 @@
 /* ============================================================
    Identity: which of the 10 drafters this device is "signed in" as.
    Deliberately not real auth — this is a friend-group app, not a
-   walled system — just a persisted, visible choice (the outline
-   initials circle in every view's header) instead of an implicit
-   one.
+   walled system — just a persisted, visible choice (made in the
+   settings sheet behind the gear in every view's header) instead of an
+   implicit one. That sheet also hosts the per-device preferences in
+   js/settings.js.
 
    Kept separate from js/board.js's currentDraftTeamId (which
    roster is currently DISPLAYED on the Board/Standings views):
@@ -21,7 +22,8 @@
    drafter. See maybeShowWelcome below.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
-import { lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
+import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -47,26 +49,13 @@ function needsWelcome(){
   }
 }
 
-// "Josh" -> "J", "Eric P" -> "EP" — the header stays quiet
-// everywhere; the switcher sheet below always shows full names, so
-// nothing about "who" is ever actually ambiguous.
-function initials(name){
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
-// Repaints every header's identity circle and peek banner from
-// current state. Called once at boot and by js/board.js's
+// Repaints every header's peek banner from current state. Called once at boot and by js/board.js's
 // setDraftTeam whenever the displayed roster changes (peek or real
 // switch) — that's the single choke point every path funnels through.
 export function paintIdentityChrome(displayedDraftTeamId){
   const profile = DRAFT_TEAMS.find(d => d.id === currentProfileId);
   const viewing = DRAFT_TEAMS.find(d => d.id === displayedDraftTeamId) || profile;
   const isPeeking = displayedDraftTeamId !== currentProfileId;
-
-  document.querySelectorAll('.id-circle').forEach(el => {
-    el.textContent = initials(profile.name);
-    el.title = profile.name;
-  });
 
   document.querySelectorAll('.peek-banner').forEach(el => {
     el.classList.toggle('show', isPeeking);
@@ -75,26 +64,95 @@ export function paintIdentityChrome(displayedDraftTeamId){
   });
 }
 
-export function openIdentitySheet(){
-  const rowsEl = document.getElementById('identity-sheet-rows');
-  if(!rowsEl) return;
-  rowsEl.innerHTML = DRAFT_TEAMS.map(d => `
-    <button class="sheet-row ${d.id === currentProfileId ? 'active' : ''}" onclick="chooseProfile('${d.id}')">
-      <span>${d.name}</span>
-      <span class="sheet-check">${d.id === currentProfileId ? CHECK_ICON_SVG : ''}</span>
+const sheetRows = () => document.getElementById('identity-sheet-rows');
+const setSheetTitle = t => { document.getElementById('identity-sheet-title').textContent = t; };
+
+function segmented(key, options, current){
+  return segmentedControlHtml(options.map(([k, label]) => ({ key: k, label })), current, 'setSheetTheme');
+}
+
+function renderSettingsMain(){
+  const s = getSettings();
+  const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
+  setSheetTitle('Settings');
+  sheetRows().innerHTML = `
+    <div class="settings-section">Account</div>
+    <button class="sheet-row" onclick="renderSettingsPeople()">
+      <span>Signed in as</span>
+      <span class="settings-value">${me.name}</span>
+      <span class="settings-chev">&rsaquo;</span>
     </button>
-  `).join('') + (installPlatform() ? `
+    <div class="settings-section">Appearance</div>
+    <div class="settings-row"><span>Theme</span>${segmented('theme', THEME_OPTIONS, s.theme)}</div>
+    <div class="settings-section">Home</div>
+    <button class="sheet-row" onclick="renderSettingsLanding()">
+      <span>Open to</span>
+      <span class="settings-value">${LANDING_OPTIONS.find(([v]) => v === s.landing)[1]}</span>
+      <span class="settings-chev">&rsaquo;</span>
+    </button>
+    <div class="settings-section">Chat</div>
+    <div class="settings-row">
+      <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>
+      <button class="switch ${s.chatBadge ? 'on' : ''}" role="switch" aria-checked="${s.chatBadge}" aria-label="Unread badge" onclick="setSheetSetting('chatBadge', ${!s.chatBadge})"></button>
+    </div>
+    ${installPlatform() ? `
+    <div class="settings-section">App</div>
     <button class="sheet-row" onclick="openInstallGuideFromSheet()">
       <span class="sheet-row-text">
         Add to Home Screen
         <span class="sheet-desc" style="display:block">Open Boxscore like an app</span>
       </span>
+    </button>` : ''}
+  `;
+}
+window.renderSettingsPeople = renderSettingsPeople;
+
+function renderSettingsPeople(){
+  setSheetTitle('Who are you?');
+  sheetRows().innerHTML = `
+    <div class="settings-row"><button class="settings-back" onclick="renderSettingsMain()">&lsaquo; Settings</button></div>
+  ` + DRAFT_TEAMS.map(d => `
+    <button class="sheet-row ${d.id === currentProfileId ? 'active' : ''}" onclick="chooseProfile('${d.id}')">
+      <span>${d.name}</span>
+      <span class="sheet-check">${d.id === currentProfileId ? CHECK_ICON_SVG : ''}</span>
     </button>
-  ` : '');
+  `).join('');
+}
+window.renderSettingsMain = renderSettingsMain;
+
+function renderSettingsLanding(){
+  const current = getSettings().landing;
+  setSheetTitle('Open to');
+  sheetRows().innerHTML = `
+    <div class="settings-row"><button class="settings-back" onclick="renderSettingsMain()">&lsaquo; Settings</button></div>
+  ` + LANDING_OPTIONS.map(([v, label]) => `
+    <button class="sheet-row ${v === current ? 'active' : ''}" onclick="chooseLanding('${v}')">
+      <span>${label}</span>
+      <span class="sheet-check">${v === current ? CHECK_ICON_SVG : ''}</span>
+    </button>
+  `).join('');
+}
+window.renderSettingsLanding = renderSettingsLanding;
+
+window.chooseLanding = v => {
+  window.setSetting('landing', v);
+  renderSettingsMain();
+};
+
+// Redraws in place so the sheet stays open while a control is toggled.
+window.setSheetTheme = v => window.setSheetSetting('theme', v);
+window.setSheetSetting = (key, value) => {
+  window.setSetting(key, value);
+  renderSettingsMain();
+};
+
+export function openSettingsSheet(){
+  if(!sheetRows()) return;
+  renderSettingsMain();
   document.getElementById('identity-sheet-overlay').classList.add('open');
   lockBodyScroll();
 }
-window.openIdentitySheet = openIdentitySheet;
+window.openSettingsSheet = openSettingsSheet;
 
 export function closeIdentitySheet(){
   document.getElementById('identity-sheet-overlay').classList.remove('open');

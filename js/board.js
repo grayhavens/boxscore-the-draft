@@ -68,6 +68,7 @@ import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
+import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome } from './identity.js';
 import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
@@ -118,7 +119,11 @@ function applyUrlState(){
   const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'admin' || explicitView === 'scoring')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
+  // No view in the URL: fall back to the "Open to" setting (js/settings.js).
+  // A shared/bookmarked link with any view of its own always wins.
+  const landing = getSettings().landing;
   if(view) switchView(view);
+  else if(landing !== 'board' && !params.has('view') && !params.has('team')) switchView(landing);
 }
 
 // ---- Draft team selection ----
