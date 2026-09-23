@@ -219,7 +219,7 @@ body{
   color: var(--text);
 }
 
-/* Chat entry point (js/chat.js) — the raised center button in the tab bar
+/* Chat entry point (js/chat.js) — the center button in the tab bar
    (.tab-btn.chat-hit, see .tab-bar below). The badge hangs off the icon's
    top-right corner via .tab-icon, not off the full-width button. */
 .chat-badge{
@@ -3160,43 +3160,6 @@ body{
 .tab-btn svg{ width: 19px; height: 19px; }
 .tab-icon{ position: relative; display: flex; }
 
-/* Chat — the center slot, drawn as a raised accent disc that pokes up
-   out of the bar so it reads as the app's primary action rather than a
-   fifth peer tab. The negative margin lifts the disc without changing
-   the button's own box, so the label still lines up with its neighbours. */
-.tab-btn.chat-hit{ color: var(--accent); }
-.tab-btn.chat-hit .tab-icon{
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-top: -24px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--bg);
-  box-shadow: 0 0 0 4px var(--bg), 0 6px 16px rgba(0,0,0,0.45);
-}
-.tab-btn.chat-hit:active .tab-icon{ transform: scale(0.94); }
-.tab-btn.chat-hit svg{ width: 23px; height: 23px; }
-.tab-btn.chat-hit .chat-badge{ top: -2px; left: auto; right: -4px; }
-
-/* On the Chat tab itself the disc docks: it drops flush into the bar as
-   an accent pill behind the icon (the bar's active-tab color), since a
-   raised disc would sit over the composer and there's nothing left to
-   call attention to. The badge is never shown here — you're reading. */
-.tab-btn.chat-hit .tab-icon{
-  transition: transform 0.12s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-.tab-btn.chat-hit.active .tab-icon{
-  width: 52px;
-  height: 28px;
-  margin-top: 0;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: none;
-}
-.tab-btn.chat-hit.active svg{ width: 19px; height: 19px; }
 
 .tab-label{
   font-family: 'Space Grotesk', sans-serif;
@@ -3477,16 +3440,16 @@ body{
    Chat screen (js/chat.js) — the Chat tab (#view-chat). Unlike the
    other views it doesn't flow in the page: it's fixed, sitting between
    the top of the screen and the tab bar (z-index 200, which stays above
-   it), with height/top driven by JS from window.visualViewport so the
-   on-screen keyboard shrinks it instead of covering the composer. The
-   pre-JS fallback height below leaves the same room for the bar.
+   it). With the keyboard down that's plain CSS (top/bottom below); only
+   while the keyboard is up does JS size it from window.visualViewport
+   so the keyboard shrinks it instead of covering the composer.
    ============================================================ */
 .chat-screen{
   position: fixed;
   left: 0;
   right: 0;
   top: 0;
-  height: calc(100dvh - var(--nav-h) - env(safe-area-inset-bottom));
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
   z-index: 190;
   background: var(--bg);
   flex-direction: column;

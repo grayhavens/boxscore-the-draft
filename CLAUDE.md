@@ -93,10 +93,10 @@ key must never be added to client JS directly — see the comment block at the t
 before adding a new route.
 
 **Group chat** (`js/chat.js` + `worker/chat-room.js`): real-time text chat for the drafters — the Chat tab
-(`#view-chat`, `?view=chat`), the raised accent button in the center of the bottom tab bar. It's a
+(`#view-chat`, `?view=chat`), the center button of the bottom tab bar. It's a
 real `.view` that `switchView` toggles (calling `setChatActive` in `js/chat.js`), but unlike the other
-views it's `position: fixed` and sized from `window.visualViewport` so the iOS keyboard shrinks it
-instead of covering the composer; the tab bar hides while the keyboard is up (`html.chat-kb`). Messages fan out through one shared Durable Object (SQLite-backed, WebSocket
+views it's `position: fixed`, and while the keyboard is up it's sized from `window.visualViewport` so
+the iOS keyboard shrinks it instead of covering the composer; the tab bar hides while the keyboard is up (`html.chat-kb`). Messages fan out through one shared Durable Object (SQLite-backed, WebSocket
 Hibernation API) reached at `/chat/ws`; KV can't do this (eventual consistency, no push). Same
 no-auth trust tier as favorites — sender is whichever drafter `js/identity.js` says you are. The
 socket opens at boot so the tab bar's unread badge is live; reconnects resume via `?after=<lastId>`.
