@@ -96,6 +96,19 @@
       browser-direct can — it just keeps it out of git and off origins
       that aren't ours.
 
+   8. NHL GAME CLIPS PROXY — the NHL's own public API (api-web.nhle.com,
+      no key) is the source for NHL Game Details' in-app highlight clips
+      (js/nhl-clips.js): ESPN's summary carries no NHL video at all
+      (checked live 2026-09-22), while the NHL's /v1/score/<date> lists
+      every game that day with a clip id on nearly every goal plus a
+      3-minute recap id. Like nflverse above, this is here for CORS, not
+      a key — api-web.nhle.com sends no CORS headers. One response covers
+      every game on a date, so it's trimmed server-side to just the clip
+      fields (every viewer opening any game from the same night shares
+      one cached upstream call). The clip ids are resolved to playable
+      .mp4s by the browser itself, straight from Brightcove — see
+      js/nhl-clips.js for why that part isn't proxied or cached.
+
    EDGE CACHING — every proxied GET is cached in Workers' shared edge
    cache (caches.default), keyed on the upstream URL alone, with a TTL
    matched to how fast that data actually changes (see CACHE_TTL_SECONDS
@@ -128,6 +141,7 @@ const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
 const SPORTSDB_V1_BASE = 'https://www.thesportsdb.com/api/v1/json';
 const NFLVERSE_RELEASES_BASE = 'https://github.com/nflverse/nflverse-data/releases/download';
+const NHLE_BASE = 'https://api-web.nhle.com/v1';
 
 // nflverse names its injuries/depth_charts release assets by the season
 // they cover (e.g. depth_charts_2026.csv), and that file appears (and
@@ -229,7 +243,8 @@ const CACHE_TTL_SECONDS = {
   sportsdbTeam: 24 * 60 * 60,  // sport/founded/stadium/colors — effectively static
   sportsdbSchedule: 60,        // last-result / next-fixture, refreshed on the same cadence as rundownEvents
   nflverseInjuries: 2 * 60 * 60,   // practice reports land a few times during a game week (Wed-Fri), not continuously
-  nflverseDepthChart: 3 * 60 * 60  // teams post depth-chart moves less often than injury reports
+  nflverseDepthChart: 3 * 60 * 60, // teams post depth-chart moves less often than injury reports
+  nhlScore: 5 * 60                 // goal clips/recap land over the hour or so after each goal/final horn
 };
 
 // Shared building block for every proxy below: check the edge cache
@@ -439,6 +454,47 @@ async function handleNflverseInjuries(request, env, headers, ctx){
   const latestWeek = rows.reduce((max, r) => Math.max(max, parseInt(r.week, 10) || 0), 0);
   const latest = rows.filter(r => (parseInt(r.week, 10) || 0) === latestWeek);
   return json(groupByTeam(latest), 200, headers);
+}
+
+// /nhl/score/<YYYY-MM-DD> — see the header comment's NHL GAME CLIPS PROXY
+// section. The date is the NHL's own (US Eastern) game date, same as
+// its gameDate field. `threeMinRecap` arrives as a page path
+// ("/video/buf-at-pit-recap-6405393386112"), not an id — its trailing
+// number IS the Brightcove video id (confirmed live against the
+// right-rail endpoint's numeric gameVideo.threeMinRecap for the same
+// game), so it's extracted here once rather than by every client.
+async function handleNhlScore(request, url, headers, ctx){
+  if(request.method !== 'GET'){
+    return new Response('Method not allowed', { status: 405, headers });
+  }
+  const match = url.pathname.match(/^\/nhl\/score\/(\d{4}-\d{2}-\d{2})$/);
+  if(!match) return new Response('Not found', { status: 404, headers });
+
+  const upstream = await cachedUpstreamFetch(`${NHLE_BASE}/score/${match[1]}`, CACHE_TTL_SECONDS.nhlScore, {}, ctx);
+  if(!upstream.ok) return json({ games: [] }, 200, headers);
+
+  const data = await upstream.json();
+  const recapId = path => {
+    const m = /(\d{6,})$/.exec(path || '');
+    return m ? m[1] : null;
+  };
+  const side = t => ({ name: (t && t.name && t.name.default) || null, abbrev: (t && t.abbrev) || null });
+  const games = (Array.isArray(data && data.games) ? data.games : []).map(g => ({
+    startTimeUTC: g.startTimeUTC || null,
+    awayTeam: side(g.awayTeam),
+    homeTeam: side(g.homeTeam),
+    recapClip: recapId(g.threeMinRecap),
+    goals: (Array.isArray(g.goals) ? g.goals : []).map(goal => ({
+      period: goal.period || null,
+      periodType: (goal.periodDescriptor && goal.periodDescriptor.periodType) || null,
+      timeInPeriod: goal.timeInPeriod || null,
+      scorer: (goal.name && goal.name.default) || null,
+      teamAbbrev: goal.teamAbbrev || null,
+      strength: goal.strength || null,
+      clip: goal.highlightClip ? String(goal.highlightClip) : null
+    }))
+  }));
+  return json({ games }, 200, headers);
 }
 
 // /nflverse/depth-chart — see the header comment's NFLVERSE PROXY
@@ -695,6 +751,8 @@ export default {
     if(url.pathname === '/nflverse/injuries') return handleNflverseInjuries(request, env, headers, ctx);
 
     if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
+
+    if(url.pathname.startsWith('/nhl/score/')) return handleNhlScore(request, url, headers, ctx);
 
     if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
 

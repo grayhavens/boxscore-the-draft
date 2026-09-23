@@ -9,6 +9,7 @@ import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEA
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
 import { fetchMlbGameExtras } from './mlb-stats.js';
+import { fetchNhlGameExtras } from './nhl-clips.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findCbbRecord, findEspnCbbRow, fetchEspnCbbStandingsCached, cbbConferenceRank } from './standings-cbb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, nflDivisionRank, nflConferenceRank, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
@@ -1329,7 +1330,7 @@ function boxGroupHtml(group){
 // the linescore, plus enough of the last render's own inputs to redraw
 // it when that changes — set at the end of renderGameDetail below, read
 // by setGameDetailTeam so switching teams doesn't need to re-fetch.
-let gameDetailRenderState = null; // { accent, leagueKey, summary, situation, selectedTeamId, mlb: {topPlays, selectedTopPlayIndex, decisions, gameInfo} } | null
+let gameDetailRenderState = null; // { accent, leagueKey, summary, situation, selectedTeamId, extras: {topPlays, selectedTopPlayIndex, decisions, gameInfo} } | null
 
 // leagueKey selects the linescore column count/labels (9 numbered
 // innings for MLB, 4 quarters + OT for CFB — see GAME_DETAIL_LEAGUES)
@@ -1346,7 +1347,11 @@ let gameDetailRenderState = null; // { accent, leagueKey, summary, situation, se
 // pair since it's just a same-page focus switch, not a persisted view
 // mode) lets a drafter flip between them instead of always scrolling
 // past both team's full tables stacked together.
-function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, mlb){
+// extras is the league's own non-ESPN layer, or null — MLB's
+// fetchMlbGameExtras (js/mlb-stats.js: Top Plays, decisions, game info,
+// recap) or NHL's fetchNhlGameExtras (js/nhl-clips.js: Top Plays only).
+// Each piece below renders only if that league's extras actually has it.
+function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, extras){
   const el = document.getElementById('game-detail-content');
   if(!el) return;
 
@@ -1398,7 +1403,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // underlying data exists yet) with no card. Deliberately just a hero
   // image and a plain link-out, never an embedded player here — that's
   // what Top Plays is for.
-  const media = (leagueKey === 'mlb' && mlb && mlb.recap) ? mlb.recap : (summary.media || {});
+  const media = (extras && extras.recap) ? extras.recap : (summary.media || {});
   const mediaHtml = (media.photoUrl || media.recapHeadline || media.linkUrl) ? `
     <div class="gd-media">
       ${media.photoUrl ? `<img class="gd-photo" src="${media.photoUrl}" alt="" loading="lazy">` : ''}
@@ -1410,34 +1415,39 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     </div>
   ` : '';
 
-  // MLB-only — see js/mlb-stats.js for how these are resolved (a real
-  // playId->guid join against MLB's own Stats API for each of up to 3
-  // scoring plays, ranked by MLB's own captivatingIndex, not a text/
-  // headline guess) and openGameDetail below for where they're
-  // fetched. Unlike ESPN's media block above (a link-out — ESPN's own
+  // MLB and NHL — see js/mlb-stats.js for how MLB's are resolved (a
+  // real playId->guid join against MLB's own Stats API for each of up
+  // to 3 scoring plays, ranked by MLB's own captivatingIndex, not a
+  // text/headline guess), js/nhl-clips.js for NHL's (the NHL's own
+  // 3-minute recap plus every goal's clip, played from Brightcove's
+  // .mp4), and openGameDetail below for where they're fetched. NHL's
+  // section is titled "Highlights" since its first clip is a recap, not
+  // a single play. Unlike ESPN's media block above (a link-out — ESPN's own
   // clips don't map to a specific play), these are exact, curated
   // clips, so they're embedded directly: one video area (tap-to-play,
   // never autoplay) with a thumbnail rail underneath when there's more
   // than one, so switching plays never stacks a second player — same
   // "one media element, not several" footprint as before, just now
   // selectable rather than fixed to a single clip.
-  const topPlays = (leagueKey === 'mlb' && mlb && Array.isArray(mlb.topPlays)) ? mlb.topPlays.filter(p => p && p.videoUrl) : [];
-  const activeIdx = topPlays.length ? Math.min(Math.max((mlb && mlb.selectedTopPlayIndex) || 0, 0), topPlays.length - 1) : 0;
+  const topPlays = (extras && Array.isArray(extras.topPlays)) ? extras.topPlays.filter(p => p && p.videoUrl) : [];
+  const activeIdx = topPlays.length ? Math.min(Math.max((extras && extras.selectedTopPlayIndex) || 0, 0), topPlays.length - 1) : 0;
   const activePlay = topPlays[activeIdx];
   const topPlayHtml = activePlay ? (() => {
+    // MLB leads the caption with the inning; NHL's clips carry their
+    // own ready-made lead-in (period/time) as `label`.
     const inningLabel = (activePlay.halfInning && activePlay.inning)
       ? `${activePlay.halfInning === 'top' ? 'Top' : 'Bottom'} ${ordinal(activePlay.inning)}`
-      : null;
+      : (activePlay.label || null);
     const railHtml = topPlays.length > 1 ? `
       <div class="gd-topplay-rail">
         ${topPlays.map((p, i) => `
-          <button class="gd-topplay-thumb ${i === activeIdx ? 'active' : ''}" onclick="setMlbTopPlayIndex(${i})" ${p.thumbnailUrl ? `style="background-image:url('${p.thumbnailUrl}')"` : ''}></button>
+          <button class="gd-topplay-thumb ${i === activeIdx ? 'active' : ''}" onclick="setTopPlayIndex(${i})" ${p.thumbnailUrl ? `style="background-image:url('${p.thumbnailUrl}')"` : ''}></button>
         `).join('')}
       </div>
     ` : '';
     return `
       <div class="gd-topplay">
-        <div class="modal-section-title">Top Plays</div>
+        <div class="modal-section-title">${leagueKey === 'nhl' ? 'Highlights' : 'Top Plays'}</div>
         <video class="gd-topplay-video" controls preload="none" playsinline ${activePlay.thumbnailUrl ? `poster="${activePlay.thumbnailUrl}"` : ''}>
           <source src="${activePlay.videoUrl}" type="video/mp4">
         </video>
@@ -1497,7 +1507,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // on the same live-feed response Top Plays needs — no extra
   // request). save is commonly absent (most games don't have one), so
   // that piece is just skipped rather than shown empty.
-  const decisions = (leagueKey === 'mlb' && mlb && mlb.decisions) ? mlb.decisions : null;
+  const decisions = (extras && extras.decisions) ? extras.decisions : null;
   const pitcherRecord = p => (p && p.wins !== undefined && p.losses !== undefined)
     ? ` <span class="gd-decision-record">(${p.wins}-${p.losses}${p.era ? `, ${p.era}` : ''})</span>` : '';
   const decisionsHtml = (decisions && (decisions.win || decisions.loss || decisions.save)) ? `
@@ -1513,7 +1523,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // individually (a mid-game open, before gameInfo is final, might be
   // missing duration) so this only joins whichever parts exist rather
   // than showing blank placeholders.
-  const gameInfo = (leagueKey === 'mlb' && mlb && mlb.gameInfo) ? mlb.gameInfo : null;
+  const gameInfo = (extras && extras.gameInfo) ? extras.gameInfo : null;
   const gameInfoHtml = gameInfo ? (() => {
     const parts = [];
     if(gameInfo.venue) parts.push(gameInfo.venue);
@@ -1623,7 +1633,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
 
   gameDetailRenderState = {
     accent, leagueKey, summary, situation, selectedTeamId,
-    mlb: { topPlays, selectedTopPlayIndex: activeIdx, decisions, gameInfo }
+    extras: { ...extras, topPlays, selectedTopPlayIndex: activeIdx, decisions, gameInfo }
   };
 }
 
@@ -1668,8 +1678,8 @@ function soccerEventsHtml(events, away, home){
 // re-hit the network either.
 function setGameDetailTeam(teamId){
   if(!gameDetailRenderState) return;
-  const { accent, leagueKey, summary, situation, mlb } = gameDetailRenderState;
-  renderGameDetail(accent, leagueKey, summary, situation, teamId, mlb);
+  const { accent, leagueKey, summary, situation, extras } = gameDetailRenderState;
+  renderGameDetail(accent, leagueKey, summary, situation, teamId, extras);
 }
 window.setGameDetailTeam = setGameDetailTeam;
 
@@ -1680,12 +1690,12 @@ window.setGameDetailTeam = setGameDetailTeam;
 // toggle's own selection (selectedTeamId, stashed in render state) is
 // passed straight through unchanged so switching clips never resets
 // which team's stats are showing below.
-function setMlbTopPlayIndex(index){
+function setTopPlayIndex(index){
   if(!gameDetailRenderState) return;
-  const { accent, leagueKey, summary, situation, selectedTeamId, mlb } = gameDetailRenderState;
-  renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, { ...mlb, selectedTopPlayIndex: index });
+  const { accent, leagueKey, summary, situation, selectedTeamId, extras } = gameDetailRenderState;
+  renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId, { ...extras, selectedTopPlayIndex: index });
 }
-window.setMlbTopPlayIndex = setMlbTopPlayIndex;
+window.setTopPlayIndex = setTopPlayIndex;
 
 // eventId is passed in explicitly by both callers (renderNext's LIVE
 // entry chip and renderForm's "Most Recent Result" link) rather than
@@ -1722,13 +1732,15 @@ export async function openGameDetail(teamKey, eventId){
   // paints once — the extra requests only happen for MLB games, and
   // only when a drafter actually opens Game Details, same on-demand
   // cost profile as the boxscore fetch itself.
-  const mlb = (meta.leagueKey === 'mlb' && summary && summary.teams.length === 2)
-    ? await fetchMlbGameExtras(
-        summary.date,
-        (summary.teams.find(t => t.homeAway === 'away') || {}).name,
-        (summary.teams.find(t => t.homeAway === 'home') || {}).name
-      )
-    : null;
+  // NHL gets the same treatment from the NHL's own data (js/nhl-clips.js)
+  // — matched by common name ("Sabres") + start time rather than MLB's
+  // full name, since that's what the NHL's feed carries.
+  const hasBothTeams = summary && summary.teams.length === 2;
+  const awayTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'away') || {}) : {};
+  const homeTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'home') || {}) : {};
+  let extras = null;
+  if(hasBothTeams && meta.leagueKey === 'mlb') extras = await fetchMlbGameExtras(summary.date, awayTeam.name, homeTeam.name);
+  else if(hasBothTeams && meta.leagueKey === 'nhl') extras = await fetchNhlGameExtras(summary.date, awayTeam.mascot, homeTeam.mascot);
   if(el.dataset.activeEvent !== String(eventId)) return;
 
   // situation (down/distance, balls/strikes/etc.) only ever comes from
@@ -1744,7 +1756,7 @@ export async function openGameDetail(teamKey, eventId){
   // matched by name) rather than via bundle.espnLive's isHome — that
   // only describes today's/the current game, not necessarily this one.
   const row = flatSchedule.findRow(meta);
-  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, mlb);
+  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, extras);
 }
 window.openGameDetail = openGameDetail;
 

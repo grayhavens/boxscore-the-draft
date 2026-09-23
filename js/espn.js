@@ -1206,6 +1206,20 @@ const FOOTBALL_BOX_GROUP_COLUMNS = {
 // Uses `links.web.href` (ESPN's own watch page) rather than the raw
 // CDN `links.source.href` mp4 — a plain link-out, not an embedded
 // player.
+// geoRestrictions is { type: 'whitelist'|'blacklist', countries: [...] }
+// when present (WNBA/MLB clips carry a 100+ country whitelist that
+// includes US; EPL highlights carry ['AU'] alone), absent entirely when
+// a clip plays everywhere (every CFB clip checked). EPL's full-match
+// highlight reel is routinely an Australia-only clip (NBC holds the US
+// rights), confirmed live 2026-09-22 — linking to it just lands a US
+// drafter on ESPN's "not available in your region" page.
+function isEspnClipUsPlayable(video){
+  const geo = video && video.geoRestrictions;
+  if(!geo || !Array.isArray(geo.countries)) return true;
+  const listed = geo.countries.includes('US');
+  return geo.type === 'blacklist' ? !listed : listed;
+}
+
 function parseEspnGameMedia(data){
   const article = data && data.article;
   const images = article && Array.isArray(article.images) ? article.images : [];
@@ -1223,7 +1237,7 @@ function parseEspnGameMedia(data){
   const videos = Array.isArray(data && data.videos) ? data.videos : [];
   const video = videos.find(v => {
     const exp = v.timeRestrictions && v.timeRestrictions.expirationDate;
-    return !exp || new Date(exp).getTime() > now;
+    return (!exp || new Date(exp).getTime() > now) && isEspnClipUsPlayable(v);
   });
   // Generic linkUrl/linkLabel rather than a video-specific field name —
   // MLB's equivalent (deriveMlbRecap in js/mlb-stats.js) points at an
