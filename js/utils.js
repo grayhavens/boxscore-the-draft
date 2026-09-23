@@ -102,6 +102,17 @@ export async function putAuthedJSON(url, password, body){
   }
 }
 
+// A calendar day as ESPN's scoreboard `?dates=` param wants it
+// (YYYYMMDD), in the viewer's own local time — shared by the Scores
+// tab's day arrows (js/live-now.js) and the shared "today" scoreboard
+// cache (fetchEspnScoreboardCached, js/live-data.js), so both agree on
+// which day "today" is.
+export function localYyyymmdd(date = new Date()){
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}${m}${d}`;
+}
+
 // Baseball-style win percentage — three decimals, no leading zero
 // below 1.000 (.540, not 0.540) — used wherever a league's Standings
 // "Person" combined-record view calls out a win% (NBA/NHL/MLB's

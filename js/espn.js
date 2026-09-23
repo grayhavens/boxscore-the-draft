@@ -1020,6 +1020,11 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
     const statusType = comp.status && comp.status.type;
     const competitors = (comp.competitors || []).map(c => ({
       teamId: c.team && c.team.id,
+      // A playoff slot whose team isn't decided yet — ESPN fills it with
+      // a stand-in "TBD" team carrying a negative id (-1/-2), confirmed
+      // live 2026-09-22 on WNBA's semifinal schedule. Never a real team,
+      // so nothing should try to match it against TEAM_META.
+      isPlaceholder: !(c.team && Number(c.team.id) > 0),
       teamName: espnTeamName(c.team),
       // Bare nickname ("Padres") — matches TEAM_META.name exactly, the
       // same convention findFlatTeamKey (js/standings-flat.js) uses.
@@ -1046,6 +1051,17 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
       state: statusType ? statusType.state : null,
       detail: statusType ? statusType.shortDetail : null,
       completed: !!(statusType && statusType.completed),
+      // ESPN's own status code ("STATUS_POSTPONED", "STATUS_CANCELED",
+      // ...) — the only way to tell a called-off game from a scheduled
+      // one, since both report state 'pre'/'post' without completing.
+      statusName: statusType ? statusType.name : null,
+      // 1 = preseason, 2 = regular season, 3 = postseason (4 = off-
+      // season, never seen on a scoreboard). Per-event, not per-response:
+      // a single day can mix them at a season boundary.
+      seasonType: (event.season && event.season.type) || null,
+      // Postseason round label ("Semifinals - Game 2") — ESPN's
+      // competition notes carry it for playoff games; absent otherwise.
+      headline: (Array.isArray(comp.notes) && comp.notes[0] && comp.notes[0].headline) || null,
       competitors,
       // Raw passthrough, not normalized — shape is sport-specific
       // (baseball: balls/strikes/outs/onFirst/onSecond/onThird; football:
@@ -1216,8 +1232,19 @@ function parseEspnGameMedia(data){
   // redundant), and renderGameDetail (js/live-data.js) renders whichever
   // source's own label off one shared template rather than assuming
   // every league's link is "Watch highlights".
-  const linkUrl = (video && video.links && video.links.web) ? video.links.web.href : null;
-  const linkLabel = 'Watch highlights';
+  const videoUrl = (video && video.links && video.links.web) ? video.links.web.href : null;
+  // No playable clip (common for EPL — confirmed 2026-09-22 that several
+  // matchday recaps, e.g. Hull at Newcastle 401879271, carry a full
+  // article but an empty `videos[]`, likely a US rights gap): link the
+  // recap article itself instead, so a card showing a recap headline
+  // never ends up with no way to read the rest of it. ESPN hands this
+  // one back as http://, upgraded here so an installed (https) PWA
+  // doesn't open it via an insecure hop.
+  const articleUrl = (article && article.links && article.links.web && article.links.web.href)
+    ? article.links.web.href.replace(/^http:/, 'https:')
+    : null;
+  const linkUrl = videoUrl || articleUrl;
+  const linkLabel = videoUrl ? 'Watch highlights' : 'Read full recap';
 
   return { photoUrl, recapHeadline, recapSummary, linkUrl, linkLabel };
 }
@@ -1438,4 +1465,213 @@ export async function fetchEspnSoccerSummary(sportLeaguePath, eventId){
   const date = comp.date || null;
 
   return { status, teams, events, media, date };
+}
+
+// ---- Hockey (NHL) + basketball (WNBA, NBA-ready) Game Details ----
+// Both share the football summary's header/competitor shape (confirmed
+// live 2026-09-22 against NHL 401879362/401879933 and WNBA 401857208),
+// so the team list is read the same way; what differs is the body:
+// hockey adds a goal-by-goal scoring summary and splits players into
+// skaters/goalies, basketball has one unnamed player table split by
+// `starter` instead. Both also get a side-by-side team-stat comparison
+// (TEAM_STATS below) off boxscore.teams[], which ESPN sends for both.
+
+function parseSummaryTeams(comp){
+  const competitors = Array.isArray(comp.competitors) ? comp.competitors : [];
+  return competitors.map(c => ({
+    teamId: c.team && c.team.id,
+    abbr: c.team && c.team.abbreviation,
+    name: espnTeamName(c.team),
+    location: c.team && c.team.location,
+    mascot: c.team && c.team.name,
+    logoUrl: espnLogoUrl(c.team),
+    homeAway: c.homeAway,
+    score: (c.score !== undefined && c.score !== null) ? Number(c.score) : null,
+    linescore: Array.isArray(c.linescores) ? c.linescores.map(l => l.displayValue) : []
+  }));
+}
+
+// `[{ label, byTeam: { [teamId]: text } }]` — each spec row's `value`
+// gets that team's stats as a { statName: displayValue } map, so a row
+// can combine fields (hockey's "1/3" power play is two stats). A row
+// neither team has a value for is dropped rather than shown as dashes.
+function parseTeamStatComparison(data, spec){
+  const boxTeams = (data.boxscore && Array.isArray(data.boxscore.teams)) ? data.boxscore.teams : [];
+  const statMaps = boxTeams.map(t => {
+    const stats = {};
+    (Array.isArray(t.statistics) ? t.statistics : []).forEach(s => { stats[s.name] = s.displayValue; });
+    return { teamId: t.team && t.team.id, stats };
+  });
+  return spec.map(({ label, value }) => {
+    const byTeam = {};
+    statMaps.forEach(({ teamId, stats }) => {
+      const v = value(stats);
+      if(v !== null && v !== undefined && v !== '') byTeam[teamId] = v;
+    });
+    return { label, byTeam };
+  }).filter(row => Object.keys(row.byTeam).length);
+}
+
+const pick = name => stats => stats[name] ?? null;
+
+const HOCKEY_TEAM_STATS = [
+  { label: 'Shots', value: pick('shotsTotal') },
+  { label: 'Power play', value: s => (s.powerPlayGoals != null && s.powerPlayOpportunities != null) ? `${s.powerPlayGoals}/${s.powerPlayOpportunities}` : null },
+  { label: 'Faceoff %', value: pick('faceoffPercent') },
+  { label: 'Hits', value: pick('hits') },
+  { label: 'Blocked shots', value: pick('blockedShots') },
+  { label: 'Giveaways', value: pick('giveaways') },
+  { label: 'PIM', value: pick('penaltyMinutes') }
+];
+
+const BASKETBALL_TEAM_STATS = [
+  { label: 'FG', value: s => s['fieldGoalsMade-fieldGoalsAttempted'] ? `${s['fieldGoalsMade-fieldGoalsAttempted']} (${s.fieldGoalPct}%)` : null },
+  { label: '3PT', value: s => s['threePointFieldGoalsMade-threePointFieldGoalsAttempted'] ? `${s['threePointFieldGoalsMade-threePointFieldGoalsAttempted']} (${s.threePointFieldGoalPct}%)` : null },
+  { label: 'FT', value: s => s['freeThrowsMade-freeThrowsAttempted'] ? `${s['freeThrowsMade-freeThrowsAttempted']} (${s.freeThrowPct}%)` : null },
+  { label: 'Rebounds', value: pick('totalRebounds') },
+  { label: 'Assists', value: pick('assists') },
+  { label: 'Steals', value: pick('steals') },
+  { label: 'Blocks', value: pick('blocks') },
+  { label: 'Turnovers', value: pick('totalTurnovers') },
+  { label: 'Points in paint', value: pick('pointsInPaint') },
+  { label: 'Largest lead', value: pick('largestLead') }
+];
+
+// Columns in ESPN's own label strings, same label-not-position matching
+// parseEspnBoxscorePlayers uses. NHL sends 21 skater columns (TOI split
+// four ways, faceoff W/L/%, YTD goals...) — trimmed to the usual
+// broadcast line. `shortName` ("M. Eyssimont") keeps the name column
+// narrow enough for a phone-width table.
+// A column can be `[espnLabel, shownAs]` when ESPN's own label misleads:
+// NHL's skater "SOG" column is really shootoutGoals (its `keys` array
+// says so), while shots on goal live under "S" (shotsTotal — sums to
+// the team's shot total exactly; checked on 401879933, 2026-09-22).
+const HOCKEY_SKATER_COLUMNS = ['G', 'A', '+/-', ['S', 'SOG'], 'PIM', 'TOI'];
+const HOCKEY_GOALIE_COLUMNS = ['SA', 'GA', 'SV', 'SV%', 'TOI'];
+const BASKETBALL_COLUMNS = ['MIN', 'PTS', 'REB', 'AST', 'FG', '3PT', 'FT', 'STL', 'BLK', 'TO'];
+
+function athleteRows(athletes, labels, columns){
+  const kept = columns
+    .map(c => (Array.isArray(c) ? c : [c, c]))
+    .map(([src, shown]) => ({ idx: labels.indexOf(src), shown }))
+    .filter(c => c.idx !== -1);
+  const keepIdx = kept.map(c => c.idx);
+  return {
+    labels: kept.map(c => c.shown),
+    rows: athletes.map(a => ({
+      name: (a.athlete && (a.athlete.shortName || a.athlete.displayName)) || '',
+      stats: keepIdx.map(i => (Array.isArray(a.stats) ? a.stats[i] : undefined))
+    })).filter(r => r.name)
+  };
+}
+
+// NHL's player groups are `forwards`/`defenses`/`goalies` (plus an
+// always-empty `skaters`) — forwards and defense merge into one Skaters
+// table, since they share every column.
+function parseHockeyBoxscore(data){
+  const blocks = (data.boxscore && Array.isArray(data.boxscore.players)) ? data.boxscore.players : [];
+  return blocks.map(block => {
+    const stats = Array.isArray(block.statistics) ? block.statistics : [];
+    const group = name => stats.find(s => s.name === name);
+    const skaterGroups = ['forwards', 'defenses'].map(group).filter(Boolean);
+    const goalies = group('goalies');
+    const groups = [];
+    if(skaterGroups.length){
+      const labels = skaterGroups[0].labels || [];
+      const athletes = skaterGroups.flatMap(g => g.athletes || []);
+      groups.push({ name: 'Skaters', ...athleteRows(athletes, labels, HOCKEY_SKATER_COLUMNS) });
+    }
+    if(goalies) groups.push({ name: 'Goalies', ...athleteRows(goalies.athletes || [], goalies.labels || [], HOCKEY_GOALIE_COLUMNS) });
+    return { teamId: block.team && block.team.id, abbr: block.team && block.team.abbreviation, groups: groups.filter(g => g.rows.length) };
+  });
+}
+
+// Basketball's one player group has no name/type at all (why
+// parseEspnBoxscorePlayers can't read it — it filters by that key), so
+// it's split here on ESPN's own `starter` flag instead. Anyone marked
+// didNotPlay is dropped — ESPN still lists them, with an empty stats
+// array, which would render as a row of blanks.
+function parseBasketballBoxscore(data){
+  const blocks = (data.boxscore && Array.isArray(data.boxscore.players)) ? data.boxscore.players : [];
+  return blocks.map(block => {
+    const stat = Array.isArray(block.statistics) ? block.statistics[0] : null;
+    const labels = (stat && stat.labels) || [];
+    const played = ((stat && stat.athletes) || []).filter(a => !a.didNotPlay);
+    const groups = [
+      { name: 'Starters', ...athleteRows(played.filter(a => a.starter), labels, BASKETBALL_COLUMNS) },
+      { name: 'Bench', ...athleteRows(played.filter(a => !a.starter), labels, BASKETBALL_COLUMNS) }
+    ];
+    return { teamId: block.team && block.team.id, abbr: block.team && block.team.abbreviation, groups: groups.filter(g => g.rows.length) };
+  });
+}
+
+// Every goal, in order, off the summary's full `plays` feed (NHL sends
+// no `scoringPlays`/`keyEvents` — confirmed 2026-09-22). Shootout
+// attempts come through as scoringPlay goals in period 5 ("SO") too;
+// they're kept but flagged, since they aren't real goals (the winner
+// gets one goal on the scoreboard regardless of how many went in) and
+// carry no season goal count or assists.
+function parseHockeyGoals(data){
+  const plays = Array.isArray(data.plays) ? data.plays : [];
+  return plays.filter(p => p.scoringPlay).map(p => {
+    const participants = Array.isArray(p.participants) ? p.participants : [];
+    const scorer = participants.find(x => x.type === 'scorer') || participants[0];
+    const periodLabel = (p.period && p.period.displayValue) || '';
+    const strength = p.strength && p.strength.abbreviation;
+    return {
+      teamId: p.team && p.team.id,
+      period: periodLabel,
+      shootout: periodLabel === 'SO',
+      clock: (p.clock && p.clock.displayValue) || '',
+      scorer: (scorer && scorer.athlete && (scorer.athlete.shortName || scorer.athlete.displayName)) || '',
+      goalCount: scorer && scorer.ytdGoals,
+      assists: participants.filter(x => x.type === 'assister').map(x => x.athlete && (x.athlete.shortName || x.athlete.displayName)).filter(Boolean),
+      strength: strength === 'power-play' ? 'PPG' : strength === 'short-handed' ? 'SHG' : null,
+      awayScore: p.awayScore,
+      homeScore: p.homeScore
+    };
+  }).filter(g => g.scorer);
+}
+
+// Shape returned: { status, teams (as fetchEspnFootballSummary's, plus
+// shotsOnGoal per team), boxscore, goals: [...parseHockeyGoals],
+// teamStats: [...parseTeamStatComparison], media, date } | null.
+export async function fetchEspnHockeySummary(sportLeaguePath, eventId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
+  if(!data) return null;
+  const comp = data.header && Array.isArray(data.header.competitions) && data.header.competitions[0];
+  if(!comp) return null;
+
+  const teamStats = parseTeamStatComparison(data, HOCKEY_TEAM_STATS);
+  const shots = teamStats.find(r => r.label === 'Shots');
+  const teams = parseSummaryTeams(comp).map(t => ({ ...t, shotsOnGoal: shots ? shots.byTeam[t.teamId] ?? null : null }));
+
+  return {
+    status: parseEspnSummaryStatus(comp),
+    teams,
+    boxscore: parseHockeyBoxscore(data),
+    goals: parseHockeyGoals(data),
+    teamStats,
+    media: parseEspnGameMedia(data),
+    date: comp.date || null
+  };
+}
+
+// Shared by WNBA and (once it's switched on) NBA — same payload shape.
+// College basketball plays halves, not quarters, so it'd need its own
+// periodLabel but could reuse this parser as-is.
+export async function fetchEspnBasketballSummary(sportLeaguePath, eventId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/summary?event=${eventId}`);
+  if(!data) return null;
+  const comp = data.header && Array.isArray(data.header.competitions) && data.header.competitions[0];
+  if(!comp) return null;
+
+  return {
+    status: parseEspnSummaryStatus(comp),
+    teams: parseSummaryTeams(comp),
+    boxscore: parseBasketballBoxscore(data),
+    teamStats: parseTeamStatComparison(data, BASKETBALL_TEAM_STATS),
+    media: parseEspnGameMedia(data),
+    date: comp.date || null
+  };
 }
