@@ -15,6 +15,7 @@ import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
 import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
+import { activityListHtml, markActivitySeen, runActivityDetection } from './activity.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
@@ -59,6 +60,8 @@ let obDetailId = null;
 let obOpenLeagueKey = null;
 // Opponent when the Compare (head to head) view is open on top of obDetailId.
 let obCompareId = null;
+// The full Activity list (js/activity.js), pushed from the toolbar button.
+let obActivityOpen = false;
 
 export function obSignedPts(n){
   return (n > 0 ? '+' : '') + n;
@@ -123,6 +126,9 @@ function loadObMode(){
 
 let obMode = loadObMode();
 
+// The Activity feed must never log fake preview data (js/activity.js).
+export function isObSimulated(){ return obMode === 'simulated'; }
+
 export function setObMode(mode){
   if(mode !== 'real' && mode !== 'simulated') return;
   obMode = mode;
@@ -131,6 +137,7 @@ export function setObMode(mode){
   renderOverallStandings();
 }
 window.setObMode = setObMode;
+window.getObMode = () => obMode;
 
 // Tiny seeded PRNG (xmur3 hash -> mulberry32) so the simulated
 // leaderboard looks the same on every render/reload instead of
@@ -311,7 +318,7 @@ function obBuildRow(d){
 // and annotated with standard-competition rank + a "T" tie prefix, e.g.
 // 1, T2, T2, 4 — the single source both the list and the detail header
 // read rank from, so the two never drift out of sync.
-function obRankedRows(){
+export function obRankedRows(){
   const rows = DRAFT_TEAMS.map(obBuildRow)
     .sort((a, b) => b.confirmedTotal - a.confirmedTotal || a.name.localeCompare(b.name));
 
@@ -330,12 +337,6 @@ function obRankedRows(){
 
 // ---- List ----
 
-function obSubCopy(row){
-  if(row.scoringCount === 0) return 'No Points Earned';
-  const base = row.scoringCount + (row.scoringCount === 1 ? ' league scoring' : ' leagues scoring');
-  return row.topLeague ? base + ' &middot; best in ' + row.topLeague.league.label : base;
-}
-
 function obRowHtml(row, hasLeader){
   const isTop = hasLeader && row.rank === 1;
   const rankTier = isTop ? 'rank-1' : (hasLeader && row.rank <= 3 ? 'rank-mid' : '');
@@ -344,7 +345,6 @@ function obRowHtml(row, hasLeader){
       <span class="ob-rank ${rankTier}">${row.rankLabel}</span>
       <span class="ob-identity">
         <span class="ob-name">${row.name}</span>
-        <span class="ob-sub">${obSubCopy(row)}</span>
       </span>
       <span class="ob-totalwrap">
         <span class="ob-total">${row.confirmedTotal}</span>
@@ -464,6 +464,7 @@ function obDetailHtml(row){
 // ---- Entry points ----
 
 export function obOpenDetail(id){
+  obActivityOpen = false;
   obDetailId = id;
   obOpenLeagueKey = null;
   obCompareId = null;
@@ -473,6 +474,7 @@ export function obOpenDetail(id){
 window.obOpenDetail = obOpenDetail;
 
 export function obCloseDetail(){
+  obActivityOpen = false;
   obDetailId = null;
   obOpenLeagueKey = null;
   obCompareId = null;
@@ -485,6 +487,20 @@ export function obToggleLeague(key){
   renderOverallStandings();
 }
 window.obToggleLeague = obToggleLeague;
+
+// ---- Activity ----
+
+export function obOpenActivity(){
+  obActivityOpen = true;
+  obDetailId = null;
+  obCompareId = null;
+  window.switchView('overall');
+  window.scrollTo(0, 0);
+  renderOverallStandings({ push: true });
+  markActivitySeen();
+}
+window.obOpenActivity = obOpenActivity;
+window.renderOverallStandings = () => renderOverallStandings();
 
 // ---- Compare (head to head) ----
 
@@ -531,20 +547,22 @@ window.obCloseCompare = obCloseCompare;
 const compareSheet = document.getElementById('compare-sheet-content');
 if(compareSheet) enableSheetSwipeToDismiss(compareSheet, obCloseComparePicker);
 
-// TEMPORARY: see the block above obDrafterAwards — delete alongside it.
-function obSyncModeToggle(){
-  const el = document.getElementById('ob-mode-switch');
-  if(el) el.innerHTML = segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], obMode, 'setObMode');
-}
-
-const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; switch data to Real for live standings.</div>`;
+const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; set Points Tab Data to Real in Settings for live standings.</div>`;
 
 export function renderOverallStandings(opts){
   const container = document.getElementById('overall-content');
   if(!container) return;
-  obSyncModeToggle();
   const simBanner = obMode === 'simulated' ? OB_SIM_BANNER_HTML : '';
   const rows = obRankedRows();
+  runActivityDetection();
+
+  if(obActivityOpen){
+    container.innerHTML = `${simBanner}<div class="ob-detail ${opts && opts.push ? 'view-push-in' : ''}">
+      <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
+      ${activityListHtml()}
+    </div>`;
+    return;
+  }
 
   if(obDetailId){
     const row = rows.find(r => r.id === obDetailId);

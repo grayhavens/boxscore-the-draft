@@ -61,6 +61,7 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode } from './overall.js';
+import { startActivity } from './activity.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks } from './season-lock.js';
@@ -655,6 +656,7 @@ paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
 maybeShowWelcome();
+startActivity();
 
 // renderBoard() already repaints row-status pills and CFB/EPL/NFL
 // record chips from whatever's cached (possibly from a previous

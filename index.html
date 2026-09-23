@@ -29,6 +29,7 @@
       <div class="page-sub" id="team-tally">&mdash; leagues &middot; &mdash; teams</div>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
+    <div id="activity-home"></div>
     <div class="filter-chips" id="filter-chips"></div>
     <div class="leagues" id="leagues"></div>
   </div>
@@ -65,21 +66,20 @@
       <div class="page-header-top">
         <h1>Points</h1>
       </div>
-      <div class="page-sub">Tap name for point breakdown</div>
-    </div>
-    <div class="ob-toolbar">
-      <!-- Simulated-data preview toggle — see the "TEMPORARY" block in
-           js/overall.js. Remove this control (and that block) once the
-           season is far enough along that a fake preview is no longer
-           useful. Lives in its own row below the header/subheader
-           (rather than in the header-top row beside the title) so it
-           has room to be a plain two-button switch without fighting
-           "Points" for space on a phone-width screen. -->
-      <div class="ob-mode-switch" id="ob-mode-switch"></div>
-      <button type="button" class="scoring-chip" onclick="switchView('scoring')">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
-        Scoring
-      </button>
+      <div class="page-sub-row">
+        <div class="page-sub">Tap for details</div>
+        <div class="ob-toolbar-right">
+          <button type="button" class="scoring-chip" onclick="obOpenActivity()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>
+            Activity
+            <span class="ob-icon-dot" id="ob-activity-dot" hidden></span>
+          </button>
+          <button type="button" class="scoring-chip" onclick="switchView('scoring')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+            Scoring
+          </button>
+        </div>
+      </div>
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="overall-content"></div>

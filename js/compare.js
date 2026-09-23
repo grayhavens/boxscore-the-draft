@@ -293,7 +293,7 @@ export function setupCompareSticky(){
 }
 
 
-// ---- Same race ----
+// ---- Races to Watch ----
 //
 // When both drafters own teams in the same division (or both have a team
 // near the top of the same conference), one team's win is the other's
@@ -444,7 +444,7 @@ function sameRaceHtml(rows, aId, bId){
   if(!cards.length) return '';
 
   return `
-    <div class="ob-section-title cmp-title-row"><span>Same race</span><span class="cmp-title-note">One team's win is the other's loss</span></div>
+    <div class="ob-section-title cmp-title-row"><span>Races to Watch</span><span class="cmp-title-note">One team's win is the other's loss</span></div>
     ${cards.map(c => `
       <div class="ob-card cmp-card cmp-same">
         <div class="cmp-race-top">
@@ -474,4 +474,17 @@ export async function fillSameRace(rows, aId, bId){
   paint();
   try { await Promise.all(SAME_RACE_LEAGUES.map(cfg => cfg.load())); } catch (e){}
   paint();
+}
+
+
+// Who holds each unlocked league's +5 right now (leagueKey -> drafter id),
+// for the Activity feed's "bonus flips" events (js/activity.js). Leagues
+// that aren't active yet, or have no holder, are simply absent.
+export function currentBonusHolders(){
+  const out = {};
+  BONUS_SOURCES.forEach(src => {
+    const race = bonusRace(src);
+    if(race.active && race.holderId && !race.locked) out[src.key] = race.holderId;
+  });
+  return out;
 }
