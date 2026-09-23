@@ -16,6 +16,7 @@
 import { DRAFT_TEAMS } from './data.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { currentProfileId } from './identity.js';
+import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 
@@ -213,6 +214,8 @@ window.addEventListener('online', reconnectNow);
 
 // ---- Unread badge ----
 
+window.addEventListener('boxscore:settings', e => { if(e.detail.key === 'chatBadge') paintBadges(); });
+
 function unreadCount(){
   if(seenId === null) return 0;
   return messages.filter(m => m.id > seenId && m.from !== currentProfileId).length;
@@ -222,7 +225,7 @@ function unreadCount(){
 // js/board.js too, whenever the active profile changes, since "unread"
 // excludes your own messages.
 export function paintBadges(){
-  const n = unreadCount();
+  const n = getSettings().chatBadge ? unreadCount() : 0;
   document.querySelectorAll('.chat-badge').forEach(el => {
     el.textContent = n > 9 ? '9+' : String(n);
     el.classList.toggle('show', n > 0);

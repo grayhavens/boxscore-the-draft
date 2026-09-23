@@ -12,7 +12,7 @@
    the full visual spec this implements.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
-import { updateUrlParam } from './utils.js';
+import { updateUrlParam, segmentedControlHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 
@@ -477,9 +477,8 @@ window.obToggleLeague = obToggleLeague;
 
 // TEMPORARY: see the block above obDrafterAwards — delete alongside it.
 function obSyncModeToggle(){
-  document.querySelectorAll('#ob-mode-switch .ob-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === obMode);
-  });
+  const el = document.getElementById('ob-mode-switch');
+  if(el) el.innerHTML = segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], obMode, 'setObMode');
 }
 
 const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; switch data to Real for live standings.</div>`;
