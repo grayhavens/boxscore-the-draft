@@ -370,25 +370,33 @@ function onListClick(event){
   renderList(false);
 }
 
-// The chat screen tracks the visual viewport, not the layout viewport:
-// on iOS the on-screen keyboard shrinks only the former, so sizing the
-// fixed screen to it is what keeps the composer above the keyboard
-// instead of hidden behind it. With the keyboard down the screen stops
-// at the tab bar; with it up the tab bar is hidden (html.chat-kb) and
-// the composer sits directly on the keys, the way phone chat apps do.
+// With the keyboard down the chat screen is laid out by CSS alone (top
+// of the screen down to the tab bar). While it's up, the screen tracks
+// the visual viewport instead: on iOS the keyboard shrinks only that, so
+// sizing the fixed screen to it keeps the composer above the keys. The
+// tab bar is hidden meanwhile (html.chat-kb) so the composer sits right
+// on the keyboard, the way phone chat apps do.
+let kbWasOpen = false;
 function syncViewport(){
   const el = screenEl();
   const vv = window.visualViewport;
   if(!el || !vv || !open) return;
   const kbOpen = window.innerHeight - vv.height > 120;
   document.documentElement.classList.toggle('chat-kb', kbOpen);
-  const tabBar = document.querySelector('.tab-bar');
-  const barH = kbOpen || !tabBar ? 0 : tabBar.offsetHeight;
-  el.style.height = `${vv.height - barH}px`;
-  el.style.top = `${vv.offsetTop}px`;
-  // The composer never pads for the home indicator: with the keyboard
-  // down the tab bar owns that gap, with it up the keyboard covers it.
   el.classList.toggle('kb-open', kbOpen);
+  if(kbOpen){
+    el.style.top = `${vv.offsetTop}px`;
+    el.style.bottom = 'auto';
+    el.style.height = `${vv.height}px`;
+  } else {
+    el.style.top = el.style.bottom = el.style.height = '';
+    // iOS scrolls the window to reveal a focused input and can leave it
+    // scrolled after the keyboard goes away — even with the body locked —
+    // which floats every fixed element (the tab bar included) up off the
+    // bottom of the screen.
+    if(kbWasOpen && (window.scrollY || vv.offsetTop)) window.scrollTo(0, 0);
+  }
+  kbWasOpen = kbOpen;
   const list = listEl();
   if(list && open) list.scrollTop = list.scrollHeight;
 }
@@ -451,6 +459,9 @@ export function setChatActive(active){
     pickerId = null;
     inputEl().blur();
     document.documentElement.classList.remove('chat-open', 'chat-kb');
+    el.classList.remove('kb-open');
+    el.style.top = el.style.bottom = el.style.height = '';
+    kbWasOpen = false;
     unlockBodyScroll();
     paintBadges();
   }
