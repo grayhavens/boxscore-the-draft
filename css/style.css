@@ -3456,15 +3456,10 @@ body{
 }
 .chat-screen.view.active{ display: flex; }
 
-/* Set on <html> while the Chat tab is showing (js/chat.js's
-   setChatActive) — the page behind must not scroll or bounce; see
-   guardTouchScroll there for the half of this that CSS alone can't cover
-   on iOS. chat-kb is added on top while the keyboard is up: the tab bar
-   gets out of the way so the composer sits right on the keys. */
-html.chat-open{
-  overflow: hidden;
-  overscroll-behavior: none;
-}
+/* Set on <html> while the keyboard is up on the Chat tab (js/chat.js's
+   syncViewport): the tab bar gets out of the way so the composer sits
+   right on the keys. No scroll lock here on purpose — see
+   guardTouchScroll in js/chat.js for why and what replaces it. */
 html.chat-kb .tab-bar{ display: none; }
 
 /* Same padding the page body gives every other view's .page-header, so
