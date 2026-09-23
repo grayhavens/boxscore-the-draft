@@ -3512,12 +3512,19 @@ html.chat-kb .tab-bar{ display: none; }
   padding: calc(env(safe-area-inset-top) + var(--page-pad)) var(--page-pad) 0;
   border-bottom: 1px solid var(--hairline);
 }
+/* Connection status sits where other views put their .scope-chip:
+   leading the right-hand cluster (margin-left:auto), flush against the
+   identity circle — see .scope-chip + .picker-hit above. */
 .chat-status{
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-mute);
 }
+.chat-status + .picker-hit{ margin-left: 0; }
 .chat-status::before{
   content: '';
   width: 7px;
