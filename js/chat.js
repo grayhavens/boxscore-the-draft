@@ -375,12 +375,28 @@ function onListClick(event){
 // sizing the fixed screen to it keeps the composer above the keys. The
 // tab bar is hidden meanwhile (html.chat-kb) so the composer sits right
 // on the keyboard, the way phone chat apps do.
+//
+// "Is the keyboard up" can't be read off the viewport alone: the
+// installed iOS PWA shrinks the layout viewport along with the visual one,
+// so innerHeight - visualViewport.height stays ~0 and the tab bar would
+// stay put, padded for a home indicator the keyboard now covers. On a
+// touch device the keyboard is up exactly when one of chat's text fields
+// has focus, so that's the primary signal; the height gap is kept as a
+// fallback for browsers that raise it without a focus change.
+const CHAT_TEXT_FIELDS = '#chat-input, #gif-search';
+function keyboardUp(vv){
+  const active = document.activeElement;
+  const typing = active && active.matches && active.matches(CHAT_TEXT_FIELDS);
+  if(typing && window.matchMedia('(pointer: coarse)').matches) return true;
+  return window.innerHeight - vv.height > 120;
+}
+
 let kbWasOpen = false;
 function syncViewport(){
   const el = screenEl();
   const vv = window.visualViewport;
   if(!el || !vv || !open) return;
-  const kbOpen = window.innerHeight - vv.height > 120;
+  const kbOpen = keyboardUp(vv);
   document.documentElement.classList.toggle('chat-kb', kbOpen);
   el.classList.toggle('kb-open', kbOpen);
   if(kbOpen){
@@ -542,7 +558,14 @@ export function initChat(){
       }
     });
   }
-  if(screenEl()) guardTouchScroll(screenEl());
+  if(screenEl()){
+    guardTouchScroll(screenEl());
+    // Focus is the keyboard signal (see keyboardUp). Blur is deferred a
+    // beat so hopping from the message box to the GIF search doesn't
+    // flash the tab bar back in between.
+    screenEl().addEventListener('focusin', syncViewport);
+    screenEl().addEventListener('focusout', () => setTimeout(syncViewport, 60));
+  }
   if(listEl()) listEl().addEventListener('click', onListClick);
   setUpGifs();
   if(window.visualViewport){
