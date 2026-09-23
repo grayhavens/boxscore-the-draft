@@ -16,7 +16,6 @@
 import { DRAFT_TEAMS } from './data.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { currentProfileId } from './identity.js';
-import { lockBodyScroll, unlockBodyScroll } from './utils.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 
@@ -401,11 +400,14 @@ function syncViewport(){
   if(list && open) list.scrollTop = list.scrollHeight;
 }
 
-// lockBodyScroll (position: fixed on <body>) isn't enough on iOS: a swipe
-// that starts on the header/composer, or that overshoots the end of the
-// message list, still pans the page behind the overlay (older iOS ignores
-// `overscroll-behavior` entirely, and even new versions only honor it on
-// the scroller itself). So take those gestures away explicitly: nothing
+// The Chat tab deliberately doesn't lock the page's scroll the way the
+// sheets do (lockBodyScroll / overflow:hidden on <html>): in the installed
+// iOS PWA that shrinks the layout viewport by about the status-bar height,
+// which floats the fixed tab bar up off the bottom of the screen. Instead
+// the page is left exactly as it is on every other tab, and gestures that
+// would pan it are taken away here (older iOS ignores `overscroll-behavior`
+// entirely, and even new versions only honor it on the scroller
+// itself). Nothing
 // outside the message list (and the composer's own textarea) scrolls,
 // and a swipe in the list that would scroll past its top/bottom is
 // cancelled instead of chaining out to the page. Needs a non-passive
@@ -445,8 +447,9 @@ export function setChatActive(active){
   if(!el || active === open) return;
   open = active;
   if(active){
-    lockBodyScroll();
-    document.documentElement.classList.add('chat-open');
+    // Nothing else is showing, so the page has nowhere to scroll — this
+    // just drops whatever offset the previous tab was scrolled to.
+    window.scrollTo(0, 0);
     setStatus(status);
     markSeen();
     paintBadges();
@@ -458,11 +461,10 @@ export function setChatActive(active){
     closeGifPicker();
     pickerId = null;
     inputEl().blur();
-    document.documentElement.classList.remove('chat-open', 'chat-kb');
+    document.documentElement.classList.remove('chat-kb');
     el.classList.remove('kb-open');
     el.style.top = el.style.bottom = el.style.height = '';
     kbWasOpen = false;
-    unlockBodyScroll();
     paintBadges();
   }
 }
