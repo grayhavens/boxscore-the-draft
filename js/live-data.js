@@ -3,11 +3,11 @@
    result/next fixture, plus the team detail modal and the staggered
    background refresh loop that keeps it all current.
    ============================================================ */
-import { TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, abbrFromName } from './utils.js';
+import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
-import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary } from './espn.js';
+import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
 import { fetchMlbGameExtras } from './mlb-stats.js';
 import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { findCbbRecord, findEspnCbbRow, fetchEspnCbbStandingsCached, cbbConferenceRank } from './standings-cbb.js';
@@ -75,11 +75,27 @@ const titleNameFull = team => (team && (team.name || team.abbr)) || '';
 // monogram treatment renderCfbRankingRow already gives undrafted ranked
 // CFB teams, and its full ESPN display name (e.g. "Pittsburgh Pirates")
 // rather than the bare abbreviation this header used to show.
+// Same matching rules as the Scores tab's draftedTeamFor (js/live-now.js):
+// CFB by school (`location`), College Basketball by ESPN team id (its
+// roster has both "Texas" and "Texas Tech"), pro leagues by exact
+// nickname first. findDraftedTeamByName's substring rule is only the
+// last resort — on its own it matched "Charlotte Hornets" to the
+// drafted Nets.
+function draftedTeamKeyForSummaryTeam(team, leagueKey){
+  if(leagueKey === 'cfb') return findCfbTeamKeyByLocation(team.location);
+  const league = LEAGUES.find(l => l.key === leagueKey);
+  if(!league) return null;
+  if(leagueKey === 'mcbb'){
+    return league.teams.find(teamKey => String(TEAM_META[teamKey].espnTeamId) === String(team.teamId)) || null;
+  }
+  const mascot = normalizeTeamName(team.mascot || '');
+  const exact = mascot && league.teams.find(teamKey => normalizeTeamName(TEAM_META[teamKey].name) === mascot);
+  return exact || findDraftedTeamByName(leagueKey, team.name);
+}
+
 function resolveGameDetailSide(team, leagueKey){
   if(!team) return { badgeHtml: '', name: '' };
-  const teamKey = leagueKey === 'cfb'
-    ? findCfbTeamKeyByLocation(team.location)
-    : findDraftedTeamByName(leagueKey, team.name);
+  const teamKey = draftedTeamKeyForSummaryTeam(team, leagueKey);
   const isCollege = leagueKey === 'cfb' || leagueKey === 'mcbb';
   const meta = teamKey ? TEAM_META[teamKey] : {
     // College opponents show as the bare school, matching drafted
@@ -102,10 +118,9 @@ function resolveGameDetailSide(team, leagueKey){
 // quarters+OT) — unused for EPL, which renders a goals/cards split
 // instead of a linescore (see the `leagueKey === 'epl'` branch in
 // renderGameDetail below), so those two keys are simply omitted there.
-// basketball/hockey aren't here yet — no per-sport summary reader has
-// been written for them (see docs/espn-migration-plan.md's Game Details
-// section) — when they are, they're pro leagues sharing metro areas
-// same as MLB, so they should use titleNameMascot too.
+// NHL, WNBA, NBA and College Basketball added 2026-09-22
+// (fetchEspnHockeySummary/fetchEspnBasketballSummary — the three
+// basketball leagues share one reader; only their linescores differ).
 export const GAME_DETAIL_LEAGUES = {
   mlb: {
     fetchSummary: fetchEspnSummary,
@@ -137,6 +152,49 @@ export const GAME_DETAIL_LEAGUES = {
     // omitted.
     situationText: () => null,
     titleName: titleNameFull
+  },
+  // Regulation is 3 periods; a regular-season/preseason tie adds one OT
+  // then a shootout (ESPN's linescore carries SO as a 5th "period" —
+  // "Final/SO" on 401879933, 2026-09-22), playoffs add as many 20-minute
+  // OTs as it takes and never shoot out. Only the status detail tells
+  // those apart, hence periodLabel's second argument.
+  nhl: {
+    fetchSummary: fetchEspnHockeySummary,
+    linescorePeriods: 3,
+    periodLabel: (i, summary) => {
+      if(i < 3) return String(i + 1);
+      const periods = Math.max(...summary.teams.map(t => t.linescore.length));
+      if(i === periods - 1 && /\/SO\b/.test((summary.status && summary.status.detail) || '')) return 'SO';
+      return i === 3 ? 'OT' : `OT${i - 2}`;
+    },
+    // ESPN's NHL scoreboard sends no `situation` at all (checked live).
+    situationText: () => null,
+    titleName: titleNameMascot
+  },
+  wnba: {
+    fetchSummary: fetchEspnBasketballSummary,
+    linescorePeriods: 4,
+    periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
+    situationText: basketballSituationText,
+    titleName: titleNameMascot
+  },
+  // Same summary shape as WNBA (checked on 401810831, OKC-MIN,
+  // 2026-03-15) — no NBA-specific handling needed.
+  nba: {
+    fetchSummary: fetchEspnBasketballSummary,
+    linescorePeriods: 4,
+    periodLabel: i => (i < 4 ? String(i + 1) : (i === 4 ? 'OT' : `OT${i - 3}`)),
+    situationText: basketballSituationText,
+    titleName: titleNameMascot
+  },
+  // Same shape again (401856537, Texas-Gonzaga, 2026 tournament), but
+  // college plays two 20-minute halves, then 5-minute OTs.
+  mcbb: {
+    fetchSummary: fetchEspnBasketballSummary,
+    linescorePeriods: 2,
+    periodLabel: i => (i < 2 ? String(i + 1) : (i === 2 ? 'OT' : `OT${i - 1}`)),
+    situationText: basketballSituationText,
+    titleName: titleNameLocation
   }
 };
 
@@ -149,7 +207,17 @@ export const GAME_DETAIL_LEAGUES = {
 // js/espn.js. Short TTL since a live score can move by the second;
 // same cadence TheRundown's own day-cache used.
 const ESPN_SCOREBOARD_TTL_MS = 60 * 1000;
-const espnScoreboardCache = {}; // sportPath -> { data: {events, season}, fetchedAt }
+const espnScoreboardCache = {}; // sportPath -> { data: {events, season}, day, fetchedAt }
+
+// Football's scoreboard is organized by week, not day — ESPN's default
+// (no `?dates=`) response is the whole current week, which is what the
+// NFL/CFB board chips want (Saturday's final stays up through the week
+// until ESPN rolls to the next one). Every other league gets an explicit
+// `?dates=<today>`: without one, ESPN answers with its own "current day",
+// which in an offseason is the league's NEXT game day, not today —
+// confirmed 2026-09-22, when NBA's bare scoreboard returned an Oct 3
+// preseason game (MIA @ TOR) instead of today's empty slate.
+const WEEK_SCOREBOARD_SPORT_PATHS = new Set(['football/nfl', 'football/college-football']);
 
 // Exported so js/live-now.js's own day-scoreboard fetch can share this
 // cache for "today" instead of keeping a second independent 60s-TTL
@@ -157,10 +225,13 @@ const espnScoreboardCache = {}; // sportPath -> { data: {events, season}, fetche
 // meant double the real network calls to ESPN whenever the Today tab
 // was open alongside the background refresh/sweep loops below.
 export async function fetchEspnScoreboardCached(sportPath){
+  const day = WEEK_SCOREBOARD_SPORT_PATHS.has(sportPath) ? null : localYyyymmdd();
   const cached = espnScoreboardCache[sportPath];
-  if(cached && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
-  const data = await fetchEspnScoreboard(sportPath);
-  espnScoreboardCache[sportPath] = { data, fetchedAt: Date.now() };
+  // `day` is part of the hit check so a tab left open past midnight
+  // refetches for the new date instead of serving yesterday's slate.
+  if(cached && cached.day === day && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
+  const data = await fetchEspnScoreboard(sportPath, day || undefined);
+  espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
   return data;
 }
 
@@ -1174,6 +1245,62 @@ function footballSituationText(sit){
   return sit.downDistanceText + (sit.isRedZone ? ' · Red zone' : '');
 }
 
+// Basketball's live scoreboard `situation` is just the most recent
+// play-by-play line (`lastPlay.text`, e.g. "Aces Full timeout" —
+// confirmed live on WNBA 2026-09-22); no possession/foul/bonus state.
+function basketballSituationText(sit){
+  const text = sit && sit.lastPlay && sit.lastPlay.text;
+  return text ? `Last play: ${text}` : null;
+}
+
+// Hockey's goal-by-goal summary (fetchEspnHockeySummary in js/espn.js),
+// grouped under each period's own label. The running score after each
+// goal is away-home, matching the linescore's row order above it.
+function hockeyGoalsHtml(goals, away, home){
+  if(!goals || !goals.length) return '';
+  const abbrFor = teamId => String(teamId) === String(home.teamId) ? home.abbr : away.abbr;
+  const periods = [];
+  goals.forEach(g => {
+    let group = periods.find(p => p.label === g.period);
+    if(!group){ group = { label: g.period, goals: [] }; periods.push(group); }
+    group.goals.push(g);
+  });
+  return `
+    <div class="modal-section-title" style="margin-top:14px;">Scoring</div>
+    ${periods.map(p => `
+      <div class="gd-goal-period">${p.label === 'SO' ? 'Shootout' : p.label}</div>
+      ${p.goals.map(g => `
+        <div class="gd-goal">
+          <span class="gd-event-min">${g.shootout ? '' : g.clock}</span>
+          <span class="gd-goal-team">${abbrFor(g.teamId) || ''}</span>
+          <div class="gd-goal-body">
+            <div class="gd-event-who">${g.scorer}${!g.shootout && g.goalCount ? ` (${g.goalCount})` : ''}${g.strength ? ` <span class="gd-goal-tag">${g.strength}</span>` : ''}</div>
+            ${g.assists.length ? `<div class="gd-goal-assists">${g.assists.join(', ')}</div>` : ''}
+          </div>
+          ${g.shootout ? '' : `<span class="gd-goal-score">${g.awayScore}-${g.homeScore}</span>`}
+        </div>
+      `).join('')}
+    `).join('')}
+  `;
+}
+
+// Side-by-side team totals (shots/power play/faceoffs for hockey,
+// shooting splits/rebounds/etc. for basketball) — away left, home
+// right, same order as the linescore. Shown under the team switch's
+// middle "Team" segment (GAME_DETAIL_TEAM_TAB), so no section title of
+// its own — the segment already names it.
+const GAME_DETAIL_TEAM_TAB = 'team';
+
+function teamStatsHtml(rows, away, home){
+  if(!rows || !rows.length) return '';
+  return `
+    <table class="gd-teamstats">
+      <tr><th>${away.abbr || ''}</th><th></th><th>${home.abbr || ''}</th></tr>
+      ${rows.map(r => `<tr><td>${r.byTeam[away.teamId] ?? '–'}</td><td class="label">${r.label}</td><td>${r.byTeam[home.teamId] ?? '–'}</td></tr>`).join('')}
+    </table>
+  `;
+}
+
 // One stat table off a boxscore group (batting/pitching for MLB;
 // passing/rushing/receiving/etc. for CFB) — headers come from ESPN's
 // own `labels` array (see fetchEspnSummary/fetchEspnFootballSummary in
@@ -1239,6 +1366,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
 
   const isBaseball = leagueKey === 'mlb';
   const isSoccer = leagueKey === 'epl';
+  const isHockey = leagueKey === 'nhl';
   const away = summary.teams.find(t => t.homeAway === 'away') || summary.teams[0];
   const home = summary.teams.find(t => t.homeAway === 'home') || summary.teams[1];
 
@@ -1401,12 +1529,12 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // layout every other GAME_DETAIL_LEAGUES entry shares.
   const bodyHtml = isSoccer ? soccerEventsHtml(summary.events || [], away, home) : (() => {
     const periods = Math.max(away.linescore.length, home.linescore.length, gameDetail.linescorePeriods);
-    const periodHeaders = Array.from({ length: periods }, (_, i) => `<th>${gameDetail.periodLabel(i)}</th>`).join('');
+    const periodHeaders = Array.from({ length: periods }, (_, i) => `<th>${gameDetail.periodLabel(i, summary)}</th>`).join('');
     const lineRow = team => `
       <tr>
         <td class="team">${team.abbr || '—'}</td>
         ${Array.from({ length: periods }, (_, i) => `<td>${team.linescore[i] !== undefined ? team.linescore[i] : '–'}</td>`).join('')}
-        <td class="tot">${team.score ?? '–'}</td>${isBaseball ? `<td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>` : ''}
+        <td class="tot">${team.score ?? '–'}</td>${isBaseball ? `<td class="tot">${team.hits ?? '–'}</td><td class="tot">${team.errors ?? '–'}</td>` : ''}${isHockey ? `<td>${team.shotsOnGoal ?? '–'}</td>` : ''}
       </tr>
     `;
 
@@ -1415,28 +1543,43 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     // boxscore" off a team's own modal lands on that team's own stats
     // first — falls back to the away team if that side's id ever doesn't
     // match either boxscore entry.
-    const activeId = summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
-      ? String(selectedTeamId)
-      : String(away.teamId);
+    //
+    // Leagues with team totals (NHL/WNBA — summary.teamStats) get a
+    // third "Team" segment between the two sides, Standings-tab style
+    // (AFC | NFC | Drafted): away players | team comparison | home
+    // players. Everyone else keeps the plain two-team switch.
+    const hasTeamTab = Array.isArray(summary.teamStats) && summary.teamStats.length > 0;
+    const activeId = (hasTeamTab && selectedTeamId === GAME_DETAIL_TEAM_TAB)
+      ? GAME_DETAIL_TEAM_TAB
+      : summary.boxscore.some(t => String(t.teamId) === String(selectedTeamId))
+        ? String(selectedTeamId)
+        : String(away.teamId);
     const activeBox = summary.boxscore.find(t => String(t.teamId) === activeId);
 
+    const segments = [
+      { key: String(away.teamId), label: away.abbr || 'Away' },
+      ...(hasTeamTab ? [{ key: GAME_DETAIL_TEAM_TAB, label: 'Team' }] : []),
+      { key: String(home.teamId), label: home.abbr || 'Home' }
+    ];
     const teamToggleHtml = `
       <div class="standings-toggle gd-team-toggle">
-        <button class="toggle-btn ${String(away.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${away.teamId}')">${away.abbr}</button>
-        <button class="toggle-btn ${String(home.teamId) === activeId ? 'active' : ''}" onclick="setGameDetailTeam('${home.teamId}')">${home.abbr}</button>
+        ${segmentedControlHtml(segments, activeId, 'setGameDetailTeam')}
       </div>
     `;
-    const boxHtml = activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
+    const boxHtml = activeId === GAME_DETAIL_TEAM_TAB
+      ? teamStatsHtml(summary.teamStats, away, home)
+      : activeBox ? activeBox.groups.map(boxGroupHtml).join('') : '';
 
     return `
       <div class="box-scroll">
         <table class="linescore-table">
-          <tr><th></th>${periodHeaders}<th>${isBaseball ? 'R' : 'T'}</th>${isBaseball ? '<th>H</th><th>E</th>' : ''}</tr>
+          <tr><th></th>${periodHeaders}<th>${isBaseball ? 'R' : 'T'}</th>${isBaseball ? '<th>H</th><th>E</th>' : ''}${isHockey ? '<th>SOG</th>' : ''}</tr>
           ${lineRow(away)}
           ${lineRow(home)}
         </table>
       </div>
       ${decisionsHtml}
+      ${isHockey ? hockeyGoalsHtml(summary.goals, away, home) : ''}
       ${teamToggleHtml}
       ${boxHtml}
     `;

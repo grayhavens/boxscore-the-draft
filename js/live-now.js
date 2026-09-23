@@ -32,7 +32,7 @@
 import { TEAM_META, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
 
@@ -65,12 +65,6 @@ function scopeIsAll(){ return !scopeFilter.mine && !scopeFilter.fav; }
 const OTHER_DAY_TTL_MS = 15 * 60 * 1000;
 const dayScoreboardCache = {}; // `${sportPath}|${yyyymmdd}` -> { data, fetchedAt }
 
-function yyyymmdd(date){
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}${m}${d}`;
-}
-
 function dateForOffset(offset){
   const d = new Date();
   d.setHours(12, 0, 0, 0); // midday anchor so DST shifts can't roll the date
@@ -80,10 +74,10 @@ function dateForOffset(offset){
 
 async function fetchDayScoreboard(sportPath, offset){
   if(offset === 0) return fetchEspnScoreboardCached(sportPath);
-  const key = `${sportPath}|${yyyymmdd(dateForOffset(offset))}`;
+  const key = `${sportPath}|${localYyyymmdd(dateForOffset(offset))}`;
   const cached = dayScoreboardCache[key];
   if(cached && Date.now() - cached.fetchedAt < OTHER_DAY_TTL_MS) return cached.data;
-  const data = await fetchEspnScoreboard(sportPath, yyyymmdd(dateForOffset(offset)));
+  const data = await fetchEspnScoreboard(sportPath, localYyyymmdd(dateForOffset(offset)));
   dayScoreboardCache[key] = { data, fetchedAt: Date.now() };
   return data;
 }
@@ -112,6 +106,7 @@ async function fetchDayScoreboard(sportPath, offset){
 // (findCfbTeamKeyByLocation, js/utils.js — the same lookup
 // standings-cfb.js uses), since ESPN's `location` is unique per school.
 function draftedTeamFor(leagueKey, competitor){
+  if(competitor.isPlaceholder) return null;
   if(leagueKey === 'cfb') return findCfbTeamKeyByLocation(competitor.location);
   const league = LEAGUES.find(l => l.key === leagueKey);
   if(!league) return null;
@@ -164,7 +159,22 @@ function opponentMeta(name, logoUrl){
 // if no drafted team is in it (the whole point of this view — ESPN's
 // slate is every game in the league, this app only cares about the
 // ones somebody owns).
+// The small label a game's card carries when it isn't a plain regular-
+// season game: preseason (NHL/NBA/NFL exhibitions — real results, but
+// they never count), or the playoff round ("Semifinals - Game 2", from
+// ESPN's competition notes; bare "Playoffs" if a postseason game ever
+// arrives without one). Regular season gets no label — it's the default.
+function seasonTagFor(event){
+  if(event.seasonType === 1) return { cls: 'pre', text: 'Preseason' };
+  if(event.seasonType === 3) return { cls: 'post', text: (event.headline || 'Playoffs').replace(/\s+-\s+/, ' · ') };
+  return null;
+}
+
 function buildGame(league, event){
+  // A canceled game is almost always a playoff "if necessary" game the
+  // series never needed — nothing to show. Postponed games stay (see
+  // `postponed` below): the game still exists, just not at this time.
+  if(event.statusName === 'STATUS_CANCELED') return null;
   const home = event.competitors.find(c => c.homeAway === 'home');
   const away = event.competitors.find(c => c.homeAway === 'away');
   if(!home || !away) return null;
@@ -195,7 +205,9 @@ function buildGame(league, event){
     // state: "Top 7th"/"Q3 4:12" live, "Final"/"Final/10" done,
     // "9:15 PM EDT" scheduled — no per-sport formatting needed here.
     detail: event.detail || '',
-    date: event.date ? new Date(event.date) : null
+    date: event.date ? new Date(event.date) : null,
+    postponed: event.statusName === 'STATUS_POSTPONED',
+    tag: seasonTagFor(event)
   };
 }
 
@@ -220,7 +232,7 @@ function gameMatchesScope(game){
 // than silently dropped.
 function isOnSelectedDay(game, offset){
   if(!game.date) return true;
-  return yyyymmdd(game.date) === yyyymmdd(dateForOffset(offset));
+  return localYyyymmdd(game.date) === localYyyymmdd(dateForOffset(offset));
 }
 
 async function collectDay(offset){
@@ -250,6 +262,7 @@ function timeLabel(date){
 function railHtml(game){
   if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail.replace(/\s+-\s+/, '<br>')}</div></div>`;
   if(game.state === 'final') return `<div class="tg-rail"><div class="tg-rail-top">${game.detail.replace('Final', 'F')}</div></div>`;
+  if(game.postponed) return `<div class="tg-rail"><div class="tg-rail-top">PPD</div></div>`;
   const t = timeLabel(game.date);
   return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
 }
@@ -315,6 +328,7 @@ function gameHtml(game){
       <span class="tg-line"></span>
       <span class="tg-node ${game.state}"></span>
       <div class="tg-card ${game.state}">
+        ${game.tag ? `<div class="tg-tag ${game.tag.cls}">${game.tag.text}</div>` : ''}
         ${sideHtml(game.away, awayDim)}
         ${sideHtml(game.home, homeDim)}
       </div>

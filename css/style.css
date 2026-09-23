@@ -934,6 +934,20 @@ body{
   background: radial-gradient(120% 140% at 50% -20%, rgba(229, 72, 77, 0.10), var(--surface) 62%);
 }
 
+/* Preseason / playoff-round label (seasonTagFor in js/live-now.js) —
+   a quiet eyebrow above the two team lines. Preseason stays muted since
+   those games never count; a playoff round gets the accent. */
+.tg-tag{
+  margin-bottom: -3px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+.tg-tag.post{ color: var(--accent); }
+
 /* The click target is the whole .tg-row (rail/time-gutter included, see
    gameHtml in js/live-now.js), not just this card, so the "Final" or
    "7:40 PM" text off to the side opens Game Details too, not only the
@@ -1826,12 +1840,14 @@ body{
    artifact-design responsive rule this app's own mockup work surfaced). */
 .box-scroll{ overflow-x: auto; }
 
-/* Reuses .standings-toggle/.toggle-btn (Standings tab's Divisions/
-   Conference switch) for the away/home team switch under the
-   linescore — same pill look, but repositioned as inline content
+/* The away | Team | home switch under the linescore — the same sliding
+   .seg control as the Standings tab, dropped into a .standings-toggle
+   wrapper so it fills the row, but repositioned as inline content
    rather than a full-width section header, since .modal-body already
-   carries its own padding here. */
-.gd-team-toggle{
+   carries its own padding here. Doubled class so it outranks the
+   generic .standings-toggle rule further down this file, which would
+   otherwise put back that header's padding and bottom border. */
+.standings-toggle.gd-team-toggle{
   margin: 16px 0 14px;
   padding: 0;
   border-bottom: none;
@@ -1904,6 +1920,80 @@ body{
 .gd-event-empty{
   font-size: 11.5px; color: var(--text-mute); font-weight: 500; padding: 6px 0;
 }
+
+/* ---- NHL scoring summary (hockeyGoalsHtml in js/live-data.js) —
+   one row per goal under its period label, reusing .gd-event-min /
+   .gd-event-who from the soccer split above for the clock and scorer. */
+.gd-goal-period{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-sub);
+  padding: 8px 0 2px;
+}
+
+.gd-goal{
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--hairline);
+}
+.gd-goal .gd-event-min{ padding-top: 1px; min-width: 32px; }
+
+.gd-goal-team{
+  flex: 0 0 34px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-sub);
+  padding-top: 1px;
+}
+
+.gd-goal-body{ flex: 1; min-width: 0; }
+
+.gd-goal-assists{
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.gd-goal-tag{
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+}
+
+.gd-goal-score{
+  flex: 0 0 auto;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* Team totals comparison (teamStatsHtml) — away | stat | home. */
+.gd-teamstats{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.gd-teamstats th, .gd-teamstats td{
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 700;
+  color: var(--text);
+}
+.gd-teamstats th{ font-size: 9.5px; letter-spacing: 0.3px; color: var(--text-mute); }
+.gd-teamstats th:first-child, .gd-teamstats td:first-child{ text-align: left; }
+.gd-teamstats th:last-child, .gd-teamstats td:last-child{ text-align: right; }
+.gd-teamstats td.label{ text-align: center; font-weight: 500; color: var(--text-sub); }
 
 .linescore-table{
   width: 100%;
