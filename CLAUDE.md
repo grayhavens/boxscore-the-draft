@@ -92,16 +92,18 @@ Facts KV store. Adding a new upstream call: it MUST go through `cachedUpstreamFe
 key must never be added to client JS directly — see the comment block at the top of that file
 before adding a new route.
 
-**Group chat** (`js/chat.js` + `worker/chat-room.js`): real-time text chat for the drafters, opened
-from a header icon on every view (an overlay, not a tab/`.view` — `switchView` and the URL params
-never see it). Messages fan out through one shared Durable Object (SQLite-backed, WebSocket
+**Group chat** (`js/chat.js` + `worker/chat-room.js`): real-time text chat for the drafters — the Chat tab
+(`#view-chat`, `?view=chat`), the raised accent button in the center of the bottom tab bar. It's a
+real `.view` that `switchView` toggles (calling `setChatActive` in `js/chat.js`), but unlike the other
+views it's `position: fixed` and sized from `window.visualViewport` so the iOS keyboard shrinks it
+instead of covering the composer; the tab bar hides while the keyboard is up (`html.chat-kb`). Messages fan out through one shared Durable Object (SQLite-backed, WebSocket
 Hibernation API) reached at `/chat/ws`; KV can't do this (eventual consistency, no push). Same
 no-auth trust tier as favorites — sender is whichever drafter `js/identity.js` says you are. The
-socket opens at boot so the header's unread badge is live; reconnects resume via `?after=<lastId>`.
+socket opens at boot so the tab bar's unread badge is live; reconnects resume via `?after=<lastId>`.
 On `localhost` the client talks to `wrangler dev` (`ws://localhost:8787`), never the deployed
 worker, so local testing can't post into the real room. The first deploy after adding it runs the
 `[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
-header icon ships pointing at a room that doesn't exist yet.
+Chat tab ships pointing at a room that doesn't exist yet.
 
 **Chat reactions** (Slack-style: several per person, one of each emoji): tapping a message opens a
 row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and

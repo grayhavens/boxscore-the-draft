@@ -219,36 +219,14 @@ body{
   color: var(--text);
 }
 
-/* Chat entry point (js/chat.js) — sits immediately left of the identity
-   circle on every view. Same auto-margin dance as .scope-chip
-   above: whichever element leads the right-hand cluster owns the
-   margin-left:auto, everything after it sits flush against it. */
-.chat-hit{
-  position: relative;
-  flex: 0 0 auto;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: none;
-  border: none;
-  border-radius: 999px;
-  color: var(--text-sub);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.chat-hit:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
-.chat-hit svg{ width: 21px; height: 21px; }
-.scope-chip + .chat-hit,
-.chat-hit + .picker-hit{ margin-left: 0; }
-
+/* Chat entry point (js/chat.js) — the raised center button in the tab bar
+   (.tab-btn.chat-hit, see .tab-bar below). The badge hangs off the icon's
+   top-right corner via .tab-icon, not off the full-width button. */
 .chat-badge{
   display: none;
   position: absolute;
-  top: 1px;
-  right: 0;
+  top: -6px;
+  left: 12px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -3180,6 +3158,45 @@ body{
 }
 
 .tab-btn svg{ width: 19px; height: 19px; }
+.tab-icon{ position: relative; display: flex; }
+
+/* Chat — the center slot, drawn as a raised accent disc that pokes up
+   out of the bar so it reads as the app's primary action rather than a
+   fifth peer tab. The negative margin lifts the disc without changing
+   the button's own box, so the label still lines up with its neighbours. */
+.tab-btn.chat-hit{ color: var(--accent); }
+.tab-btn.chat-hit .tab-icon{
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 0 4px var(--bg), 0 6px 16px rgba(0,0,0,0.45);
+}
+.tab-btn.chat-hit:active .tab-icon{ transform: scale(0.94); }
+.tab-btn.chat-hit svg{ width: 23px; height: 23px; }
+.tab-btn.chat-hit .chat-badge{ top: -2px; left: auto; right: -4px; }
+
+/* On the Chat tab itself the disc docks: it drops flush into the bar as
+   an accent pill behind the icon (the bar's active-tab color), since a
+   raised disc would sit over the composer and there's nothing left to
+   call attention to. The badge is never shown here — you're reading. */
+.tab-btn.chat-hit .tab-icon{
+  transition: transform 0.12s ease, width 0.2s ease, height 0.2s ease, margin 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.tab-btn.chat-hit.active .tab-icon{
+  width: 52px;
+  height: 28px;
+  margin-top: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+}
+.tab-btn.chat-hit.active svg{ width: 19px; height: 19px; }
 
 .tab-label{
   font-family: 'Space Grotesk', sans-serif;
@@ -3457,62 +3474,47 @@ body{
 .tab-btn.active{ color: var(--accent); }
 
 /* ============================================================
-   Chat screen (js/chat.js) — a fixed full-screen overlay above the tab
-   bar (z-index 200) and below the sheets. Height/top are driven by JS
-   from window.visualViewport so the on-screen keyboard shrinks the
-   screen instead of covering the composer (100dvh is only the pre-JS
-   fallback); body scroll is locked while it's open (lockBodyScroll).
+   Chat screen (js/chat.js) — the Chat tab (#view-chat). Unlike the
+   other views it doesn't flow in the page: it's fixed, sitting between
+   the top of the screen and the tab bar (z-index 200, which stays above
+   it), with height/top driven by JS from window.visualViewport so the
+   on-screen keyboard shrinks it instead of covering the composer. The
+   pre-JS fallback height below leaves the same room for the bar.
    ============================================================ */
 .chat-screen{
-  display: none;
   position: fixed;
   left: 0;
   right: 0;
   top: 0;
-  height: 100dvh;
-  z-index: 500;
+  height: calc(100dvh - var(--nav-h) - env(safe-area-inset-bottom));
+  z-index: 190;
   background: var(--bg);
   flex-direction: column;
 }
-.chat-screen.open{ display: flex; }
+.chat-screen.view.active{ display: flex; }
 
-/* Set on <html> while chat is open (js/chat.js's openChat) — the page
-   behind must not scroll or bounce; see guardTouchScroll there for the
-   half of this that CSS alone can't cover on iOS. */
+/* Set on <html> while the Chat tab is showing (js/chat.js's
+   setChatActive) — the page behind must not scroll or bounce; see
+   guardTouchScroll there for the half of this that CSS alone can't cover
+   on iOS. chat-kb is added on top while the keyboard is up: the tab bar
+   gets out of the way so the composer sits right on the keys. */
 html.chat-open{
   overflow: hidden;
   overscroll-behavior: none;
 }
+html.chat-kb .tab-bar{ display: none; }
 
+/* Same padding the page body gives every other view's .page-header, so
+   the logo, title and identity circle land in exactly the same spot when
+   you switch tabs. The hairline marks where the messages scroll under. */
 .chat-head{
   flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: calc(env(safe-area-inset-top) + 6px) 12px 10px;
+  padding: calc(env(safe-area-inset-top) + var(--page-pad)) var(--page-pad) 0;
   border-bottom: 1px solid var(--hairline);
 }
-.chat-back{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  margin-left: -4px;
-  background: none;
-  border: none;
-  border-radius: 999px;
-  color: var(--text-sub);
-  cursor: pointer;
-}
-.chat-back:hover{ background: rgba(255,255,255,0.06); color: var(--text); }
-.chat-back svg{ width: 22px; height: 22px; }
-.chat-title{
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 22px;
-  letter-spacing: -0.3px;
-}
+/* Connection status sits where other views put their .scope-chip:
+   leading the right-hand cluster (margin-left:auto), flush against the
+   identity circle — see .scope-chip + .picker-hit above. */
 .chat-status{
   margin-left: auto;
   display: flex;
@@ -3522,6 +3524,7 @@ html.chat-open{
   font-weight: 600;
   color: var(--text-mute);
 }
+.chat-status + .picker-hit{ margin-left: 0; }
 .chat-status::before{
   content: '';
   width: 7px;
@@ -3598,11 +3601,10 @@ html.chat-open{
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 8px max(12px, calc((100% - 720px) / 2)) calc(10px + env(safe-area-inset-bottom));
+  padding: 8px max(12px, calc((100% - 720px) / 2)) 10px;
   border-top: 1px solid var(--hairline);
   background: var(--bg);
 }
-.chat-screen.kb-open .chat-composer{ padding-bottom: 10px; }
 .chat-composer textarea{
   flex: 1 1 auto;
   min-width: 0;
