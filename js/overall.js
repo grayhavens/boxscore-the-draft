@@ -337,12 +337,6 @@ export function obRankedRows(){
 
 // ---- List ----
 
-function obSubCopy(row){
-  if(row.scoringCount === 0) return 'No Points Earned';
-  const base = row.scoringCount + (row.scoringCount === 1 ? ' league scoring' : ' leagues scoring');
-  return row.topLeague ? base + ' &middot; best in ' + row.topLeague.league.label : base;
-}
-
 function obRowHtml(row, hasLeader){
   const isTop = hasLeader && row.rank === 1;
   const rankTier = isTop ? 'rank-1' : (hasLeader && row.rank <= 3 ? 'rank-mid' : '');
@@ -351,7 +345,6 @@ function obRowHtml(row, hasLeader){
       <span class="ob-rank ${rankTier}">${row.rankLabel}</span>
       <span class="ob-identity">
         <span class="ob-name">${row.name}</span>
-        <span class="ob-sub">${obSubCopy(row)}</span>
       </span>
       <span class="ob-totalwrap">
         <span class="ob-total">${row.confirmedTotal}</span>

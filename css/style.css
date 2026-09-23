@@ -2937,14 +2937,6 @@ body{
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ob-sub{
-  font-size: var(--fs-12);
-  color: var(--text-sub);
-  margin-top: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 .ob-totalwrap{ display: flex; align-items: center; gap: 8px; }
 .ob-total{
