@@ -72,6 +72,11 @@ including across sessions.
   standings, rankings, schedule, and live in-game state for every one of the 8 leagues, College
   Basketball included (added 2026-09-17). No key, open CORS, called directly from the browser — no
   worker proxy involved.
+- **NHL's own API** (`api-web.nhle.com`, no key, via the worker's `/nhl/score/<date>` route since it
+  has no CORS) supplies NHL Game Details' in-app highlight clips — ESPN's NHL summary carries no
+  video. Clip ids are resolved to playable .mp4s straight from Brightcove in the browser
+  (`js/nhl-clips.js`), uncached since those URLs are signed and expire. Additive only: ESPN stays
+  the source for NHL scores/boxscores.
 - **TheSportsDB** is fully deprecated — no remaining runtime callers.
 - **TheRundown** (paid/metered) is kept only as a defensive per-team fallback for a fetch ESPN itself
   fails to resolve on a given refresh (CFB's one FCS team, and now every College Basketball team) —
