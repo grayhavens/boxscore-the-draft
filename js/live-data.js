@@ -4,7 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -1181,9 +1181,9 @@ export function openTeamModal(teamKey){
       <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>'}</div>
       <div class="modal-body">
         <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
-        <div class="form-list" id="live-form">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
+        <div class="form-list" id="live-form">${cached ? '' : skeletonLinesHtml(3)}</div>
         <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
-        <div class="next-match" id="live-next">${cached ? '' : '<div class="loading-note">Loading…</div>'}</div>
+        <div class="next-match" id="live-next">${cached ? '' : skeletonLinesHtml(3)}</div>
         ${ctaHtml}
       </div>
     ` : `
@@ -1361,7 +1361,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     gameDetailRenderState = null;
     el.innerHTML = `
       <div class="gd-head with-back">
-        <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
+        <button class="gd-back" onclick="closeGameDetail()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
         <div class="gd-title">Boxscore</div>
       </div>
       <div class="modal-body"><div class="loading-note">Boxscore isn't available for this game right now — try again in a moment.</div></div>
@@ -1598,7 +1598,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
     <div class="gd-head with-back">
-      <button class="gd-back" onclick="closeGameDetail()">&lsaquo;</button>
+      <button class="gd-back" onclick="closeGameDetail()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
       <div>
         ${(() => {
           const awaySide = resolveGameDetailSide(away, leagueKey);
@@ -1718,7 +1718,7 @@ export async function openGameDetail(teamKey, eventId){
   // different game, while this request is in flight, its result is
   // stale and shouldn't paint over whatever's showing now.
   el.dataset.activeEvent = String(eventId);
-  el.innerHTML = `<div class="modal-body"><div class="loading-note">Loading boxscore…</div></div>`;
+  el.innerHTML = `<div class="modal-body">${skeletonLinesHtml(6)}</div>`;
 
   const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
   if(el.dataset.activeEvent !== String(eventId)) return;

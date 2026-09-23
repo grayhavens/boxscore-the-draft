@@ -7,7 +7,7 @@
    rendered HTML.
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { updateUrlParam, teamBadgeHtml } from './utils.js';
+import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml } from './utils.js';
 import { LEAGUE_FACTS_LEAGUES, migrateAchievementsToFacts } from './league-facts.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
@@ -351,7 +351,7 @@ function renderFlatLeagueBlock(league, api){
       bodyHtml = `<div class="no-live-note">No data available.</div>`;
     } else {
       api.fetchDivisionCached();
-      bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+      bodyHtml = skeletonRowsHtml();
     }
   } else if(mode === 'byDrafter'){
     if(api.cache.rows){
@@ -362,7 +362,7 @@ function renderFlatLeagueBlock(league, api){
       bodyHtml = `<div class="no-live-note">No data available.</div>`;
     } else {
       api.fetchCached();
-      bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+      bodyHtml = skeletonRowsHtml();
     }
   } else if(api.cache.rows){
     const confAbbr = api.conferences.find(c => c.mode === mode).abbr;
@@ -376,7 +376,7 @@ function renderFlatLeagueBlock(league, api){
     bodyHtml = `<div class="no-live-note">No data available.</div>`;
   } else {
     api.fetchCached();
-    bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+    bodyHtml = skeletonRowsHtml();
   }
   return leagueBlockHtml(league, bodyHtml);
 }
@@ -420,7 +420,7 @@ export function renderStandings(){
         bodyHtml = `<div class="no-live-note">No data available.</div>`;
       } else {
         fetchEplStandingsTable();
-        bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+        bodyHtml = skeletonRowsHtml();
       }
       return leagueBlockHtml(league, bodyHtml);
     }
@@ -445,7 +445,7 @@ export function renderStandings(){
         } else {
           fetchEspnCfbRecordsCached();
           fetchCfbRecords();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       } else {
         if(espnCfbRankingsCache.ranks){
@@ -459,7 +459,7 @@ export function renderStandings(){
           bodyHtml = `<div class="no-live-note">No data available.</div>`;
         } else {
           fetchEspnCfbRankingsCached();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       }
       return leagueBlockHtml(league, bodyHtml);
@@ -481,7 +481,7 @@ export function renderStandings(){
           bodyHtml = `<div class="no-live-note">No data available.</div>`;
         } else {
           fetchEspnCbbStandingsCached();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       } else {
         if(espnCbbRankingsCache.ranks){
@@ -495,7 +495,7 @@ export function renderStandings(){
           bodyHtml = `<div class="no-live-note">No data available.</div>`;
         } else {
           fetchEspnCbbRankingsCached();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       }
       return leagueBlockHtml(league, bodyHtml);
@@ -527,7 +527,7 @@ export function renderStandings(){
           bodyHtml = `<div class="no-live-note">No data available.</div>`;
         } else {
           fetchEspnNflDivisionStandingsCached();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       } else {
         if(espnNflStandingsCache.rows){
@@ -547,7 +547,7 @@ export function renderStandings(){
           bodyHtml = `<div class="no-live-note">No data available.</div>`;
         } else {
           fetchEspnNflStandingsCached();
-          bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+          bodyHtml = skeletonRowsHtml();
         }
       }
       return leagueBlockHtml(league, bodyHtml);
@@ -596,7 +596,7 @@ export function renderStandings(){
         bodyHtml = `<div class="no-live-note">No data available.</div>`;
       } else {
         fetchEspnWnbaStandingsCached();
-        bodyHtml = `<div class="loading-note">Loading standings…</div>`;
+        bodyHtml = skeletonRowsHtml();
       }
       return leagueBlockHtml(league, bodyHtml);
     }
