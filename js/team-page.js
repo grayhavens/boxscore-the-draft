@@ -15,13 +15,13 @@
    it was never restricted the way Stats/Squad are, and folding it in
    there instead of a separate tab means it's never a full empty tab of
    its own when a team just has nothing new posted. Roster/team-stats
-   endpoints were only curled and verified for EPL, NFL and MLB (see
-   js/espn.js's fetchEspnTeamRoster/fetchEspnTeamStatistics header
-   comments and FULL_STATS_SQUAD_LEAGUES below) — every other
-   FLAT_SCHEDULE_LEAGUES league (College Basketball included, added
-   2026-09-17) gets a real page and a working News section, just a
-   plain "not available yet" placeholder for Stats/Squad until those
-   get their own design pass.
+   endpoints were first verified for EPL, NFL and MLB (see js/espn.js's
+   fetchEspnTeamRoster/fetchEspnTeamStatistics header comments); NBA,
+   NHL, WNBA, CFB and College Basketball followed (2026-09-22) off one
+   extra ESPN call per team, fetchEspnTeamPlayerStats, which carries
+   both the team's season totals and every player's own stat line —
+   see PLAYER_STATS_LEAGUES below for each league's tiles, leaders and
+   roster stat line.
 
    Pushed/popped via the functions below, not switchView() — switchView
    also drives the bottom tab bar's active state off a fixed data-view
@@ -31,9 +31,9 @@
    directly (the same primitive switchView uses) and leaves the tab bar
    alone.
    ============================================================ */
-import { TEAM_META, LEAGUES, DRAFT_TEAMS } from './data.js';
+import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml } from './utils.js';
-import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics } from './espn.js';
+import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
   FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle,
   renderStats, renderNext, seasonStatus
@@ -49,11 +49,11 @@ import {
   nflverseInjuriesCache, nflverseDepthChartCache
 } from './nflverse.js';
 
-// The 3 leagues with a verified roster/team-stats source (see this
-// file's header comment) — every other FLAT_SCHEDULE_LEAGUES league
-// still gets a real page + Schedule + News tab, just a placeholder
+// Every league with a verified roster/team-stats source (see this
+// file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
+// here still gets a real page + Overview tab, just a placeholder
 // Stats/Squad.
-const FULL_STATS_SQUAD_LEAGUES = ['epl', 'nfl', 'mlb'];
+const FULL_STATS_SQUAD_LEAGUES = ['epl', 'nfl', 'mlb', 'nba', 'nhl', 'wnba', 'cfb', 'mcbb'];
 
 // News has no tab of its own anymore — it's a section on the Overview
 // tab now (see scheduleTabHtml below), folded in under the "Full
@@ -65,6 +65,8 @@ const TABS = {
   nfl: [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }, { key: 'injuries', label: 'Injuries' }],
   mlb: [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Roster' }]
 };
+// "Squad" is soccer vocabulary — every US league calls it a roster.
+['nba', 'nhl', 'wnba', 'cfb', 'mcbb'].forEach(key => { TABS[key] = TABS.mlb; });
 function tabsFor(leagueKey){
   return TABS[leagueKey] || [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }];
 }
@@ -87,6 +89,7 @@ const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab:
 const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'|'error', items }
 const rosterCache = {}; // teamKey -> { status, items }
 const statsCache = {};  // teamKey -> { status, data } — `data` shape is league-specific, built in computeStatsTiles
+const playerStatsCache = {}; // teamKey -> { status, data } — `data` is fetchEspnTeamPlayerStats's shape (PLAYER_STATS_LEAGUES only)
 
 function espnTeamRowFor(meta){
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
@@ -258,7 +261,9 @@ function renderTabBody(){
       el.innerHTML = `<div class="placeholder-tab">Season stats for this league aren't built yet — check back once it gets its own design pass.</div>`;
       return;
     }
-    el.innerHTML = statsTabHtml(teamKey, meta, bundle);
+    el.innerHTML = PLAYER_STATS_LEAGUES[meta.leagueKey]
+      ? playerStatsTabHtml(teamKey, meta, bundle)
+      : statsTabHtml(teamKey, meta, bundle);
     return;
   }
   if(state.activeTab === 'squad'){
@@ -268,6 +273,7 @@ function renderTabBody(){
     }
     el.innerHTML = squadTabHtml(teamKey);
     ensureRoster(teamKey);
+    if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
     return;
   }
   if(state.activeTab === 'injuries'){
@@ -465,16 +471,18 @@ function statsTabHtml(teamKey, meta, bundle){
   const trackerHtml = `<div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>`;
 
   if(meta.leagueKey !== 'epl' && !statsCache[teamKey]) ensureStats(teamKey, meta);
+  const noteHtml = seasonNoteHtml(meta, null);
 
   if(!tiles){
     const entry = statsCache[teamKey];
     const body = (entry && entry.status === 'error')
       ? `<div class="no-live-note">Season stats aren't available for this team right now.</div>`
       : `<div class="loading-note">Loading season stats…</div>`;
-    return body + splitHtml + trackerHtml;
+    return noteHtml + body + splitHtml + trackerHtml;
   }
 
   return `
+    ${noteHtml}
     <div class="stat-grid">
       ${tiles.map(t => `<div class="stat-tile"><div class="num">${t.num}</div><div class="lbl">${t.lbl}</div></div>`).join('')}
     </div>
@@ -532,6 +540,9 @@ function homeAwaySplitHtml(bundle){
   const sched = bundle && bundle.espnSchedule;
   if(!sched) return '';
   const played = sched.recent;
+  // A bare "0-0 / 0-0" card says nothing — e.g. every NBA/College
+  // Basketball team before its first game of the season.
+  if(!played.length) return '';
   const split = { home: { w: 0, l: 0, d: 0 }, away: { w: 0, l: 0, d: 0 } };
   played.forEach(evt => {
     const side = evt.isHome ? split.home : split.away;
@@ -547,6 +558,256 @@ function homeAwaySplitHtml(bundle){
       <div class="split-row"><div class="split-label">Away</div><div class="split-values"><span class="split-record">${label(split.away)}</span></div></div>
     </div>
   `;
+}
+
+// ---- Player-stats leagues (NBA/NHL/WNBA/CFB/College Basketball) ----
+
+// One fetchEspnTeamPlayerStats call (js/espn.js) feeds these leagues'
+// Stats tab (team tiles + team leaders) and the per-player stat line on
+// their Roster tab. Stat names below are ESPN's own, verified live
+// (2026-09-22) against each league's payload.
+const statOf = (stats, name) => (stats && stats[name]) || null;
+const dv = (stats, name) => { const s = statOf(stats, name); return s ? s.displayValue : null; };
+const nv = (stats, name) => { const s = statOf(stats, name); return s && typeof s.value === 'number' ? s.value : null; };
+const signed = n => n == null ? '—' : (n > 0 ? `+${n}` : String(n));
+
+// Leaders need a minimum-games floor for per-game/percentage stats —
+// otherwise a player with 2 garbage-time games at 100% tops "Save %".
+// A quarter of the busiest player's games in that same group is loose
+// enough to keep real rotation players and drop cameo appearances.
+function qualified(players, gamesStat){
+  if(!gamesStat) return players;
+  const max = players.reduce((m, p) => Math.max(m, nv(p.stats, gamesStat) || 0), 0);
+  return players.filter(p => (nv(p.stats, gamesStat) || 0) >= max * 0.25);
+}
+
+const BASKETBALL = {
+  tiles: t => [
+    { num: dv(t, 'avgPoints') ?? '—', lbl: 'Pts / Game' },
+    { num: dv(t, 'avgRebounds') ?? '—', lbl: 'Reb / Game' },
+    { num: dv(t, 'avgAssists') ?? '—', lbl: 'Ast / Game' },
+    { num: dv(t, 'fieldGoalPct') != null ? `${dv(t, 'fieldGoalPct')}%` : '—', lbl: 'FG %' }
+  ],
+  leaders: [
+    { group: 'game', stat: 'avgPoints', abbr: 'PTS', games: 'gamesPlayed' },
+    { group: 'game', stat: 'avgRebounds', abbr: 'REB', games: 'gamesPlayed' },
+    { group: 'game', stat: 'avgAssists', abbr: 'AST', games: 'gamesPlayed' },
+    { group: 'game', stat: 'avgSteals', abbr: 'STL', games: 'gamesPlayed' },
+    { group: 'game', stat: 'avgBlocks', abbr: 'BLK', games: 'gamesPlayed' }
+  ],
+  leaderUnit: 'per game',
+  statLine: s => dv(s, 'avgPoints') == null ? null : {
+    primary: `${dv(s, 'avgPoints')} PPG`,
+    secondary: `${dv(s, 'avgRebounds') ?? '0'} RPG · ${dv(s, 'avgAssists') ?? '0'} APG`
+  },
+  sortKey: (p, s) => nv(s, 'avgPoints')
+};
+
+// NHL's skater group comes back named "team" (ESPN's own label for it —
+// "Team Statistics"), goalies as "goalkeeping".
+const NHL = {
+  tiles: t => {
+    const games = nv(t, 'games');
+    const perGame = name => (games && nv(t, name) != null) ? (nv(t, name) / games).toFixed(2) : '—';
+    return [
+      { num: perGame('goals'), lbl: 'Goals / Game' },
+      { num: dv(t, 'avgGoalsAgainst') ?? '—', lbl: 'GA / Game' },
+      { num: dv(t, 'shootingPct') != null ? `${dv(t, 'shootingPct')}%` : '—', lbl: 'Shooting %' },
+      { num: dv(t, 'savePct') ?? '—', lbl: 'Save %' }
+    ];
+  },
+  leaders: [
+    { group: 'team', stat: 'points', abbr: 'PTS' },
+    { group: 'team', stat: 'goals', abbr: 'G' },
+    { group: 'team', stat: 'assists', abbr: 'A' },
+    { group: 'team', stat: 'plusMinus', abbr: '+/-', format: v => signed(v) },
+    { group: 'goalkeeping', stat: 'wins', abbr: 'W' },
+    { group: 'goalkeeping', stat: 'savePct', abbr: 'SV%', games: 'games' }
+  ],
+  leaderUnit: null,
+  statLine: (s, p) => {
+    if(p.positionAbbr === 'G'){
+      if(dv(s, 'savePct') == null) return null;
+      return {
+        primary: `${dv(s, 'savePct')} SV%`,
+        secondary: `${dv(s, 'wins') ?? 0}-${dv(s, 'losses') ?? 0}-${dv(s, 'overtimeLosses') ?? 0} · ${dv(s, 'avgGoalsAgainst') ?? '—'} GAA`
+      };
+    }
+    if(dv(s, 'points') == null) return null;
+    return { primary: `${dv(s, 'points')} PTS`, secondary: `${dv(s, 'goals') ?? 0}G · ${dv(s, 'assists') ?? 0}A` };
+  },
+  sortKey: (p, s) => p.positionAbbr === 'G' ? nv(s, 'games') : nv(s, 'points')
+};
+
+// Position order within each CFB roster group (ESPN's abbreviations) —
+// same idea as NFL_POSITION_ORDER below, but CFB has no nflverse depth
+// chart to sort by within a position, so production does that instead.
+const CFB_POSITION_ORDER = ['QB', 'RB', 'FB', 'WR', 'TE', 'OL', 'OT', 'G', 'C', 'DE', 'DT', 'DL', 'LB', 'CB', 'S', 'DB', 'PK', 'K', 'P', 'LS'];
+
+function cfbStatLine(s, p){
+  const pos = p.positionAbbr;
+  const nonzero = (name, label) => (nv(s, name) || 0) > 0 ? `${dv(s, name)} ${label}` : null;
+  if(pos === 'QB' && dv(s, 'passingYards') != null){
+    return { primary: `${dv(s, 'passingYards')} YDS`, secondary: `${dv(s, 'passingTouchdowns') ?? 0} TD · ${dv(s, 'interceptions') ?? 0} INT` };
+  }
+  if((pos === 'RB' || pos === 'FB') && dv(s, 'rushingYards') != null){
+    return { primary: `${dv(s, 'rushingYards')} YDS`, secondary: `${dv(s, 'rushingAttempts') ?? 0} CAR · ${dv(s, 'rushingTouchdowns') ?? 0} TD` };
+  }
+  if((pos === 'WR' || pos === 'TE') && dv(s, 'receivingYards') != null){
+    return { primary: `${dv(s, 'receivingYards')} YDS`, secondary: `${dv(s, 'receptions') ?? 0} REC · ${dv(s, 'receivingTouchdowns') ?? 0} TD` };
+  }
+  if((pos === 'PK' || pos === 'K') && dv(s, 'fieldGoalsMade') != null){
+    return { primary: `${dv(s, 'fieldGoalsMade')}/${dv(s, 'fieldGoalAttempts') ?? 0} FG`, secondary: `${dv(s, 'extraPointsMade') ?? 0}/${dv(s, 'extraPointAttempts') ?? 0} XP` };
+  }
+  if(pos === 'P' && dv(s, 'grossAvgPuntYards') != null){
+    return { primary: `${dv(s, 'grossAvgPuntYards')} AVG`, secondary: `${dv(s, 'punts') ?? 0} punts` };
+  }
+  if(p.group === 'Defense' && dv(s, 'totalTackles') != null){
+    const extras = [nonzero('sacks', 'SACK'), nonzero('interceptions', 'INT')].filter(Boolean);
+    return { primary: `${dv(s, 'totalTackles')} TKL`, secondary: extras.join(' · ') };
+  }
+  return null;
+}
+
+const CFB = {
+  tiles: t => [
+    { num: dv(t, 'totalPointsPerGame') ?? '—', lbl: 'Pts / Game' },
+    { num: dv(t, 'yardsPerGame') ?? '—', lbl: 'Yds / Game' },
+    { num: signed(nv(t, 'turnOverDifferential')), lbl: 'Turnover Diff' },
+    { num: nv(t, 'thirdDownConvPct') != null ? `${nv(t, 'thirdDownConvPct').toFixed(1)}%` : '—', lbl: '3rd Down %' }
+  ],
+  leaders: [
+    { group: 'passing', stat: 'passingYards', abbr: 'PASS', detail: s => `${dv(s, 'passingTouchdowns') ?? 0} TD · ${dv(s, 'interceptions') ?? 0} INT` },
+    { group: 'rushing', stat: 'rushingYards', abbr: 'RUSH', detail: s => `${dv(s, 'rushingTouchdowns') ?? 0} TD` },
+    { group: 'receiving', stat: 'receivingYards', abbr: 'REC', detail: s => `${dv(s, 'receptions') ?? 0} rec · ${dv(s, 'receivingTouchdowns') ?? 0} TD` },
+    { group: 'defensive', stat: 'totalTackles', abbr: 'TKL' },
+    { group: 'defensive', stat: 'sacks', abbr: 'SACK' },
+    { group: 'defensive', stat: 'interceptions', abbr: 'INT' }
+  ],
+  leaderUnit: null,
+  statLine: cfbStatLine,
+  sortKey: (p, s) => {
+    const pos = p.positionAbbr;
+    if(pos === 'QB') return nv(s, 'passingYards');
+    if(pos === 'RB' || pos === 'FB') return nv(s, 'rushingYards');
+    if(pos === 'WR' || pos === 'TE') return nv(s, 'receivingYards');
+    if(pos === 'PK' || pos === 'K') return nv(s, 'fieldGoalsMade');
+    return nv(s, 'totalTackles');
+  },
+  positionOrder: CFB_POSITION_ORDER
+};
+
+const PLAYER_STATS_LEAGUES = { nba: BASKETBALL, wnba: BASKETBALL, mcbb: BASKETBALL, nhl: NHL, cfb: CFB };
+
+function ensurePlayerStats(teamKey, meta){
+  if(playerStatsCache[teamKey] && playerStatsCache[teamKey].status !== 'error') return;
+  const row = espnTeamRowFor(meta);
+  const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
+  if(!row || !flat){ playerStatsCache[teamKey] = { status: 'error', data: null }; return; }
+  playerStatsCache[teamKey] = { status: 'loading', data: null };
+  fetchEspnTeamPlayerStats(flat.sportPath, row.id).then(data => {
+    playerStatsCache[teamKey] = data ? { status: 'ready', data } : { status: 'error', data: null };
+    if(state.teamKey === teamKey && (state.activeTab === 'stats' || state.activeTab === 'squad')) renderTabBody();
+  });
+}
+
+// Two different reasons a Stats tab isn't this season's scoring numbers,
+// both flagged with the shared .prior-season-note (see
+// PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js): the league's drafted
+// season hasn't started (MLB/WNBA — live, but non-scoring), or ESPN is
+// serving last season because the current one hasn't tipped off yet
+// (NBA/NHL/College Basketball each preseason).
+function seasonNoteHtml(meta, data){
+  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)){
+    return `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`;
+  }
+  if(data && data.isPriorSeason){
+    return `<div class="prior-season-note">Showing last season (${data.seasonLabel}) — the new season hasn't started yet.</div>`;
+  }
+  return '';
+}
+
+function leaderRowsHtml(cfg, data){
+  return cfg.leaders.map(l => {
+    const players = qualified(data.groups[l.group] || [], l.games).filter(p => nv(p.stats, l.stat) != null);
+    if(!players.length) return '';
+    const top = players.reduce((best, p) => nv(p.stats, l.stat) > nv(best.stats, l.stat) ? p : best);
+    const value = l.format ? l.format(nv(top.stats, l.stat)) : dv(top.stats, l.stat);
+    const sub = [top.position, l.detail ? l.detail(top.stats) : cfg.leaderUnit].filter(Boolean).join(' · ');
+    return `
+      <div class="player-row">
+        <div class="number-chip leader-chip">${l.abbr}</div>
+        <div class="player-main">
+          <div class="player-name">${top.name}</div>
+          <div class="player-sub">${sub}</div>
+        </div>
+        <div class="leader-value">${value}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function playerStatsTabHtml(teamKey, meta, bundle){
+  const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
+  const splitHtml = homeAwaySplitHtml(bundle);
+  const trackerHtml = `<div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>`;
+  ensurePlayerStats(teamKey, meta);
+
+  const entry = playerStatsCache[teamKey];
+  if(!entry || entry.status !== 'ready'){
+    const body = (entry && entry.status === 'error')
+      ? `<div class="no-live-note">Season stats aren't available for this team right now.</div>`
+      : `<div class="loading-note">Loading season stats…</div>`;
+    return seasonNoteHtml(meta, null) + body + splitHtml + trackerHtml;
+  }
+
+  const data = entry.data;
+  const leadersHtml = leaderRowsHtml(cfg, data);
+  return `
+    ${seasonNoteHtml(meta, data)}
+    <div class="stat-grid">
+      ${cfg.tiles(data.teamTotals).map(t => `<div class="stat-tile"><div class="num">${t.num}</div><div class="lbl">${t.lbl}</div></div>`).join('')}
+    </div>
+    ${leadersHtml ? `<div class="modal-section-title" style="margin-top:16px;">Team leaders</div>${leadersHtml}` : ''}
+    <div class="news-footer-note">${data.seasonLabel ? data.seasonLabel + ' · ' : ''}Stats via ESPN</div>
+    ${splitHtml}
+    ${trackerHtml}
+  `;
+}
+
+// Roster order for these leagues: most productive first (sortKey), then
+// players with no stats yet (rookies/new signings — or everyone, if the
+// stats call failed) by jersey. CFB additionally keeps positions
+// together first (positionOrder), the way NFL's roster does. Groups
+// themselves stay in fetched order (stable sort, same as sortNflRoster).
+function sortPlayerStatsRoster(items, meta){
+  const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
+  const entry = playerStatsCache[state.teamKey];
+  const byAthlete = (entry && entry.data && entry.data.byAthlete) || {};
+  const jerseyOf = p => parseInt(p.jersey, 10) || 999;
+  const posRank = p => {
+    if(!cfg.positionOrder) return 0;
+    const idx = cfg.positionOrder.indexOf(p.positionAbbr);
+    return idx === -1 ? cfg.positionOrder.length : idx;
+  };
+  return [...items].sort((a, b) => {
+    if(a.group !== b.group) return 0;
+    const posDiff = posRank(a) - posRank(b);
+    if(posDiff) return posDiff;
+    const ka = cfg.sortKey(a, byAthlete[String(a.id)]), kb = cfg.sortKey(b, byAthlete[String(b.id)]);
+    if(ka != null && kb != null && ka !== kb) return kb - ka;
+    if(ka != null && kb == null) return -1;
+    if(ka == null && kb != null) return 1;
+    return jerseyOf(a) - jerseyOf(b);
+  });
+}
+
+function playerStatLineFor(p, meta){
+  const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
+  if(!cfg) return null;
+  const entry = playerStatsCache[state.teamKey];
+  const stats = entry && entry.data && entry.data.byAthlete[String(p.id)];
+  return stats ? cfg.statLine(stats, p) : null;
 }
 
 // ---- Squad tab ----
@@ -574,13 +835,18 @@ function injuryTagHtml(p, meta){
 function playerRowHtml(p, meta){
   const tagsHtml = injuryTagHtml(p, meta);
   const contribution = goalContribution(p);
-  const statHtml = contribution !== null ? `<div class="player-stat">${p.goals || 0}G · ${p.assists || 0}A</div>` : '';
+  const line = playerStatLineFor(p, meta);
+  let statHtml = '';
+  if(line) statHtml = `<div class="player-stat">${line.primary}${line.secondary ? `<div class="sub">${line.secondary}</div>` : ''}</div>`;
+  else if(contribution !== null) statHtml = `<div class="player-stat">${p.goals || 0}G · ${p.assists || 0}A</div>`;
+  // Class year for college rosters (no age there), age for pro ones.
+  const detail = p.classYear || p.age;
   return `
     <div class="player-row">
       <div class="number-chip">${p.jersey || '—'}</div>
       <div class="player-main">
         <div class="player-name">${p.name}${tagsHtml}</div>
-        <div class="player-sub">${p.position}${p.age ? ' · ' + p.age : ''}</div>
+        <div class="player-sub">${p.position}${detail ? ' · ' + detail : ''}</div>
       </div>
       ${statHtml}
     </div>
@@ -823,13 +1089,26 @@ function fullRosterHtml(entry, meta){
       const grid = depthChartGridHtml(group, entry.items, meta);
       if(grid) return grid;
     }
-    const base = meta.leagueKey === 'nfl' ? sortNflRoster(entry.items, meta) : entry.items;
+    const base = meta.leagueKey === 'nfl' ? sortNflRoster(entry.items, meta)
+      : (PLAYER_STATS_LEAGUES[meta.leagueKey] ? sortPlayerStatsRoster(entry.items, meta) : entry.items);
     return base.filter(p => p.group === group).map(p => playerRowHtml(p, meta)).join('');
   };
 
+  // Stat lines on this tab come from the same fetch as the Stats tab —
+  // say which season they are when ESPN is serving last year's.
+  const statsEntry = PLAYER_STATS_LEAGUES[meta.leagueKey] ? playerStatsCache[state.teamKey] : null;
+  const statsData = statsEntry && statsEntry.data;
+  const footer = statsData ? `<div class="news-footer-note" style="margin-top:12px;">Stats: ${statsData.seasonLabel}${statsData.isPriorSeason ? ' (last season)' : ''}</div>` : '';
+
+  // Basketball rosters (NBA/WNBA/College Basketball) aren't grouped at
+  // all — ~15 players reads fine as one list, so no chips there.
+  if(!groups.length){
+    return entry.items.length ? sectionHtml(null) + footer : `<div class="no-live-note">No players listed.</div>`;
+  }
+
   const body = filter ? (sectionHtml(filter) || `<div class="no-live-note">No players in this group.</div>`) : `<div class="no-live-note">No players in this group.</div>`;
 
-  return `<div class="filter-chips">${chips}</div>${body}`;
+  return `<div class="filter-chips">${chips}</div>${body}${footer}`;
 }
 
 function squadTabHtml(teamKey){

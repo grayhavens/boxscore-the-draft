@@ -931,8 +931,8 @@ function soccerPlayerStats(a){
 // coarse filter chips (see squadPositionGroups in js/team-page.js) —
 // deliberately coarser than the ~11-16 fine-grained `position` values
 // NFL/MLB carry per player, which would make an unreadably long chip row.
-// Shape returned: [{ id, name, jersey, position, group, age, injured,
-// goals, assists, appearances }]
+// Shape returned: [{ id, name, jersey, position, positionAbbr, group,
+// age, classYear, injured, goals, assists, appearances }]
 export async function fetchEspnTeamRoster(sportLeaguePath, espnTeamId){
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/roster`);
   const athletes = data && Array.isArray(data.athletes) ? data.athletes : null;
@@ -948,8 +948,13 @@ export async function fetchEspnTeamRoster(sportLeaguePath, espnTeamId){
     name: a.displayName || a.fullName || '',
     jersey: a.jersey || '',
     position: (a.position && (a.position.displayName || a.position.abbreviation)) || '',
+    positionAbbr: (a.position && a.position.abbreviation) || '',
     group,
     age: a.age || null,
+    // College rosters only (CFB/College Basketball): class year ("FR",
+    // "SO", ...) — pro rosters' `experience` carries just `years`, no
+    // abbreviation, so this stays null there and callers show age instead.
+    classYear: (a.experience && a.experience.abbreviation) || null,
     injured: (Array.isArray(a.injuries) && a.injuries.length > 0) || !!(a.status && a.status.type && a.status.type !== 'active'),
     ...(grouped ? { goals: null, assists: null, appearances: null } : soccerPlayerStats(a))
   }));
@@ -975,6 +980,68 @@ export async function fetchEspnTeamStatistics(sportLeaguePath, espnTeamId){
   const byName = {};
   categories.forEach(cat => (cat.stats || []).forEach(s => { byName[s.name] = s; }));
   return byName;
+}
+
+// Team Page Stats/Roster tabs (NBA/NHL/WNBA/CFB/College Basketball):
+// every player's season stats for ONE team, plus the team's own totals,
+// in a single request — verified live (2026-09-22) against all five
+// leagues, open CORS. The league-wide
+// /apis/common/v3/.../statistics/byathlete endpoint looks like it
+// should do this via `?team=`, but it silently ignores that param (and
+// `teamId=`) and returns league leaders instead, so this team-scoped
+// path is the one to use.
+// Out of season it serves the most recently completed regular season
+// on its own (e.g. NBA/NHL/College Basketball in September return
+// 2025-26 while `season` already says 2026-27) — `isPriorSeason` flags
+// that so the UI can label it rather than pass last year off as current.
+// Each player appears once per `results` group they qualify for (CFB
+// splits into passing/rushing/receiving/defensive/...; NHL into skaters
+// and goalkeeping; basketball is one "game" group), each carrying their
+// full stat set, so `byAthlete` merges every group into one flat
+// name → stat lookup per player.
+// Shape returned: { seasonLabel, isPriorSeason,
+//   teamTotals: { [statName]: { value, displayValue } },
+//   groups: { [resultName]: [{ id, name, position, stats }] },
+//   byAthlete: { [athleteId]: stats } } | null
+// where `stats` is { [statName]: { value, displayValue } }.
+export async function fetchEspnTeamPlayerStats(sportLeaguePath, espnTeamId){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/athletes/statistics`);
+  if(!data || !Array.isArray(data.results)) return null;
+
+  const flatStats = categories => {
+    const out = {};
+    (categories || []).forEach(cat => (cat.stats || []).forEach(s => {
+      if(!(s.name in out)) out[s.name] = { value: s.value, displayValue: s.displayValue };
+    }));
+    return out;
+  };
+
+  const groups = {};
+  const byAthlete = {};
+  data.results.forEach(result => {
+    groups[result.name] = (result.leaders || []).map(l => {
+      const id = String(l.athlete && l.athlete.id);
+      const stats = flatStats(l.statistics);
+      byAthlete[id] = { ...(byAthlete[id] || {}), ...stats };
+      return {
+        id,
+        name: (l.athlete && l.athlete.displayName) || '',
+        position: (l.athlete && l.athlete.position && l.athlete.position.abbreviation) || '',
+        stats
+      };
+    });
+  });
+
+  const requested = data.requestedSeason || {};
+  const current = data.season || {};
+  const typeName = requested.type && requested.type.name;
+  return {
+    seasonLabel: [requested.displayName, typeName].filter(Boolean).join(' '),
+    isPriorSeason: requested.year != null && current.year != null && requested.year !== current.year,
+    teamTotals: flatStats(data.teamTotals),
+    groups,
+    byAthlete
+  };
 }
 
 // Today's full slate for a league (one request covers every team in
