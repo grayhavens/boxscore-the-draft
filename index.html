@@ -27,10 +27,6 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Home</h1>
-        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
-          <span class="chat-badge"></span>
-        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -53,10 +49,6 @@
           <span id="today-scope-label">All teams</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
         </button>
-        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
-          <span class="chat-badge"></span>
-        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -75,10 +67,6 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Standings</h1>
-        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
-          <span class="chat-badge"></span>
-        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -96,10 +84,6 @@
           <img class="app-logo" src="icons/logo-header.png" alt="">
         </a>
         <h1>Points</h1>
-        <button class="chat-hit" onclick="openChat()" aria-label="Open chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
-          <span class="chat-badge"></span>
-        </button>
         <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
           <span class="id-circle"></span>
         </button>
@@ -230,15 +214,25 @@
   </div>
 </div>
 
-<!-- Group chat (js/chat.js) — an overlay opened from the header icon on
-     every view, not a tab/view, so whatever's underneath is untouched. -->
-<div id="chat-screen" class="chat-screen" role="dialog" aria-label="Chat">
+<!-- Group chat (js/chat.js) — the Chat tab. A real .view (switchView,
+     ?view=chat) but kept outside .board and fixed-positioned rather than
+     flowing in the page like the other views: its height tracks the
+     visual viewport so the on-screen keyboard shrinks it instead of
+     covering the composer (see syncViewport in js/chat.js). -->
+<div id="view-chat" class="view chat-screen" aria-label="Chat">
   <div class="chat-head">
-    <button class="chat-back" onclick="closeChat()" aria-label="Back">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
-    </button>
-    <div class="chat-title">Chat</div>
-    <div class="chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
+    <div class="page-header">
+      <div class="page-header-top">
+        <a class="app-logo-link" href="#" onclick="switchView('board'); return false;" aria-label="Home">
+          <img class="app-logo" src="icons/logo-header.png" alt="">
+        </a>
+        <h1>Chat</h1>
+        <button class="picker-hit" onclick="openIdentitySheet()" aria-label="Switch drafter">
+          <span class="id-circle"></span>
+        </button>
+      </div>
+      <div class="page-sub chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
+    </div>
   </div>
   <div class="chat-list" id="chat-list"></div>
   <!-- GIF picker (js/gif-picker.js) — sits between the message list and the
@@ -272,6 +266,13 @@
   <button class="tab-btn" data-view="live-now" onclick="switchView('live-now')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16"></path><circle cx="6" cy="8" r="1.9" fill="currentColor" stroke="none"></circle><circle cx="6" cy="16" r="1.9" fill="currentColor" stroke="none"></circle><path d="M11 8h9"></path><path d="M11 16h6"></path></svg>
     <span class="tab-label">Scores</span>
+  </button>
+  <button class="tab-btn chat-hit" data-view="chat" onclick="switchView('chat')" aria-label="Chat">
+    <span class="tab-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+      <span class="chat-badge"></span>
+    </span>
+    <span class="tab-label">Chat</span>
   </button>
   <button class="tab-btn" data-view="standings" onclick="switchView('standings')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h15.5"></path><path d="M4 12h10.5"></path><path d="M4 17.5h6"></path></svg>

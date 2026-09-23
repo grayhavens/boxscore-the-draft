@@ -149,7 +149,7 @@ export function openGifPicker(){
   if(isOpen) return;
   isOpen = true;
   panelEl().classList.add('open');
-  document.getElementById('chat-screen').classList.add('gif-open');
+  document.getElementById('view-chat').classList.add('gif-open');
   document.querySelector('.chat-gif-btn').classList.add('active');
   if(page === 0) startQuery(searchEl().value);
 }
@@ -158,7 +158,7 @@ export function closeGifPicker(){
   if(!isOpen) return;
   isOpen = false;
   panelEl().classList.remove('open');
-  document.getElementById('chat-screen').classList.remove('gif-open');
+  document.getElementById('view-chat').classList.remove('gif-open');
   document.querySelector('.chat-gif-btn').classList.remove('active');
   searchEl().blur();
 }

@@ -69,7 +69,7 @@ import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome } from './identity.js';
-import { initChat, paintBadges as paintChatBadges } from './chat.js';
+import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
@@ -115,7 +115,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'admin' || explicitView === 'scoring')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'admin' || explicitView === 'scoring')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   if(view) switchView(view);
@@ -611,6 +611,7 @@ export function switchView(view){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   updateUrlParam('view', view === 'board' ? null : view);
+  setChatActive(view === 'chat');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();

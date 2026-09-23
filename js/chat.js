@@ -3,14 +3,14 @@
    Object (see that file's header for the wire protocol and why it
    isn't built on KV like the rest of the worker's stores).
 
-   The chat screen (#chat-screen in index.html) is an overlay opened
-   from the header icon on every view, in the same family as the
-   identity sheet — not a tab and not a `.view`, so switchView, the
-   ?view= URL param, and whichever tab is underneath are all left
-   completely alone; closing it puts you exactly where you were.
+   The chat screen (#view-chat in index.html) is the Chat tab — a real
+   view that js/board.js's switchView shows/hides like any other, calling
+   setChatActive here on every switch. Unlike the other views it's fixed
+   to the visual viewport (see syncViewport) so the keyboard can't cover
+   the composer.
 
    The socket opens at boot (not on first open of the screen) so the
-   header's unread badge is live everywhere. Who "you" are comes from
+   tab bar's unread badge is live everywhere. Who "you" are comes from
    js/identity.js — same no-auth trust tier as favorites.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
@@ -219,7 +219,7 @@ function unreadCount(){
   return messages.filter(m => m.id > seenId && m.from !== currentProfileId).length;
 }
 
-// Header icon badge (one per view header — see index.html). Called from
+// Tab bar Chat button badge (see index.html). Called from
 // js/board.js too, whenever the active profile changes, since "unread"
 // excludes your own messages.
 export function paintBadges(){
@@ -229,7 +229,7 @@ export function paintBadges(){
     el.classList.toggle('show', n > 0);
   });
   document.querySelectorAll('.chat-hit').forEach(el => {
-    el.setAttribute('aria-label', n > 0 ? `Open chat, ${n} unread` : 'Open chat');
+    el.setAttribute('aria-label', n > 0 ? `Chat, ${n} unread` : 'Chat');
   });
 }
 
@@ -242,7 +242,7 @@ function markSeen(){
 
 // ---- Screen ----
 
-const screenEl = () => document.getElementById('chat-screen');
+const screenEl = () => document.getElementById('view-chat');
 const listEl = () => document.getElementById('chat-list');
 const inputEl = () => document.getElementById('chat-input');
 
@@ -373,18 +373,22 @@ function onListClick(event){
 // The chat screen tracks the visual viewport, not the layout viewport:
 // on iOS the on-screen keyboard shrinks only the former, so sizing the
 // fixed screen to it is what keeps the composer above the keyboard
-// instead of hidden behind it.
+// instead of hidden behind it. With the keyboard down the screen stops
+// at the tab bar; with it up the tab bar is hidden (html.chat-kb) and
+// the composer sits directly on the keys, the way phone chat apps do.
 function syncViewport(){
   const el = screenEl();
   const vv = window.visualViewport;
-  if(!el || !vv) return;
-  el.style.height = `${vv.height}px`;
+  if(!el || !vv || !open) return;
+  const kbOpen = window.innerHeight - vv.height > 120;
+  document.documentElement.classList.toggle('chat-kb', kbOpen);
+  const tabBar = document.querySelector('.tab-bar');
+  const barH = kbOpen || !tabBar ? 0 : tabBar.offsetHeight;
+  el.style.height = `${vv.height - barH}px`;
   el.style.top = `${vv.offsetTop}px`;
-  // env(safe-area-inset-bottom) (the home-indicator gap) is still
-  // reported with the keyboard up but the keyboard covers it, which
-  // would leave a dead strip above the keys — the CSS drops it while
-  // this class is set.
-  el.classList.toggle('kb-open', window.innerHeight - vv.height > 120);
+  // The composer never pads for the home indicator: with the keyboard
+  // down the tab bar owns that gap, with it up the keyboard covers it.
+  el.classList.toggle('kb-open', kbOpen);
   const list = listEl();
   if(list && open) list.scrollTop = list.scrollHeight;
 }
@@ -426,39 +430,31 @@ function guardTouchScroll(screen){
   }, { passive: false });
 }
 
-export function openChat(){
+// Called by js/board.js's switchView on every tab switch, so this runs
+// on the way out of the Chat tab too.
+export function setChatActive(active){
   const el = screenEl();
-  if(!el || open) return;
-  open = true;
-  lockBodyScroll();
-  document.documentElement.classList.add('chat-open');
-  el.classList.add('open');
-  el.classList.remove('view-push-in');
-  void el.offsetWidth;
-  el.classList.add('view-push-in');
-  setStatus(status);
-  markSeen();
-  paintBadges();
-  renderList(true);
-  syncViewport();
-  if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
-  if(!gifsReady) setUpGifs();
+  if(!el || active === open) return;
+  open = active;
+  if(active){
+    lockBodyScroll();
+    document.documentElement.classList.add('chat-open');
+    setStatus(status);
+    markSeen();
+    paintBadges();
+    renderList(true);
+    syncViewport();
+    if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
+    if(!gifsReady) setUpGifs();
+  } else {
+    closeGifPicker();
+    pickerId = null;
+    inputEl().blur();
+    document.documentElement.classList.remove('chat-open', 'chat-kb');
+    unlockBodyScroll();
+    paintBadges();
+  }
 }
-window.openChat = openChat;
-
-export function closeChat(){
-  const el = screenEl();
-  if(!el || !open) return;
-  open = false;
-  closeGifPicker();
-  pickerId = null;
-  el.classList.remove('open');
-  inputEl().blur();
-  document.documentElement.classList.remove('chat-open');
-  unlockBodyScroll();
-  paintBadges();
-}
-window.closeChat = closeChat;
 
 function autoGrow(){
   const input = inputEl();
@@ -533,9 +529,6 @@ export function initChat(){
       }
     });
   }
-  document.addEventListener('keydown', event => {
-    if(event.key === 'Escape' && open) closeChat();
-  });
   if(screenEl()) guardTouchScroll(screenEl());
   if(listEl()) listEl().addEventListener('click', onListClick);
   setUpGifs();
