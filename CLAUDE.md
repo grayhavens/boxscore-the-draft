@@ -147,6 +147,10 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password. See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
+While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
+into the room (`js/draft-live.js`: top of `.board` and under the Chat header). Off the draft view it
+polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
+worker without that route just means no banner.
 
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in

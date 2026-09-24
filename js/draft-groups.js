@@ -107,20 +107,22 @@ const COLLEGE_EXTRA = {
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 // league -> Map(normalized name -> { conf, div }), plus each league's
-// groups in display order (conferences first, then divisions).
+// conferences and divisions in display order.
 const LOOKUP = {};
-const ORDER = {};
+const CONF_ORDER = {};
+const DIV_ORDER = {};   // league -> [{ div, conf }]
 
 Object.entries(PRO).forEach(([league, confs]) => {
   const map = LOOKUP[league] = new Map();
   const divs = [];
   Object.entries(confs).forEach(([conf, byDiv]) => {
     Object.entries(byDiv).forEach(([div, teams]) => {
-      if(div) divs.push(div);
+      if(div) divs.push({ div, conf });
       teams.forEach(name => map.set(norm(name), div ? { conf, div } : { conf }));
     });
   });
-  ORDER[league] = Object.keys(confs).concat(divs);
+  CONF_ORDER[league] = Object.keys(confs);
+  DIV_ORDER[league] = divs;
 });
 
 Object.entries(COLLEGE_EXTRA).forEach(([league, extra]) => {
@@ -130,7 +132,8 @@ Object.entries(COLLEGE_EXTRA).forEach(([league, extra]) => {
     if(!confs.includes(conf)) confs.push(conf);
     schools.forEach(name => map.set(norm(name), { conf }));
   }));
-  ORDER[league] = confs;
+  CONF_ORDER[league] = confs;
+  DIV_ORDER[league] = [];
 });
 
 // { conf, div? } for a pool team, or null when we don't know it.
@@ -152,14 +155,26 @@ export function teamInGroup(team, group){
   return !!g && (g.conf === group || g.div === group);
 }
 
-// The groups a league's filter row offers, in display order, keeping
-// only those with at least one team in `pool`.
-export function leagueGroups(league, pool){
-  const present = new Set();
+// Present in `pool`: the league has at least one team there (taken or not).
+function presentGroups(league, pool){
+  const confs = new Set(), divs = new Set();
   pool.forEach(t => {
     if(t.league !== league) return;
     const g = teamGroup(t);
-    if(g){ present.add(g.conf); if(g.div) present.add(g.div); }
+    if(g){ confs.add(g.conf); if(g.div) divs.add(g.div); }
   });
-  return (ORDER[league] || []).filter(k => present.has(k));
+  return { confs, divs };
+}
+
+// The conferences a league's Conference menu offers, in display order.
+export function leagueConfs(league, pool){
+  const { confs } = presentGroups(league, pool);
+  return (CONF_ORDER[league] || []).filter(c => confs.has(c));
+}
+
+// The divisions a league's Division menu offers ([{ div, conf }], in display
+// order), only those inside `conf` when one is given.
+export function leagueDivs(league, pool, conf){
+  const { divs } = presentGroups(league, pool);
+  return (DIV_ORDER[league] || []).filter(d => divs.has(d.div) && (!conf || d.conf === conf));
 }

@@ -89,7 +89,9 @@
    6b. DRAFT ROOM — the live snake draft (js/draft*.js). Same shape as
       the chat room: a Durable Object (worker/draft-room.js) reached at
       /draft/ws?room=<name>, plus a public GET /draft/result?room=<name>
-      for the finished board. Drafter actions are no-auth (chat's trust
+      for the finished board and GET /draft/status?room=<name> (phase and
+      whose pick, edge-cached a few seconds) for the "draft is live"
+      banner every other page polls. Drafter actions are no-auth (chat's trust
       tier); commissioner actions need an `auth` frame with
       ADMIN_PASSWORD. Its rules are the same js/draft-engine.js the
       draft UI imports — that file lives in the static site's js/
@@ -756,6 +758,30 @@ async function handleDraftResult(request, url, env, headers){
   return new Response(upstream.body, { status: upstream.status, headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
+// Every open tab polls this (js/draft-live.js), so a short edge cache
+// collapses them into one Durable Object call per few seconds.
+const DRAFT_STATUS_TTL_SECONDS = 5;
+async function handleDraftStatus(request, url, env, headers, ctx){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  const stub = draftRoomStub(url, env);
+  if(!stub) return new Response('Bad room', { status: 400, headers });
+  const cache = caches.default;
+  const cacheKey = new Request(url.toString(), { method: 'GET' });
+  let body;
+  const cached = await cache.match(cacheKey);
+  if(cached){
+    body = await cached.text();
+  } else {
+    const upstream = await stub.fetch(new Request(new URL('/status', url), { method: 'GET' }));
+    if(!upstream.ok) return new Response('Draft room unavailable', { status: 502, headers });
+    body = await upstream.text();
+    ctx.waitUntil(cache.put(cacheKey, new Response(body, {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${DRAFT_STATUS_TTL_SECONDS}` }
+    })));
+  }
+  return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
 // Runtime delivery of the KLIPY app key — see the header comment's KLIPY
 // APP KEY DELIVERY section for why this isn't a proxy. Origin-checked like
 // the chat socket: a browser on one of our own pages always sends Origin
@@ -882,6 +908,8 @@ export default {
     if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env);
 
     if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, headers);
+
+    if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, headers, ctx);
 
     if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 
