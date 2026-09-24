@@ -579,14 +579,29 @@ async function handleNflverseDepthChart(request, env, headers, ctx){
   return json(groupByTeam(rows), 200, headers);
 }
 
+// Draft classes ("seasons", see js/seasons/index.js in the static site)
+// namespace their KV keys. The legacy 2026 class predates the ?season=
+// param and keeps its original un-namespaced keys, so an absent or
+// 2026 param must map to exactly the key that was always used — no
+// migration. Anything that isn't a plain 4-digit year is rejected
+// rather than folded into a key, keeping the keyspace bounded.
+const LEGACY_SEASON = '2026';
+function kvSeasonKey(url, prefix, id){
+  const season = url.searchParams.get('season');
+  if(season === null || season === LEGACY_SEASON) return `${prefix}:${id}`;
+  if(!/^\d{4}$/.test(season)) return null;
+  return `${prefix}:${season}:${id}`;
+}
+
 // Shared by handleLeagueFacts and handleAdjustments — both are "one JSON
 // object per league, in the LEAGUE_FACTS KV namespace, GET public / PUT
 // password-gated", just under a different key prefix and PUT body shape.
-async function handleKvBlob(request, env, leagueKey, headers, kvKeyPrefix, validateBody){
+async function handleKvBlob(request, url, env, leagueKey, headers, kvKeyPrefix, validateBody){
   if(!KNOWN_LEAGUES.includes(leagueKey)){
     return new Response('Not found', { status: 404, headers });
   }
-  const kvKey = `${kvKeyPrefix}:${leagueKey}`;
+  const kvKey = kvSeasonKey(url, kvKeyPrefix, leagueKey);
+  if(!kvKey) return new Response('Bad season', { status: 400, headers });
 
   if(request.method === 'GET'){
     const stored = await env.LEAGUE_FACTS.get(kvKey, 'json');
@@ -617,16 +632,16 @@ async function handleKvBlob(request, env, leagueKey, headers, kvKeyPrefix, valid
 // knows each rule's exclusive/rankAuto behavior) computes the full
 // object and PUTs it wholesale — this just stores whatever it's given,
 // so keep the validation limited to "is this the shape we expect".
-function handleLeagueFacts(request, env, leagueKey, headers){
-  return handleKvBlob(request, env, leagueKey, headers, 'facts', () => true);
+function handleLeagueFacts(request, url, env, leagueKey, headers){
+  return handleKvBlob(request, url, env, leagueKey, headers, 'facts', () => true);
 }
 
 // Expected shape: { [teamKey]: { pts: number, note: string } } — a flat
 // manual point delta per team for whatever a rule can't express, plus a
 // short note so a future viewer knows why. Same wholesale-PUT contract
 // as facts above.
-function handleAdjustments(request, env, leagueKey, headers){
-  return handleKvBlob(request, env, leagueKey, headers, 'adjustments', body =>
+function handleAdjustments(request, url, env, leagueKey, headers){
+  return handleKvBlob(request, url, env, leagueKey, headers, 'adjustments', body =>
     Object.values(body).every(v => v && typeof v === 'object' && typeof v.pts === 'number')
   );
 }
@@ -644,8 +659,8 @@ function handleAdjustments(request, env, leagueKey, headers){
 // unlockLeague's own "clear the lock" request (js/season-lock.js) —
 // the safety valve for an accidental Force Lock, same admin-gated write
 // as everything else here.
-function handleSeasonLock(request, env, leagueKey, headers){
-  return handleKvBlob(request, env, leagueKey, headers, 'lock', body =>
+function handleSeasonLock(request, url, env, leagueKey, headers){
+  return handleKvBlob(request, url, env, leagueKey, headers, 'lock', body =>
     Object.keys(body).length === 0 ||
     (typeof body.lockedAt === 'string' && body.rules && typeof body.rules === 'object' && !Array.isArray(body.rules))
   );
@@ -657,11 +672,12 @@ function handleSeasonLock(request, env, leagueKey, headers){
 // (js/data.js's TEAM_META keys); the client computes the full list and
 // PUTs it wholesale, so validation here is just "is this the shape we
 // expect", same discipline as every other KV write in this file.
-async function handleFavorites(request, env, draftTeamId, headers){
+async function handleFavorites(request, url, env, draftTeamId, headers){
   if(!KNOWN_DRAFT_TEAM_IDS.includes(draftTeamId)){
     return new Response('Not found', { status: 404, headers });
   }
-  const kvKey = `favorites:${draftTeamId}`;
+  const kvKey = kvSeasonKey(url, 'favorites', draftTeamId);
+  if(!kvKey) return new Response('Bad season', { status: 400, headers });
 
   if(request.method === 'GET'){
     const stored = await env.LEAGUE_FACTS.get(kvKey, 'json');
@@ -826,16 +842,16 @@ export default {
     if(url.pathname === '/activity') return handleActivity(request, env, headers);
 
     const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
-    if(factsMatch) return handleLeagueFacts(request, env, factsMatch[1], headers);
+    if(factsMatch) return handleLeagueFacts(request, url, env, factsMatch[1], headers);
 
     const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
-    if(adjustmentsMatch) return handleAdjustments(request, env, adjustmentsMatch[1], headers);
+    if(adjustmentsMatch) return handleAdjustments(request, url, env, adjustmentsMatch[1], headers);
 
     const lockMatch = url.pathname.match(/^\/lock\/([a-z]+)$/);
-    if(lockMatch) return handleSeasonLock(request, env, lockMatch[1], headers);
+    if(lockMatch) return handleSeasonLock(request, url, env, lockMatch[1], headers);
 
     const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
-    if(favoritesMatch) return handleFavorites(request, env, favoritesMatch[1], headers);
+    if(favoritesMatch) return handleFavorites(request, url, env, favoritesMatch[1], headers);
 
     if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
 

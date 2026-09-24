@@ -13,6 +13,7 @@
    ============================================================ */
 import { fetchJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
+import { scopedKey, withSeasonQuery } from './season.js';
 import { currentProfileId } from './identity.js';
 import { renderBoard } from './board.js';
 
@@ -24,7 +25,7 @@ function cacheFor(id){
 }
 
 function localKey(id){
-  return `${FAVORITES_KEY}:${id}`;
+  return `${scopedKey(FAVORITES_KEY)}:${id}`;
 }
 
 function loadLocalFavorites(id){
@@ -59,7 +60,7 @@ async function fetchFavorites(id){
   const cache = cacheFor(id);
   if(cache.data !== null || cache.loading || !DASHBOARD_WORKER_BASE) return;
   cache.loading = true;
-  const data = await fetchJSON(`${DASHBOARD_WORKER_BASE}/favorites/${id}`);
+  const data = await fetchJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/favorites/${id}`));
   cache.loading = false;
   // A toggle landed locally while this was in flight — don't clobber
   // it with the now-stale GET.
@@ -92,7 +93,7 @@ async function fetchFavorites(id){
 function persistFavorites(id, teamKeys){
   saveLocalFavorites(id, teamKeys);
   if(!DASHBOARD_WORKER_BASE) return;
-  fetch(`${DASHBOARD_WORKER_BASE}/favorites/${id}`, {
+  fetch(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/favorites/${id}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(teamKeys)
