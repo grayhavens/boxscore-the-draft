@@ -4,6 +4,7 @@
    background refresh loop that keeps it all current.
    ============================================================ */
 import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { scopedKey } from './season.js';
 import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
@@ -255,7 +256,7 @@ export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetche
 // headed toward ~225 teams (see LIVE_TEAM_KEYS below), rewriting one
 // ever-larger blob on every ~14s tick would mean a bigger synchronous
 // write each time, almost all of it for teams that didn't even change.
-const LIVE_DATA_CACHE_PREFIX = 'teamDashboardLiveData:';
+const LIVE_DATA_CACHE_PREFIX = scopedKey('teamDashboardLiveData') + ':';
 
 function saveTeamBundleToStorage(teamKey, bundle){
   try { localStorage.setItem(LIVE_DATA_CACHE_PREFIX + teamKey, JSON.stringify(bundle)); } catch (e){}
@@ -315,7 +316,7 @@ export function loadLiveDataCache(){
 // migrateLegacyLiveDataCache's twin above for why: one growing
 // JSON blob rewritten on every fetch doesn't scale as the roster grows).
 const TEAM_INFO_CACHE_LEGACY_KEY = 'teamDashboardTeamInfoCache';
-const TEAM_INFO_CACHE_PREFIX = 'teamDashboardTeamInfo:';
+const TEAM_INFO_CACHE_PREFIX = scopedKey('teamDashboardTeamInfo') + ':';
 const TEAM_INFO_TTL_MS = 24 * 60 * 60 * 1000;
 const teamInfoCache = {}; // teamKey -> { info, fetchedAt }
 
