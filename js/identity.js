@@ -24,6 +24,7 @@
 import { DRAFT_TEAMS } from './data.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
 import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { seasonSettingsRowHtml } from './season-switcher.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -71,17 +72,20 @@ function segmented(key, options, current){
   return segmentedControlHtml(options.map(([k, label]) => ({ key: k, label })), current, 'setSheetTheme');
 }
 
-function renderSettingsMain(){
-  const s = getSettings();
-  const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
-  setSheetTitle('Settings');
-  sheetRows().innerHTML = `
-    <div class="settings-section">Account</div>
-    <button class="sheet-row" onclick="renderSettingsPeople()">
-      <span>Signed in as</span>
-      <span class="settings-value">${me.name}</span>
-      <span class="settings-chev">&rsaquo;</span>
-    </button>
+// The sheet is split in two, switched with the same segmented toggle the
+// Standings tab uses: Preferences (per-device settings) and League
+// (the draft room, scoring admin and the Points data mode). The tab
+// survives the sheet redrawing itself when a control is toggled, and
+// resets to Preferences each time the sheet is opened.
+let settingsTab = 'prefs';
+
+window.setSettingsTab = tab => {
+  settingsTab = tab;
+  renderSettingsMain();
+};
+
+function renderPreferencesTab(s){
+  return `
     <div class="settings-section">Appearance</div>
     <div class="settings-row"><span>Theme</span>${segmented('theme', THEME_OPTIONS, s.theme)}</div>
     <div class="settings-section">Home</div>
@@ -90,6 +94,25 @@ function renderSettingsMain(){
       <span class="settings-value">${LANDING_OPTIONS.find(([v]) => v === s.landing)[1]}</span>
       <span class="settings-chev">&rsaquo;</span>
     </button>
+    <div class="settings-section">Chat</div>
+    <div class="settings-row">
+      <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>
+      <button class="switch ${s.chatBadge ? 'on' : ''}" role="switch" aria-checked="${s.chatBadge}" aria-label="Unread badge" onclick="setSheetSetting('chatBadge', ${!s.chatBadge})"></button>
+    </div>
+    ${installPlatform() ? `
+    <div class="settings-section">App</div>
+    <button class="sheet-row" onclick="openInstallGuideFromSheet()">
+      <span class="sheet-row-text">
+        Add to Home Screen
+        <span class="sheet-desc" style="display:block">Open Boxscore like an app</span>
+      </span>
+    </button>` : ''}`;
+}
+
+function renderLeagueTab(){
+  return `${seasonSettingsRowHtml()}
+    <div class="settings-section">Points Tab Data</div>
+    <div class="settings-row"><span>Data<span class="sheet-desc">Fake = preview</span></span>${segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], window.getObMode ? window.getObMode() : 'real', 'setSheetObMode')}</div>
     <div class="settings-section">Draft</div>
     <button class="sheet-row" onclick="closeIdentitySheet(); switchView('draft')">
       <span class="sheet-row-text">
@@ -105,22 +128,23 @@ function renderSettingsMain(){
         <span class="sheet-desc" style="display:block">Mark results and adjustments · password required</span>
       </span>
       <span class="settings-chev">&rsaquo;</span>
+    </button>`;
+}
+
+function renderSettingsMain(){
+  const s = getSettings();
+  const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
+  setSheetTitle('Settings');
+  // "Signed in as" sits above the tab switch on purpose: it's about who
+  // you are, not about either tab, so it stays put whichever is showing.
+  sheetRows().innerHTML = `
+    <button class="sheet-row" onclick="renderSettingsPeople()">
+      <span>Signed in as</span>
+      <span class="settings-value">${me.name}</span>
+      <span class="settings-chev">&rsaquo;</span>
     </button>
-    <div class="settings-section">Points Tab Data</div>
-    <div class="settings-row"><span>Data<span class="sheet-desc">Fake = preview</span></span>${segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], window.getObMode ? window.getObMode() : 'real', 'setSheetObMode')}</div>
-    <div class="settings-section">Chat</div>
-    <div class="settings-row">
-      <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>
-      <button class="switch ${s.chatBadge ? 'on' : ''}" role="switch" aria-checked="${s.chatBadge}" aria-label="Unread badge" onclick="setSheetSetting('chatBadge', ${!s.chatBadge})"></button>
-    </div>
-    ${installPlatform() ? `
-    <div class="settings-section">App</div>
-    <button class="sheet-row" onclick="openInstallGuideFromSheet()">
-      <span class="sheet-row-text">
-        Add to Home Screen
-        <span class="sheet-desc" style="display:block">Open Boxscore like an app</span>
-      </span>
-    </button>` : ''}
+    <div class="settings-tabs">${segmentedControlHtml([{ key: 'prefs', label: 'Preferences' }, { key: 'league', label: 'League' }], settingsTab, 'setSettingsTab')}</div>
+    ${settingsTab === 'league' ? renderLeagueTab() : renderPreferencesTab(s)}
   `;
 }
 window.renderSettingsPeople = renderSettingsPeople;
@@ -170,6 +194,7 @@ window.setSheetSetting = (key, value) => {
 
 export function openSettingsSheet(){
   if(!sheetRows()) return;
+  settingsTab = 'prefs';
   renderSettingsMain();
   document.getElementById('identity-sheet-overlay').classList.add('open');
   lockBodyScroll();

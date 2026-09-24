@@ -93,20 +93,82 @@ light theme works.
   (`&room=<name>` for a rehearsal room); the socket only opens while the view is on screen.
 - Built: lobby (order card with the bottom-up lottery reveal, commissioner sign-in, Load team pool, clock
   length, Run lottery, Start draft), and the live room (Available pool with search, league chips, top-60
-  toggle, Draft -> Confirm, star queue and write-in card; on-the-clock card with soft clock; up-next strip;
+  toggle, one-tap Draft, star queue and write-in card; a one-line on-the-clock strip with the soft clock;
   the snake board; My roster and My queue with top-fit Draft). Under 1180px the roster/queue column shares
   the left slot behind tabs; under 700px it stacks. Rank in the pool is *within league*; the All list
   interleaves leagues by rank percentile.
-- Not yet (Phase E): pause/undo/reset/edit-a-pick/trade controls and pick-for-someone in the live room, and
-  the proper phone layout (Pick / Board / My team tabs).
 - Verified end to end against `wrangler dev`: a scripted room drafted all 210 picks through the real UI,
-  the write-in flow and Draft -> Confirm worked, and the finished roster landed exactly on its caps.
+  the write-in flow and picking worked, and the finished roster landed exactly on its caps.
+
+### As built (Phase E)
+
+- Commissioner bar (desktop, live room, signed in): Pause/Resume, Undo pick, Trade, Reset (confirm modal).
+  "Pick for {name}" on the on-the-clock card turns the pool's Draft buttons into a proxy pick for whoever is
+  on the clock (caps checked against them); clicking any filled board cell opens "Change this pick"
+  (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
+  The Trade modal swaps two open picks between any two drafters; the board marks traded slots and the
+  clock card says "via {original owner}".
+- Collapsible panels (desktop and tablet): Available and My roster/queue each fold to a 44px rail (caret,
+  rotated label, live count) so the board can take the room; with both folded the board goes from about
+  750x255 to 1300x467 at a 1390px-wide window and all ten drafter columns fit. Choices are remembered per
+  device (`teamDashboardDraftPanels`). Under 1180px the two side panels share one slot, so it folds when the
+  panel showing in it is folded. The phone shell is unchanged.
+- The on-the-clock display is a single one-line strip (drafter, R/P, timer bar; the commissioner's "Pick for"
+  button sits in it) on desktop and tablet; the phone keeps its own two-row card. The earlier "still needs"
+  league chips, the up-next row and the last-pick line were removed as unnecessary.
+- Drafting is one tap (no Draft -> Confirm step): the commissioner can undo or change any pick. A pick
+  carries the slot it was made for, and the client ignores further taps while one is in flight, so a
+  double-tap lands once.
+- Phone shell (<=700px, switches live with the viewport): compact sticky clock over Pick / Board / My team
+  tabs; Pick has "From your queue" (top three fitting), search, scrolling league chips and a 40-team list
+  with 44px hit targets; Board is the last three rounds newest first; My team is roster + queue. The
+  commissioner bar is desktop-only by design.
+- Verified against `wrangler dev`: pause/resume/undo, proxy pick, make-up pick round trip, trade, reset,
+  and the phone tabs.
+
+### As built (Phase F)
+
+- `tools/export-draft.mjs` (CLI) + `tools/draft-export-lib.mjs` (pure, unit-tested) turn the room's
+  `/draft/result` into `js/seasons/<year>.js`, register it in `js/seasons/index.js` and `sw.js`, and print
+  a report. Run `node tools/export-draft.mjs --dry-run` first; the default source is the deployed room
+  "main". Nothing is deployed: review `git diff`, commit, and Pages ships it.
+- Each drafted team is copied from the previous season's entry (all live-data ids, colors, badge) with the
+  new owner. A team nobody owned last year (promoted club, expansion team, write-in school) is resolved
+  against ESPN's team list and an entry is generated (nickname/school as `name`, ESPN id and crest); those
+  lines are marked `// generated from ESPN` and listed in the report. A team ESPN can't place, or a roster
+  that isn't exactly on its caps, blocks the export (`--overrides file.json` supplies `"league:Name": id`).
+- League arrays are in pick order with favorite-only teams carried to the end; season labels follow the
+  existing pattern (NFL/CFB '27, EPL/NBA/NHL/CBB '27/'28, MLB/WNBA '28); scoring starts as a copy of the
+  previous class's; `PRIOR_SEASON_DISPLAY_LEAGUES` carries over. The Standings prior-season note now
+  derives its years from the active class.
+- Verified: a full 210-pick rehearsal room exported through the real ESPN endpoints into a class that loads
+  in the app (212 entries, 21 per drafter, live records matched by name, no console errors).
+- Still to do before draft day: the pool's design-only teams (Cardinals, Browns, Flames, Blackhawks, the
+  WNBA expansion clubs, college schools outside last year's 30) show color tiles during the draft because
+  their ESPN ids are only resolved at export; harmless, but could be pre-resolved. EPL promotion/relegation
+  and WNBA expansion still need a manual look at `js/draft-ranks.js`.
+
+### As built (Phase G)
+
+- `tools/rehearse-draft.mjs`: an automated dress rehearsal. Ten real drafter WebSocket clients plus a
+  commissioner run a full 210-pick draft against a real worker (`wrangler dev` or deployed; never the
+  room "main"), with chaos injected mid-draft (`--chaos 0|1|2`): pause/resume, undo, remove-a-pick and the
+  make-up pick, trades, dropped-and-restored connections, double-tapped picks, out-of-turn picks,
+  commissioner pick-for-someone, write-ins, and a pool replacement attempt. It then asserts 210 picks,
+  every roster exactly on its caps, no team twice, every pick on its slot owner, only the commissioner
+  making proxy picks, every client on the same state, `/draft/result` matching, and that the export
+  accepts the draft. `--preflight` runs just the smoke checks (safe against a deployed worker, the morning
+  of the draft); `--human <drafter>` leaves one seat to a person; `--seed` makes a run repeatable.
+- Checked that the rehearsal can fail: with the server's turn-enforcement removed, it reports the violation
+  (both at the probe and in the end-of-run invariants). Clean runs pass on several seeds in about 9s.
+- `docs/draft-day-runbook.md` is the commissioner's step-by-step: prerequisites, rehearsing, setup,
+  running the room, post-draft export, what flips when the new class ships, and recovery.
 
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
-EPL 2, NFL 3, NBA 3, NHL 3, MLB 3, WNBA 1, CFB 3, CBB 3. A team can be drafted once. Draft then Confirm
-within 3.5s. Commissioner: run lottery, pause/resume, undo, reset, pick for the on-clock drafter, edit
+EPL 2, NFL 3, NBA 3, NHL 3, MLB 3, WNBA 1, CFB 3, CBB 3. A team can be drafted once. The design had a Draft, then Confirm
+step (3.5s window); it was dropped in favor of one tap (see Phase E notes). Commissioner: run lottery, pause/resume, undo, reset, pick for the on-clock drafter, edit
 any past pick (creating a make-up slot), trade picks (the prototype has the modal but no entry button).
 
 ### Team pool
@@ -136,13 +198,50 @@ only adds a file.
 | **A. Seasonize** | Move current data to `seasons/2026.js`; resolver in `data.js`; season-keyed storage; switcher. No visible change; this is the regression check. |
 | **B. Freeze support** | Extend the lock to snapshot final standings and points; old classes render from it. |
 | **C. Draft engine** | Spike worker import of `draft-rules.js`; `draft-rules.js` with Node tests; `DraftRoom` with protocol, persistence, reconnect. |
-| **D. Draft UI** | Lobby, board grid, on-the-clock card, pool, search, league chips, Draft/Confirm, roster, queue, write-ins. |
+| **D. Draft UI** | Lobby, board grid, on-the-clock card, pool, search, league chips, Draft, roster, queue, write-ins. |
 | **E. Commissioner and mobile** | Lottery, pause, undo, edit a pick, trades, phone tabs. |
 | **F. Export** | `export-draft.mjs` and the write-in to ESPN-id resolver. |
 | **G. Dress rehearsal** | Full mock drafts on a throwaway room id, including running the export. Draft day cannot be redone. |
 
 Extra: when a drafter goes on the clock, the room posts a system message into the existing chat as a free
 notification channel.
+
+## Before draft day
+
+A running checklist of things to do ahead of the real draft. None of these block the draft room from
+working; they are hygiene that makes the day smoother. Anyone asking "what do I need to do before the
+draft?" should start here.
+
+**Non-critical, noted at the end of Phase F (the owner plans to handle these)**
+
+1. **Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.** Teams that weren't in
+   the previous season's `TEAM_META` show plain color tiles in the draft room instead of crests, because
+   their ESPN ids are only looked up at export time (`tools/export-draft.mjs`). Today that is: NFL
+   Cardinals and Browns, NHL Flames and Blackhawks, the WNBA clubs outside the previous 10 (Storm, Sun,
+   Sparks, Fire, Tempo, ...), and any college school beyond last year's 30 in `js/draft-ranks.js`. The
+   export still resolves them correctly, so this is cosmetic. A fix would resolve them once (ESPN's team
+   lists) and feed `espnTeamId`/`badgeUrl` into `js/draft-pool.js`.
+2. **Verify the ranked team lists against the real field.** `js/draft-ranks.js` comes from the design
+   handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
+   the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
+   list are simply appended unranked, and a team listed but no longer real would be draftable.
+
+**Go-live items found while writing the runbook (these are not optional)**
+
+- **Merge the Phase E PR** (commissioner controls, phone layout; it now also carries the Settings
+  Preferences/League split). Without it the room can run but the commissioner cannot pause, undo, trade,
+  change a pick or pick for someone.
+- ~~Season switcher~~ — built: Settings -> League -> Draft Class (only shown once a second class exists),
+  plus a banner while an older class is on screen. A saved choice expires when a newer class ships.
+- **Confirm every finished league is locked** on the Manage Scoring page before the new class ships, since
+  only leagues locked while their class was still the newest keep their saved final standings.
+
+**Also needed (flagged in earlier phases)**
+
+- Deploy the worker **before** the static site (it carries the `DraftRoom` Durable Object migration), and
+  make sure `ADMIN_PASSWORD` is set as a worker secret.
+- Run a full rehearsal on a throwaway room (`?view=draft&room=mock-1`), including the export against it
+  (`node tools/export-draft.mjs --result <room url> --dry-run`).
 
 ## Open items
 
