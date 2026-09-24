@@ -103,7 +103,8 @@ const ui = {
   modal: null,            // null | 'edit' | 'trade' | 'reset'
   editSlot: null,
   trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
-  mobileTab: 'pick'       // phone shell: 'pick' | 'board' | 'team'
+  mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
+  rosterOf: null          // roster panel: drafter picked from its dropdown, or null for mine
 };
 
 // Which side panels are folded away (desktop/tablet only), remembered per
@@ -551,10 +552,25 @@ function boardHtml(d){
 
 // ---- Right: roster + queue ----
 
+// Whose roster the panel shows: mine unless a drafter was picked from its
+// dropdown (ui.rosterOf), falling back to mine if that pick no longer applies.
+function rosterOwner(d){
+  const drafters = d.s.config.drafters;
+  if(ui.rosterOf && ui.rosterOf !== d.me && drafters.includes(ui.rosterOf)) return ui.rosterOf;
+  return drafters.includes(d.me) ? d.me : drafters[0];
+}
+
+function rosterPicks(d, who){
+  const { s } = d;
+  return Object.keys(s.picks)
+    .filter(k => (s.order ? ownerOf(Number(k), s.order, s.overrides) : s.picks[k].by) === who)
+    .map(k => teamById(s.pool, s.picks[k].team)).filter(Boolean);
+}
+
 function rosterHtml(d){
   const { s } = d;
-  const mine = Object.keys(s.picks).filter(k => s.picks[k].by === d.me).map(k => teamById(s.pool, s.picks[k].team)).filter(Boolean);
-  const done = mine.length;
+  const who = rosterOwner(d);
+  const mine = rosterPicks(d, who);
   const rows = Object.keys(s.config.caps).filter(k => s.config.caps[k] > 0).map(k => {
     const cap = s.config.caps[k];
     const have = mine.filter(t => t.league === k);
@@ -563,8 +579,10 @@ function rosterHtml(d){
     return `<div class="dr-roster-row${have.length >= cap ? ' full' : ''}"><span class="dr-roster-lg" style="color:${lg.color}">${lg.label}</span><span class="dr-slots">${slots}</span><span class="dr-roster-n">${have.length}/${cap}</span></div>`;
   }).join('');
   const railCount = document.getElementById('dr-rail-right-count');
-  if(railCount) railCount.textContent = `${done}/${d.rounds}`;
-  return `<div class="dr-col-head"><h2>My roster</h2><span class="dr-dim">${done} of ${d.rounds} · ${d.rounds - done} to go</span><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">&rsaquo;</button></div>${rows}`;
+  if(railCount) railCount.textContent = `${rosterPicks(d, d.me).length}/${d.rounds}`;
+  const options = (s.order || s.config.drafters).map(id =>
+    `<option value="${esc(id)}"${id === who ? ' selected' : ''}>${esc(drafterName(id))}${id === d.me ? ' (Yours)' : ''}</option>`).join('');
+  return `<div class="dr-col-head"><h2>Roster</h2><label class="dr-roster-pick"><select onchange="draftViewRoster(this.value)" aria-label="Whose roster to show">${options}</select></label><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">&rsaquo;</button></div>${rows}`;
 }
 
 function queueTeams(d){
@@ -888,6 +906,7 @@ window.draftSetSort = key => {
   try { localStorage.setItem(SORT_KEY, ui.sort); } catch(e){}
   scheduleRender();
 };
+window.draftViewRoster = id => { ui.rosterOf = id || null; scheduleRender(); };
 window.draftToggleShowAll = () => { ui.showAll = !ui.showAll; scheduleRender(); };
 window.draftLeftTab = tab => { ui.leftTab = tab; updateTabs(); };
 
