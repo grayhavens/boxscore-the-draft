@@ -17,6 +17,9 @@ change beyond loading the page.
 
 **Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs` (pure logic, no
 dependencies).
+**Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
+failures against a running `wrangler dev`; `--preflight` is the draft-morning smoke test. The commissioner's
+step-by-step is `docs/draft-day-runbook.md`.
 **Draft export:** `node tools/export-draft.mjs --dry-run` turns a finished draft room into the next season's
 `js/seasons/<year>.js` (see the header of that script).
 `node tests/draft-room.integration.mjs` drives a running `npx wrangler dev --var ADMIN_PASSWORD:testpw`
