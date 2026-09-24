@@ -124,6 +124,22 @@ light theme works.
   their ESPN ids are only resolved at export; harmless, but could be pre-resolved. EPL promotion/relegation
   and WNBA expansion still need a manual look at `js/draft-ranks.js`.
 
+### As built (Phase G)
+
+- `tools/rehearse-draft.mjs`: an automated dress rehearsal. Ten real drafter WebSocket clients plus a
+  commissioner run a full 210-pick draft against a real worker (`wrangler dev` or deployed; never the
+  room "main"), with chaos injected mid-draft (`--chaos 0|1|2`): pause/resume, undo, remove-a-pick and the
+  make-up pick, trades, dropped-and-restored connections, double-tapped picks, out-of-turn picks,
+  commissioner pick-for-someone, write-ins, and a pool replacement attempt. It then asserts 210 picks,
+  every roster exactly on its caps, no team twice, every pick on its slot owner, only the commissioner
+  making proxy picks, every client on the same state, `/draft/result` matching, and that the export
+  accepts the draft. `--preflight` runs just the smoke checks (safe against a deployed worker, the morning
+  of the draft); `--human <drafter>` leaves one seat to a person; `--seed` makes a run repeatable.
+- Checked that the rehearsal can fail: with the server's turn-enforcement removed, it reports the violation
+  (both at the probe and in the end-of-run invariants). Clean runs pass on several seeds in about 9s.
+- `docs/draft-day-runbook.md` is the commissioner's step-by-step: prerequisites, rehearsing, setup,
+  running the room, post-draft export, what flips when the new class ships, and recovery.
+
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
@@ -185,6 +201,17 @@ draft?" should start here.
    handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
    the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
    list are simply appended unranked, and a team listed but no longer real would be draftable.
+
+**Go-live items found while writing the runbook (these are not optional)**
+
+- **Merge the Phase E PR** (commissioner controls, phone layout; it now also carries the Settings
+  Preferences/League split). Without it the room can run but the commissioner cannot pause, undo, trade,
+  change a pick or pick for someone.
+- **Decide about a season switcher.** Once the export ships, the app opens on the newest class by default;
+  the old class is reachable only via `?season=2026`. A Settings -> League switcher (`setActiveSeason` in
+  `js/season.js` already does the work) was deferred until a second class existed.
+- **Confirm every finished league is locked** on the Manage Scoring page before the new class ships, since
+  only leagues locked while their class was still the newest keep their saved final standings.
 
 **Also needed (flagged in earlier phases)**
 
