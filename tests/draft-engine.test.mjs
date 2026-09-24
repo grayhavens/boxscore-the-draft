@@ -333,3 +333,9 @@ test('30 random full-size drafts always finish with exact rosters (no drafter is
     });
   }
 });
+
+test('setPool keeps a team\'s rank (the UI orders the list by it)', () => {
+  let s = createState(D, { caps: CAPS });
+  s = ok(s, { type: 'setPool', teams: [{ ...team('e1', 'epl'), rank: 3 }, { ...team('e2', 'epl'), rank: 0 }, { ...team('e3', 'epl'), rank: 'x' }] }, COMM);
+  assert.deepEqual(s.pool.map(t => t.rank), [3, undefined, undefined]);
+});
