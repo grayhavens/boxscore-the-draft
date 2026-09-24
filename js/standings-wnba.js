@@ -14,6 +14,7 @@ import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from 
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings } from './board.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 const ESPN_WNBA_STANDINGS_CACHE_KEY = 'teamDashboardEspnWnbaStandingsCache';
 const WNBA_STANDINGS_TTL_MS = 60 * 60 * 1000;
@@ -29,12 +30,12 @@ function wnbaStandingsIsFresh(){
 }
 
 function saveWnbaStandingsCache(){
-  try { localStorage.setItem(ESPN_WNBA_STANDINGS_CACHE_KEY, JSON.stringify(espnWnbaStandingsCache)); } catch (e){}
+  try { cacheSet('wnba', ESPN_WNBA_STANDINGS_CACHE_KEY, JSON.stringify(espnWnbaStandingsCache)); } catch (e){}
 }
 
 export function loadEspnWnbaStandingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_WNBA_STANDINGS_CACHE_KEY);
+    const raw = cacheGet('wnba', ESPN_WNBA_STANDINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.table){

@@ -21,6 +21,7 @@ const SHELL_FILES = [
   './js/draft-rules.js',
   './js/draft-engine.js',
   './js/season.js',
+  './js/frozen-cache.js',
   './js/seasons/index.js',
   './js/seasons/2026.js',
   './js/utils.js',

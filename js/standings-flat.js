@@ -42,6 +42,7 @@ import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, draftOwnerName } from './utils.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 export function findFlatTeamKey(leagueKey, realName){
   const target = normalizeTeamName(realName);
@@ -78,12 +79,12 @@ export function createFlatStandingsBoard(opts){
   }
 
   function save(){
-    try { localStorage.setItem(cacheKey, JSON.stringify(cache)); } catch (e){}
+    try { cacheSet(leagueKey, cacheKey, JSON.stringify(cache)); } catch (e){}
   }
 
   function load(){
     try {
-      const raw = localStorage.getItem(cacheKey);
+      const raw = cacheGet(leagueKey, cacheKey);
       if(!raw) return;
       const parsed = JSON.parse(raw);
       if(parsed && parsed.rows){
@@ -185,13 +186,13 @@ export function createFlatStandingsBoard(opts){
   }
 
   function saveDivisionCache(){
-    try { localStorage.setItem(DIVISION_CACHE_KEY, JSON.stringify(divisionCache)); } catch (e){}
+    try { cacheSet(leagueKey, DIVISION_CACHE_KEY, JSON.stringify(divisionCache)); } catch (e){}
   }
 
   function loadDivisionCache(){
     if(!hasDivisions) return;
     try {
-      const raw = localStorage.getItem(DIVISION_CACHE_KEY);
+      const raw = cacheGet(leagueKey, DIVISION_CACHE_KEY);
       if(!raw) return;
       const parsed = JSON.parse(raw);
       if(parsed && parsed.divisions){

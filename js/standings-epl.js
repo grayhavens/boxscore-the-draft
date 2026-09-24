@@ -13,6 +13,7 @@ import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, 
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 const ESPN_EPL_STANDINGS_CACHE_KEY = 'teamDashboardEspnEplStandingsCache';
 // Standings can move the moment a match ends, so this stays on the same
@@ -28,7 +29,7 @@ export function eplStandingsIsFresh(){
 }
 
 function saveEplStandingsCache(){
-  try { localStorage.setItem(ESPN_EPL_STANDINGS_CACHE_KEY, JSON.stringify(eplStandingsCache)); } catch (e){}
+  try { cacheSet('epl', ESPN_EPL_STANDINGS_CACHE_KEY, JSON.stringify(eplStandingsCache)); } catch (e){}
 }
 
 // One shared table for every EPL team — modal stats, the Standings
@@ -41,7 +42,7 @@ function saveEplStandingsCache(){
 // up with N duplicate copies of the same ~20-row table.
 export function loadEplStandingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_EPL_STANDINGS_CACHE_KEY);
+    const raw = cacheGet('epl', ESPN_EPL_STANDINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.table){

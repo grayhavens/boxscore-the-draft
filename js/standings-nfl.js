@@ -38,6 +38,7 @@ import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftO
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 // Standard NFL win-percentage formula (a tie counts as half a win and
 // half a loss) — null with no games played yet rather than 0, so a
@@ -88,12 +89,12 @@ function espnNflStandingsIsFresh(){
 }
 
 function saveEspnNflStandingsCache(){
-  try { localStorage.setItem(ESPN_NFL_STANDINGS_CACHE_KEY, JSON.stringify(espnNflStandingsCache)); } catch (e){}
+  try { cacheSet('nfl', ESPN_NFL_STANDINGS_CACHE_KEY, JSON.stringify(espnNflStandingsCache)); } catch (e){}
 }
 
 export function loadEspnNflStandingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_NFL_STANDINGS_CACHE_KEY);
+    const raw = cacheGet('nfl', ESPN_NFL_STANDINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.rows){
@@ -199,12 +200,12 @@ function espnNflDivisionIsFresh(){
 }
 
 function saveEspnNflDivisionCache(){
-  try { localStorage.setItem(ESPN_NFL_DIVISIONS_CACHE_KEY, JSON.stringify(espnNflDivisionCache)); } catch (e){}
+  try { cacheSet('nfl', ESPN_NFL_DIVISIONS_CACHE_KEY, JSON.stringify(espnNflDivisionCache)); } catch (e){}
 }
 
 export function loadEspnNflDivisionCache(){
   try {
-    const raw = localStorage.getItem(ESPN_NFL_DIVISIONS_CACHE_KEY);
+    const raw = cacheGet('nfl', ESPN_NFL_DIVISIONS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.divisions){
