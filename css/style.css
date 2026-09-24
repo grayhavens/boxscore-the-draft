@@ -4453,8 +4453,9 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-layout{
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-columns: var(--dr-left, minmax(280px, 340px)) minmax(0, 1fr) var(--dr-right, minmax(260px, 300px));
   grid-template-areas: "left center right";
+  transition: grid-template-columns var(--dur-move) var(--ease-out);
   min-height: 0;
 }
 .dr-tabs{ display: none; }
@@ -4463,7 +4464,7 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-center{ grid-area: center; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 0; overflow: hidden; }
 .dr-right{ grid-area: right; border-left: 1px solid var(--hairline); }
 @media (max-width: 1179px){
-  .dr-layout{ grid-template-columns: minmax(270px, 320px) minmax(0, 1fr); grid-template-areas: "tabs center" "side center"; grid-template-rows: auto 1fr; }
+  .dr-layout{ grid-template-columns: var(--dr-side, minmax(270px, 320px)) minmax(0, 1fr); grid-template-areas: "tabs center" "side center"; grid-template-rows: auto 1fr; }
   .dr-tabs{ grid-area: tabs; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 10px 16px 0; border-right: 1px solid var(--hairline); }
   .dr-left, .dr-right{ grid-area: side; border: 0; border-right: 1px solid var(--hairline); }
   .dr-layout[data-left-tab="available"] .dr-right{ display: none; }
@@ -4503,7 +4504,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-star.on{ color: var(--star-on); }
 .dr-full{ font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); width: 62px; text-align: center; }
 .dr-draft-btn{ flex: 0 0 auto; width: 62px; height: 30px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent); font: inherit; font-size: var(--fs-12); font-weight: 700; cursor: pointer; }
-.dr-draft-btn.confirm{ background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
 .dr-draft-btn.wide{ width: 100%; height: 36px; margin-top: 8px; }
 .dr-showall{ margin: 6px 0; height: 32px; border: 0; background: none; color: var(--text-sub); font: inherit; font-size: var(--fs-12); font-weight: 600; cursor: pointer; }
 .dr-writein{ margin-top: 8px; padding: 12px; border: 1px dashed var(--hairline-strong); border-radius: var(--r-md); font-size: var(--fs-13); color: var(--text-sub); line-height: 1.4; }
@@ -4517,9 +4517,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-clock-sub{ font-size: var(--fs-12); color: var(--text-sub); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .dr-done-title{ font-size: var(--fs-30); font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; }
 .dr-badge{ font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent); letter-spacing: 0.04em; }
-.dr-needs{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: var(--fs-12); }
-.dr-need{ display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 7px; background: var(--seg-track); font-weight: 600; font-variant-numeric: tabular-nums; }
-.dr-need i{ width: 6px; height: 6px; border-radius: 1px; }
 .dr-timer-box{ text-align: right; }
 .dr-timer{ font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .dr-timer.low{ color: var(--accent); }
@@ -4528,14 +4525,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-bar span{ display: block; height: 100%; background: var(--text-sub); }
 .dr-timer-note{ font-size: var(--fs-11); color: var(--text-mute); }
 .dr-paused{ padding: 10px 14px; border-radius: var(--r-sm); background: var(--seg-track); font-size: var(--fs-13); color: var(--text-sub); }
-.dr-upnext{ display: flex; align-items: center; gap: 6px; overflow-x: auto; flex: 0 0 auto; padding-bottom: 2px; scrollbar-width: none; }
-.dr-upnext::-webkit-scrollbar{ display: none; }
-.dr-upnext-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.06em; margin-right: 4px; }
-.dr-next{ flex: 0 0 auto; padding: 5px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; }
-.dr-next.me{ background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
-.dr-until{ flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: var(--fs-12); font-weight: 700; color: var(--accent); white-space: nowrap; }
-.dr-last{ font-size: var(--fs-12); color: var(--text-sub); flex: 0 0 auto; }
-@media (max-height: 700px){ .dr-last{ display: none; } }
 
 /* Board */
 .dr-board-scroll{ flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px 16px; -webkit-overflow-scrolling: touch; }
@@ -4620,7 +4609,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: 20px; }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
-.dm-top .dr-needs, .dm-top .dr-proxy-btn{ display: none; }
 .dm-top .dr-timer{ font-size: 24px; }
 .dm-top .dr-bar{ width: 100px; margin-top: 4px; }
 .dm-top .dr-paused{ margin-top: 0; }
@@ -4662,3 +4650,62 @@ html.chat-kb .tab-bar{ display: none; }
   border: 1px solid var(--accent-border); background: transparent; color: var(--accent);
   font: inherit; font-size: var(--fs-12); font-weight: 700; cursor: pointer;
 }
+
+/* Draft room: collapsible panels. A side column folds to a 44px rail (caret, rotated
+   label, live count) and the board takes the space.
+   Wide screens fold Available and the roster/queue independently; under 1180px
+   they share one side slot, and it folds when the panel showing in it is folded. */
+.dr-caret{
+  flex: 0 0 auto; width: 28px; height: 28px; border: 0; border-radius: 8px;
+  background: var(--seg-track); color: var(--text-sub);
+  font-size: 18px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+}
+.dr-caret:hover{ background: var(--seg-thumb); color: var(--text); }
+.dr-col-head .dr-caret{ margin-left: 4px; }
+.dr-col-head{ align-items: center; }
+.dr-col-head .dr-dim{ margin-left: auto; }
+
+.dr-rail{
+  display: none; flex: 1 1 auto; min-height: 0; width: 100%;
+  flex-direction: column; align-items: center; gap: 10px;
+  padding: 10px 0; border: 0; background: none; color: var(--text-sub);
+  font: inherit; cursor: pointer;
+}
+.dr-rail:hover .dr-caret{ background: var(--seg-thumb); color: var(--text); }
+.dr-rail-label{
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font-size: var(--fs-12); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.dr-rail-count{ font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+
+.dr-layout[data-collapsed~="left"]{ --dr-left: 44px; }
+.dr-layout[data-collapsed~="right"]{ --dr-right: 44px; }
+.dr-layout[data-collapsed~="left"] .dr-left,
+.dr-layout[data-collapsed~="right"] .dr-right{ padding: 6px 0; overflow: hidden; }
+.dr-layout[data-collapsed~="left"] .dr-left > :not(.dr-rail),
+.dr-layout[data-collapsed~="right"] .dr-right > :not(.dr-rail){ display: none; }
+.dr-layout[data-collapsed~="left"] .dr-left .dr-rail,
+.dr-layout[data-collapsed~="right"] .dr-right .dr-rail{ display: flex; }
+@media (max-width: 1179px){
+  .dr-layout[data-left-tab="available"][data-collapsed~="left"],
+  .dr-layout[data-left-tab="team"][data-collapsed~="right"]{ --dr-side: 44px; }
+  .dr-layout[data-left-tab="available"][data-collapsed~="left"] .dr-tabs,
+  .dr-layout[data-left-tab="team"][data-collapsed~="right"] .dr-tabs{ visibility: hidden; padding: 0; }
+  /* The narrow layout has one side slot, so the roster's own rail belongs there too. */
+  .dr-layout[data-left-tab="team"][data-collapsed~="right"] .dr-right{ padding: 6px 0; }
+}
+
+/* On the clock: a one-line strip on desktop and tablet (the phone shell has its own card) */
+.dr-clock-card.strip{
+  flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: 14px;
+  padding: 8px 16px; min-height: 52px;
+}
+.dr-clock-card.strip .dr-eyebrow{ white-space: nowrap; }
+.dr-clock-card.strip .dr-clock-name{ font-size: var(--fs-20); white-space: nowrap; }
+.dr-clock-card.strip .dr-clock-sub{ margin: 0; white-space: nowrap; }
+.dr-clock-card.strip .dr-proxy-btn{ margin: 0 0 0 4px; height: 30px; }
+.dr-strip-timer{ margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.dr-strip-timer .dr-timer{ font-size: 26px; }
+.dr-strip-timer .dr-bar{ width: 90px; margin: 0; }

@@ -93,12 +93,12 @@ light theme works.
   (`&room=<name>` for a rehearsal room); the socket only opens while the view is on screen.
 - Built: lobby (order card with the bottom-up lottery reveal, commissioner sign-in, Load team pool, clock
   length, Run lottery, Start draft), and the live room (Available pool with search, league chips, top-60
-  toggle, Draft -> Confirm, star queue and write-in card; on-the-clock card with soft clock; up-next strip;
+  toggle, one-tap Draft, star queue and write-in card; a one-line on-the-clock strip with the soft clock;
   the snake board; My roster and My queue with top-fit Draft). Under 1180px the roster/queue column shares
   the left slot behind tabs; under 700px it stacks. Rank in the pool is *within league*; the All list
   interleaves leagues by rank percentile.
 - Verified end to end against `wrangler dev`: a scripted room drafted all 210 picks through the real UI,
-  the write-in flow and Draft -> Confirm worked, and the finished roster landed exactly on its caps.
+  the write-in flow and picking worked, and the finished roster landed exactly on its caps.
 
 ### As built (Phase E)
 
@@ -108,6 +108,17 @@ light theme works.
   (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
   The Trade modal swaps two open picks between any two drafters; the board marks traded slots and the
   clock card says "via {original owner}".
+- Collapsible panels (desktop and tablet): Available and My roster/queue each fold to a 44px rail (caret,
+  rotated label, live count) so the board can take the room; with both folded the board goes from about
+  750x255 to 1300x467 at a 1390px-wide window and all ten drafter columns fit. Choices are remembered per
+  device (`teamDashboardDraftPanels`). Under 1180px the two side panels share one slot, so it folds when the
+  panel showing in it is folded. The phone shell is unchanged.
+- The on-the-clock display is a single one-line strip (drafter, R/P, timer bar; the commissioner's "Pick for"
+  button sits in it) on desktop and tablet; the phone keeps its own two-row card. The earlier "still needs"
+  league chips, the up-next row and the last-pick line were removed as unnecessary.
+- Drafting is one tap (no Draft -> Confirm step): the commissioner can undo or change any pick. A pick
+  carries the slot it was made for, and the client ignores further taps while one is in flight, so a
+  double-tap lands once.
 - Phone shell (<=700px, switches live with the viewport): compact sticky clock over Pick / Board / My team
   tabs; Pick has "From your queue" (top three fitting), search, scrolling league chips and a 40-team list
   with 44px hit targets; Board is the last three rounds newest first; My team is roster + queue. The
@@ -156,8 +167,8 @@ light theme works.
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
-EPL 2, NFL 3, NBA 3, NHL 3, MLB 3, WNBA 1, CFB 3, CBB 3. A team can be drafted once. Draft then Confirm
-within 3.5s. Commissioner: run lottery, pause/resume, undo, reset, pick for the on-clock drafter, edit
+EPL 2, NFL 3, NBA 3, NHL 3, MLB 3, WNBA 1, CFB 3, CBB 3. A team can be drafted once. The design had a Draft, then Confirm
+step (3.5s window); it was dropped in favor of one tap (see Phase E notes). Commissioner: run lottery, pause/resume, undo, reset, pick for the on-clock drafter, edit
 any past pick (creating a make-up slot), trade picks (the prototype has the modal but no entry button).
 
 ### Team pool
@@ -187,7 +198,7 @@ only adds a file.
 | **A. Seasonize** | Move current data to `seasons/2026.js`; resolver in `data.js`; season-keyed storage; switcher. No visible change; this is the regression check. |
 | **B. Freeze support** | Extend the lock to snapshot final standings and points; old classes render from it. |
 | **C. Draft engine** | Spike worker import of `draft-rules.js`; `draft-rules.js` with Node tests; `DraftRoom` with protocol, persistence, reconnect. |
-| **D. Draft UI** | Lobby, board grid, on-the-clock card, pool, search, league chips, Draft/Confirm, roster, queue, write-ins. |
+| **D. Draft UI** | Lobby, board grid, on-the-clock card, pool, search, league chips, Draft, roster, queue, write-ins. |
 | **E. Commissioner and mobile** | Lottery, pause, undo, edit a pick, trades, phone tabs. |
 | **F. Export** | `export-draft.mjs` and the write-in to ESPN-id resolver. |
 | **G. Dress rehearsal** | Full mock drafts on a throwaway room id, including running the export. Draft day cannot be redone. |

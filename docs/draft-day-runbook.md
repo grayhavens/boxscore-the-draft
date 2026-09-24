@@ -81,6 +81,10 @@ to the lobby; or just use a new room name.
 | A school isn't in the pool (CFB/CBB) | Any drafter can search for it and use **Add to CFB / CBB**; it then drafts like any team. |
 | Something looks wrong | Don't Reset. Pause, then check `…/draft/result?room=main` (the worker's own record of every pick). |
 
+**Picking and seeing more of the board.** Draft is a single tap; a wrong pick is fixed with *Change this
+pick* or *Undo pick*. The Available list and My roster/queue each have a caret that folds them to a slim
+rail, remembered per device. Handy on a laptop while watching the whole board.
+
 **Reset** clears every pick and the lottery. Only use it in rehearsal.
 
 ## 4. After the draft
