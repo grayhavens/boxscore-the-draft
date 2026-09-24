@@ -190,8 +190,8 @@ export function fetchEspnCfbRankingsCached(){
   return espnCfbRankingsPromise;
 }
 
-// A ranked team's ESPN "location" (e.g. "Indiana") is compared against
-// this app's own TEAM_META[...].name (e.g. "IU") to find a drafted
+// A ranked team's ESPN "location" (e.g. "North Dakota State") is compared against
+// this app's own TEAM_META[...].name (e.g. "NDSU") to find a drafted
 // match — most are verbatim-identical (see docs/espn-migration-plan.md's
 // Pilot Results), but a handful aren't, so those get a manual override
 // (CFB_ESPN_LOCATION_OVERRIDES, js/utils.js — shared with js/live-now.js's
@@ -282,7 +282,7 @@ export function fetchEspnCfbRecordsCached(){
 // team's own meta, find its row in the ESPN full-standings cache (NDSU's
 // individually-fetched row included — see NDSU_ESPN_TEAM_ID above). The
 // override table is checked both ways since a drafted team's own name
-// (e.g. "IU") is the override's *output*, not its key ("Indiana").
+// (e.g. "NDSU") is the override's *output*, not its key ("North Dakota State").
 // Exported for js/live-data.js too — it's also how fetchTeamBundle
 // resolves this team's ESPN id for the schedule fetch; a null return
 // (only if a given team's row genuinely never resolves, e.g. a transient

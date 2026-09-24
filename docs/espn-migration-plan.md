@@ -173,7 +173,7 @@ in `js/standings-cfb.js`. Keep win/loss `record` on TheRundown for now (smaller 
 still works for that once its quota resets) — only swap the ranking source. Needs: a name-matching
 step between ESPN's `location`/`teamName` and this app's `TEAM_META[...].name` (most match directly —
 "Ohio State", "Georgia", "Texas A&M" all match ESPN's `team.location` verbatim — but a few won't
-(e.g. IU's `meta.name` is `'IU'`, ESPN's `location` is `'Indiana'`) and need explicit overrides,
+(e.g. IU's `meta.name` was `'IU'`, ESPN's `location` is `'Indiana'` — since renamed to `'Indiana'`) and need explicit overrides,
 same as `abbrFromName`'s existing fallback pattern for undrafted teams.
 
 **Phase 3 — wire NFL standings into the live UI, conference-only first.** Swap
@@ -785,7 +785,7 @@ either an exact ESPN nickname (NBA/NHL/MLB/WNBA, `findFlatTeamKey`) or a school 
 substring matching to work (EPL/CFB, `findDraftedTeamByName`). mcbb's TEAM_META.name is a school name
 like every other college league, but a real substring collision exists *within this app's own 30
 drafted teams* that an override table can't cleanly patch: "Texas" (`douglas_texas`) is a literal
-substring of "Texas Tech" (`douglas_texastech`), and unlike CFB's "IU"/"Indiana" overrides, both real
+substring of "Texas Tech" (`douglas_texastech`), and unlike CFB's "NDSU"/"North Dakota State" override, both real
 teams are drafted here, so whichever one `findDraftedTeamByName` happens to iterate to first wins
 regardless of which team ESPN actually named — the same class of bug `js/standings-flat.js` documents
 finding for NBA's "Nets" substring-matching into "Hornets". Also present: "Michigan" vs "Michigan
