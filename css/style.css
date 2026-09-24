@@ -4566,6 +4566,14 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-cell-traded{ font-size: var(--fs-11); font-weight: 600; color: var(--text-sub); }
 
 /* Right column */
+.dr-roster-pick{ position: relative; display: inline-flex; align-items: center; min-width: 0; margin-left: auto; }
+.dr-roster-pick::after{ content: '▾'; position: absolute; right: 8px; pointer-events: none; font-size: var(--fs-11); color: var(--text-mute); }
+.dr-roster-pick select{
+  appearance: none; -webkit-appearance: none; max-width: 100%;
+  height: 28px; padding: 0 22px 0 10px; border: 1px solid var(--hairline-strong); border-radius: 8px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-13); font-weight: 600; cursor: pointer;
+}
+.dr-roster-pick select:hover, .dr-roster-pick select:focus-visible{ background: var(--seg-thumb); }
 .dr-roster-row{ display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 8px; padding: 6px 0; }
 .dr-roster-row.full{ opacity: 0.55; }
 .dr-roster-lg{ font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.04em; }
