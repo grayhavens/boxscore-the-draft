@@ -3959,6 +3959,10 @@ html.chat-kb .tab-bar{ display: none; }
 }
 
 /* ---- Settings sheet (js/identity.js) ---- */
+/* Preferences | League switch at the top of the Settings sheet (js/identity.js) */
+.settings-tabs{ padding: 4px 22px 6px; }
+.settings-tabs .seg{ margin-bottom: 0; }
+
 .settings-section{
   padding: 14px 22px 4px;
   font-family: 'Space Grotesk', sans-serif;
@@ -4467,16 +4471,6 @@ html.chat-kb .tab-bar{ display: none; }
   .dr-tab{ height: 32px; border: 0; border-radius: 9px; background: var(--seg-track); color: var(--text-sub); font: inherit; font-size: var(--fs-13); font-weight: 600; cursor: pointer; }
   .dr-tab.on{ background: var(--seg-thumb); color: var(--text); }
 }
-@media (max-width: 700px){
-  .dr-layout{ display: block; height: auto; }
-  .dr-tabs{ padding: 10px 16px; border: 0; }
-  .dr-col{ overflow: visible; }
-  .dr-center{ overflow: visible; }
-  .dr-layout .dr-left, .dr-layout .dr-right{ border: 0; }
-  .dr-layout[data-left-tab="available"] .dr-right{ display: none; }
-  .dr-layout[data-left-tab="team"] .dr-left{ display: none; }
-  .dr-board-scroll{ max-height: 60vh; }
-}
 .dr-col-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .dr-col-head h2{ margin: 0; font-size: var(--fs-17); font-weight: 700; }
 .dr-search{ width: 100%; height: 38px; padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 16px; }
@@ -4584,3 +4578,74 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-tag.dim{ opacity: 0.7; }
 .dr-q-ctl{ display: flex; }
 .dr-q-ctl button{ border: 0; background: none; color: var(--text-mute); width: 22px; height: 26px; font-size: 11px; cursor: pointer; }
+
+/* Draft room: commissioner bar, modals, proxy pick */
+.draft-comm{
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px var(--page-pad); border-bottom: 1px solid var(--hairline);
+}
+.draft-comm[hidden]{ display: none; }
+.dr-comm-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.06em; color: var(--text-mute); margin-right: 4px; }
+.dr-btn-ghost{ background: transparent; color: var(--text-sub); }
+.dr-btn-red{ background: var(--loss-soft); border-color: transparent; color: var(--loss); }
+.dr-proxy-btn{ margin-top: 10px; height: 32px; }
+.dr-proxy-note{ padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
+.dr-cell.editable{ cursor: pointer; }
+.dr-cell.editable:hover{ border-color: var(--hairline-strong); }
+.dr-modal-back{
+  position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.dr-modal-back[hidden]{ display: none; }
+.dr-modal{
+  width: min(460px, 100%); max-height: 90vh; overflow-y: auto;
+  background: var(--sheet); border: 1px solid var(--hairline-strong); border-radius: 18px; padding: 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dr-modal h3{ margin: 0; font-size: var(--fs-20); font-weight: 700; }
+.dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }
+.dr-modal-team{ display: flex; align-items: center; gap: 12px; }
+.dr-modal-team b{ display: block; font-size: var(--fs-15); }
+.dr-modal-team span{ font-size: var(--fs-12); color: var(--text-sub); }
+.dr-modal-btns{ display: flex; flex-direction: column; gap: 8px; }
+.dr-modal-btns .dr-btn{ height: 40px; }
+.dr-trade-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dr-trade-col{ display: flex; flex-direction: column; gap: 8px; }
+.dr-trade-col select{ height: 38px; border-radius: 9px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; font-size: 16px; }
+.dr-trade-preview{ padding: 10px 12px; border-radius: 10px; background: var(--seg-track); font-size: var(--fs-13); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team */
+.dm{ display: block; padding-bottom: 24px; }
+.dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
+.dm-top .dr-clock-name{ font-size: 20px; }
+.dm-top .dr-clock-sub{ font-size: var(--fs-11); }
+.dm-top .dr-needs, .dm-top .dr-proxy-btn{ display: none; }
+.dm-top .dr-timer{ font-size: 24px; }
+.dm-top .dr-bar{ width: 100px; margin-top: 4px; }
+.dm-top .dr-paused{ margin-top: 0; }
+.dm-tabs{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; border-radius: 12px; background: var(--seg-track); margin-bottom: 8px; }
+.dm-tab{ height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--text-sub); font: inherit; font-size: var(--fs-13); font-weight: 600; cursor: pointer; }
+.dm-tab.on{ background: var(--seg-thumb); color: var(--text); }
+.dm-pane{ display: none; padding: 4px 16px 0; flex-direction: column; gap: 10px; }
+.dm[data-tab="pick"] .dm-pane[data-pane="pick"],
+.dm[data-tab="board"] .dm-pane[data-pane="board"],
+.dm[data-tab="team"] .dm-pane[data-pane="team"]{ display: flex; }
+.dm .dr-search{ height: 44px; }
+.dm-chips{ flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.dm-chips::-webkit-scrollbar{ display: none; }
+.dm-chips .dr-chip{ flex: 0 0 auto; height: 34px; }
+.dm .dr-row{ min-height: 56px; }
+.dm .dr-draft-btn{ width: 68px; height: 44px; border-radius: 10px; font-size: var(--fs-13); }
+.dm .dr-star{ width: 40px; height: 44px; font-size: 20px; }
+.dm-from-queue{ display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r-md); background: var(--accent-soft); border: 1px solid var(--accent-border); }
+.dm-qrow{ display: flex; align-items: center; gap: 10px; min-height: 56px; }
+.dm-brow{ display: grid; grid-template-columns: 42px 74px 1fr; align-items: center; gap: 6px; min-height: 46px; padding: 0 8px; border-bottom: 1px solid var(--hairline); font-size: var(--fs-13); }
+.dm-brow.cur{ background: var(--accent-soft); border-radius: 8px; border-bottom-color: transparent; }
+.dm-brow.mine .dm-b-owner{ color: var(--accent); font-weight: 700; }
+.dm-b-label{ color: var(--text-mute); font-variant-numeric: tabular-nums; font-size: var(--fs-12); }
+.dm-b-owner{ color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-b-team{ display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dm-b-name{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-b-lg{ margin-left: auto; font-size: var(--fs-11); font-weight: 700; }
+.dm-b-clock{ font-weight: 700; color: var(--accent); }
