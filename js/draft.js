@@ -16,9 +16,12 @@
    - The clock re-renders only its own three elements every 250ms; a
      full render happens only when the server sends new state.
 
-   Commissioner controls beyond the lobby (pause, undo, edit a pick,
-   trades, pick-for-someone) and the phone layout arrive in Phase E; see
-   docs/draft-room-plan.md.
+   Commissioner controls (a bar under the header, only while signed in):
+   pause/resume, undo, reset, trade, click a filled board cell to change
+   that pick, and "Pick for {name}" to draft for whoever is on the clock.
+   Phones (<=700px) get their own shell — a compact clock over Pick /
+   Board / My team tabs — instead of the three-column layout; the
+   commissioner bar stays desktop-only. See docs/draft-room-plan.md.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
@@ -44,6 +47,7 @@ const leagueUi = key => LEAGUE_UI[key] || { label: key.toUpperCase(), color: '#9
 
 const CONFIRM_MS = 3500;
 const POOL_LIMIT = 60;
+const POOL_LIMIT_PHONE = 40;
 const UP_NEXT = 6;
 const CLOCK_CHOICES = [30, 60, 90, 120, 180, 300];
 
@@ -86,8 +90,17 @@ const ui = {
   lastOrderKey: undefined, // undefined until the first state has been seen (so a late joiner doesn't replay the reveal)
   shell: null,            // 'live' once the live-room shell is built
   toastTimer: null,
-  pendingSelect: null     // write-in just added: filter/search to it once the pool frame arrives
+  pendingSelect: null,    // write-in just added: filter/search to it once the pool frame arrives
+  proxySlot: null,        // commissioner is drafting for whoever owns this slot
+  proxyArm: false,        // enter proxy mode for whatever slot is on the clock once the next state lands
+  modal: null,            // null | 'edit' | 'trade' | 'reset'
+  editSlot: null,
+  trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
+  mobileTab: 'pick'       // phone shell: 'pick' | 'board' | 'team'
 };
+
+const phoneQuery = window.matchMedia ? window.matchMedia('(max-width: 700px)') : null;
+const isPhone = () => !!phoneQuery && phoneQuery.matches;
 
 let active = false;
 let unsubscribe = null;
@@ -122,12 +135,20 @@ function derive(){
   d.running = s.phase === 'draft' && s.clock.running;
   d.myTurn = !!d.clockInfo && d.clockInfo.owner === d.me && d.running;
   d.myCounts = s.order ? leagueCounts(s.picks, s.pool, s.order, s.overrides, d.me) : {};
-  d.canAct = d.myTurn;
+  // The commissioner can draft for whoever is on the clock. `actor` is the
+  // roster a Draft tap would land on; caps in the pool list are checked against it.
+  if(ui.proxyArm && d.clockInfo){ ui.proxySlot = d.clockInfo.slot; ui.proxyArm = false; }
+  d.proxy = draftStore.commissioner && d.running && !!d.clockInfo && ui.proxySlot === d.clockInfo.slot && !d.myTurn;
+  d.actor = d.proxy ? d.clockInfo.owner : d.me;
+  d.actorCounts = d.proxy ? leagueCounts(s.picks, s.pool, s.order, s.overrides, d.actor) : d.myCounts;
+  d.canAct = d.myTurn || d.proxy;
   return d;
 }
 
-function teamFits(d, team){
-  return (d.myCounts[team.league] || 0) < (d.s.config.caps[team.league] || 0);
+// `counts` defaults to whoever a Draft tap would draft for (me, or the
+// on-the-clock drafter while proxying); the queue passes my own counts.
+function teamFits(d, team, counts){
+  return ((counts || d.actorCounts)[team.league] || 0) < (d.s.config.caps[team.league] || 0);
 }
 
 // ---- Tiles ----
@@ -359,9 +380,10 @@ function renderPool(d){
     (ui.filter === 'all' || t.league === ui.filter) &&
     (!q || t.name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q))
   );
-  const shown = ui.showAll ? filtered : filtered.slice(0, POOL_LIMIT);
-  const more = filtered.length > POOL_LIMIT
-    ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? `Show top ${POOL_LIMIT}` : `Show all ${filtered.length}`}</button>` : '';
+  const limit = isPhone() ? POOL_LIMIT_PHONE : POOL_LIMIT;
+  const shown = ui.showAll ? filtered : filtered.slice(0, limit);
+  const more = filtered.length > limit
+    ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? `Show top ${limit}` : `Show all ${filtered.length}`}</button>` : '';
   setRegion('dr-pool', shown.map(t => poolRowHtml(d, t)).join('') + more + writeInCardHtml(d, filtered));
   const count = document.getElementById('dr-avail-count');
   if(count) count.textContent = `${available.length} left`;
@@ -391,6 +413,7 @@ function clockCardHtml(d){
         <div class="dr-clock-name">${esc(drafterName(info.owner))}</div>
         <div class="dr-clock-sub">Round ${round} · Pick ${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</div>
         <div class="dr-needs"><span class="dr-dim">Still needs</span>${chips}</div>
+        ${draftStore.commissioner && !d.myTurn && d.running && !isPhone() ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : ''}
       </div>
       <div class="dr-timer-box">
         <div class="dr-timer" id="dr-timer">0:00</div>
@@ -398,6 +421,7 @@ function clockCardHtml(d){
         <div class="dr-timer-note" id="dr-timer-note"></div>
       </div>
     </div>
+    ${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
     ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
 }
 
@@ -455,7 +479,8 @@ function boardHtml(d){
       if(pick){
         const team = teamById(s.pool, pick.team);
         const lg = team ? leagueUi(team.league) : { label: '', color: '#94969E' };
-        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}"><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
+        const edit = draftStore.commissioner ? ` onclick="draftEditPick(${slot})" role="button" tabindex="0"` : '';
+        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}${edit ? ' editable' : ''}"${edit}><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
       } else if(slot === cur){
         cells.push(`<div class="dr-cell current" data-current="1"><div class="dr-cell-top"><span>${label}</span></div><div class="dr-cell-clock">On the clock</div></div>`);
       } else {
@@ -493,15 +518,15 @@ function queueHtml(d){
   if(!list.length){
     body = `<div class="dr-empty">Star teams in Available to rank them here. Your top fit is one click away when you're up.</div>`;
   } else {
-    const topFit = list.find(t => teamFits(d, t));
+    const topFit = list.find(t => teamFits(d, t, d.myCounts));
     body = list.map((t, i) => {
-      const fits = teamFits(d, t);
+      const fits = teamFits(d, t, d.myCounts);
       const isTop = topFit === t;
       const lg = leagueUi(t.league);
       const tag = isTop ? `<span class="dr-tag gold">Top fit · ${lg.label}</span>` : (fits ? `<span class="dr-tag">${lg.label}</span>` : `<span class="dr-tag dim">${lg.label} full</span>`);
       const confirming = ui.confirming === t.id;
-      const draft = isTop && d.canAct ? `<button class="dr-draft-btn mine wide${confirming ? ' confirm' : ''}" onclick="draftClick('${t.id}')">${confirming ? 'Confirm' : `Draft ${esc(t.name)}`}</button>` : '';
-      return `<div class="dr-q${isTop && d.canAct ? ' top' : ''}${fits ? '' : ' dim'}">
+      const draft = isTop && d.myTurn ? `<button class="dr-draft-btn mine wide${confirming ? ' confirm' : ''}" onclick="draftClick('${t.id}')">${confirming ? 'Confirm' : `Draft ${esc(t.name)}`}</button>` : '';
+      return `<div class="dr-q${isTop && d.myTurn ? ' top' : ''}${fits ? '' : ' dim'}">
         <div class="dr-q-row"><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-name">${esc(t.name)}</span>${tag}
           <span class="dr-q-ctl"><button onclick="draftMoveQueue('${t.id}',-1)" aria-label="Move up">▲</button><button onclick="draftMoveQueue('${t.id}',1)" aria-label="Move down">▼</button><button onclick="draftToggleQueue('${t.id}')" aria-label="Remove">×</button></span></div>
         ${draft}
@@ -509,6 +534,161 @@ function queueHtml(d){
     }).join('');
   }
   return `<div class="dr-col-head dr-queue-head"><h2>My queue</h2><span class="dr-dim">${list.length} ranked</span></div>${body}`;
+}
+
+// ---- Commissioner bar + modals ----
+
+function commBarHtml(d){
+  const anyPicks = Object.keys(d.s.picks).length > 0;
+  const live = d.s.phase === 'draft';
+  return `<span class="dr-comm-label">COMMISSIONER</span>
+    ${live ? `<button class="dr-btn" onclick="${d.s.clock.running ? 'draftPause' : 'draftResume'}()">${d.s.clock.running ? 'Pause' : 'Resume'}</button>` : ''}
+    <button class="dr-btn"${anyPicks ? '' : ' disabled'} onclick="draftUndo()">Undo pick</button>
+    ${d.s.order && d.s.phase !== 'done' ? '<button class="dr-btn" onclick="draftOpenTrade()">Trade</button>' : ''}
+    <button class="dr-btn dr-btn-ghost" onclick="draftOpenReset()">Reset</button>`;
+}
+
+function renderCommBar(d){
+  const el = document.getElementById('draft-comm');
+  if(!el) return;
+  const show = !!d && draftStore.commissioner && d.s.phase !== 'lobby' && !isPhone();
+  el.hidden = !show;
+  if(show && regionHtml.get('draft-comm') !== commBarHtml(d)){
+    const html = commBarHtml(d);
+    el.innerHTML = html;
+    regionHtml.set('draft-comm', html);
+  }
+}
+
+function drafterOptions(d, selected){
+  return d.s.config.drafters.map(id => `<option value="${esc(id)}"${id === selected ? ' selected' : ''}>${esc(drafterName(id))}</option>`).join('');
+}
+
+function unpickedSlotsOf(d, drafterId){
+  const slots = [];
+  for(let slot = 0; slot < d.total; slot++){
+    if(!d.s.picks[slot] && ownerOf(slot, d.s.order, d.s.overrides) === drafterId) slots.push(slot);
+  }
+  return slots;
+}
+
+function slotOptions(d, drafterId, selected){
+  return unpickedSlotsOf(d, drafterId).map(slot => `<option value="${slot}"${slot === selected ? ' selected' : ''}>${pickLabel(slot, d.n)}</option>`).join('');
+}
+
+function modalBody(d){
+  if(ui.modal === 'edit'){
+    const pick = d.s.picks[ui.editSlot];
+    const team = pick && teamById(d.s.pool, pick.team);
+    if(!pick || !team) return null;
+    const owner = esc(drafterName(ownerOf(ui.editSlot, d.s.order, d.s.overrides)));
+    return `<h3>Change this pick</h3>
+      <div class="dr-modal-team">${tileHtml(team, 'md')}<div><b>${esc(team.name)}</b><span>${leagueUi(team.league).label} · drafted by ${esc(drafterName(pick.by))} · ${pickLabel(ui.editSlot, d.n)}</span></div></div>
+      <p>Removing puts ${esc(team.name)} back in the pool. ${owner} goes straight back on the clock for this slot, and the draft picks up where it left off after that.</p>
+      <div class="dr-modal-btns">
+        <button class="dr-btn dr-btn-gold" onclick="draftRemovePick('proxy')">Remove and pick for ${owner}</button>
+        <button class="dr-btn dr-btn-red" onclick="draftRemovePick('owner')">Remove and let ${owner} re-pick</button>
+        <button class="dr-btn" onclick="draftCloseModal()">Cancel</button>
+      </div>`;
+  }
+  if(ui.modal === 'trade' && ui.trade){
+    const t = ui.trade;
+    const valid = t.aDrafter !== t.bDrafter && t.aSlot !== null && t.bSlot !== null;
+    const preview = valid ? `${esc(drafterName(t.aDrafter))} gets ${pickLabel(t.bSlot, d.n)} · ${esc(drafterName(t.bDrafter))} gets ${pickLabel(t.aSlot, d.n)}` : 'Choose two different drafters, each with an open pick.';
+    const side = (label, dk, sk) => `<div class="dr-trade-col"><div class="dr-eyebrow">${label}</div>
+      <select onchange="draftTradeSet('${dk}', this.value)">${drafterOptions(d, t[dk])}</select>
+      <select onchange="draftTradeSet('${sk}', this.value)">${slotOptions(d, t[dk], t[sk]) || '<option value="">No open picks</option>'}</select></div>`;
+    return `<h3>Trade picks</h3>
+      <p>Swap two future picks. The board updates for everyone.</p>
+      <div class="dr-trade-grid">${side('GIVES', 'aDrafter', 'aSlot')}${side('FOR', 'bDrafter', 'bSlot')}</div>
+      <div class="dr-trade-preview">${preview}</div>
+      <div class="dr-modal-btns"><button class="dr-btn dr-btn-gold"${valid ? '' : ' disabled'} onclick="draftTradeSubmit()">Swap picks</button><button class="dr-btn" onclick="draftCloseModal()">Cancel</button></div>`;
+  }
+  if(ui.modal === 'reset'){
+    return `<h3>Reset the draft?</h3>
+      <p>This clears every pick, any trades and the lottery order, and returns everyone to the lobby. The team pool is kept (write-ins are removed).</p>
+      <div class="dr-modal-btns"><button class="dr-btn dr-btn-red" onclick="draftDoReset()">Reset draft</button><button class="dr-btn" onclick="draftCloseModal()">Cancel</button></div>`;
+  }
+  return null;
+}
+
+function renderModal(d){
+  const el = document.getElementById('draft-modal');
+  if(!el) return;
+  const body = d && ui.modal ? modalBody(d) : null;
+  if(!body){ el.hidden = true; el.innerHTML = ''; regionHtml.delete('draft-modal'); if(ui.modal && d) ui.modal = null; return; }
+  el.hidden = false;
+  const html = `<div class="dr-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">${body}</div>`;
+  if(regionHtml.get('draft-modal') !== html){ el.innerHTML = html; regionHtml.set('draft-modal', html); }
+}
+
+// ---- Phone shell ----
+
+function phoneShellHtml(){
+  const tab = (key, label) => `<button class="dm-tab${ui.mobileTab === key ? ' on' : ''}" data-tab="${key}" onclick="draftMobileTab('${key}')">${label}</button>`;
+  return `
+    <div class="dm" data-tab="${ui.mobileTab}">
+      <div class="dm-top">
+        <div id="dr-clock"></div>
+        <div class="dm-tabs">${tab('pick', 'Pick')}${tab('board', 'Board')}${tab('team', 'My team')}</div>
+      </div>
+      <section class="dm-pane" data-pane="pick">
+        <div id="dm-queue-top"></div>
+        <input id="dr-search" class="dr-search" type="search" placeholder="Search or add a college team" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">
+        <div id="dr-chips" class="dr-chips dm-chips"></div>
+        <div id="dr-pool" class="dr-pool"></div>
+      </section>
+      <section class="dm-pane" data-pane="board"><div id="dm-board"></div></section>
+      <section class="dm-pane" data-pane="team"><div id="dr-roster"></div><div id="dr-queue"></div></section>
+    </div>`;
+}
+
+// Top of the Pick tab on your turn: your first three queued teams that fit.
+function phoneQueueHtml(d){
+  if(!d.myTurn) return '';
+  const fits = queueTeams(d).filter(t => teamFits(d, t, d.myCounts)).slice(0, 3);
+  if(!fits.length) return '';
+  return `<div class="dm-from-queue"><div class="dr-eyebrow gold">FROM YOUR QUEUE</div>${fits.map(t => {
+    const confirming = ui.confirming === t.id;
+    return `<div class="dm-qrow">${tileHtml(t, 'md')}<div class="dr-row-main"><div class="dr-row-name">${esc(t.name)}</div><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
+      <button class="dr-draft-btn mine${confirming ? ' confirm' : ''}" onclick="draftClick('${t.id}')">${confirming ? 'Confirm' : 'Draft'}</button></div>`;
+  }).join('')}</div>`;
+}
+
+// The last three rounds, newest first, ending at whoever is on the clock.
+function phoneBoardHtml(d){
+  const last = d.clockInfo ? d.clockInfo.slot : d.total - 1;
+  const first = Math.max(0, (Math.floor(last / d.n) - 2) * d.n);
+  const rows = [];
+  for(let slot = last; slot >= first; slot--){
+    const owner = ownerOf(slot, d.s.order, d.s.overrides);
+    const pick = d.s.picks[slot];
+    const team = pick && teamById(d.s.pool, pick.team);
+    const cur = d.clockInfo && slot === d.clockInfo.slot;
+    const body = team
+      ? `${tileHtml(team, 'sm')}<span class="dm-b-name">${esc(team.name)}</span><span class="dm-b-lg" style="color:${leagueUi(team.league).color}">${leagueUi(team.league).label}</span>`
+      : (cur ? '<span class="dm-b-clock">On the clock</span>' : '<span class="dr-dim">—</span>');
+    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}"><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
+  }
+  return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
+}
+
+function renderPhone(d){
+  if(ui.shell !== 'phone'){
+    root().innerHTML = phoneShellHtml();
+    ui.shell = 'phone';
+    regionHtml.clear();
+  }
+  const shell = root().querySelector('.dm');
+  shell.dataset.tab = ui.mobileTab;
+  shell.querySelectorAll('.dm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.mobileTab));
+  renderPool(d);
+  setRegion('dr-clock', clockCardHtml(d));
+  setRegion('dm-queue-top', phoneQueueHtml(d));
+  setRegion('dm-board', phoneBoardHtml(d));
+  setRegion('dr-roster', rosterHtml(d));
+  setRegion('dr-queue', queueHtml(d));
+  updateClock();
 }
 
 // ---- Render ----
@@ -552,6 +732,7 @@ function render(){
   if(!d){
     root().innerHTML = `<div class="dr-connecting">${draftStore.status === 'offline' ? "Can't reach the draft room. Retrying…" : 'Connecting to the draft room…'}</div>`;
     ui.shell = null;
+    renderCommBar(null);
     return;
   }
   if(lastQueueFor !== currentProfileId){
@@ -562,10 +743,14 @@ function render(){
   if(d.s.phase === 'lobby'){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
+    renderCommBar(null);
+    renderModal(null);
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
-  renderLive(d);
+  if(isPhone()) renderPhone(d); else renderLive(d);
+  renderCommBar(d);
+  renderModal(d);
   applyPendingSelect(d);
 }
 
@@ -663,7 +848,9 @@ window.draftClick = async id => {
   clearTimeout(ui.confirmTimer);
   ui.confirming = null;
   scheduleRender();
-  await run({ type: 'pick', team: id, slot: d.clockInfo.slot });
+  const proxying = d.proxy;
+  const result = await run({ type: 'pick', team: id, slot: d.clockInfo.slot }, proxying ? null : undefined);
+  if(result.ok && proxying) ui.proxySlot = null;
 };
 
 window.draftAddWriteIn = async league => {
@@ -712,7 +899,80 @@ window.draftSignIn = async event => {
   scheduleRender();
 };
 
+// ---- Commissioner actions ----
+
+window.draftProxy = () => {
+  const d = derive();
+  if(!d || !d.clockInfo) return;
+  ui.proxySlot = d.proxy ? null : d.clockInfo.slot;
+  scheduleRender();
+};
+window.draftPause = () => run({ type: 'pause' }, null);
+window.draftResume = () => run({ type: 'resume' }, null);
+window.draftUndo = () => run({ type: 'undo' }, null);
+
+window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
+window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
+window.draftDoReset = async () => {
+  const result = await run({ type: 'reset' }, null);
+  if(result.ok){ ui.proxySlot = null; window.draftCloseModal(); }
+};
+
+window.draftEditPick = slot => {
+  if(!draftStore.commissioner) return;
+  ui.editSlot = slot;
+  ui.modal = 'edit';
+  scheduleRender();
+};
+// Removing a pick reopens that slot ("make-up" pick); either the owner
+// re-picks, or the commissioner drafts for them right away.
+window.draftRemovePick = async mode => {
+  const slot = ui.editSlot;
+  const result = await run({ type: 'removePick', slot }, null);
+  if(!result.ok) return;
+  if(mode === 'proxy') ui.proxyArm = true;
+  window.draftCloseModal();
+};
+
+window.draftOpenTrade = () => {
+  const d = derive();
+  if(!d || !d.s.order) return;
+  const ids = d.s.config.drafters;
+  const aDrafter = d.clockInfo ? d.clockInfo.owner : ids[0];
+  const bDrafter = ids.find(id => id !== aDrafter);
+  const first = id => (unpickedSlotsOf(d, id)[0] ?? null);
+  ui.trade = { aDrafter, aSlot: first(aDrafter), bDrafter, bSlot: first(bDrafter) };
+  ui.modal = 'trade';
+  scheduleRender();
+};
+window.draftTradeSet = (field, value) => {
+  const d = derive();
+  if(!d || !ui.trade) return;
+  if(field === 'aDrafter' || field === 'bDrafter'){
+    ui.trade[field] = value;
+    const slotKey = field === 'aDrafter' ? 'aSlot' : 'bSlot';
+    ui.trade[slotKey] = unpickedSlotsOf(d, value)[0] ?? null;
+  } else {
+    ui.trade[field] = value === '' ? null : Number(value);
+  }
+  scheduleRender();
+};
+window.draftTradeSubmit = async () => {
+  const t = ui.trade;
+  if(!t || t.aSlot === null || t.bSlot === null) return;
+  const result = await run({ type: 'trade', a: t.aSlot, b: t.bSlot }, null);
+  if(result.ok){ toast('Picks swapped.'); window.draftCloseModal(); }
+};
+
+window.draftMobileTab = tab => { ui.mobileTab = tab; scheduleRender(); };
+
 // ---- View lifecycle (called by js/board.js's switchView) ----
+
+if(phoneQuery){
+  const onChange = () => { ui.shell = null; scheduleRender(); };
+  if(phoneQuery.addEventListener) phoneQuery.addEventListener('change', onChange);
+  else if(phoneQuery.addListener) phoneQuery.addListener(onChange);
+}
 
 export function setDraftActive(on){
   if(on === active) return;

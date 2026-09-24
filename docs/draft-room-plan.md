@@ -97,10 +97,23 @@ light theme works.
   the snake board; My roster and My queue with top-fit Draft). Under 1180px the roster/queue column shares
   the left slot behind tabs; under 700px it stacks. Rank in the pool is *within league*; the All list
   interleaves leagues by rank percentile.
-- Not yet (Phase E): pause/undo/reset/edit-a-pick/trade controls and pick-for-someone in the live room, and
-  the proper phone layout (Pick / Board / My team tabs).
 - Verified end to end against `wrangler dev`: a scripted room drafted all 210 picks through the real UI,
   the write-in flow and Draft -> Confirm worked, and the finished roster landed exactly on its caps.
+
+### As built (Phase E)
+
+- Commissioner bar (desktop, live room, signed in): Pause/Resume, Undo pick, Trade, Reset (confirm modal).
+  "Pick for {name}" on the on-the-clock card turns the pool's Draft buttons into a proxy pick for whoever is
+  on the clock (caps checked against them); clicking any filled board cell opens "Change this pick"
+  (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
+  The Trade modal swaps two open picks between any two drafters; the board marks traded slots and the
+  clock card says "via {original owner}".
+- Phone shell (<=700px, switches live with the viewport): compact sticky clock over Pick / Board / My team
+  tabs; Pick has "From your queue" (top three fitting), search, scrolling league chips and a 40-team list
+  with 44px hit targets; Board is the last three rounds newest first; My team is roster + queue. The
+  commissioner bar is desktop-only by design.
+- Verified against `wrangler dev`: pause/resume/undo, proxy pick, make-up pick round trip, trade, reset,
+  and the phone tabs.
 
 ### Rules (from the design)
 
