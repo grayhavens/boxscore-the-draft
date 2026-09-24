@@ -33,6 +33,7 @@ import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 const CFB_RECORDS_CACHE_KEY = 'teamDashboardCfbRecordsCache';
 // A team's record only changes after that team's own game (at most a
@@ -48,12 +49,12 @@ export function cfbRecordsIsFresh(){
 }
 
 function saveCfbRecordsCache(){
-  try { localStorage.setItem(CFB_RECORDS_CACHE_KEY, JSON.stringify(cfbRecordsCache)); } catch (e){}
+  try { cacheSet('cfb', CFB_RECORDS_CACHE_KEY, JSON.stringify(cfbRecordsCache)); } catch (e){}
 }
 
 export function loadCfbRecordsCache(){
   try {
-    const raw = localStorage.getItem(CFB_RECORDS_CACHE_KEY);
+    const raw = cacheGet('cfb', CFB_RECORDS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.byTeamId){
@@ -151,12 +152,12 @@ function espnCfbRankingsIsFresh(){
 }
 
 function saveEspnCfbRankingsCache(){
-  try { localStorage.setItem(ESPN_CFB_RANKINGS_CACHE_KEY, JSON.stringify(espnCfbRankingsCache)); } catch (e){}
+  try { cacheSet('cfb', ESPN_CFB_RANKINGS_CACHE_KEY, JSON.stringify(espnCfbRankingsCache)); } catch (e){}
 }
 
 export function loadEspnCfbRankingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_CFB_RANKINGS_CACHE_KEY);
+    const raw = cacheGet('cfb', ESPN_CFB_RANKINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.ranks){
@@ -225,12 +226,12 @@ function espnCfbRecordsIsFresh(){
 }
 
 function saveEspnCfbRecordsCache(){
-  try { localStorage.setItem(ESPN_CFB_RECORDS_CACHE_KEY, JSON.stringify(espnCfbRecordsCache)); } catch (e){}
+  try { cacheSet('cfb', ESPN_CFB_RECORDS_CACHE_KEY, JSON.stringify(espnCfbRecordsCache)); } catch (e){}
 }
 
 export function loadEspnCfbRecordsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_CFB_RECORDS_CACHE_KEY);
+    const raw = cacheGet('cfb', ESPN_CFB_RECORDS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.rows){

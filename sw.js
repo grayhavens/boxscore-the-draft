@@ -15,6 +15,7 @@ const SHELL_FILES = [
   './js/page-header.js',
   './js/data.js',
   './js/season.js',
+  './js/frozen-cache.js',
   './js/seasons/index.js',
   './js/seasons/2026.js',
   './js/utils.js',

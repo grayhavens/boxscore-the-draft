@@ -40,6 +40,10 @@ MLB/WNBA sit in the same "prior-season, non-scoring" state as today's `PRIOR_SEA
   snapshot the final standings table and points; finished leagues render from it with a "Final" badge.
   Leagues still running keep pulling live data. Minimum viable version: old classes show rosters and final
   points only.
+  *Implemented (Phase B):* the lock now stores the league's standings cache blobs (`js/frozen-cache.js`);
+  a non-newest class swaps them in at boot (`primeFrozenSnapshots`) and shows a "Final standings" note.
+  Locks written before this get the snapshot backfilled while their class is still the newest. Not yet
+  covered: per-team modal schedules and stat strips (`js/live-data.js`) still read live ESPN.
 
 ## Draft room architecture
 
