@@ -166,6 +166,33 @@ only adds a file.
 Extra: when a drafter goes on the clock, the room posts a system message into the existing chat as a free
 notification channel.
 
+## Before draft day
+
+A running checklist of things to do ahead of the real draft. None of these block the draft room from
+working; they are hygiene that makes the day smoother. Anyone asking "what do I need to do before the
+draft?" should start here.
+
+**Non-critical, noted at the end of Phase F (the owner plans to handle these)**
+
+1. **Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.** Teams that weren't in
+   the previous season's `TEAM_META` show plain color tiles in the draft room instead of crests, because
+   their ESPN ids are only looked up at export time (`tools/export-draft.mjs`). Today that is: NFL
+   Cardinals and Browns, NHL Flames and Blackhawks, the WNBA clubs outside the previous 10 (Storm, Sun,
+   Sparks, Fire, Tempo, ...), and any college school beyond last year's 30 in `js/draft-ranks.js`. The
+   export still resolves them correctly, so this is cosmetic. A fix would resolve them once (ESPN's team
+   lists) and feed `espnTeamId`/`badgeUrl` into `js/draft-pool.js`.
+2. **Verify the ranked team lists against the real field.** `js/draft-ranks.js` comes from the design
+   handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
+   the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
+   list are simply appended unranked, and a team listed but no longer real would be draftable.
+
+**Also needed (flagged in earlier phases)**
+
+- Deploy the worker **before** the static site (it carries the `DraftRoom` Durable Object migration), and
+  make sure `ADMIN_PASSWORD` is set as a worker secret.
+- Run a full rehearsal on a throwaway room (`?view=draft&room=mock-1`), including the export against it
+  (`node tools/export-draft.mjs --result <room url> --dry-run`).
+
 ## Open items
 
 - Confirm draft date and cutover timing: which class the app defaults to and when.
