@@ -85,6 +85,23 @@ light theme works.
   uploaded by the commissioner in the lobby (`setPool`) so the server can validate picks; an append-only
   `events` table records every accepted action for disputes.
 
+### As built (Phase D)
+
+- `js/draft-client.js` (socket + store: reconnect, acks, server-clock offset, commissioner auth),
+  `js/draft-pool.js` (pool from the active season's `TEAM_META` ranked by `js/draft-ranks.js`, the design's
+  consensus order), and `js/draft.js` (the view). Reached from Settings -> Draft room or `?view=draft`
+  (`&room=<name>` for a rehearsal room); the socket only opens while the view is on screen.
+- Built: lobby (order card with the bottom-up lottery reveal, commissioner sign-in, Load team pool, clock
+  length, Run lottery, Start draft), and the live room (Available pool with search, league chips, top-60
+  toggle, Draft -> Confirm, star queue and write-in card; on-the-clock card with soft clock; up-next strip;
+  the snake board; My roster and My queue with top-fit Draft). Under 1180px the roster/queue column shares
+  the left slot behind tabs; under 700px it stacks. Rank in the pool is *within league*; the All list
+  interleaves leagues by rank percentile.
+- Not yet (Phase E): pause/undo/reset/edit-a-pick/trade controls and pick-for-someone in the live room, and
+  the proper phone layout (Pick / Board / My team tabs).
+- Verified end to end against `wrangler dev`: a scripted room drafted all 210 picks through the real UI,
+  the write-in flow and Draft -> Confirm worked, and the finished roster landed exactly on its caps.
+
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:

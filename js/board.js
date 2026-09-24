@@ -66,6 +66,7 @@ import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefres
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
 import { isLeagueFrozen } from './frozen-cache.js';
+import { setDraftActive } from './draft.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
@@ -118,7 +119,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'admin' || explicitView === 'scoring')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   // No view in the URL: fall back to the "Open to" setting (js/settings.js).
@@ -622,6 +623,7 @@ export function switchView(view){
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   updateUrlParam('view', view === 'board' ? null : view);
   setChatActive(view === 'chat');
+  setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
   if(view === 'overall') renderOverallStandings();

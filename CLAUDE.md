@@ -135,6 +135,13 @@ A key in Testing mode is capped at 100 requests/hour across everyone; request Pr
 in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (`parseGif` in
 `worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
 
+**Draft room** (`js/draft.js`, `js/draft-client.js`, `js/draft-pool.js`, `worker/draft-room.js`): a live
+snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`. The rules and state
+machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
+`js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
+sends actions and renders what comes back. Commissioner actions need the admin password. See
+`docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
+
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in
 a league's Results modal credits every drafter who owns an involved team automatically, stored in

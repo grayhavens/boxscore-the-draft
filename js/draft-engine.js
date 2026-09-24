@@ -179,6 +179,7 @@ function cleanTeam(t, caps){
     : WRITE_IN_COLOR;
   const abbr = typeof t.abbr === 'string' && t.abbr.trim() ? t.abbr.trim().slice(0, 6).toUpperCase() : writeInAbbr(t.name);
   const team = { id: t.id, name: t.name.trim(), league: t.league, abbr, color };
+  if(Number.isInteger(t.rank) && t.rank >= 1 && t.rank <= 1000) team.rank = t.rank;
   if(typeof t.espnTeamId === 'string' && /^[0-9a-z-]{1,20}$/i.test(t.espnTeamId)) team.espnTeamId = t.espnTeamId;
   if(typeof t.badgeUrl === 'string' && t.badgeUrl.length <= 300 && t.badgeUrl.startsWith('https://')) team.badgeUrl = t.badgeUrl;
   return team;

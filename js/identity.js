@@ -90,6 +90,14 @@ function renderSettingsMain(){
       <span class="settings-value">${LANDING_OPTIONS.find(([v]) => v === s.landing)[1]}</span>
       <span class="settings-chev">&rsaquo;</span>
     </button>
+    <div class="settings-section">Draft</div>
+    <button class="sheet-row" onclick="closeIdentitySheet(); switchView('draft')">
+      <span class="sheet-row-text">
+        Draft room
+        <span class="sheet-desc" style="display:block">Live snake draft for the next season</span>
+      </span>
+      <span class="settings-chev">&rsaquo;</span>
+    </button>
     <div class="settings-section">Scoring</div>
     <button class="sheet-row" onclick="closeIdentitySheet(); switchView('admin')">
       <span class="sheet-row-text">
