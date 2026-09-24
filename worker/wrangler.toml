@@ -21,6 +21,16 @@ id = "abadd3da86124f0fbb586566034a9d52"
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
 
+# The live draft room (worker/draft-room.js): one Durable Object per room
+# name, holding the authoritative draft state in its own SQLite storage.
+[[durable_objects.bindings]]
+name = "DRAFT_ROOM"
+class_name = "DraftRoom"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChatRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DraftRoom"]

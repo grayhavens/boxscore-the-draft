@@ -86,6 +86,15 @@
       no-auth trust tier as favorites, but the WebSocket upgrade does
       check the Origin header so only the dashboard's own pages connect.
 
+   6b. DRAFT ROOM — the live snake draft (js/draft*.js). Same shape as
+      the chat room: a Durable Object (worker/draft-room.js) reached at
+      /draft/ws?room=<name>, plus a public GET /draft/result?room=<name>
+      for the finished board. Drafter actions are no-auth (chat's trust
+      tier); commissioner actions need an `auth` frame with
+      ADMIN_PASSWORD. Its rules are the same js/draft-engine.js the
+      draft UI imports — that file lives in the static site's js/
+      folder, and wrangler bundles it from here.
+
    7. KLIPY APP KEY DELIVERY — the chat's GIF picker (js/gifs.js) calls
       KLIPY straight from the browser, which is KLIPY's own rule (see
       that file's header), so this is NOT a proxy: this route only hands
@@ -136,6 +145,7 @@
 
 // Wrangler needs the Durable Object class exported from the entry module.
 export { ChatRoom } from './chat-room.js';
+export { DraftRoom } from './draft-room.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -714,6 +724,38 @@ function handleChatSocket(request, env){
   return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('main')).fetch(request);
 }
 
+// The live draft room (worker/draft-room.js, js/draft*.js). One Durable
+// Object per room name — "main" is the real draft, and the commissioner
+// can spin up throwaway rooms (?room=mock-1) to rehearse. Rooms are
+// created on first use, so the name is restricted to a small safe
+// alphabet rather than trusted. Origin-checked like the chat socket.
+function draftRoomStub(url, env){
+  const room = url.searchParams.get('room') || 'main';
+  if(!/^[a-z0-9-]{1,32}$/.test(room)) return null;
+  return env.DRAFT_ROOM.get(env.DRAFT_ROOM.idFromName(room));
+}
+
+function handleDraftSocket(request, url, env){
+  if(request.headers.get('Upgrade') !== 'websocket'){
+    return new Response('Expected a WebSocket upgrade', { status: 426 });
+  }
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')){
+    return new Response('Forbidden', { status: 403 });
+  }
+  const stub = draftRoomStub(url, env);
+  return stub ? stub.fetch(request) : new Response('Bad room', { status: 400 });
+}
+
+// Public read, like league facts: the finished board as JSON, for the
+// export script that turns it into the next season's data file.
+async function handleDraftResult(request, url, env, headers){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  const stub = draftRoomStub(url, env);
+  if(!stub) return new Response('Bad room', { status: 400, headers });
+  const upstream = await stub.fetch(new Request(new URL('/result', url), { method: 'GET' }));
+  return new Response(upstream.body, { status: upstream.status, headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
 // Runtime delivery of the KLIPY app key — see the header comment's KLIPY
 // APP KEY DELIVERY section for why this isn't a proxy. Origin-checked like
 // the chat socket: a browser on one of our own pages always sends Origin
@@ -836,6 +878,10 @@ export default {
     }
 
     if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
+
+    if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env);
+
+    if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, headers);
 
     if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 

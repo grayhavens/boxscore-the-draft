@@ -64,6 +64,23 @@ wrangler bundles an import from outside `worker/`; fallback is a copy plus a con
 Pick / Board / My team tabs. The design's dark-only tokens map onto the existing CSS variables so the
 light theme works.
 
+### As built (Phase C)
+
+- `js/draft-rules.js` (pure helpers: snake order, slot ownership, caps, clock math) and
+  `js/draft-engine.js` (one pure `reduce(state, action, ctx)` state machine) have no imports beyond each
+  other, so the client, the worker and Node tests all use the same code. Tests:
+  `node --test tests/draft-engine.test.mjs` (includes 30 random full-size 210-pick drafts asserting nobody
+  is ever stuck and every roster lands exactly on its caps).
+- `worker/draft-room.js` is the `DraftRoom` Durable Object (bound as `DRAFT_ROOM`, migration `v2`),
+  reached at `/draft/ws?room=<name>`; `GET /draft/result?room=<name>` returns the finished board.
+  Confirmed that wrangler bundles the shared `../js/` files. `tests/draft-room.integration.mjs` drives a
+  running `wrangler dev --var ADMIN_PASSWORD:testpw` end to end.
+- Differences from the sketch above: every accepted action broadcasts the **whole** (small) state instead
+  of deltas, so there is no `?after=` resume (a reconnect just gets a fresh `hello`); the commissioner
+  authenticates with an `auth` frame (a browser WebSocket can't send the admin header); the team pool is
+  uploaded by the commissioner in the lobby (`setPool`) so the server can validate picks; an append-only
+  `events` table records every accepted action for disputes.
+
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
