@@ -24,6 +24,7 @@
 import { DRAFT_TEAMS } from './data.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
 import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { seasonSettingsRowHtml } from './season-switcher.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -109,7 +110,7 @@ function renderPreferencesTab(s){
 }
 
 function renderLeagueTab(){
-  return `
+  return `${seasonSettingsRowHtml()}
     <div class="settings-section">Points Tab Data</div>
     <div class="settings-row"><span>Data<span class="sheet-desc">Fake = preview</span></span>${segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], window.getObMode ? window.getObMode() : 'real', 'setSheetObMode')}</div>
     <div class="settings-section">Draft</div>

@@ -220,9 +220,8 @@ draft?" should start here.
 - **Merge the Phase E PR** (commissioner controls, phone layout; it now also carries the Settings
   Preferences/League split). Without it the room can run but the commissioner cannot pause, undo, trade,
   change a pick or pick for someone.
-- **Decide about a season switcher.** Once the export ships, the app opens on the newest class by default;
-  the old class is reachable only via `?season=2026`. A Settings -> League switcher (`setActiveSeason` in
-  `js/season.js` already does the work) was deferred until a second class existed.
+- ~~Season switcher~~ — built: Settings -> League -> Draft Class (only shown once a second class exists),
+  plus a banner while an older class is on screen. A saved choice expires when a newer class ships.
 - **Confirm every finished league is locked** on the Manage Scoring page before the new class ships, since
   only leagues locked while their class was still the newest keep their saved final standings.
 

@@ -100,10 +100,12 @@ to the lobby; or just use a new room name.
 
 ### What flips when the new class ships
 
-- The app opens on the **newest class by default** (`LATEST_SEASON_ID`). The old class stays reachable at
-  `?season=2026` (any earlier class the same way) and stays fully live until its last league finishes.
-- There is **no in-app switcher yet** — only the `?season=` link. Building one (Settings → League) is on the
-  plan's list; decide before the export ships whether people need it that day.
+- The app opens on the **newest class by default** (`LATEST_SEASON_ID`). The old class stays fully live
+  until its last league finishes, and is one tap away: Settings → League → **Draft Class** → *Viewing*
+  (or a `?season=2026` link). While an older class is showing, a banner at the top says so, with a
+  "Switch to 2027" button.
+- A device's choice is remembered only while that class is still the newest one it was made under, so when
+  the next class ships everyone lands on it and can switch back if they want.
 - The old class's finished leagues render from their saved end-of-season snapshot (the season lock), but
   only for leagues that were **locked while that class was still the newest**. Check on the Manage Scoring
   page that every league that has finished its season shows "Locked" before the new class goes live;

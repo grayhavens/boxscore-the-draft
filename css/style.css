@@ -4649,3 +4649,16 @@ html.chat-kb .tab-bar{ display: none; }
 .dm-b-name{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dm-b-lg{ margin-left: auto; font-size: var(--fs-11); font-weight: 700; }
 .dm-b-clock{ font-weight: 700; color: var(--accent); }
+
+/* Notice while an older draft class is showing (js/season-switcher.js) */
+.season-banner{
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 0 14px; padding: 9px 12px;
+  border-radius: var(--r-sm); background: var(--accent-soft); border: 1px solid var(--accent-border);
+  font-size: var(--fs-12); font-weight: 600; color: var(--accent);
+}
+.season-banner button{
+  flex: 0 0 auto; height: 28px; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--accent-border); background: transparent; color: var(--accent);
+  font: inherit; font-size: var(--fs-12); font-weight: 700; cursor: pointer;
+}

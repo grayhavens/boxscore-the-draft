@@ -5,23 +5,39 @@
    classes reloads the page (setActiveSeason) rather than swapping
    data out from under every module that already imported it.
 
-   Order of precedence: ?season= in the URL (shareable), then the
-   last choice saved on this device, then the newest class.
+   Order of precedence: ?season= in the URL (shareable), then the last
+   choice made in Settings on this device, then the newest class.
+
+   A saved choice remembers which class was newest when it was made
+   ({ id, latest }) and only holds while that is still true. Otherwise a
+   device that once looked at an old class would stay on it forever and
+   never see the next class when it ships; instead, a new class resets
+   everyone to the newest and they can switch back if they want.
    ============================================================ */
 import { SEASONS, SEASON_IDS, LATEST_SEASON_ID, LEGACY_SEASON_ID } from './seasons/index.js';
 
 const SEASON_STORAGE_KEY = 'teamDashboardSeason';
 
+// Pure so it can be unit-tested (tests/season.test.mjs).
+export function chooseSeasonId({ fromUrl, saved, ids, latest }){
+  if(fromUrl && ids.includes(fromUrl)) return fromUrl;
+  if(saved && ids.includes(saved.id) && saved.latest === latest) return saved.id;
+  return latest;
+}
+
+function loadSavedChoice(){
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEASON_STORAGE_KEY));
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (e){
+    return null;   // absent, unreadable, or an older plain-string value: treat as no choice
+  }
+}
+
 function resolveActiveSeasonId(){
-  try {
-    const fromUrl = new URLSearchParams(window.location.search).get('season');
-    if(fromUrl && SEASONS[fromUrl]) return fromUrl;
-  } catch (e){}
-  try {
-    const saved = localStorage.getItem(SEASON_STORAGE_KEY);
-    if(saved && SEASONS[saved]) return saved;
-  } catch (e){}
-  return LATEST_SEASON_ID;
+  let fromUrl = null;
+  try { fromUrl = new URLSearchParams(window.location.search).get('season'); } catch (e){}
+  return chooseSeasonId({ fromUrl, saved: loadSavedChoice(), ids: SEASON_IDS, latest: LATEST_SEASON_ID });
 }
 
 export const ACTIVE_SEASON_ID = resolveActiveSeasonId();
@@ -43,12 +59,19 @@ export function withSeasonQuery(url){
   return ACTIVE_SEASON_ID === LEGACY_SEASON_ID ? url : `${url}?season=${ACTIVE_SEASON_ID}`;
 }
 
+// Switches class and reloads (see the header for why). Choosing the newest
+// class clears the saved choice and the ?season= pin, so it goes back to
+// simply following "newest"; choosing an older one remembers it.
 export function setActiveSeason(id){
   if(!SEASONS[id]) return;
-  try { localStorage.setItem(SEASON_STORAGE_KEY, id); } catch (e){}
+  const isLatest = id === LATEST_SEASON_ID;
+  try {
+    if(isLatest) localStorage.removeItem(SEASON_STORAGE_KEY);
+    else localStorage.setItem(SEASON_STORAGE_KEY, JSON.stringify({ id, latest: LATEST_SEASON_ID }));
+  } catch (e){}
   try {
     const url = new URL(window.location.href);
-    url.searchParams.set('season', id);
+    if(isLatest) url.searchParams.delete('season'); else url.searchParams.set('season', id);
     window.location.href = url.toString();
   } catch (e){
     window.location.reload();
