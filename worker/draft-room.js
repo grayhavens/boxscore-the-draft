@@ -48,9 +48,11 @@
 
    GET .../result returns the finished board as JSON — what
    tools/export-draft.mjs turns into the next season's data file.
+   GET .../status is a few bytes of "is it live, whose pick" for the
+   in-progress banner on the app's other pages (js/draft-live.js).
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { reduce, createState, publicState } from '../js/draft-engine.js';
+import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
 import { totalPicks, teamById } from '../js/draft-rules.js';
 
 // Mirrors KNOWN_DRAFT_TEAM_IDS in rundown-proxy.js / DRAFT_TEAMS in
@@ -115,7 +117,25 @@ export class DraftRoom extends DurableObject {
     if(new URL(request.url).pathname.endsWith('/result')){
       return new Response(JSON.stringify(this.result()), { headers: { 'Content-Type': 'application/json' } });
     }
+    if(new URL(request.url).pathname.endsWith('/status')){
+      return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
+    }
     return new Response('Expected a WebSocket upgrade', { status: 426 });
+  }
+
+  // Just enough for a page outside the draft room to say the draft is on
+  // and whose pick it is.
+  status(){
+    const { state } = this;
+    const clock = onTheClock(state);
+    return {
+      phase: state.phase,
+      running: state.phase === 'draft' && !!state.clock.running,
+      slot: clock ? clock.slot : null,
+      owner: clock ? clock.owner : null,
+      drafters: state.config.drafters.length,
+      total: totalPicks(state.config)
+    };
   }
 
   // The board in the order it was drafted, each pick carrying the full

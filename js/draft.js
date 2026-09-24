@@ -27,7 +27,7 @@ import { DRAFT_TEAMS } from './data.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
-import { teamGroup, teamGroupLabel, teamInGroup, leagueGroups } from './draft-groups.js';
+import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-groups.js';
 import { onTheClock } from './draft-engine.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
@@ -50,7 +50,22 @@ const POOL_LIMIT = 60;
 const POOL_LIMIT_PHONE = 40;
 const LEAGUE_PREVIEW = 5;   // Rank + All: top teams shown per league section
 const SORT_KEY = 'draftPoolSort';
-const SORTS = [{ key: 'az', label: 'A–Z' }, { key: 'rank', label: 'Rank' }];
+const SORTS = [
+  { key: 'rank', label: 'Rank', sub: 'Best available first' },
+  { key: 'az', label: 'A–Z', sub: 'Alphabetical' }
+];
+
+// Inline SVG icons (currentColor, so they follow the button's color).
+const svg = (w, h, body) => `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const ICON = {
+  chevL: svg(14, 14, '<path d="M8.5 3 4.5 7l4 4" stroke-width="1.6"/>'),
+  chevR: svg(14, 14, '<path d="M5.5 3 9.5 7l-4 4" stroke-width="1.6"/>'),
+  chevD: svg(10, 10, '<path d="M2 3.5 5 6.5 8 3.5"/>'),
+  star: svg(20, 20, '<polygon points="10,2 12.4,7.2 18,7.6 13.7,11.3 15,16.8 10,13.9 5,16.8 6.3,11.3 2,7.6 7.6,7.2"/>'),
+  toTop: svg(12, 12, '<path d="M2 1.5h8M6 10.5V4M3 6.5 6 3.5l3 3"/>'),
+  close: svg(10, 10, '<path d="M2 2l6 6M8 2 2 8"/>'),
+  grip: '<svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" fill="currentColor"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="6" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6" cy="12" r="1.3"/></svg>'
+};
 
 function loadSort(){
   try { return localStorage.getItem(SORT_KEY) === 'rank' ? 'rank' : 'az'; } catch(e){ return 'az'; }
@@ -86,7 +101,9 @@ function errorText(result){
 
 const ui = {
   filter: 'all',
-  group: null,            // conference/division within the filtered league, or null
+  conf: null,             // conference within the filtered league, or null
+  div: null,              // division within the filtered league (always inside `conf`), or null
+  menu: null,             // open Available popover: null | 'conf' | 'div' | 'sort'
   sort: loadSort(),       // Available list order: 'az' or 'rank' (remembered per device)
   search: '',
   showAll: false,
@@ -104,7 +121,9 @@ const ui = {
   editSlot: null,
   trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
   mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
-  rosterOf: null          // roster panel: drafter picked from its dropdown, or null for mine
+  rosterOf: null,         // roster panel: drafter picked from its dropdown, or null for mine
+  queueDrag: null,        // team id being dragged in the queue
+  queueFocus: null        // team id to refocus in the queue after a keyboard reorder
 };
 
 // Which side panels are folded away (desktop/tablet only), remembered per
@@ -205,24 +224,17 @@ function toast(message){
 
 // ---- Header status ----
 
+// The header pill only speaks up about the connection. Round, pick and
+// phase already show in the room itself (the on-the-clock card, the
+// lobby, the "Draft complete" card), so repeating them here was noise.
 function statusPill(d){
   const el = document.getElementById('draft-status');
   if(!el) return;
-  let label = 'Connecting…', dot = 'var(--text-mute)';
-  if(draftStore.status === 'offline' && !d){ label = 'Offline'; }
-  if(d){
-    const { s } = d;
-    if(s.phase === 'lobby'){ label = 'Pre-draft lobby'; dot = 'var(--accent)'; }
-    else if(s.phase === 'done'){ label = 'Draft complete'; dot = 'var(--win)'; }
-    else {
-      const slot = d.clockInfo ? d.clockInfo.slot : d.total - 1;
-      const round = Math.floor(slot / d.n) + 1;
-      label = `${d.running ? 'Live' : 'Paused'} · Round ${round} · Pick ${slot + 1} of ${d.total}`;
-      dot = d.running ? 'var(--live)' : 'var(--text-sub)';
-    }
-    if(draftStore.status === 'offline') label += ' · reconnecting';
-  }
-  el.innerHTML = `<i style="background:${dot}"></i>${esc(label)}`;
+  let label = null;
+  if(draftStore.status === 'offline') label = d ? 'Reconnecting…' : 'Offline';
+  else if(!d) label = 'Connecting…';
+  el.hidden = !label;
+  el.innerHTML = label ? `<i style="background:var(--text-mute)"></i>${esc(label)}` : '';
   const sub = document.getElementById('draft-sub');
   if(sub){
     const year = Number(LATEST_SEASON_ID) + 1;
@@ -297,6 +309,9 @@ function lobbyHtml(d){
 
 // ---- Live room shell ----
 
+// The phone gets a shorter placeholder so it isn't cut off.
+const searchInput = placeholder => `<input id="dr-search" class="dr-search" type="search" placeholder="${placeholder}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">`;
+
 function shellHtml(){
   return `
     <div class="dr-layout" data-left-tab="${ui.leftTab}" data-collapsed="${collapsedKeys().join(' ')}">
@@ -305,11 +320,11 @@ function shellHtml(){
         <button class="dr-tab" data-tab="team" onclick="draftLeftTab('team')">My team</button>
       </div>
       <section class="dr-col dr-left">
-        <button class="dr-rail" onclick="draftTogglePanel('left')" aria-label="Expand Available" aria-expanded="false"><span class="dr-caret" aria-hidden="true">&rsaquo;</span><span class="dr-rail-label">Available</span><span class="dr-rail-count" id="dr-rail-left-count"></span></button>
-        <div class="dr-col-head"><h2>Available</h2><span class="dr-head-right"><span id="dr-avail-count" class="dr-dim"></span><span id="dr-sort" class="dr-sort"></span></span><button class="dr-caret" onclick="draftTogglePanel('left')" aria-label="Collapse Available" aria-expanded="true">&lsaquo;</button></div>
-        <input id="dr-search" class="dr-search" type="search" placeholder="Search or add a college team" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">
-        <div id="dr-chips" class="dr-chips"></div>
-        <div id="dr-groups" class="dr-chips dr-groups"></div>
+        <button class="dr-rail" onclick="draftTogglePanel('left')" aria-label="Expand Available" aria-expanded="false"><span class="dr-caret" aria-hidden="true">${ICON.chevR}</span><span class="dr-rail-label">Available</span><span class="dr-rail-count" id="dr-rail-left-count"></span></button>
+        <div class="dr-col-head"><h2>Available</h2><span id="dr-avail-count" class="dr-dim"></span><button class="dr-caret" onclick="draftTogglePanel('left')" aria-label="Collapse Available" aria-expanded="true">${ICON.chevL}</button></div>
+        ${searchInput('Search teams, conferences, or add a school')}
+        <div id="dr-chips" class="dr-ltabs"></div>
+        <div id="dr-groups" class="dr-scope"></div>
         <div id="dr-pool" class="dr-pool"></div>
       </section>
       <section class="dr-col dr-center">
@@ -317,7 +332,7 @@ function shellHtml(){
         <div class="dr-board-scroll" id="dr-board-scroll"><div id="dr-board"></div></div>
       </section>
       <aside class="dr-col dr-right">
-        <button class="dr-rail" onclick="draftTogglePanel('right')" aria-label="Expand My roster and queue" aria-expanded="false"><span class="dr-caret" aria-hidden="true">&lsaquo;</span><span class="dr-rail-label">My roster</span><span class="dr-rail-count" id="dr-rail-right-count"></span></button>
+        <button class="dr-rail" onclick="draftTogglePanel('right')" aria-label="Expand My roster and queue" aria-expanded="false"><span class="dr-caret" aria-hidden="true">${ICON.chevL}</span><span class="dr-rail-label">My roster</span><span class="dr-rail-count" id="dr-rail-right-count"></span></button>
         <div id="dr-roster"></div>
         <div id="dr-queue"></div>
       </aside>
@@ -357,89 +372,135 @@ function orderedPool(pool){
   return orderedCache.list;
 }
 
+// Rows in a single league's list skip the league tag (the tab already says
+// it); the All list leads with it.
 function poolRowHtml(d, team){
   const lg = leagueUi(team.league);
   const queued = draftStore.queue.includes(team.id);
   const fits = teamFits(d, team);
   let action = '';
-  if(!fits) action = '<span class="dr-full">Full</span>';
+  if(!fits) action = `<span class="dr-full">${lg.label} full</span>`;
   else if(d.canAct){
     action = `<button class="dr-draft-btn mine" onclick="draftClick('${team.id}')">Draft</button>`;
   }
-  const meta = team.custom ? 'Write-in' : (team.rank ? `#${team.rank}` : '');
+  const inLeague = ui.filter !== 'all';
+  const parts = [];
+  if(!inLeague) parts.push(`<i style="background:${lg.color}"></i>${lg.label}`);
+  if(team.custom) parts.push('Write-in');
+  else if(team.rank) parts.push(`#${team.rank}`);
   // The group label narrows the list to that division (or conference).
   const g = teamGroup(team);
-  const group = g
-    ? `<button class="dr-row-group" onclick="draftSetGroup('${team.league}', '${esc(g.div || g.conf)}')">${esc(teamGroupLabel(team))}</button>`
-    : '';
+  if(g){
+    const label = inLeague ? (g.div || g.conf) : teamGroupLabel(team);
+    parts.push(`<button class="dr-row-group" title="Show only this group" onclick="draftSetScope('${team.league}', '${esc(g.conf)}', '${esc(g.div || '')}')">${esc(label)}</button>`);
+  }
   return `<div class="dr-row${fits ? '' : ' dim'}">
     ${tileHtml(team, 'md')}
     <div class="dr-row-main">
       <div class="dr-row-name">${esc(team.name)}</div>
-      <div class="dr-row-meta"><i style="background:${lg.color}"></i>${lg.label}${meta ? ` · ${meta}` : ''}${group ? ` · ${group}` : ''}</div>
+      <div class="dr-row-meta">${parts.join('<span>·</span>')}</div>
     </div>
-    <button class="dr-star${queued ? ' on' : ''}" onclick="draftToggleQueue('${team.id}')" aria-label="${queued ? 'Remove from queue' : 'Add to queue'}" aria-pressed="${queued}">${queued ? '★' : '☆'}</button>
+    <button class="dr-star${queued ? ' on' : ''}" onclick="draftToggleQueue('${team.id}')" aria-label="${queued ? 'Remove from queue' : 'Add to queue'}" aria-pressed="${queued}">${ICON.star}</button>
     ${action}
   </div>`;
 }
 
-function writeInCardHtml(d, filtered){
-  const q = ui.search.trim();
-  if(d.s.phase !== 'draft' || q.length < 3) return '';
-  if(!(ui.filter === 'all' || WRITE_IN_LEAGUES.includes(ui.filter))) return '';
-  const lower = q.toLowerCase();
-  const exact = d.s.pool.some(t => WRITE_IN_LEAGUES.includes(t.league) && t.name.toLowerCase() === lower);
-  if(exact) return '';
-  const targets = WRITE_IN_LEAGUES.filter(l => l in d.s.config.caps && (ui.filter === 'all' || ui.filter === l));
-  if(!targets.length) return '';
-  const copy = filtered.length
-    ? `Not seeing the right “${esc(q)}”? Add it as a write-in.`
-    : `“${esc(q)}” isn't on the board. Add it as a write-in college team.`;
-  return `<div class="dr-writein"><div>${copy}</div><div class="dr-writein-btns">${targets.map(l => `<button class="dr-btn dr-btn-gold" onclick="draftAddWriteIn('${l}')">Add to ${leagueUi(l).label}</button>`).join('')}</div></div>`;
+// League tabs: All + each league in the draft, with how many are left.
+function leagueTabsHtml(d, available){
+  const counts = {};
+  available.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
+  const tabs = [{ key: 'all', label: 'All', n: available.length }]
+    .concat(Object.keys(d.s.config.caps).map(k => ({ key: k, label: leagueUi(k).label, n: counts[k] || 0 })));
+  return tabs.map(c =>
+    `<button class="dr-ltab${ui.filter === c.key ? ' on' : ''}" onclick="draftSetFilter('${c.key}')" aria-pressed="${ui.filter === c.key}">${c.label}<span>${c.n}</span></button>`
+  ).join('');
+}
+
+function menuItemHtml(label, n, on, onclick){
+  return `<button class="dr-menu-item${on ? ' on' : ''}${n ? '' : ' empty'}" onclick="${onclick}"><span>${esc(label)}</span><span class="dr-menu-n">${n}</span></button>`;
+}
+
+function dropdownHtml(key, on, label, items){
+  const open = ui.menu === key;
+  return `<div class="dr-dd">
+    <button class="dr-dd-btn${on ? ' on' : ''}" onclick="draftMenu('${key}')" aria-haspopup="true" aria-expanded="${open}">${esc(label)}${ICON.chevD}</button>
+    ${open ? `<div class="dr-menu" role="menu">${items}</div>` : ''}
+  </div>`;
+}
+
+// The row under the league tabs: Conference / Division menus (when the
+// league has them), or a hint, and the sort menu on the right.
+function scopeRowHtml(d, available, filtered){
+  const parts = [];
+  if(ui.menu) parts.push('<div class="dr-menu-back" onclick="draftMenu(null)"></div>');
+  const league = ui.filter;
+  const confs = league === 'all' ? [] : leagueConfs(league, d.s.pool);
+  const divsAll = league === 'all' ? [] : leagueDivs(league, d.s.pool);
+  const lgTeams = available.filter(t => t.league === league);
+  const inConf = c => lgTeams.filter(t => { const g = teamGroup(t); return g && g.conf === c; }).length;
+  const inDiv = v => lgTeams.filter(t => { const g = teamGroup(t); return g && g.div === v; }).length;
+  if(confs.length){
+    const confScope = ui.conf ? inConf(ui.conf) : lgTeams.length;
+    const items = menuItemHtml('All conferences', lgTeams.length, !ui.conf, 'draftSetConf(null)')
+      + confs.map(c => menuItemHtml(c, inConf(c), ui.conf === c, `draftSetConf('${esc(c)}')`)).join('');
+    parts.push(dropdownHtml('conf', !!ui.conf, ui.conf ? `${ui.conf} · ${confScope}` : 'All conferences', items));
+    if(divsAll.length){
+      const divs = ui.conf ? divsAll.filter(v => v.conf === ui.conf) : divsAll;
+      const items = menuItemHtml(ui.conf ? `All ${ui.conf}` : 'All divisions', confScope, !ui.div, 'draftSetDiv(null)')
+        + divs.map(v => menuItemHtml(v.div, inDiv(v.div), ui.div === v.div, `draftSetDiv('${esc(v.div)}')`)).join('');
+      parts.push(dropdownHtml('div', !!ui.div, ui.div ? `${ui.div} · ${inDiv(ui.div)}` : 'All divisions', items));
+    }
+  } else {
+    const hint = league === 'all' && ui.sort === 'rank' ? `Top ${LEAGUE_PREVIEW} per league` : `${filtered.length} teams`;
+    parts.push(`<span class="dr-scope-hint">${hint}</span>`);
+  }
+  const sort = SORTS.find(o => o.key === ui.sort);
+  const sortItems = SORTS.map(o =>
+    `<button class="dr-menu-item dr-menu-sort${ui.sort === o.key ? ' on' : ''}" onclick="draftSetSort('${o.key}')"><span>${o.label}</span><small>${o.sub}</small></button>`).join('');
+  parts.push(`<div class="dr-dd dr-dd-sort">
+    <button class="dr-sort-btn" onclick="draftMenu('sort')" aria-haspopup="true" aria-expanded="${ui.menu === 'sort'}" aria-label="Sort: ${sort.label}">${sort.label}${ICON.chevD}</button>
+    ${ui.menu === 'sort' ? `<div class="dr-menu" role="menu">${sortItems}</div>` : ''}
+  </div>`);
+  return parts.join('');
 }
 
 function renderPool(d){
   const available = orderedPool(d.s.pool).filter(t => !d.taken.has(t.id));
-  setRegion('dr-sort', SORTS.map(o =>
-    `<button class="${ui.sort === o.key ? 'on' : ''}" onclick="draftSetSort('${o.key}')" aria-pressed="${ui.sort === o.key}">${o.label}</button>`
-  ).join(''));
-  const counts = {};
-  available.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
 
-  const chips = [{ key: 'all', label: 'All', color: null, n: available.length }]
-    .concat(Object.keys(d.s.config.caps).map(k => ({ key: k, label: leagueUi(k).label, color: leagueUi(k).color, n: counts[k] || 0 })));
-  setRegion('dr-chips', chips.map(c =>
-    `<button class="dr-chip${ui.filter === c.key ? ' on' : ''}" onclick="draftSetFilter('${c.key}')">${c.color ? `<i style="background:${c.color}"></i>` : ''}${c.label}<span>${c.n}</span></button>`
-  ).join(''));
-
-  // Second row: the selected league's conferences/divisions, with how
-  // many teams each still has available.
-  const groups = ui.filter === 'all' ? [] : leagueGroups(ui.filter, d.s.pool);
-  if(ui.group && !groups.includes(ui.group)) ui.group = null;
-  setRegion('dr-groups', groups.map(k => {
-    const n = available.filter(t => t.league === ui.filter && teamInGroup(t, k)).length;
-    return `<button class="dr-chip${ui.group === k ? ' on' : ''}${n ? '' : ' empty'}" onclick="draftSetGroup('${ui.filter}', '${esc(k)}')">${esc(k)}<span>${n}</span></button>`;
-  }).join(''));
+  // Drop a conference/division that no longer applies to the selected league.
+  if(ui.filter === 'all' || (ui.conf && !leagueConfs(ui.filter, d.s.pool).includes(ui.conf))){ ui.conf = null; ui.div = null; }
+  if(ui.div && !leagueDivs(ui.filter, d.s.pool, ui.conf).some(v => v.div === ui.div)) ui.div = null;
 
   const q = ui.search.trim().toLowerCase();
-  const filtered = available.filter(t =>
-    (ui.filter === 'all' || t.league === ui.filter) &&
-    (!ui.group || teamInGroup(t, ui.group)) &&
-    (!q || t.name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q) || teamGroupLabel(t).toLowerCase().includes(q))
-  );
+  const filtered = available.filter(t => {
+    if(ui.filter !== 'all' && t.league !== ui.filter) return false;
+    if(ui.conf || ui.div){
+      const g = teamGroup(t);
+      if(!g || (ui.conf && g.conf !== ui.conf) || (ui.div && g.div !== ui.div)) return false;
+    }
+    return !q || t.name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q) || teamGroupLabel(t).toLowerCase().includes(q);
+  });
+
+  setRegion('dr-chips', leagueTabsHtml(d, available));
+  setRegion('dr-groups', scopeRowHtml(d, available, filtered));
+
+  let list;
   if(ui.sort === 'rank' && ui.filter === 'all'){
-    setRegion('dr-pool', rankSectionsHtml(d, filtered, !!q) + writeInCardHtml(d, filtered));
-    const count = document.getElementById('dr-avail-count');
-    if(count) count.textContent = `${available.length} left`;
-    const railCount = document.getElementById('dr-rail-left-count');
-    if(railCount) railCount.textContent = String(available.length);
-    return;
+    list = rankSectionsHtml(d, filtered, !!q);
+  } else {
+    const limit = isPhone() ? POOL_LIMIT_PHONE : POOL_LIMIT;
+    const shown = ui.showAll ? filtered : filtered.slice(0, limit);
+    const scope = ui.div || ui.conf || (ui.filter === 'all' ? 'teams' : leagueUi(ui.filter).label);
+    const more = filtered.length > limit
+      ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? 'Show fewer' : `See all ${filtered.length} ${esc(scope)}`}</button>` : '';
+    list = shown.map(t => poolRowHtml(d, t)).join('') + more;
   }
-  const limit = isPhone() ? POOL_LIMIT_PHONE : POOL_LIMIT;
-  const shown = ui.showAll ? filtered : filtered.slice(0, limit);
-  const more = filtered.length > limit
-    ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? `Show ${ui.sort === 'rank' ? 'top' : 'first'} ${limit}` : `Show all ${filtered.length}`}</button>` : '';
-  setRegion('dr-pool', shown.map(t => poolRowHtml(d, t)).join('') + more + writeInCardHtml(d, filtered));
+  if(!filtered.length && !q){
+    const back = ui.conf || ui.div
+      ? `<button class="dr-link" onclick="draftSetConf(null)">Show all ${ui.filter === 'all' ? 'teams' : leagueUi(ui.filter).label}</button>` : '';
+    list = `<div class="dr-empty">No teams left here. ${back}</div>`;
+  }
+  setRegion('dr-pool', list + writeInCardHtml(d, filtered));
   const count = document.getElementById('dr-avail-count');
   if(count) count.textContent = `${available.length} left`;
   const railCount = document.getElementById('dr-rail-left-count');
@@ -460,6 +521,21 @@ function rankSectionsHtml(d, filtered, searching){
     return `<div class="dr-section-head"><i style="background:${lg.color}"></i>${lg.label}<span>${teams.length} left</span></div>`
       + shown.map(t => poolRowHtml(d, t)).join('') + more;
   }).join('');
+}
+
+function writeInCardHtml(d, filtered){
+  const q = ui.search.trim();
+  if(d.s.phase !== 'draft' || q.length < 3) return '';
+  if(!(ui.filter === 'all' || WRITE_IN_LEAGUES.includes(ui.filter))) return '';
+  const lower = q.toLowerCase();
+  const exact = d.s.pool.some(t => WRITE_IN_LEAGUES.includes(t.league) && t.name.toLowerCase() === lower);
+  if(exact) return '';
+  const targets = WRITE_IN_LEAGUES.filter(l => l in d.s.config.caps && (ui.filter === 'all' || ui.filter === l));
+  if(!targets.length) return '';
+  const copy = filtered.length
+    ? `Not seeing the right “${esc(q)}”? Add it as a write-in.`
+    : `“${esc(q)}” isn't on the board. Add it as a write-in college team.`;
+  return `<div class="dr-writein"><div>${copy}</div><div class="dr-writein-btns">${targets.map(l => `<button class="dr-btn dr-btn-gold" onclick="draftAddWriteIn('${l}')">Add to ${leagueUi(l).label}</button>`).join('')}</div></div>`;
 }
 
 // ---- Center: clock card, up next, board ----
@@ -491,9 +567,10 @@ function clockCardHtml(d){
       <div class="dr-clock-main">
         <div class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</div>
         <div class="dr-clock-name">${esc(drafterName(info.owner))}</div>
-        <div class="dr-clock-sub">Round ${round} · Pick ${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</div>
+        ${via ? `<div class="dr-clock-sub">via ${esc(drafterName(via))}</div>` : ''}
       </div>
       <div class="dr-timer-box">
+        <div class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</div>
         <div class="dr-timer" id="dr-timer">0:00</div>
         <div class="dr-bar"><span id="dr-bar"></span></div>
         <div class="dr-timer-note" id="dr-timer-note"></div>
@@ -507,9 +584,9 @@ function clockCardHtml(d){
     <div class="dr-clock-card strip${mine ? ' mine' : ''}">
       <span class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</span>
       <span class="dr-clock-name">${esc(drafterName(info.owner))}</span>
-      <span class="dr-clock-sub">R${round} · P${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</span>
+      ${via ? `<span class="dr-clock-sub">via ${esc(drafterName(via))}</span>` : ''}
       ${proxyBtn}
-      <span class="dr-strip-timer"><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
+      <span class="dr-strip-timer"><span class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</span><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
     </div>
     ${banners}`;
 }
@@ -564,7 +641,17 @@ function rosterPicks(d, who){
   const { s } = d;
   return Object.keys(s.picks)
     .filter(k => (s.order ? ownerOf(Number(k), s.order, s.overrides) : s.picks[k].by) === who)
-    .map(k => teamById(s.pool, s.picks[k].team)).filter(Boolean);
+    .map(k => {
+      const team = teamById(s.pool, s.picks[k].team);
+      return team && { ...team, slot: Number(k) };
+    }).filter(Boolean);
+}
+
+// A filled roster slot: just the logo, with the team's name (and the pick
+// it came from) in a tooltip on hover or tap — see the tooltip handlers below.
+function rosterTileHtml(d, team){
+  const tip = `${leagueUi(team.league).label} · Pick ${pickLabel(team.slot, d.n)}`;
+  return `<button type="button" class="dr-slot-team" data-tip="${esc(team.name)}" data-tip-sub="${esc(tip)}" aria-label="${esc(team.name)}, ${esc(tip)}">${tileHtml(team, 'sm')}</button>`;
 }
 
 function rosterHtml(d){
@@ -574,7 +661,7 @@ function rosterHtml(d){
   const rows = Object.keys(s.config.caps).filter(k => s.config.caps[k] > 0).map(k => {
     const cap = s.config.caps[k];
     const have = mine.filter(t => t.league === k);
-    const slots = Array.from({ length: cap }, (_, i) => have[i] ? tileHtml(have[i], 'sm') : '<span class="dr-slot"></span>').join('');
+    const slots = Array.from({ length: cap }, (_, i) => have[i] ? rosterTileHtml(d, have[i]) : '<span class="dr-slot"></span>').join('');
     const lg = leagueUi(k);
     return `<div class="dr-roster-row${have.length >= cap ? ' full' : ''}"><span class="dr-roster-lg" style="color:${lg.color}">${lg.label}</span><span class="dr-slots">${slots}</span><span class="dr-roster-n">${have.length}/${cap}</span></div>`;
   }).join('');
@@ -582,7 +669,7 @@ function rosterHtml(d){
   if(railCount) railCount.textContent = `${rosterPicks(d, d.me).length}/${d.rounds}`;
   const options = (s.order || s.config.drafters).map(id =>
     `<option value="${esc(id)}"${id === who ? ' selected' : ''}>${esc(drafterName(id))}${id === d.me ? ' (Yours)' : ''}</option>`).join('');
-  return `<div class="dr-col-head"><h2>Roster</h2><label class="dr-roster-pick"><select onchange="draftViewRoster(this.value)" aria-label="Whose roster to show">${options}</select></label><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">&rsaquo;</button></div>${rows}`;
+  return `<div class="dr-col-head"><h2>Roster</h2><label class="dr-roster-pick"><select onchange="draftViewRoster(this.value)" aria-label="Whose roster to show">${options}</select>${ICON.chevD}</label><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">${ICON.chevR}</button></div>${rows}`;
 }
 
 function queueTeams(d){
@@ -602,9 +689,12 @@ function queueHtml(d){
       const lg = leagueUi(t.league);
       const tag = isTop ? `<span class="dr-tag gold">Top fit · ${lg.label}</span>` : (fits ? `<span class="dr-tag">${lg.label}</span>` : `<span class="dr-tag dim">${lg.label} full</span>`);
       const draft = isTop && d.myTurn ? `<button class="dr-draft-btn mine wide" onclick="draftClick('${t.id}')">Draft ${esc(t.name)}</button>` : '';
-      return `<div class="dr-q${isTop && d.myTurn ? ' top' : ''}${fits ? '' : ' dim'}">
-        <div class="dr-q-row"><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-name">${esc(t.name)}</span>${tag}
-          <span class="dr-q-ctl"><button onclick="draftMoveQueue('${t.id}',-1)" aria-label="Move up">▲</button><button onclick="draftMoveQueue('${t.id}',1)" aria-label="Move down">▼</button><button onclick="draftToggleQueue('${t.id}')" aria-label="Remove">×</button></span></div>
+      // Drag the grip (or the card) to reorder; Alt+↑/↓ moves a focused card.
+      return `<div class="dr-q${isTop && d.myTurn ? ' top' : ''}${fits ? '' : ' dim'}${ui.queueDrag === t.id ? ' dragging' : ''}" data-id="${t.id}" tabindex="0" draggable="true"
+          aria-label="${esc(t.name)}, queue position ${i + 1}. Alt plus arrow keys to move."
+          ondragstart="draftQueueDrag(event, '${t.id}')" ondragover="draftQueueOver(event)" ondrop="draftQueueDrop(event, '${t.id}')" ondragend="draftQueueDragEnd()">
+        <div class="dr-q-row"><span class="dr-q-grip" title="Drag to reorder">${ICON.grip}</span><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-main"><span class="dr-q-name">${esc(t.name)}</span>${tag}</span>
+          <span class="dr-q-ctl">${i > 0 ? `<button onclick="draftQueueTop('${t.id}')" title="Move to top" aria-label="Move ${esc(t.name)} to top">${ICON.toTop}</button>` : ''}<button onclick="draftToggleQueue('${t.id}')" aria-label="Remove ${esc(t.name)} from queue">${ICON.close}</button></span></div>
         ${draft}
       </div>`;
     }).join('');
@@ -710,12 +800,9 @@ function phoneShellHtml(){
       </div>
       <section class="dm-pane" data-pane="pick">
         <div id="dm-queue-top"></div>
-        <div class="dm-search-row">
-          <input id="dr-search" class="dr-search" type="search" placeholder="Search or add a college team" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">
-          <span id="dr-sort" class="dr-sort"></span>
-        </div>
-        <div id="dr-chips" class="dr-chips dm-chips"></div>
-        <div id="dr-groups" class="dr-chips dr-groups"></div>
+        ${searchInput('Search or add a school')}
+        <div id="dr-chips" class="dr-ltabs"></div>
+        <div id="dr-groups" class="dr-scope"></div>
         <div id="dr-pool" class="dr-pool"></div>
       </section>
       <section class="dm-pane" data-pane="board"><div id="dm-board"></div></section>
@@ -799,8 +886,22 @@ function renderLive(d){
   const cell = document.querySelector('.dr-cell[data-current]');
   if(cell && (!hadBoard || cell.dataset.scrolled !== String(d.clockInfo && d.clockInfo.slot))){
     cell.dataset.scrolled = String(d.clockInfo && d.clockInfo.slot);
-    cell.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: hadBoard ? 'smooth' : 'auto' });
+    followCurrentPick(hadBoard ? 'smooth' : 'auto');
   }
+}
+
+// Centre the pick on the clock inside the board's own scroller. Unlike
+// scrollIntoView this never scrolls an ancestor, so the page can't jump (iOS).
+function followCurrentPick(behavior){
+  const scroller = document.getElementById('dr-board-scroll');
+  const cell = scroller && scroller.querySelector('.dr-cell[data-current]');
+  if(!cell) return;
+  const box = scroller.getBoundingClientRect(), at = cell.getBoundingClientRect();
+  scroller.scrollTo({
+    top: scroller.scrollTop + (at.top - box.top) - scroller.clientHeight / 2 + at.height / 2,
+    left: scroller.scrollLeft + (at.left - box.left) - scroller.clientWidth / 2 + at.width / 2,
+    behavior
+  });
 }
 
 function render(){
@@ -831,6 +932,11 @@ function render(){
   renderCommBar(d);
   renderModal(d);
   applyPendingSelect(d);
+  if(ui.queueFocus){
+    const item = document.querySelector(`.dr-q[data-id="${ui.queueFocus}"]`);
+    ui.queueFocus = null;
+    if(item) item.focus();
+  }
 }
 
 function scheduleRender(){
@@ -891,18 +997,36 @@ async function run(action, from){
   return result;
 }
 
-window.draftSetFilter = key => { ui.filter = key; ui.group = null; ui.showAll = false; scheduleRender(); };
-// Tapping the selected group again clears it.
-window.draftSetGroup = (league, group) => {
-  ui.group = ui.filter === league && ui.group === group ? null : group;
-  ui.filter = league;
-  ui.showAll = false;
+window.draftSetFilter = key => { ui.filter = key; ui.conf = ui.div = ui.menu = null; ui.showAll = false; scheduleRender(); };
+// Choosing a different conference drops a division that isn't inside it.
+window.draftSetConf = conf => {
+  const d = derive();
+  ui.conf = conf || null;
+  if(ui.div && (!ui.conf || !d || !leagueDivs(ui.filter, d.s.pool, ui.conf).some(v => v.div === ui.div))) ui.div = null;
+  ui.menu = null; ui.showAll = false;
   scheduleRender();
 };
+// A division always sets its conference too.
+window.draftSetDiv = div => {
+  const d = derive();
+  const hit = div && d ? leagueDivs(ui.filter, d.s.pool).find(v => v.div === div) : null;
+  ui.div = hit ? hit.div : null;
+  if(hit) ui.conf = hit.conf;
+  ui.menu = null; ui.showAll = false;
+  scheduleRender();
+};
+// A row's group label: jump to that league, conference and division.
+window.draftSetScope = (league, conf, div) => {
+  ui.filter = league; ui.conf = conf || null; ui.div = div || null;
+  ui.menu = null; ui.showAll = false;
+  scheduleRender();
+};
+window.draftMenu = key => { ui.menu = key && ui.menu !== key ? key : null; scheduleRender(); };
 window.draftSearch = value => { ui.search = value; ui.showAll = false; scheduleRender(); };
 window.draftSetSort = key => {
   ui.sort = key === 'rank' ? 'rank' : 'az';
   ui.showAll = false;
+  ui.menu = null;
   try { localStorage.setItem(SORT_KEY, ui.sort); } catch(e){}
   scheduleRender();
 };
@@ -924,6 +1048,46 @@ window.draftMoveQueue = (id, dir) => {
   [q[at], q[to]] = [q[to], q[at]];
   saveDraftQueue(q);
 };
+window.draftQueueTop = id => {
+  if(!draftStore.queue.includes(id)) return;
+  saveDraftQueue([id].concat(draftStore.queue.filter(x => x !== id)));
+};
+window.draftQueueDrag = (event, id) => {
+  ui.queueDrag = id;
+  event.dataTransfer.effectAllowed = 'move';
+  try { event.dataTransfer.setData('text/plain', id); } catch(e){}
+  event.currentTarget.classList.add('dragging');
+};
+window.draftQueueOver = event => { if(ui.queueDrag){ event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } };
+// Dropping on a card puts the dragged team in that card's place: above it
+// when dragging up, below it when dragging down (so the last spot is reachable).
+window.draftQueueDrop = (event, targetId) => {
+  event.preventDefault();
+  const from = ui.queueDrag;
+  ui.queueDrag = null;
+  if(!from || from === targetId) return;
+  const q = draftStore.queue.slice();
+  const at = q.indexOf(from), to = q.indexOf(targetId);
+  if(at < 0 || to < 0) return;
+  q.splice(at, 1);
+  q.splice(to, 0, from);
+  saveDraftQueue(q);
+};
+window.draftQueueDragEnd = () => {
+  ui.queueDrag = null;
+  document.querySelectorAll('.dr-q.dragging').forEach(el => el.classList.remove('dragging'));
+};
+
+document.addEventListener('keydown', event => {
+  if(!active) return;
+  if(event.key === 'Escape' && ui.menu){ ui.menu = null; scheduleRender(); return; }
+  if(!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+  const item = event.target.closest && event.target.closest('.dr-q[data-id]');
+  if(!item) return;
+  event.preventDefault();
+  ui.queueFocus = item.dataset.id;
+  window.draftMoveQueue(item.dataset.id, event.key === 'ArrowUp' ? -1 : 1);
+});
 
 // One tap drafts. The commissioner can undo or change any pick, so a stray
 // tap is cheap to fix and the extra "Confirm" step only cost time on the clock.
@@ -944,11 +1108,11 @@ window.draftAddWriteIn = async league => {
   const name = ui.search.trim();
   const result = await run({ type: 'addWriteIn', league, name });
   if(result.ok){
-    ui.group = null; ui.filter = league;
+    ui.conf = ui.div = null; ui.filter = league;
     ui.pendingSelect = name;
   } else if(result.error === 'exists' && result.detail){
     const twin = draftStore.pool.find(t => t.id === result.detail);
-    if(twin){ ui.group = null; ui.filter = twin.league; ui.search = twin.name; syncSearchInput(); }
+    if(twin){ ui.conf = ui.div = null; ui.filter = twin.league; ui.search = twin.name; syncSearchInput(); }
   }
   scheduleRender();
 };
@@ -965,7 +1129,7 @@ function applyPendingSelect(d){
   const hit = d.s.pool.find(t => t.custom && t.name.toLowerCase() === ui.pendingSelect.toLowerCase());
   if(!hit) return;
   ui.pendingSelect = null;
-  ui.group = null; ui.filter = hit.league;
+  ui.conf = ui.div = null; ui.filter = hit.league;
   ui.search = hit.name;
   syncSearchInput();
   scheduleRender();
@@ -1060,12 +1224,66 @@ window.draftTogglePanel = key => {
   // The board just got more (or less) room: keep the pick on the clock in view
   // once the column transition has finished.
   setTimeout(() => {
-    const cell = document.querySelector('.dr-cell[data-current]');
-    if(cell) cell.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    followCurrentPick('smooth');
   }, 260);
 };
 
 window.draftMobileTab = tab => { ui.mobileTab = tab; scheduleRender(); };
+
+// ---- Roster tile tooltip ----
+// One floating tooltip, positioned from the tile, so the roster column's
+// own scrolling can't clip it. Hover shows it on desktop; a tap toggles it
+// (touch has no hover) and it hides itself after a few seconds.
+
+let tipEl = null, tipFor = null, tipTimer = null, tipSticky = false;
+
+function showTip(tile, sticky){
+  if(!tipEl){
+    tipEl = document.createElement('div');
+    tipEl.className = 'dr-tip';
+    tipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(tipEl);
+  }
+  tipFor = tile;
+  tipSticky = sticky;
+  tipEl.innerHTML = `<b>${esc(tile.dataset.tip)}</b><span>${esc(tile.dataset.tipSub || '')}</span>`;
+  tipEl.classList.add('show');
+  const r = tile.getBoundingClientRect();
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+  const above = r.top - h - 8;
+  tipEl.style.left = `${left}px`;
+  tipEl.style.top = `${above >= 8 ? above : r.bottom + 8}px`;
+  clearTimeout(tipTimer);
+  if(sticky) tipTimer = setTimeout(hideTip, 2500);
+}
+
+function hideTip(){
+  clearTimeout(tipTimer);
+  tipFor = null;
+  tipSticky = false;
+  if(tipEl) tipEl.classList.remove('show');
+}
+
+const tipTile = target => target && target.closest && target.closest('.dr-slot-team');
+document.addEventListener('mouseover', e => {
+  if(!active) return;
+  const tile = tipTile(e.target);
+  if(tile && tile !== tipFor) showTip(tile, false);
+  else if(!tile && tipFor) hideTip();
+});
+// A tap also fires a synthetic mouseover just before the click, so the hover
+// has usually opened the tooltip already: the click makes it stick, and only
+// a second tap on a tooltip that's already sticking closes it.
+document.addEventListener('click', e => {
+  if(!active) return;
+  const tile = tipTile(e.target);
+  if(tile && !(tile === tipFor && tipSticky)) showTip(tile, true);
+  else if(tipFor) hideTip();
+});
+document.addEventListener('focusin', e => { const tile = active && tipTile(e.target); if(tile) showTip(tile, false); });
+document.addEventListener('focusout', e => { if(tipTile(e.target)) hideTip(); });
+document.addEventListener('scroll', () => { if(tipFor) hideTip(); }, true);
 
 // ---- View lifecycle (called by js/board.js's switchView) ----
 
@@ -1087,6 +1305,7 @@ export function setDraftActive(on){
     ui.lastOrderKey = undefined;
     scheduleRender();
   } else {
+    hideTip();
     clearInterval(clockTimer);
     clearInterval(ui.revealTimer);
     closeDraftConnection();
