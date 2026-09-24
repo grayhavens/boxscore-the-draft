@@ -115,6 +115,28 @@ light theme works.
 - Verified against `wrangler dev`: pause/resume/undo, proxy pick, make-up pick round trip, trade, reset,
   and the phone tabs.
 
+### As built (Phase F)
+
+- `tools/export-draft.mjs` (CLI) + `tools/draft-export-lib.mjs` (pure, unit-tested) turn the room's
+  `/draft/result` into `js/seasons/<year>.js`, register it in `js/seasons/index.js` and `sw.js`, and print
+  a report. Run `node tools/export-draft.mjs --dry-run` first; the default source is the deployed room
+  "main". Nothing is deployed: review `git diff`, commit, and Pages ships it.
+- Each drafted team is copied from the previous season's entry (all live-data ids, colors, badge) with the
+  new owner. A team nobody owned last year (promoted club, expansion team, write-in school) is resolved
+  against ESPN's team list and an entry is generated (nickname/school as `name`, ESPN id and crest); those
+  lines are marked `// generated from ESPN` and listed in the report. A team ESPN can't place, or a roster
+  that isn't exactly on its caps, blocks the export (`--overrides file.json` supplies `"league:Name": id`).
+- League arrays are in pick order with favorite-only teams carried to the end; season labels follow the
+  existing pattern (NFL/CFB '27, EPL/NBA/NHL/CBB '27/'28, MLB/WNBA '28); scoring starts as a copy of the
+  previous class's; `PRIOR_SEASON_DISPLAY_LEAGUES` carries over. The Standings prior-season note now
+  derives its years from the active class.
+- Verified: a full 210-pick rehearsal room exported through the real ESPN endpoints into a class that loads
+  in the app (212 entries, 21 per drafter, live records matched by name, no console errors).
+- Still to do before draft day: the pool's design-only teams (Cardinals, Browns, Flames, Blackhawks, the
+  WNBA expansion clubs, college schools outside last year's 30) show color tiles during the draft because
+  their ESPN ids are only resolved at export; harmless, but could be pre-resolved. EPL promotion/relegation
+  and WNBA expansion still need a manual look at `js/draft-ranks.js`.
+
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
@@ -156,6 +178,33 @@ only adds a file.
 
 Extra: when a drafter goes on the clock, the room posts a system message into the existing chat as a free
 notification channel.
+
+## Before draft day
+
+A running checklist of things to do ahead of the real draft. None of these block the draft room from
+working; they are hygiene that makes the day smoother. Anyone asking "what do I need to do before the
+draft?" should start here.
+
+**Non-critical, noted at the end of Phase F (the owner plans to handle these)**
+
+1. **Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.** Teams that weren't in
+   the previous season's `TEAM_META` show plain color tiles in the draft room instead of crests, because
+   their ESPN ids are only looked up at export time (`tools/export-draft.mjs`). Today that is: NFL
+   Cardinals and Browns, NHL Flames and Blackhawks, the WNBA clubs outside the previous 10 (Storm, Sun,
+   Sparks, Fire, Tempo, ...), and any college school beyond last year's 30 in `js/draft-ranks.js`. The
+   export still resolves them correctly, so this is cosmetic. A fix would resolve them once (ESPN's team
+   lists) and feed `espnTeamId`/`badgeUrl` into `js/draft-pool.js`.
+2. **Verify the ranked team lists against the real field.** `js/draft-ranks.js` comes from the design
+   handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
+   the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
+   list are simply appended unranked, and a team listed but no longer real would be draftable.
+
+**Also needed (flagged in earlier phases)**
+
+- Deploy the worker **before** the static site (it carries the `DraftRoom` Durable Object migration), and
+  make sure `ADMIN_PASSWORD` is set as a worker secret.
+- Run a full rehearsal on a throwaway room (`?view=draft&room=mock-1`), including the export against it
+  (`node tools/export-draft.mjs --result <room url> --dry-run`).
 
 ## Open items
 
