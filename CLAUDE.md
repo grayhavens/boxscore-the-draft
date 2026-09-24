@@ -15,6 +15,10 @@ Plain static site: no build step, no bundler, no package.json, no test framework
 There is no build/lint/test tooling in this repo — there's nothing to run before checking in a
 change beyond loading the page.
 
+**Draft engine tests:** `node --test tests/draft-engine.test.mjs` (pure logic, no dependencies).
+`node tests/draft-room.integration.mjs` drives a running `npx wrangler dev --var ADMIN_PASSWORD:testpw`
+end to end against the real Durable Object.
+
 **Local preview:** serve the repo root over plain HTTP (opening `index.html` via `file://` breaks
 ES module imports) — e.g. `python3 -m http.server` from the repo root, then load `/index.html`.
 The `.claude/launch.json` `team-dashboard` config does this, but serves a **separate mirrored
