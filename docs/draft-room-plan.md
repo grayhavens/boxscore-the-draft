@@ -102,6 +102,28 @@ light theme works.
 - Verified end to end against `wrangler dev`: a scripted room drafted all 210 picks through the real UI,
   the write-in flow and Draft -> Confirm worked, and the finished roster landed exactly on its caps.
 
+### As built (Phase F)
+
+- `tools/export-draft.mjs` (CLI) + `tools/draft-export-lib.mjs` (pure, unit-tested) turn the room's
+  `/draft/result` into `js/seasons/<year>.js`, register it in `js/seasons/index.js` and `sw.js`, and print
+  a report. Run `node tools/export-draft.mjs --dry-run` first; the default source is the deployed room
+  "main". Nothing is deployed: review `git diff`, commit, and Pages ships it.
+- Each drafted team is copied from the previous season's entry (all live-data ids, colors, badge) with the
+  new owner. A team nobody owned last year (promoted club, expansion team, write-in school) is resolved
+  against ESPN's team list and an entry is generated (nickname/school as `name`, ESPN id and crest); those
+  lines are marked `// generated from ESPN` and listed in the report. A team ESPN can't place, or a roster
+  that isn't exactly on its caps, blocks the export (`--overrides file.json` supplies `"league:Name": id`).
+- League arrays are in pick order with favorite-only teams carried to the end; season labels follow the
+  existing pattern (NFL/CFB '27, EPL/NBA/NHL/CBB '27/'28, MLB/WNBA '28); scoring starts as a copy of the
+  previous class's; `PRIOR_SEASON_DISPLAY_LEAGUES` carries over. The Standings prior-season note now
+  derives its years from the active class.
+- Verified: a full 210-pick rehearsal room exported through the real ESPN endpoints into a class that loads
+  in the app (212 entries, 21 per drafter, live records matched by name, no console errors).
+- Still to do before draft day: the pool's design-only teams (Cardinals, Browns, Flames, Blackhawks, the
+  WNBA expansion clubs, college schools outside last year's 30) show color tiles during the draft because
+  their ESPN ids are only resolved at export; harmless, but could be pre-resolved. EPL promotion/relegation
+  and WNBA expansion still need a manual look at `js/draft-ranks.js`.
+
 ### Rules (from the design)
 
 10 drafters, 21 rounds, 210 picks, snake order set by a random lottery. Caps per drafter sum to 21:
