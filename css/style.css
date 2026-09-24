@@ -4504,7 +4504,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-star.on{ color: var(--star-on); }
 .dr-full{ font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); width: 62px; text-align: center; }
 .dr-draft-btn{ flex: 0 0 auto; width: 62px; height: 30px; border-radius: 8px; border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent); font: inherit; font-size: var(--fs-12); font-weight: 700; cursor: pointer; }
-.dr-draft-btn.confirm{ background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
 .dr-draft-btn.wide{ width: 100%; height: 36px; margin-top: 8px; }
 .dr-showall{ margin: 6px 0; height: 32px; border: 0; background: none; color: var(--text-sub); font: inherit; font-size: var(--fs-12); font-weight: 600; cursor: pointer; }
 .dr-writein{ margin-top: 8px; padding: 12px; border: 1px dashed var(--hairline-strong); border-radius: var(--r-md); font-size: var(--fs-13); color: var(--text-sub); line-height: 1.4; }
@@ -4518,9 +4517,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-clock-sub{ font-size: var(--fs-12); color: var(--text-sub); font-variant-numeric: tabular-nums; margin-top: 2px; }
 .dr-done-title{ font-size: var(--fs-30); font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; }
 .dr-badge{ font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent); letter-spacing: 0.04em; }
-.dr-needs{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: var(--fs-12); }
-.dr-need{ display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 7px; background: var(--seg-track); font-weight: 600; font-variant-numeric: tabular-nums; }
-.dr-need i{ width: 6px; height: 6px; border-radius: 1px; }
 .dr-timer-box{ text-align: right; }
 .dr-timer{ font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .dr-timer.low{ color: var(--accent); }
@@ -4529,14 +4525,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-bar span{ display: block; height: 100%; background: var(--text-sub); }
 .dr-timer-note{ font-size: var(--fs-11); color: var(--text-mute); }
 .dr-paused{ padding: 10px 14px; border-radius: var(--r-sm); background: var(--seg-track); font-size: var(--fs-13); color: var(--text-sub); }
-.dr-upnext{ display: flex; align-items: center; gap: 6px; overflow-x: auto; flex: 0 0 auto; padding-bottom: 2px; scrollbar-width: none; }
-.dr-upnext::-webkit-scrollbar{ display: none; }
-.dr-upnext-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.06em; margin-right: 4px; }
-.dr-next{ flex: 0 0 auto; padding: 5px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; }
-.dr-next.me{ background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
-.dr-until{ flex: 0 0 auto; margin-left: auto; padding-left: 10px; font-size: var(--fs-12); font-weight: 700; color: var(--accent); white-space: nowrap; }
-.dr-last{ font-size: var(--fs-12); color: var(--text-sub); flex: 0 0 auto; }
-@media (max-height: 700px){ .dr-last{ display: none; } }
 
 /* Board */
 .dr-board-scroll{ flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; margin: 0 -16px; padding: 0 16px 16px; -webkit-overflow-scrolling: touch; }
@@ -4621,7 +4609,6 @@ html.chat-kb .tab-bar{ display: none; }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: 20px; }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
-.dm-top .dr-needs, .dm-top .dr-proxy-btn{ display: none; }
 .dm-top .dr-timer{ font-size: 24px; }
 .dm-top .dr-bar{ width: 100px; margin-top: 4px; }
 .dm-top .dr-paused{ margin-top: 0; }
@@ -4664,8 +4651,8 @@ html.chat-kb .tab-bar{ display: none; }
   font: inherit; font-size: var(--fs-12); font-weight: 700; cursor: pointer;
 }
 
-/* Draft room: collapsible panels. A column folds to a 44px rail (caret, rotated
-   label, live count) and the board takes the space; the clock folds to a strip.
+/* Draft room: collapsible panels. A side column folds to a 44px rail (caret, rotated
+   label, live count) and the board takes the space.
    Wide screens fold Available and the roster/queue independently; under 1180px
    they share one side slot, and it folds when the panel showing in it is folded. */
 .dr-caret{
@@ -4710,20 +4697,15 @@ html.chat-kb .tab-bar{ display: none; }
   .dr-layout[data-left-tab="team"][data-collapsed~="right"] .dr-right{ padding: 6px 0; }
 }
 
-/* On the clock, folded to one line */
-.dr-clock-card{ position: relative; }
-.dr-clock-card > .dr-clock-caret{ position: absolute; top: 8px; right: 8px; z-index: 1; }
-.dr-clock-card.done > .dr-clock-caret{ position: static; }
-.dr-clock-card.compact{
-  flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: 12px;
-  padding: 6px 10px; min-height: 44px;
+/* On the clock: a one-line strip on desktop and tablet (the phone shell has its own card) */
+.dr-clock-card.strip{
+  flex-wrap: nowrap; justify-content: flex-start; align-items: center; gap: 14px;
+  padding: 8px 16px; min-height: 52px;
 }
-.dr-clock-card.compact > .dr-clock-caret{ position: static; }
-.dr-clock-card.compact .dr-eyebrow{ white-space: nowrap; }
-.dr-clock-card.compact .dr-clock-name{ font-size: var(--fs-17); white-space: nowrap; }
-.dr-clock-card.compact .dr-clock-sub{ margin: 0; white-space: nowrap; }
-.dr-clock-card.compact .dr-proxy-btn{ margin: 0 0 0 4px; height: 28px; }
-.dr-compact-timer{ margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.dr-compact-timer .dr-timer{ font-size: var(--fs-20); }
-.dr-compact-timer .dr-bar{ width: 70px; margin: 0; }
-.dm-top .dr-caret{ display: none; }
+.dr-clock-card.strip .dr-eyebrow{ white-space: nowrap; }
+.dr-clock-card.strip .dr-clock-name{ font-size: var(--fs-20); white-space: nowrap; }
+.dr-clock-card.strip .dr-clock-sub{ margin: 0; white-space: nowrap; }
+.dr-clock-card.strip .dr-proxy-btn{ margin: 0 0 0 4px; height: 30px; }
+.dr-strip-timer{ margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.dr-strip-timer .dr-timer{ font-size: 26px; }
+.dr-strip-timer .dr-bar{ width: 90px; margin: 0; }

@@ -30,7 +30,7 @@ import { buildDraftPool } from './draft-pool.js';
 import { onTheClock } from './draft-engine.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
-  leagueCounts, rosterNeeds, clockElapsedMs, WRITE_IN_LEAGUES
+  leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES
 } from './draft-rules.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
@@ -45,10 +45,8 @@ const LEAGUE_UI = {
 };
 const leagueUi = key => LEAGUE_UI[key] || { label: key.toUpperCase(), color: '#94969E' };
 
-const CONFIRM_MS = 3500;
 const POOL_LIMIT = 60;
 const POOL_LIMIT_PHONE = 40;
-const UP_NEXT = 6;
 const CLOCK_CHOICES = [30, 60, 90, 120, 180, 300];
 
 const ERROR_TEXT = {
@@ -82,8 +80,7 @@ const ui = {
   filter: 'all',
   search: '',
   showAll: false,
-  confirming: null,       // team id awaiting its second tap
-  confirmTimer: null,
+  picking: false,         // a pick is in flight; ignore further taps until the room answers
   leftTab: 'available',   // narrow screens: which panel occupies the side slot
   revealed: null,         // lottery reveal: positions shown from the bottom, or null when settled
   revealTimer: null,
@@ -99,17 +96,16 @@ const ui = {
   mobileTab: 'pick'       // phone shell: 'pick' | 'board' | 'team'
 };
 
-// Which panels are folded away (desktop/tablet only), remembered per device so the
-// layout you settled on is still there next time. Collapsing Available or the
-// roster/queue column shrinks it to a slim rail; collapsing the clock keeps a
-// one-line strip, since the timer is the one thing you always need.
+// Which side panels are folded away (desktop/tablet only), remembered per
+// device so the layout you settled on is still there next time. A folded
+// column shrinks to a slim rail with a live count.
 const PANELS_KEY = 'teamDashboardDraftPanels';
 function loadCollapsed(){
   try {
     const saved = JSON.parse(localStorage.getItem(PANELS_KEY)) || {};
-    return { left: !!saved.left, clock: !!saved.clock, right: !!saved.right };
+    return { left: !!saved.left, right: !!saved.right };
   } catch (e){
-    return { left: false, clock: false, right: false };
+    return { left: false, right: false };
   }
 }
 ui.collapsed = loadCollapsed();
@@ -306,8 +302,6 @@ function shellHtml(){
       </section>
       <section class="dr-col dr-center">
         <div id="dr-clock"></div>
-        <div id="dr-upnext"></div>
-        <div id="dr-last"></div>
         <div class="dr-board-scroll" id="dr-board-scroll"><div id="dr-board"></div></div>
       </section>
       <aside class="dr-col dr-right">
@@ -352,8 +346,7 @@ function poolRowHtml(d, team){
   let action = '';
   if(!fits) action = '<span class="dr-full">Full</span>';
   else if(d.canAct){
-    const confirming = ui.confirming === team.id;
-    action = `<button class="dr-draft-btn${confirming ? ' confirm' : ''}${d.canAct ? ' mine' : ''}" onclick="draftClick('${team.id}')">${confirming ? 'Confirm' : 'Draft'}</button>`;
+    action = `<button class="dr-draft-btn mine" onclick="draftClick('${team.id}')">Draft</button>`;
   }
   const meta = team.custom ? 'Write-in' : (team.rank ? `#${team.rank}` : '');
   return `<div class="dr-row${fits ? '' : ' dim'}">
@@ -411,16 +404,16 @@ function renderPool(d){
 
 // ---- Center: clock card, up next, board ----
 
-// The caret that folds the on-the-clock area down to a strip (desktop only;
-// the phone shell shares this card but has its own compact layout).
-const clockCaret = compact => isPhone() ? '' : `<button class="dr-caret dr-clock-caret" onclick="draftTogglePanel('clock')" aria-label="${compact ? 'Expand' : 'Collapse'} the clock panel" aria-expanded="${!compact}">${compact ? '&rsaquo;' : '&lsaquo;'}</button>`;
-
+// The on-the-clock display. Desktop and tablet get a one-line strip (who,
+// which pick, the timer); the phone shell gets a compact two-row card, since
+// a strip's worth of text doesn't fit a phone's width.
 function clockCardHtml(d){
   const { s } = d;
-  const compact = ui.collapsed.clock && !isPhone();
+  const phone = isPhone();
   if(s.phase === 'done'){
-    if(compact) return `<div class="dr-clock-card done compact">${clockCaret(true)}<span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks</span></div>`;
-    return `<div class="dr-clock-card done">${clockCaret(false)}<div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div></div>`;
+    return phone
+      ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div></div>`
+      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span></div>`;
   }
   const info = d.clockInfo;
   const mine = d.myTurn;
@@ -428,34 +421,17 @@ function clockCardHtml(d){
   const via = natural !== info.owner ? natural : null;
   const highest = Math.max(-1, ...Object.keys(s.picks).map(Number));
   const makeUp = info.slot < highest;
-  const counts = leagueCounts(s.picks, s.pool, s.order, s.overrides, info.owner);
-  const needs = rosterNeeds(s.config, counts);
-  const chips = Object.keys(needs).map(k => `<span class="dr-need"><i style="background:${leagueUi(k).color}"></i>${leagueUi(k).label} ${needs[k]}</span>`).join('');
   const round = Math.floor(info.slot / d.n) + 1;
-  const proxyBtn = draftStore.commissioner && !d.myTurn && d.running && !isPhone()
-    ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : '';
-  if(compact){
-    return `
-    <div class="dr-clock-card compact${mine ? ' mine' : ''}">
-      ${clockCaret(true)}
-      <span class="dr-eyebrow${mine ? ' gold' : ''}">${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? '<span class="dr-badge">MAKE-UP</span>' : ''}</span>
-      <span class="dr-clock-name">${esc(drafterName(info.owner))}</span>
-      <span class="dr-clock-sub">R${round} · P${info.slot + 1}${via ? ` · via ${esc(drafterName(via))}` : ''}</span>
-      ${proxyBtn}
-      <span class="dr-compact-timer"><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
-    </div>
-    ${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
+  const eyebrow = `${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? `<span class="dr-badge">${phone ? 'MAKE-UP PICK' : 'MAKE-UP'}</span>` : ''}`;
+  const banners = `${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
     ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
-  }
-  return `
+  if(phone){
+    return `
     <div class="dr-clock-card${mine ? ' mine' : ''}">
-      ${clockCaret(false)}
       <div class="dr-clock-main">
-        <div class="dr-eyebrow${mine ? ' gold' : ''}">${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? '<span class="dr-badge">MAKE-UP PICK</span>' : ''}</div>
+        <div class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</div>
         <div class="dr-clock-name">${esc(drafterName(info.owner))}</div>
         <div class="dr-clock-sub">Round ${round} · Pick ${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</div>
-        <div class="dr-needs"><span class="dr-dim">Still needs</span>${chips}</div>
-        ${proxyBtn}
       </div>
       <div class="dr-timer-box">
         <div class="dr-timer" id="dr-timer">0:00</div>
@@ -463,44 +439,24 @@ function clockCardHtml(d){
         <div class="dr-timer-note" id="dr-timer-note"></div>
       </div>
     </div>
-    ${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
-    ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
+    ${banners}`;
+  }
+  const proxyBtn = draftStore.commissioner && !d.myTurn && d.running
+    ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : '';
+  return `
+    <div class="dr-clock-card strip${mine ? ' mine' : ''}">
+      <span class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</span>
+      <span class="dr-clock-name">${esc(drafterName(info.owner))}</span>
+      <span class="dr-clock-sub">R${round} · P${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</span>
+      ${proxyBtn}
+      <span class="dr-strip-timer"><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
+    </div>
+    ${banners}`;
 }
 
 function drafterNaturalOwner(d, slot){
   const round = Math.floor(slot / d.n), pos = slot % d.n;
   return d.s.order[round % 2 === 0 ? pos : d.n - 1 - pos];
-}
-
-function upNextHtml(d){
-  if(d.s.phase !== 'draft' || !d.clockInfo) return '';
-  const chips = [];
-  for(let slot = d.clockInfo.slot + 1; slot < d.total && chips.length < UP_NEXT; slot++){
-    if(d.s.picks[slot]) continue;
-    const owner = ownerOf(slot, d.s.order, d.s.overrides);
-    chips.push(`<span class="dr-next${owner === d.me ? ' me' : ''}">${pickLabel(slot, d.n)} ${owner === d.me ? 'You' : esc(drafterName(owner))}</span>`);
-  }
-  let until = '';
-  if(!d.myTurn){
-    let count = 0, found = false;
-    for(let slot = d.clockInfo.slot; slot < d.total; slot++){
-      if(d.s.picks[slot]) continue;
-      if(ownerOf(slot, d.s.order, d.s.overrides) === d.me){ found = true; break; }
-      count++;
-    }
-    until = found ? `<span class="dr-until">${count === 1 ? "You're next" : `You pick in ${count}`}</span>` : '';
-  }
-  return `<div class="dr-upnext"><span class="dr-dim dr-upnext-label">UP NEXT</span>${chips.join('')}${until}</div>`;
-}
-
-function lastPickHtml(d){
-  const slots = Object.keys(d.s.picks).map(Number);
-  if(!slots.length) return '';
-  const latest = slots.reduce((a, b) => (d.s.picks[a].n > d.s.picks[b].n ? a : b));
-  const p = d.s.picks[latest];
-  const team = teamById(d.s.pool, p.team);
-  if(!team) return '';
-  return `<div class="dr-last">Last pick · <b>${esc(drafterName(p.by))}</b> took ${esc(team.name)} (${leagueUi(team.league).label}) · ${pickLabel(latest, d.n)}</div>`;
 }
 
 function boardHtml(d){
@@ -568,8 +524,7 @@ function queueHtml(d){
       const isTop = topFit === t;
       const lg = leagueUi(t.league);
       const tag = isTop ? `<span class="dr-tag gold">Top fit · ${lg.label}</span>` : (fits ? `<span class="dr-tag">${lg.label}</span>` : `<span class="dr-tag dim">${lg.label} full</span>`);
-      const confirming = ui.confirming === t.id;
-      const draft = isTop && d.myTurn ? `<button class="dr-draft-btn mine wide${confirming ? ' confirm' : ''}" onclick="draftClick('${t.id}')">${confirming ? 'Confirm' : `Draft ${esc(t.name)}`}</button>` : '';
+      const draft = isTop && d.myTurn ? `<button class="dr-draft-btn mine wide" onclick="draftClick('${t.id}')">Draft ${esc(t.name)}</button>` : '';
       return `<div class="dr-q${isTop && d.myTurn ? ' top' : ''}${fits ? '' : ' dim'}">
         <div class="dr-q-row"><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-name">${esc(t.name)}</span>${tag}
           <span class="dr-q-ctl"><button onclick="draftMoveQueue('${t.id}',-1)" aria-label="Move up">▲</button><button onclick="draftMoveQueue('${t.id}',1)" aria-label="Move down">▼</button><button onclick="draftToggleQueue('${t.id}')" aria-label="Remove">×</button></span></div>
@@ -693,9 +648,8 @@ function phoneQueueHtml(d){
   const fits = queueTeams(d).filter(t => teamFits(d, t, d.myCounts)).slice(0, 3);
   if(!fits.length) return '';
   return `<div class="dm-from-queue"><div class="dr-eyebrow gold">FROM YOUR QUEUE</div>${fits.map(t => {
-    const confirming = ui.confirming === t.id;
     return `<div class="dm-qrow">${tileHtml(t, 'md')}<div class="dr-row-main"><div class="dr-row-name">${esc(t.name)}</div><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
-      <button class="dr-draft-btn mine${confirming ? ' confirm' : ''}" onclick="draftClick('${t.id}')">${confirming ? 'Confirm' : 'Draft'}</button></div>`;
+      <button class="dr-draft-btn mine" onclick="draftClick('${t.id}')">Draft</button></div>`;
   }).join('')}</div>`;
 }
 
@@ -756,9 +710,6 @@ function renderLive(d){
   updateTabs();
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
-  const folded = ui.collapsed.clock;
-  setRegion('dr-upnext', folded ? '' : upNextHtml(d));
-  setRegion('dr-last', folded ? '' : lastPickHtml(d));
   const hadBoard = regionHtml.has('dr-board');
   setRegion('dr-board', boardHtml(d));
   setRegion('dr-roster', rosterHtml(d));
@@ -879,24 +830,18 @@ window.draftMoveQueue = (id, dir) => {
   saveDraftQueue(q);
 };
 
-// Draft → Confirm: the first tap arms the button, a second tap within
-// 3.5s makes the pick, otherwise it reverts. Guards against a mis-tap
-// burning the pick.
+// One tap drafts. The commissioner can undo or change any pick, so a stray
+// tap is cheap to fix and the extra "Confirm" step only cost time on the clock.
+// The pick carries the slot it was made for, so a second tap (or a lagging
+// screen) can't land on the following pick, and `picking` ignores taps while
+// this one is still in flight.
 window.draftClick = async id => {
   const d = derive();
-  if(!d || !d.canAct) return;
-  if(ui.confirming !== id){
-    ui.confirming = id;
-    clearTimeout(ui.confirmTimer);
-    ui.confirmTimer = setTimeout(() => { ui.confirming = null; scheduleRender(); }, CONFIRM_MS);
-    scheduleRender();
-    return;
-  }
-  clearTimeout(ui.confirmTimer);
-  ui.confirming = null;
-  scheduleRender();
+  if(!d || !d.canAct || ui.picking) return;
+  ui.picking = true;
   const proxying = d.proxy;
   const result = await run({ type: 'pick', team: id, slot: d.clockInfo.slot }, proxying ? null : undefined);
+  ui.picking = false;
   if(result.ok && proxying) ui.proxySlot = null;
 };
 
