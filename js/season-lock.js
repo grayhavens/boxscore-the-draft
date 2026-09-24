@@ -31,13 +31,24 @@
    Same shared/public-read, admin-write, KV+localStorage-fallback model
    as League Facts (js/league-facts.js) — see that file's own header
    comment for the full rationale, not repeated here. Storage shape:
-   { lockedAt: isoString, rules: { [ruleLabel]: [teamKey, ...] } },
-   one blob per league.
+   { lockedAt: isoString, rules: { [ruleLabel]: [teamKey, ...] },
+     standings?: { [storageKey]: cacheBlob } }, one blob per league.
+
+   `standings` is the league's ESPN standings caches at lock time
+   (js/frozen-cache.js). It exists for draft classes that are no longer
+   the newest (js/seasons/index.js): ESPN only serves the season being
+   played now, so once a league has moved on, primeFrozenSnapshots below
+   swaps that snapshot in for the live table — standings, card records
+   and the bonus race for a finished class then keep showing that
+   class's real final numbers. The newest class never reads it and keeps
+   using live data exactly as before.
    ============================================================ */
 import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
-import { scopedKey, withSeasonQuery } from './season.js';
+import { scopedKey, withSeasonQuery, ACTIVE_SEASON_ID } from './season.js';
+import { LATEST_SEASON_ID } from './seasons/index.js';
+import { snapshotLeagueCaches, freezeLeagueCaches } from './frozen-cache.js';
 import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { eplStandingsCache } from './standings-epl.js';
 import { computeLiveRankAutoTeams } from './league-facts.js';
@@ -168,11 +179,46 @@ function persistLock(leagueKey, lock){
 function lockLeague(leagueKey){
   const scoring = LEAGUE_SCORING[leagueKey];
   if(!scoring || PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return;
+  // A class that isn't the newest has no live table for its own season
+  // anymore (ESPN moved on) — locking would freeze the wrong season.
+  if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
   const rules = {};
   scoring.rules.filter(r => r.rankAuto).forEach(r => {
     rules[r.label] = computeLiveRankAutoTeams(leagueKey, r);
   });
-  persistLock(leagueKey, { lockedAt: new Date().toISOString(), rules });
+  const lock = { lockedAt: new Date().toISOString(), rules };
+  const standings = snapshotLeagueCaches(leagueKey);
+  if(standings) lock.standings = standings;
+  persistLock(leagueKey, lock);
+}
+
+// Locks written before snapshots existed have rules but no standings.
+// While this is still the newest class the live tables are still this
+// season's (a lock happens when the regular season ends, long before
+// the next draft adds a newer class), so they can still be captured
+// into the existing lock. Once a newer class exists it's too late —
+// ESPN has moved on — and that league simply keeps reading live data.
+function backfillLockSnapshot(leagueKey){
+  const lock = currentLock(leagueKey);
+  if(!lock || !lock.lockedAt || lock.standings || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
+  const standings = snapshotLeagueCaches(leagueKey);
+  if(standings) persistLock(leagueKey, { ...lock, standings });
+}
+
+// Boot step for any class that isn't the newest: load every league's
+// lock and, where it carries a standings snapshot, freeze that league's
+// caches to it (js/frozen-cache.js) BEFORE the standings modules read
+// them. A no-op for the newest class, so today's single-class app never
+// pays for it. Leagues with no lock or no snapshot (still in progress,
+// or locked before snapshots existed) stay live.
+export async function primeFrozenSnapshots(){
+  if(ACTIVE_SEASON_ID === LATEST_SEASON_ID) return;
+  const leagueKeys = Object.keys(LEAGUE_SCORING);
+  await Promise.all(leagueKeys.map(ensureLockLoaded));
+  leagueKeys.forEach(leagueKey => {
+    const lock = currentLock(leagueKey);
+    if(lock && lock.lockedAt && lock.standings) freezeLeagueCaches(leagueKey, lock.standings);
+  });
 }
 
 export function forceLockLeague(leagueKey){
@@ -212,6 +258,7 @@ function isEplRegularSeasonOver(){
 // immediately. Safe to call again later (e.g. a future scheduled
 // re-check) since it's a no-op for anything already locked.
 export async function checkSeasonLocks(){
+  if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return; // see lockLeague
   const leagueKeys = [...SEASON_PHASE_LEAGUES, 'epl'];
   for(const leagueKey of leagueKeys){
     if(!LEAGUE_SCORING[leagueKey]) continue;
@@ -220,7 +267,10 @@ export async function checkSeasonLocks(){
     // lists them, the same gate getLeagueRuleTeams already applies.
     if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) continue;
     await ensureLockLoaded(leagueKey);
-    if(isLeagueLocked(leagueKey)) continue;
+    if(isLeagueLocked(leagueKey)){
+      backfillLockSnapshot(leagueKey);
+      continue;
+    }
     let over;
     if(leagueKey === 'epl'){
       over = isEplRegularSeasonOver();

@@ -45,6 +45,7 @@ import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftO
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
 import { renderStandings } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
+import { cacheGet, cacheSet } from './frozen-cache.js';
 
 // ---- Full-roster records (all 30 drafted teams, one bulk ESPN call) ----
 
@@ -61,12 +62,12 @@ function espnCbbStandingsIsFresh(){
 }
 
 function saveEspnCbbStandingsCache(){
-  try { localStorage.setItem(ESPN_CBB_STANDINGS_CACHE_KEY, JSON.stringify(espnCbbStandingsCache)); } catch (e){}
+  try { cacheSet('mcbb', ESPN_CBB_STANDINGS_CACHE_KEY, JSON.stringify(espnCbbStandingsCache)); } catch (e){}
 }
 
 export function loadEspnCbbStandingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_CBB_STANDINGS_CACHE_KEY);
+    const raw = cacheGet('mcbb', ESPN_CBB_STANDINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.rows){
@@ -190,12 +191,12 @@ function espnCbbRankingsIsFresh(){
 }
 
 function saveEspnCbbRankingsCache(){
-  try { localStorage.setItem(ESPN_CBB_RANKINGS_CACHE_KEY, JSON.stringify(espnCbbRankingsCache)); } catch (e){}
+  try { cacheSet('mcbb', ESPN_CBB_RANKINGS_CACHE_KEY, JSON.stringify(espnCbbRankingsCache)); } catch (e){}
 }
 
 export function loadEspnCbbRankingsCache(){
   try {
-    const raw = localStorage.getItem(ESPN_CBB_RANKINGS_CACHE_KEY);
+    const raw = cacheGet('mcbb', ESPN_CBB_RANKINGS_CACHE_KEY);
     if(!raw) return;
     const parsed = JSON.parse(raw);
     if(parsed && parsed.ranks){

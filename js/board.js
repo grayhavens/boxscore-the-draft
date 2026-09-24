@@ -64,7 +64,8 @@ import { renderOverallStandings, setObMode } from './overall.js';
 import { startActivity } from './activity.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
-import { checkSeasonLocks } from './season-lock.js';
+import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
+import { isLeagueFrozen } from './frozen-cache.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
@@ -306,6 +307,9 @@ function leagueBlockHtml(league, bodyHtml){
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)
     ? `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`
     : '';
+  const frozenNoteHtml = isLeagueFrozen(league.key)
+    ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
+    : '';
 
   return `
     <div class="league">
@@ -314,7 +318,7 @@ function leagueBlockHtml(league, bodyHtml){
           <div class="league-tab-left">${headerLabel}</div>
           <span class="n">${league.season}</span>
         </div>
-        ${priorSeasonNoteHtml}
+        ${priorSeasonNoteHtml}${frozenNoteHtml}
       </div>
       ${bodyHtml}
     </div>
@@ -630,6 +634,12 @@ window.switchView = switchView;
 
 const buildTagEl = document.getElementById('build-tag');
 if(buildTagEl) buildTagEl.textContent = APP_VERSION;
+
+// A draft class that isn't the newest reads its finished leagues' final
+// standings from their season-lock snapshot instead of ESPN (see
+// js/frozen-cache.js) — that has to be in place before any of the
+// cache loaders below run. No-op (and no await cost) for the newest class.
+await primeFrozenSnapshots();
 
 LEAGUE_FACTS_LEAGUES.forEach(migrateAchievementsToFacts);
 loadLiveDataCache();
