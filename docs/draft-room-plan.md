@@ -108,6 +108,12 @@ light theme works.
   (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
   The Trade modal swaps two open picks between any two drafters; the board marks traded slots and the
   clock card says "via {original owner}".
+- Collapsible panels (desktop and tablet): Available and My roster/queue each fold to a 44px rail (caret,
+  rotated label, live count) and the on-the-clock area folds to a one-line strip (drafter, pick, timer;
+  up-next and last-pick fold with it), so the board can take the room. With all three folded the board
+  goes from about 750x255 to 1300x467 at a 1390px-wide window and all ten drafter columns fit. Choices are
+  remembered per device (`teamDashboardDraftPanels`). Under 1180px the two side panels share one slot, so
+  it folds when the panel showing in it is folded. The phone shell is unchanged.
 - Phone shell (<=700px, switches live with the viewport): compact sticky clock over Pick / Board / My team
   tabs; Pick has "From your queue" (top three fitting), search, scrolling league chips and a 40-team list
   with 44px hit targets; Board is the last three rounds newest first; My team is roster + queue. The

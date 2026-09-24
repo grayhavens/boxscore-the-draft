@@ -99,6 +99,22 @@ const ui = {
   mobileTab: 'pick'       // phone shell: 'pick' | 'board' | 'team'
 };
 
+// Which panels are folded away (desktop/tablet only), remembered per device so the
+// layout you settled on is still there next time. Collapsing Available or the
+// roster/queue column shrinks it to a slim rail; collapsing the clock keeps a
+// one-line strip, since the timer is the one thing you always need.
+const PANELS_KEY = 'teamDashboardDraftPanels';
+function loadCollapsed(){
+  try {
+    const saved = JSON.parse(localStorage.getItem(PANELS_KEY)) || {};
+    return { left: !!saved.left, clock: !!saved.clock, right: !!saved.right };
+  } catch (e){
+    return { left: false, clock: false, right: false };
+  }
+}
+ui.collapsed = loadCollapsed();
+const collapsedKeys = () => Object.keys(ui.collapsed).filter(k => ui.collapsed[k]);
+
 const phoneQuery = window.matchMedia ? window.matchMedia('(max-width: 700px)') : null;
 const isPhone = () => !!phoneQuery && phoneQuery.matches;
 
@@ -276,13 +292,14 @@ function lobbyHtml(d){
 
 function shellHtml(){
   return `
-    <div class="dr-layout" data-left-tab="${ui.leftTab}">
+    <div class="dr-layout" data-left-tab="${ui.leftTab}" data-collapsed="${collapsedKeys().join(' ')}">
       <div class="dr-tabs">
         <button class="dr-tab" data-tab="available" onclick="draftLeftTab('available')">Available</button>
         <button class="dr-tab" data-tab="team" onclick="draftLeftTab('team')">My team</button>
       </div>
       <section class="dr-col dr-left">
-        <div class="dr-col-head"><h2>Available</h2><span id="dr-avail-count" class="dr-dim"></span></div>
+        <button class="dr-rail" onclick="draftTogglePanel('left')" aria-label="Expand Available" aria-expanded="false"><span class="dr-caret" aria-hidden="true">&rsaquo;</span><span class="dr-rail-label">Available</span><span class="dr-rail-count" id="dr-rail-left-count"></span></button>
+        <div class="dr-col-head"><h2>Available</h2><span id="dr-avail-count" class="dr-dim"></span><button class="dr-caret" onclick="draftTogglePanel('left')" aria-label="Collapse Available" aria-expanded="true">&lsaquo;</button></div>
         <input id="dr-search" class="dr-search" type="search" placeholder="Search or add a college team" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">
         <div id="dr-chips" class="dr-chips"></div>
         <div id="dr-pool" class="dr-pool"></div>
@@ -294,6 +311,7 @@ function shellHtml(){
         <div class="dr-board-scroll" id="dr-board-scroll"><div id="dr-board"></div></div>
       </section>
       <aside class="dr-col dr-right">
+        <button class="dr-rail" onclick="draftTogglePanel('right')" aria-label="Expand My roster and queue" aria-expanded="false"><span class="dr-caret" aria-hidden="true">&lsaquo;</span><span class="dr-rail-label">My roster</span><span class="dr-rail-count" id="dr-rail-right-count"></span></button>
         <div id="dr-roster"></div>
         <div id="dr-queue"></div>
       </aside>
@@ -387,14 +405,22 @@ function renderPool(d){
   setRegion('dr-pool', shown.map(t => poolRowHtml(d, t)).join('') + more + writeInCardHtml(d, filtered));
   const count = document.getElementById('dr-avail-count');
   if(count) count.textContent = `${available.length} left`;
+  const railCount = document.getElementById('dr-rail-left-count');
+  if(railCount) railCount.textContent = String(available.length);
 }
 
 // ---- Center: clock card, up next, board ----
 
+// The caret that folds the on-the-clock area down to a strip (desktop only;
+// the phone shell shares this card but has its own compact layout).
+const clockCaret = compact => isPhone() ? '' : `<button class="dr-caret dr-clock-caret" onclick="draftTogglePanel('clock')" aria-label="${compact ? 'Expand' : 'Collapse'} the clock panel" aria-expanded="${!compact}">${compact ? '&rsaquo;' : '&lsaquo;'}</button>`;
+
 function clockCardHtml(d){
   const { s } = d;
+  const compact = ui.collapsed.clock && !isPhone();
   if(s.phase === 'done'){
-    return `<div class="dr-clock-card done"><div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div></div>`;
+    if(compact) return `<div class="dr-clock-card done compact">${clockCaret(true)}<span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks</span></div>`;
+    return `<div class="dr-clock-card done">${clockCaret(false)}<div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div></div>`;
   }
   const info = d.clockInfo;
   const mine = d.myTurn;
@@ -406,14 +432,30 @@ function clockCardHtml(d){
   const needs = rosterNeeds(s.config, counts);
   const chips = Object.keys(needs).map(k => `<span class="dr-need"><i style="background:${leagueUi(k).color}"></i>${leagueUi(k).label} ${needs[k]}</span>`).join('');
   const round = Math.floor(info.slot / d.n) + 1;
+  const proxyBtn = draftStore.commissioner && !d.myTurn && d.running && !isPhone()
+    ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : '';
+  if(compact){
+    return `
+    <div class="dr-clock-card compact${mine ? ' mine' : ''}">
+      ${clockCaret(true)}
+      <span class="dr-eyebrow${mine ? ' gold' : ''}">${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? '<span class="dr-badge">MAKE-UP</span>' : ''}</span>
+      <span class="dr-clock-name">${esc(drafterName(info.owner))}</span>
+      <span class="dr-clock-sub">R${round} · P${info.slot + 1}${via ? ` · via ${esc(drafterName(via))}` : ''}</span>
+      ${proxyBtn}
+      <span class="dr-compact-timer"><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
+    </div>
+    ${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
+    ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
+  }
   return `
     <div class="dr-clock-card${mine ? ' mine' : ''}">
+      ${clockCaret(false)}
       <div class="dr-clock-main">
         <div class="dr-eyebrow${mine ? ' gold' : ''}">${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? '<span class="dr-badge">MAKE-UP PICK</span>' : ''}</div>
         <div class="dr-clock-name">${esc(drafterName(info.owner))}</div>
         <div class="dr-clock-sub">Round ${round} · Pick ${info.slot + 1} of ${d.total}${via ? ` · via ${esc(drafterName(via))}` : ''}</div>
         <div class="dr-needs"><span class="dr-dim">Still needs</span>${chips}</div>
-        ${draftStore.commissioner && !d.myTurn && d.running && !isPhone() ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : ''}
+        ${proxyBtn}
       </div>
       <div class="dr-timer-box">
         <div class="dr-timer" id="dr-timer">0:00</div>
@@ -505,7 +547,9 @@ function rosterHtml(d){
     const lg = leagueUi(k);
     return `<div class="dr-roster-row${have.length >= cap ? ' full' : ''}"><span class="dr-roster-lg" style="color:${lg.color}">${lg.label}</span><span class="dr-slots">${slots}</span><span class="dr-roster-n">${have.length}/${cap}</span></div>`;
   }).join('');
-  return `<div class="dr-col-head"><h2>My roster</h2><span class="dr-dim">${done} of ${d.rounds} · ${d.rounds - done} to go</span></div>${rows}`;
+  const railCount = document.getElementById('dr-rail-right-count');
+  if(railCount) railCount.textContent = `${done}/${d.rounds}`;
+  return `<div class="dr-col-head"><h2>My roster</h2><span class="dr-dim">${done} of ${d.rounds} · ${d.rounds - done} to go</span><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">&rsaquo;</button></div>${rows}`;
 }
 
 function queueTeams(d){
@@ -697,6 +741,8 @@ function updateTabs(){
   const layout = document.querySelector('.dr-layout');
   if(!layout) return;
   layout.dataset.leftTab = ui.leftTab;
+  layout.dataset.collapsed = collapsedKeys().join(' ');
+  layout.querySelectorAll('.dr-rail').forEach(b => b.setAttribute('aria-expanded', 'false'));
   layout.querySelectorAll('.dr-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.leftTab));
 }
 
@@ -710,8 +756,9 @@ function renderLive(d){
   updateTabs();
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
-  setRegion('dr-upnext', upNextHtml(d));
-  setRegion('dr-last', lastPickHtml(d));
+  const folded = ui.collapsed.clock;
+  setRegion('dr-upnext', folded ? '' : upNextHtml(d));
+  setRegion('dr-last', folded ? '' : lastPickHtml(d));
   const hadBoard = regionHtml.has('dr-board');
   setRegion('dr-board', boardHtml(d));
   setRegion('dr-roster', rosterHtml(d));
@@ -962,6 +1009,20 @@ window.draftTradeSubmit = async () => {
   if(!t || t.aSlot === null || t.bSlot === null) return;
   const result = await run({ type: 'trade', a: t.aSlot, b: t.bSlot }, null);
   if(result.ok){ toast('Picks swapped.'); window.draftCloseModal(); }
+};
+
+window.draftTogglePanel = key => {
+  if(!(key in ui.collapsed)) return;
+  ui.collapsed[key] = !ui.collapsed[key];
+  try { localStorage.setItem(PANELS_KEY, JSON.stringify(ui.collapsed)); } catch (e){}
+  updateTabs();
+  scheduleRender();
+  // The board just got more (or less) room: keep the pick on the clock in view
+  // once the column transition has finished.
+  setTimeout(() => {
+    const cell = document.querySelector('.dr-cell[data-current]');
+    if(cell) cell.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, 260);
 };
 
 window.draftMobileTab = tab => { ui.mobileTab = tab; scheduleRender(); };
