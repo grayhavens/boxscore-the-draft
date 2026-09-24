@@ -67,6 +67,7 @@ import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } fr
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
 import { isLeagueFrozen } from './frozen-cache.js';
 import { setDraftActive } from './draft.js';
+import { ACTIVE_SEASON_ID } from './season.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
 import { renderAdminPage } from './admin.js';
@@ -299,6 +300,9 @@ export const FILTER_CHIP_LABELS = {
   mcbb: 'CBB'
 };
 
+// 2026 -> "26": the draft class's year, as the season labels write it.
+const shortYear = y => String(y).slice(-2);
+
 function leagueBlockHtml(league, bodyHtml){
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
@@ -306,7 +310,7 @@ function leagueBlockHtml(league, bodyHtml){
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)
-    ? `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`
+    ? `<div class="prior-season-note">Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
     ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
