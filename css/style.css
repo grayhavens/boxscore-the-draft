@@ -3959,6 +3959,10 @@ html.chat-kb .tab-bar{ display: none; }
 }
 
 /* ---- Settings sheet (js/identity.js) ---- */
+/* Preferences | League switch at the top of the Settings sheet (js/identity.js) */
+.settings-tabs{ padding: 4px 22px 6px; }
+.settings-tabs .seg{ margin-bottom: 0; }
+
 .settings-section{
   padding: 14px 22px 4px;
   font-family: 'Space Grotesk', sans-serif;
