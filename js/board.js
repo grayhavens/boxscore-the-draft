@@ -67,6 +67,7 @@ import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } fr
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
 import { isLeagueFrozen } from './frozen-cache.js';
 import { setDraftActive } from './draft.js';
+import { paintSeasonBanner } from './season-switcher.js';
 import { ACTIVE_SEASON_ID } from './season.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage } from './team-page.js';
@@ -668,6 +669,7 @@ loadEspnCbbStandingsCache();
 loadSeasonPhaseCache();
 loadTeamInfoCache();
 renderBoard();
+paintSeasonBanner();
 paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
