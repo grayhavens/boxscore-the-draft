@@ -24,6 +24,7 @@ import { DRAFT_TEAMS } from './data.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
+import { teamGroup, teamGroupLabel, teamInGroup, leagueGroups } from './draft-groups.js';
 import { onTheClock } from './draft-engine.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
@@ -44,6 +45,13 @@ const leagueUi = key => LEAGUE_UI[key] || { label: key.toUpperCase(), color: '#9
 
 const CONFIRM_MS = 3500;
 const POOL_LIMIT = 60;
+const LEAGUE_PREVIEW = 5;   // Rank + All: top teams shown per league section
+const SORT_KEY = 'draftPoolSort';
+const SORTS = [{ key: 'az', label: 'A–Z' }, { key: 'rank', label: 'Rank' }];
+
+function loadSort(){
+  try { return localStorage.getItem(SORT_KEY) === 'rank' ? 'rank' : 'az'; } catch(e){ return 'az'; }
+}
 const UP_NEXT = 6;
 const CLOCK_CHOICES = [30, 60, 90, 120, 180, 300];
 
@@ -76,6 +84,8 @@ function errorText(result){
 
 const ui = {
   filter: 'all',
+  group: null,            // conference/division within the filtered league, or null
+  sort: loadSort(),       // Available list order: 'az' or 'rank' (remembered per device)
   search: '',
   showAll: false,
   confirming: null,       // team id awaiting its second tap
@@ -261,9 +271,10 @@ function shellHtml(){
         <button class="dr-tab" data-tab="team" onclick="draftLeftTab('team')">My team</button>
       </div>
       <section class="dr-col dr-left">
-        <div class="dr-col-head"><h2>Available</h2><span id="dr-avail-count" class="dr-dim"></span></div>
+        <div class="dr-col-head"><h2>Available</h2><span class="dr-head-right"><span id="dr-avail-count" class="dr-dim"></span><span id="dr-sort" class="dr-sort"></span></span></div>
         <input id="dr-search" class="dr-search" type="search" placeholder="Search or add a college team" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="draftSearch(this.value)">
         <div id="dr-chips" class="dr-chips"></div>
+        <div id="dr-groups" class="dr-chips dr-groups"></div>
         <div id="dr-pool" class="dr-pool"></div>
       </section>
       <section class="dr-col dr-center">
@@ -289,20 +300,26 @@ function setRegion(id, html){
 
 // ---- Available pool ----
 
-function overallOrder(pool){
-  const counts = {};
-  pool.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
+// League by league, each in rank order (unranked teams, e.g. write-ins,
+// last). Rank only means something within a league, so the All view
+// shows one section per league (see rankSectionsHtml).
+function rankOrder(pool){
   const leagueIdx = Object.fromEntries(Object.keys(LEAGUE_UI).map((k, i) => [k, i]));
-  return pool.slice().sort((a, b) => {
-    const ka = a.rank ? (a.rank - 1) / counts[a.league] : 2;
-    const kb = b.rank ? (b.rank - 1) / counts[b.league] : 2;
-    return ka - kb || (leagueIdx[a.league] - leagueIdx[b.league]) || a.name.localeCompare(b.name);
-  });
+  return pool.slice().sort((a, b) =>
+    (leagueIdx[a.league] - leagueIdx[b.league]) || ((a.rank || Infinity) - (b.rank || Infinity)) || a.name.localeCompare(b.name));
 }
 
-let orderedCache = { pool: null, list: [] };
+function alphaOrder(pool){
+  const leagueIdx = Object.fromEntries(Object.keys(LEAGUE_UI).map((k, i) => [k, i]));
+  return pool.slice().sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }) || (leagueIdx[a.league] - leagueIdx[b.league]));
+}
+
+let orderedCache = { pool: null, sort: null, list: [] };
 function orderedPool(pool){
-  if(orderedCache.pool !== pool) orderedCache = { pool, list: overallOrder(pool) };
+  if(orderedCache.pool !== pool || orderedCache.sort !== ui.sort){
+    orderedCache = { pool, sort: ui.sort, list: ui.sort === 'rank' ? rankOrder(pool) : alphaOrder(pool) };
+  }
   return orderedCache.list;
 }
 
@@ -317,11 +334,16 @@ function poolRowHtml(d, team){
     action = `<button class="dr-draft-btn${confirming ? ' confirm' : ''}${d.canAct ? ' mine' : ''}" onclick="draftClick('${team.id}')">${confirming ? 'Confirm' : 'Draft'}</button>`;
   }
   const meta = team.custom ? 'Write-in' : (team.rank ? `#${team.rank}` : '');
+  // The group label narrows the list to that division (or conference).
+  const g = teamGroup(team);
+  const group = g
+    ? `<button class="dr-row-group" onclick="draftSetGroup('${team.league}', '${esc(g.div || g.conf)}')">${esc(teamGroupLabel(team))}</button>`
+    : '';
   return `<div class="dr-row${fits ? '' : ' dim'}">
     ${tileHtml(team, 'md')}
     <div class="dr-row-main">
       <div class="dr-row-name">${esc(team.name)}</div>
-      <div class="dr-row-meta"><i style="background:${lg.color}"></i>${lg.label}${meta ? ` · ${meta}` : ''}</div>
+      <div class="dr-row-meta"><i style="background:${lg.color}"></i>${lg.label}${meta ? ` · ${meta}` : ''}${group ? ` · ${group}` : ''}</div>
     </div>
     <button class="dr-star${queued ? ' on' : ''}" onclick="draftToggleQueue('${team.id}')" aria-label="${queued ? 'Remove from queue' : 'Add to queue'}" aria-pressed="${queued}">${queued ? '★' : '☆'}</button>
     ${action}
@@ -345,6 +367,9 @@ function writeInCardHtml(d, filtered){
 
 function renderPool(d){
   const available = orderedPool(d.s.pool).filter(t => !d.taken.has(t.id));
+  setRegion('dr-sort', SORTS.map(o =>
+    `<button class="${ui.sort === o.key ? 'on' : ''}" onclick="draftSetSort('${o.key}')" aria-pressed="${ui.sort === o.key}">${o.label}</button>`
+  ).join(''));
   const counts = {};
   available.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
 
@@ -354,17 +379,49 @@ function renderPool(d){
     `<button class="dr-chip${ui.filter === c.key ? ' on' : ''}" onclick="draftSetFilter('${c.key}')">${c.color ? `<i style="background:${c.color}"></i>` : ''}${c.label}<span>${c.n}</span></button>`
   ).join(''));
 
+  // Second row: the selected league's conferences/divisions, with how
+  // many teams each still has available.
+  const groups = ui.filter === 'all' ? [] : leagueGroups(ui.filter, d.s.pool);
+  if(ui.group && !groups.includes(ui.group)) ui.group = null;
+  setRegion('dr-groups', groups.map(k => {
+    const n = available.filter(t => t.league === ui.filter && teamInGroup(t, k)).length;
+    return `<button class="dr-chip${ui.group === k ? ' on' : ''}${n ? '' : ' empty'}" onclick="draftSetGroup('${ui.filter}', '${esc(k)}')">${esc(k)}<span>${n}</span></button>`;
+  }).join(''));
+
   const q = ui.search.trim().toLowerCase();
   const filtered = available.filter(t =>
     (ui.filter === 'all' || t.league === ui.filter) &&
-    (!q || t.name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q))
+    (!ui.group || teamInGroup(t, ui.group)) &&
+    (!q || t.name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q) || teamGroupLabel(t).toLowerCase().includes(q))
   );
+  if(ui.sort === 'rank' && ui.filter === 'all'){
+    setRegion('dr-pool', rankSectionsHtml(d, filtered, !!q) + writeInCardHtml(d, filtered));
+    const count = document.getElementById('dr-avail-count');
+    if(count) count.textContent = `${available.length} left`;
+    return;
+  }
   const shown = ui.showAll ? filtered : filtered.slice(0, POOL_LIMIT);
   const more = filtered.length > POOL_LIMIT
-    ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? `Show top ${POOL_LIMIT}` : `Show all ${filtered.length}`}</button>` : '';
+    ? `<button class="dr-showall" onclick="draftToggleShowAll()">${ui.showAll ? `Show ${ui.sort === 'rank' ? 'top' : 'first'} ${POOL_LIMIT}` : `Show all ${filtered.length}`}</button>` : '';
   setRegion('dr-pool', shown.map(t => poolRowHtml(d, t)).join('') + more + writeInCardHtml(d, filtered));
   const count = document.getElementById('dr-avail-count');
   if(count) count.textContent = `${available.length} left`;
+}
+
+// Rank + All: one section per league with its best teams still
+// available, and a link into that league's full list. A search shows
+// every match instead of just the top few.
+function rankSectionsHtml(d, filtered, searching){
+  return Object.keys(d.s.config.caps).map(league => {
+    const teams = filtered.filter(t => t.league === league);
+    if(!teams.length) return '';
+    const lg = leagueUi(league);
+    const shown = searching ? teams : teams.slice(0, LEAGUE_PREVIEW);
+    const more = teams.length > shown.length
+      ? `<button class="dr-showall" onclick="draftSetFilter('${league}')">See all ${teams.length} ${lg.label}</button>` : '';
+    return `<div class="dr-section-head"><i style="background:${lg.color}"></i>${lg.label}<span>${teams.length} left</span></div>`
+      + shown.map(t => poolRowHtml(d, t)).join('') + more;
+  }).join('');
 }
 
 // ---- Center: clock card, up next, board ----
@@ -627,8 +684,21 @@ async function run(action, from){
   return result;
 }
 
-window.draftSetFilter = key => { ui.filter = key; ui.showAll = false; scheduleRender(); };
+window.draftSetFilter = key => { ui.filter = key; ui.group = null; ui.showAll = false; scheduleRender(); };
+// Tapping the selected group again clears it.
+window.draftSetGroup = (league, group) => {
+  ui.group = ui.filter === league && ui.group === group ? null : group;
+  ui.filter = league;
+  ui.showAll = false;
+  scheduleRender();
+};
 window.draftSearch = value => { ui.search = value; ui.showAll = false; scheduleRender(); };
+window.draftSetSort = key => {
+  ui.sort = key === 'rank' ? 'rank' : 'az';
+  ui.showAll = false;
+  try { localStorage.setItem(SORT_KEY, ui.sort); } catch(e){}
+  scheduleRender();
+};
 window.draftToggleShowAll = () => { ui.showAll = !ui.showAll; scheduleRender(); };
 window.draftLeftTab = tab => { ui.leftTab = tab; updateTabs(); };
 
@@ -670,11 +740,11 @@ window.draftAddWriteIn = async league => {
   const name = ui.search.trim();
   const result = await run({ type: 'addWriteIn', league, name });
   if(result.ok){
-    ui.filter = league;
+    ui.group = null; ui.filter = league;
     ui.pendingSelect = name;
   } else if(result.error === 'exists' && result.detail){
     const twin = draftStore.pool.find(t => t.id === result.detail);
-    if(twin){ ui.filter = twin.league; ui.search = twin.name; syncSearchInput(); }
+    if(twin){ ui.group = null; ui.filter = twin.league; ui.search = twin.name; syncSearchInput(); }
   }
   scheduleRender();
 };
@@ -691,7 +761,7 @@ function applyPendingSelect(d){
   const hit = d.s.pool.find(t => t.custom && t.name.toLowerCase() === ui.pendingSelect.toLowerCase());
   if(!hit) return;
   ui.pendingSelect = null;
-  ui.filter = hit.league;
+  ui.group = null; ui.filter = hit.league;
   ui.search = hit.name;
   syncSearchInput();
   scheduleRender();

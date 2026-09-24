@@ -10,7 +10,7 @@
    an ESPN row back to a drafted team goes by a static espnTeamId on
    TEAM_META (js/data.js), not by name. CFB needs a name-override table
    (CFB_ESPN_NAME_OVERRIDES) because ESPN's `location` field doesn't
-   always match this app's shortened TEAM_META.name ("IU" vs "Indiana").
+   always match this app's shortened TEAM_META.name ("NDSU" vs "North Dakota State").
    mcbb's roster has the same problem, worse: several drafted teams'
    TEAM_META.name is an abbreviation ESPN's location never uses at all
    (NDSU vs "North Dakota State", SLU vs "Saint Louis"), and a plain

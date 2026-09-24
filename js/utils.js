@@ -312,7 +312,6 @@ export function findDraftedTeamByName(leagueKey, realName){
 // shared by standings-cfb.js's own matching and js/live-now.js's
 // Scores-tab matching, so both use the one lookup and override table.
 export const CFB_ESPN_LOCATION_OVERRIDES = {
-  'Indiana': 'IU',
   // NDSU's row isn't in the standings endpoint at all (injected
   // separately using ESPN's own "location" for the school — see
   // NDSU_ESPN_TEAM_ID in standings-cfb.js), so this override just lets
