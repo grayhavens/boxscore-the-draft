@@ -179,19 +179,7 @@ function clinchAutoTeams(leagueKey){
     .filter(Boolean);
 }
 
-const ACHIEVEMENTS_KEY = 'teamDashboardAchievements';
 const LEAGUE_FACTS_KEY = 'teamDashboardLeagueFacts';
-const EPL_FACTS_MIGRATED_KEY = 'teamDashboardEplFactsMigrated';
-
-// Only read now, for the one-time migration below — nothing writes to
-// this anymore, every league has moved onto the shared facts model.
-export function loadAchievements(){
-  try {
-    return JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY)) || {};
-  } catch (e){
-    return {};
-  }
-}
 
 export const LEAGUE_FACTS_LEAGUES = LEAGUES.map(l => l.key);
 
@@ -219,10 +207,6 @@ function factsCacheFor(leagueKey){
 // suffixed key instead of sharing that one flat slot.
 function localFactsKey(leagueKey){
   return leagueKey === 'epl' ? scopedKey(LEAGUE_FACTS_KEY) : `${scopedKey(LEAGUE_FACTS_KEY)}:${leagueKey}`;
-}
-
-function factsMigratedKey(leagueKey){
-  return leagueKey === 'epl' ? scopedKey(EPL_FACTS_MIGRATED_KEY) : `${scopedKey('teamDashboardFactsMigrated')}:${leagueKey}`;
 }
 
 function loadLocalLeagueFacts(leagueKey){
@@ -367,33 +351,6 @@ export function getTeamAdjustment(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return null;
   return currentLeagueAdjustments(meta.leagueKey)[teamKey] || null;
-}
-
-// One-time migration so anyone who'd already ticked boxes under the old
-// per-team checklist doesn't see their marks vanish when a league moves
-// onto this model. Safe to run every load — it no-ops once that
-// league's factsMigratedKey is set. Only touches the local fallback; if
-// this browser ever calls addLeagueFact/removeLeagueFact afterward,
-// that push syncs these forward to the shared store like any other edit.
-export function migrateAchievementsToFacts(leagueKey){
-  try {
-    if(localStorage.getItem(factsMigratedKey(leagueKey))) return;
-  } catch (e){ return; }
-
-  const oldData = loadAchievements();
-  const facts = loadLocalLeagueFacts(leagueKey);
-
-  Object.keys(oldData).forEach(teamKey => {
-    const meta = TEAM_META[teamKey];
-    if(!meta || meta.leagueKey !== leagueKey) return;
-    (oldData[teamKey] || []).forEach(label => {
-      const list = facts[label] || (facts[label] = []);
-      if(!list.includes(teamKey)) list.push(teamKey);
-    });
-  });
-
-  saveLocalLeagueFacts(leagueKey, facts);
-  try { localStorage.setItem(factsMigratedKey(leagueKey), '1'); } catch (e){}
 }
 
 function findLeagueRule(leagueKey, ruleLabel){

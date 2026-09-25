@@ -237,8 +237,6 @@ export async function fetchEspnScoreboardCached(sportPath){
   return data;
 }
 
-const LIVE_DATA_CACHE_KEY = 'teamDashboardLiveDataCache';
-
 export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetchedAt }
 
 // Mirrors liveDataCache to localStorage — one key per team — so a
@@ -250,8 +248,7 @@ export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetche
 // their own fresh data on the same schedule as before; this only
 // changes what shows while waiting for that.
 //
-// Written per-team rather than as one growing JSON blob under
-// LIVE_DATA_CACHE_KEY (the old shape) so a single team's refresh tick
+// Written per-team rather than as one growing JSON blob so a single team's refresh tick
 // only serializes and writes that team's own entry — with the roster
 // headed toward ~225 teams (see LIVE_TEAM_KEYS below), rewriting one
 // ever-larger blob on every ~14s tick would mean a bigger synchronous
@@ -267,20 +264,20 @@ function setTeamBundle(teamKey, bundle){
   saveTeamBundleToStorage(teamKey, bundle);
 }
 
-// One-time move off the old single-blob key: reads whatever's there,
-// fans it out into the new per-team keys, then removes it — so this
-// only ever runs once, the same "don't lose what's already saved"
-// approach as migrateAchievementsToFacts (js/league-facts.js).
-function migrateLegacyLiveDataCache(){
-  try {
-    const raw = localStorage.getItem(LIVE_DATA_CACHE_KEY);
-    if(!raw) return;
-    const parsed = JSON.parse(raw);
-    for(const teamKey of Object.keys(parsed)){
-      localStorage.setItem(LIVE_DATA_CACHE_PREFIX + teamKey, JSON.stringify(parsed[teamKey]));
-    }
-    localStorage.removeItem(LIVE_DATA_CACHE_KEY);
-  } catch (e){}
+// Every stored key under `prefix` for a team that's still in TEAM_META.
+// Entries for teams no longer on any roster are deleted on the way, so
+// they don't pile up (and load into memory) forever.
+function prefixedKeys(prefix){
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++){
+    const key = localStorage.key(i);
+    if(key && key.startsWith(prefix)) keys.push(key);
+  }
+  return keys.filter(key => {
+    if(TEAM_META[key.slice(prefix.length)]) return true;
+    localStorage.removeItem(key);
+    return false;
+  });
 }
 
 // Called once at boot, before the first paint, so cached pills show
@@ -288,11 +285,8 @@ function migrateLegacyLiveDataCache(){
 // JSON.stringify as an ISO string, so it's parsed back into a Date
 // here — everything else in a bundle is plain JSON already.
 export function loadLiveDataCache(){
-  migrateLegacyLiveDataCache();
   try {
-    for(let i = 0; i < localStorage.length; i++){
-      const key = localStorage.key(i);
-      if(!key || !key.startsWith(LIVE_DATA_CACHE_PREFIX)) continue;
+    for(const key of prefixedKeys(LIVE_DATA_CACHE_PREFIX)){
       const teamKey = key.slice(LIVE_DATA_CACHE_PREFIX.length);
       const raw = localStorage.getItem(key);
       if(!raw) continue;
@@ -312,10 +306,6 @@ export function loadLiveDataCache(){
 // doesn't even need to re-fetch it) cuts a third of the per-team call
 // volume with no real freshness cost. Same TTL-cache shape as
 // eplStandingsCache/rundownDayCache elsewhere.
-// Legacy single-blob key, migrated away from below (see
-// migrateLegacyLiveDataCache's twin above for why: one growing
-// JSON blob rewritten on every fetch doesn't scale as the roster grows).
-const TEAM_INFO_CACHE_LEGACY_KEY = 'teamDashboardTeamInfoCache';
 const TEAM_INFO_CACHE_PREFIX = scopedKey('teamDashboardTeamInfo') + ':';
 const TEAM_INFO_TTL_MS = 24 * 60 * 60 * 1000;
 const teamInfoCache = {}; // teamKey -> { info, fetchedAt }
@@ -324,24 +314,9 @@ function saveTeamInfoToStorage(teamKey, entry){
   try { localStorage.setItem(TEAM_INFO_CACHE_PREFIX + teamKey, JSON.stringify(entry)); } catch (e){}
 }
 
-function migrateLegacyTeamInfoCache(){
-  try {
-    const raw = localStorage.getItem(TEAM_INFO_CACHE_LEGACY_KEY);
-    if(!raw) return;
-    const parsed = JSON.parse(raw);
-    for(const teamKey of Object.keys(parsed)){
-      localStorage.setItem(TEAM_INFO_CACHE_PREFIX + teamKey, JSON.stringify(parsed[teamKey]));
-    }
-    localStorage.removeItem(TEAM_INFO_CACHE_LEGACY_KEY);
-  } catch (e){}
-}
-
 export function loadTeamInfoCache(){
-  migrateLegacyTeamInfoCache();
   try {
-    for(let i = 0; i < localStorage.length; i++){
-      const key = localStorage.key(i);
-      if(!key || !key.startsWith(TEAM_INFO_CACHE_PREFIX)) continue;
+    for(const key of prefixedKeys(TEAM_INFO_CACHE_PREFIX)){
       const teamKey = key.slice(TEAM_INFO_CACHE_PREFIX.length);
       const raw = localStorage.getItem(key);
       if(raw) teamInfoCache[teamKey] = JSON.parse(raw);

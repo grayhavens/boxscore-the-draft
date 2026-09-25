@@ -87,7 +87,9 @@ including across sessions.
   video. Clip ids are resolved to playable .mp4s straight from Brightcove in the browser
   (`js/nhl-clips.js`), uncached since those URLs are signed and expire. Additive only: ESPN stays
   the source for NHL scores/boxscores.
-- **TheSportsDB** is fully deprecated — no remaining runtime callers.
+- **TheSportsDB** is deprecated as a source: its only remaining caller is `fetchTeamBundle`'s
+  fallback branch in `js/live-data.js`, reached when a team with a `sportsdbId` fails to resolve an
+  ESPN row on a given refresh.
 - **TheRundown** (paid/metered) is kept only as a defensive per-team fallback for a fetch ESPN itself
   fails to resolve on a given refresh (CFB's one FCS team, and now every College Basketball team) —
   not a primary source for any league; its key is private, so it's always proxied through
@@ -159,8 +161,8 @@ shared across every drafter instead of living in one person's `localStorage`: ma
 a league's Results modal credits every drafter who owns an involved team automatically, stored in
 Workers KV (`LEAGUE_FACTS_LEAGUES` allowlist). `rankAuto` scoring rules (in `LEAGUE_SCORING`) skip
 manual marking entirely and are instead derived live off a loaded standings table (currently EPL
-only — see `getLeagueRuleTeams`). Every league not yet on this model still uses the older per-team
-`ACHIEVEMENTS_KEY` checklist.
+only — see `getLeagueRuleTeams`). Every league is on this model; the older per-team
+achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season

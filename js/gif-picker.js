@@ -32,10 +32,6 @@ const searchEl = () => document.getElementById('gif-search');
 const statusEl = () => document.getElementById('gif-status');
 const columnEls = () => [...gridEl().querySelectorAll('.gif-col')];
 
-export function isGifPickerOpen(){
-  return isOpen;
-}
-
 function setStatus(text, retry){
   const el = statusEl();
   if(!el) return;

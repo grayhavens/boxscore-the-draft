@@ -8,7 +8,6 @@
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml } from './utils.js';
-import { LEAGUE_FACTS_LEAGUES, migrateAchievementsToFacts } from './league-facts.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
   renderStandingsRow, eplStandingsToggleHtml, fetchEplStandingsTable, loadEplStandingsCache,
@@ -650,7 +649,12 @@ if(buildTagEl) buildTagEl.textContent = APP_VERSION;
 // cache loaders below run. No-op (and no await cost) for the newest class.
 await primeFrozenSnapshots();
 
-LEAGUE_FACTS_LEAGUES.forEach(migrateAchievementsToFacts);
+// Keys from retired storage shapes (the per-team achievements checklist,
+// single-blob team caches) and the flags their one-time migrations left.
+try {
+  const retired = /^teamDashboard(Achievements|LiveDataCache|TeamInfoCache)$|^teamDashboard(Epl)?FactsMigrated/;
+  Object.keys(localStorage).filter(k => retired.test(k)).forEach(k => localStorage.removeItem(k));
+} catch (e){}
 loadLiveDataCache();
 loadEplStandingsCache();
 loadCfbRecordsCache();
@@ -735,7 +739,10 @@ function isLiveNowActive(){
   return !!el && el.classList.contains('active');
 }
 
+// Both loops sit out while the app is hidden (a backgrounded desktop tab
+// would otherwise keep fetching all day); coming back runs a sweep at once.
 async function backgroundRefreshAndPaint(){
+  if(document.visibilityState === 'hidden') return;
   await backgroundRefreshTick();
   if(isLiveNowActive()) renderLiveNow();
 }
@@ -747,11 +754,15 @@ setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 // comment in js/live-data.js for why this is a separate, faster loop
 // instead of just shortening the rotation above.
 async function liveSweepAndPaint(){
+  if(document.visibilityState === 'hidden') return;
   await liveScoreboardSweepTick();
   if(isLiveNowActive()) renderLiveNow();
 }
 liveSweepAndPaint();
 setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') liveSweepAndPaint();
+});
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
