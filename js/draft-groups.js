@@ -150,11 +150,6 @@ export function teamGroupLabel(team){
   return g.div.startsWith(g.conf) ? g.div : `${g.conf} · ${g.div}`;
 }
 
-export function teamInGroup(team, group){
-  const g = teamGroup(team);
-  return !!g && (g.conf === group || g.div === group);
-}
-
 // Present in `pool`: the league has at least one team there (taken or not).
 function presentGroups(league, pool){
   const confs = new Set(), divs = new Set();

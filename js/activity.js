@@ -41,7 +41,7 @@ import { chatWorkerBase } from './api.js';
 import { ordinal } from './utils.js';
 import { isLeagueLocked, leagueLocksSettled, getLockedRuleTeams } from './season-lock.js';
 import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
-import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
+import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES, wasSeasonUnderwayAt } from './season-phase.js';
 import { currentDraftTeamId } from './board.js';
 import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenSheet, obSinceTs, obSinceLabel } from './overall.js';
 import { currentBonusHolders, loadBonusInputs } from './compare.js';
@@ -75,6 +75,19 @@ const SNAPSHOT_VERSION = 2;
 let feed = loadFeed();
 let listFilter = 'all';
 
+// A rule/bonus event for a league whose season wasn't under way when it
+// was logged can't have scored — an older client (before the season gate
+// in buildSnapshot) logged NHL preseason moves. Hide those; a league whose
+// phase hasn't loaded yet keeps its events.
+function countsEvent(e){
+  if((e.type !== 'rule' && e.type !== 'bonus') || !SEASON_PHASE_LEAGUES.includes(e.league)) return true;
+  return wasSeasonUnderwayAt(e.league, e.ts) !== false;
+}
+
+function visibleEvents(){
+  return feed.events.filter(countsEvent);
+}
+
 function loadFeed(){
   try {
     const saved = JSON.parse(localStorage.getItem(FEED_KEY));
@@ -102,13 +115,13 @@ function lastSeen(){
 
 export function unseenCount(){
   const seen = lastSeen();
-  return feed.events.filter(e => e.ts > seen).length;
+  return visibleEvents().filter(e => e.ts > seen).length;
 }
 
 // `quiet` is for the Points render itself: repaint only the Home link
 // (the caller is already drawing the badge-free Points page).
 export function markActivitySeen(quiet){
-  const newest = feed.events.reduce((m, e) => Math.max(m, e.ts), 0);
+  const newest = visibleEvents().reduce((m, e) => Math.max(m, e.ts), 0);
   if(newest <= lastSeen()) return;
   try { localStorage.setItem(SEEN_KEY, String(newest)); } catch (e){}
   if(quiet) renderActivityHomeLink(); else refreshActivityUi();
@@ -601,7 +614,7 @@ const FILTERS = [
 
 // The Activity half of the Points tab.
 export function activityPanelHtml(){
-  const events = feed.events;
+  const events = visibleEvents();
   const mine = events.filter(mineEvent);
   let body;
   if(listFilter === 'locked'){
@@ -627,7 +640,7 @@ export function activityPanelHtml(){
 // A drafter breakdown's "Recent changes": the last few events that
 // touched them, compact. '' when there are none (the section hides).
 export function activityRecentHtml(drafterId){
-  const items = feed.events.filter(e => deltaFor(e, drafterId)).slice(0, 5);
+  const items = visibleEvents().filter(e => deltaFor(e, drafterId)).slice(0, 5);
   if(!items.length) return '';
   return `<div class="ob-card act-group">${items.map(e => {
     const d = deltaFor(e, drafterId);
@@ -649,7 +662,7 @@ export function activityRecentHtml(drafterId){
 export function renderActivityHomeLink(){
   const el = document.getElementById('activity-home');
   if(!el) return;
-  const recent = feed.events.filter(e => Date.now() - e.ts < HOME_WINDOW_MS);
+  const recent = visibleEvents().filter(e => Date.now() - e.ts < HOME_WINDOW_MS);
   if(!recent.length){ el.innerHTML = ''; return; }
   const unseen = unseenCount();
   const latest = recent[0];

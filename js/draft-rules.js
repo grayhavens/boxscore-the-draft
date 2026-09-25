@@ -32,10 +32,6 @@ export function totalPicks(config){
   return totalRounds(config.caps) * config.drafters.length;
 }
 
-export function slotRound(slot, drafterCount){
-  return Math.floor(slot / drafterCount);
-}
-
 // The drafter who owns `slot` under the plain snake, ignoring trades.
 export function naturalOwner(slot, order){
   const n = order.length;
@@ -89,16 +85,6 @@ export function leagueCounts(picks, pool, order, overrides, drafterId, exceptSlo
     if(team) counts[team.league] = (counts[team.league] || 0) + 1;
   });
   return counts;
-}
-
-// What a drafter still has to fill, { leagueKey: n } with zeros dropped.
-export function rosterNeeds(config, counts){
-  const needs = {};
-  Object.keys(config.caps).forEach(league => {
-    const left = config.caps[league] - (counts[league] || 0);
-    if(left > 0) needs[league] = left;
-  });
-  return needs;
 }
 
 // Teams `drafterId` could still take right now (not taken, league cap

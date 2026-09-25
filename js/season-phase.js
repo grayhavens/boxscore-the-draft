@@ -183,4 +183,18 @@ export function isSeasonUnderway(leagueKey){
   return now >= new Date(regular.startDate) && now <= new Date(end);
 }
 
+// isSeasonUnderway, but for a past moment: whether `ts` fell inside this
+// league's current Regular Season start .. Postseason end. null while the
+// data hasn't loaded. Used to drop Activity events an older client logged
+// off preseason tables (js/activity.js).
+export function wasSeasonUnderwayAt(leagueKey, ts){
+  const cache = phaseCacheFor(leagueKey);
+  if(!cache.data) return null;
+  const types = cache.data.types;
+  const regular = types.find(t => t.type === 2);
+  if(!regular || !regular.startDate) return null;
+  const end = (types.find(t => t.type === 3) || regular).endDate;
+  return ts >= new Date(regular.startDate).getTime() && ts <= new Date(end).getTime();
+}
+
 export const SEASON_PHASE_LEAGUES = Object.keys(SEASON_PHASE_PATHS);
