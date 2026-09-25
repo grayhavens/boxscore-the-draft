@@ -244,3 +244,9 @@ counts.
 
 **Ties for the bonus** go to whoever the Drafted standings list first. That's fine for now and
 may change later.
+
+**Follow-up (2026-09-25).** The first segment is renamed **Standings** (`?seg=standings`; an old
+`?seg=table` link still lands there). Every visit opens on Standings unless it was asked for
+Activity: the Home link, or `?seg=activity`. This replaces the handoff's "Activity when
+unseen" default; the red badge on the Activity segment flags unseen items instead.
+

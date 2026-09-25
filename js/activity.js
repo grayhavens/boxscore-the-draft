@@ -653,22 +653,24 @@ export function renderActivityHomeLink(){
   if(!recent.length){ el.innerHTML = ''; return; }
   const unseen = unseenCount();
   const latest = recent[0];
-  let title, sub;
+  // Unseen: what changed, with the latest line under it. All seen: just
+  // where you stand, one line.
+  let title, sub = '';
   if(unseen){
     const d = myDelta(latest);
     title = `${unseen} point change${unseen === 1 ? '' : 's'} since you last looked`;
     sub = `${latest.title}${d ? ` &middot; <span class="act-delta-inline ${d.cls}">${d.html}</span>` : ''}`;
   } else {
     const me = obRankedRows().find(r => r.id === currentDraftTeamId);
-    title = me ? `Projected ${me.rankLabel.startsWith('T') ? 'T' + ordinal(me.rankLabel.slice(1)) : ordinal(me.rankLabel)} &middot; ${me.total} pts` : 'Points';
-    sub = `Latest: ${latest.title}`;
+    const total = me && (me.total < 0 ? '&minus;' + Math.abs(me.total) : me.total);
+    title = me ? `Projected ${me.rankLabel.startsWith('T') ? 'T' + ordinal(me.rankLabel.slice(1)) : ordinal(me.rankLabel)} &middot; ${total} pts` : 'Points';
   }
   el.innerHTML = `
     <button type="button" class="act-link ${unseen ? 'unseen' : ''}" onclick="obOpenActivity()">
       ${unseen ? '<span class="act-dot"></span>' : ''}
       <span class="act-link-body">
         <span class="act-link-title">${title}</span>
-        <span class="act-link-sub">${sub}</span>
+        ${sub ? `<span class="act-link-sub">${sub}</span>` : ''}
       </span>
       <span class="act-link-go">Points &rsaquo;</span>
     </button>
