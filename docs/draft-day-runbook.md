@@ -79,6 +79,7 @@ to the lobby; or just use a new room name.
 | Need a break | **Pause** stops the clock everywhere; **Resume** continues it with the elapsed time kept. |
 | A pick trade | **Trade** → choose two open picks. The board and the on-the-clock card ("via …") update for everyone. |
 | A school isn't in the pool (CFB/CBB) | Any drafter can search for it and use **Add to CFB / CBB**; it then drafts like any team. |
+| Want a backup copy | **Download board** in the commissioner bar saves an .xlsx of everything so far: every pick, the board, the rosters, and who owns each remaining pick (trades included). |
 | Something looks wrong | Don't Reset. Pause, then check `…/draft/result?room=main` (the worker's own record of every pick). |
 
 **Picking and seeing more of the board.** Draft is a single tap; a wrong pick is fixed with *Change this
@@ -89,7 +90,8 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
 
 ## 4. After the draft
 
-1. Header pill says "Draft complete". Open `https://<worker>/draft/result?room=main` and confirm 210 picks.
+1. Header pill says "Draft complete". Everyone now sees **Download board** on the Draft Complete card
+   (an .xlsx with Picks, Board and Rosters sheets). Open `https://<worker>/draft/result?room=main` and confirm 210 picks.
 2. Dry-run the export and read the report:
    ```bash
    node tools/export-draft.mjs --dry-run
@@ -124,4 +126,6 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
   page, and check `/draft/result?room=main`. If the worker is down, wait; do not start a second room.
 - **A drafter's picks aren't registering.** They must be signed in as themselves (Settings → Signed in as).
   The server checks the sender against the slot owner.
-- **You need to continue off-app.** `/draft/result?room=main` lists every pick so far in order. Keep it open.
+- **You need to continue off-app.** **Download board** (commissioner bar) gives an .xlsx whose Picks sheet
+  lists every slot in order: what was picked, and who owns each pick still to make. Take one as soon as
+  trouble starts; `/draft/result?room=main` also lists every pick so far.

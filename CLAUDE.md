@@ -15,8 +15,8 @@ Plain static site: no build step, no bundler, no package.json, no test framework
 There is no build/lint/test tooling in this repo — there's nothing to run before checking in a
 change beyond loading the page.
 
-**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs` (pure logic, no
-dependencies).
+**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs`
+(pure logic, no dependencies).
 **Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
 failures against a running `wrangler dev`; `--preflight` is the draft-morning smoke test. The commissioner's
 step-by-step is `docs/draft-day-runbook.md`.
@@ -147,7 +147,9 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password. See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
-While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
+**Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
+written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft
+is done; the commissioner bar has it any time as a mid-draft backup. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
 into the room (`js/draft-live.js`: top of `.board` and under the Chat header). Off the draft view it
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.

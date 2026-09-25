@@ -29,6 +29,8 @@ import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
 import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-groups.js';
 import { onTheClock } from './draft-engine.js';
+import { draftXlsx } from './draft-sheets.js';
+import { XLSX_MIME } from './xlsx.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
   leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES
@@ -64,6 +66,7 @@ const ICON = {
   star: svg(20, 20, '<polygon points="10,2 12.4,7.2 18,7.6 13.7,11.3 15,16.8 10,13.9 5,16.8 6.3,11.3 2,7.6 7.6,7.2"/>'),
   toTop: svg(12, 12, '<path d="M2 1.5h8M6 10.5V4M3 6.5 6 3.5l3 3"/>'),
   close: svg(10, 10, '<path d="M2 2l6 6M8 2 2 8"/>'),
+  download: svg(14, 14, '<path d="M7 2v7M4 6.5 7 9.5l3-3M2.5 12h9"/>'),
   grip: '<svg width="8" height="14" viewBox="0 0 8 14" aria-hidden="true" fill="currentColor"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="6" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6" cy="12" r="1.3"/></svg>'
 };
 
@@ -323,7 +326,7 @@ function shellHtml(){
         <button class="dr-rail" onclick="draftTogglePanel('left')" aria-label="Expand Available" aria-expanded="false"><span class="dr-caret" aria-hidden="true">${ICON.chevR}</span><span class="dr-rail-label">Available</span><span class="dr-rail-count" id="dr-rail-left-count"></span></button>
         <div class="dr-col-head"><h2>Available</h2><span id="dr-avail-count" class="dr-dim"></span><button class="dr-caret" onclick="draftTogglePanel('left')" aria-label="Collapse Available" aria-expanded="true">${ICON.chevL}</button></div>
         ${searchInput('Search teams, conferences, or add a school')}
-        <div id="dr-chips" class="dr-ltabs"></div>
+        ${leagueTabsShell()}
         <div id="dr-groups" class="dr-scope"></div>
         <div id="dr-pool" class="dr-pool"></div>
       </section>
@@ -405,6 +408,39 @@ function poolRowHtml(d, team){
   </div>`;
 }
 
+// League tabs: one scrolling row inside a frame whose ‹ › buttons appear
+// only on a side with more tabs to see (a hidden-scrollbar strip can't
+// otherwise be scrolled with a mouse). See syncLeagueTabs.
+function leagueTabsShell(){
+  return `<div class="dr-ltabs-wrap" id="dr-ltabs-wrap">
+    <button class="dr-ltabs-arrow l" onclick="draftTabsScroll(-1)" aria-label="Scroll leagues left" tabindex="-1">${ICON.chevL}</button>
+    <div id="dr-chips" class="dr-ltabs"></div>
+    <button class="dr-ltabs-arrow r" onclick="draftTabsScroll(1)" aria-label="Scroll leagues right" tabindex="-1">${ICON.chevR}</button>
+  </div>`;
+}
+
+// Show an arrow (and the edge fade) only where tabs are cut off, and when
+// the selected league changes, bring its tab into view.
+let tabsFilterShown = null;
+function syncLeagueTabs(){
+  const wrap = document.getElementById('dr-ltabs-wrap');
+  const strip = document.getElementById('dr-chips');
+  if(!wrap || !strip) return;
+  if(tabsFilterShown !== ui.filter){
+    tabsFilterShown = ui.filter;
+    const on = strip.querySelector('.dr-ltab.on');
+    if(on){
+      const pad = 32;
+      const left = on.offsetLeft - strip.offsetLeft, right = left + on.offsetWidth;
+      if(left - pad < strip.scrollLeft) strip.scrollLeft = Math.max(0, left - pad);
+      else if(right + pad > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = right + pad - strip.clientWidth;
+    }
+  }
+  const max = strip.scrollWidth - strip.clientWidth;
+  wrap.classList.toggle('more-l', strip.scrollLeft > 1);
+  wrap.classList.toggle('more-r', strip.scrollLeft < max - 1);
+}
+
 // League tabs: All + each league in the draft, with how many are left.
 function leagueTabsHtml(d, available){
   const counts = {};
@@ -482,6 +518,7 @@ function renderPool(d){
   });
 
   setRegion('dr-chips', leagueTabsHtml(d, available));
+  syncLeagueTabs();
   setRegion('dr-groups', scopeRowHtml(d, available, filtered));
 
   let list;
@@ -547,9 +584,10 @@ function clockCardHtml(d){
   const { s } = d;
   const phone = isPhone();
   if(s.phase === 'done'){
+    const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`;
     return phone
-      ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div></div>`
-      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span></div>`;
+      ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`
+      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`;
   }
   const info = d.clockInfo;
   const mine = d.myTurn;
@@ -573,7 +611,6 @@ function clockCardHtml(d){
         <div class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</div>
         <div class="dr-timer" id="dr-timer">0:00</div>
         <div class="dr-bar"><span id="dr-bar"></span></div>
-        <div class="dr-timer-note" id="dr-timer-note"></div>
       </div>
     </div>
     ${banners}`;
@@ -711,6 +748,7 @@ function commBarHtml(d){
     ${live ? `<button class="dr-btn" onclick="${d.s.clock.running ? 'draftPause' : 'draftResume'}()">${d.s.clock.running ? 'Pause' : 'Resume'}</button>` : ''}
     <button class="dr-btn"${anyPicks ? '' : ' disabled'} onclick="draftUndo()">Undo pick</button>
     ${d.s.order && d.s.phase !== 'done' ? '<button class="dr-btn" onclick="draftOpenTrade()">Trade</button>' : ''}
+    <button class="dr-btn" onclick="draftDownload()" title="Everything so far, including who owns each remaining pick">Download board</button>
     <button class="dr-btn dr-btn-ghost" onclick="draftOpenReset()">Reset</button>`;
 }
 
@@ -801,7 +839,7 @@ function phoneShellHtml(){
       <section class="dm-pane" data-pane="pick">
         <div id="dm-queue-top"></div>
         ${searchInput('Search or add a school')}
-        <div id="dr-chips" class="dr-ltabs"></div>
+        ${leagueTabsShell()}
         <div id="dr-groups" class="dr-scope"></div>
         <div id="dr-pool" class="dr-pool"></div>
       </section>
@@ -874,6 +912,7 @@ function renderLive(d){
     host.innerHTML = shellHtml();
     ui.shell = 'live';
     regionHtml.clear();
+    tabsFilterShown = null;
   }
   updateTabs();
   renderPool(d);
@@ -985,8 +1024,6 @@ function updateClock(){
   timer.className = 'dr-timer' + (over ? ' over' : (left <= 15000 ? ' low' : ''));
   const bar = document.getElementById('dr-bar');
   if(bar) bar.style.width = `${Math.max(0, Math.min(100, (left / limit) * 100))}%`;
-  const note = document.getElementById('dr-timer-note');
-  if(note) note.textContent = !d.s.clock.running ? 'Clock stopped' : (over ? 'Over time · no auto-pick' : 'Soft clock');
 }
 
 // ---- Actions (wired to window for the inline handlers) ----
@@ -1162,6 +1199,31 @@ window.draftPause = () => run({ type: 'pause' }, null);
 window.draftResume = () => run({ type: 'resume' }, null);
 window.draftUndo = () => run({ type: 'undo' }, null);
 
+// The board as an .xlsx (Picks, Board, Rosters; see js/draft-sheets.js).
+// Anyone once the draft is done; the commissioner any time, as a backup
+// for finishing the draft outside the app.
+window.draftDownload = async () => {
+  const d = derive();
+  if(!d || !d.s.order) return;
+  const bytes = draftXlsx(d.s, { drafterName, leagueLabel: k => leagueUi(k).label, groupLabel: teamGroupLabel });
+  const made = Object.keys(d.s.picks).length;
+  const room = draftStore.room === 'main' ? '' : `-${draftStore.room}`;
+  const name = `boxscore-draft-${Number(LATEST_SEASON_ID) + 1}${room}${d.s.phase === 'done' ? '' : `-after-${made}-picks`}.xlsx`;
+  const file = new File([bytes], name, { type: XLSX_MIME });
+  // On a phone, the share sheet (Save to Files, AirDrop, Messages): a plain
+  // download from the installed iOS app opens a preview with nowhere to go.
+  const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if(touch && navigator.canShare && navigator.canShare({ files: [file] })){
+    try { await navigator.share({ files: [file], title: name }); return; }
+    catch (e){ if(e && e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};
+
 window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
 window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
 window.draftDoReset = async () => {
@@ -1284,6 +1346,21 @@ document.addEventListener('click', e => {
 document.addEventListener('focusin', e => { const tile = active && tipTile(e.target); if(tile) showTip(tile, false); });
 document.addEventListener('focusout', e => { if(tipTile(e.target)) hideTip(); });
 document.addEventListener('scroll', () => { if(tipFor) hideTip(); }, true);
+
+// League tabs: scroll by most of a strip per arrow press, turn a vertical
+// mouse wheel into sideways scrolling, and keep the arrows current.
+window.draftTabsScroll = dir => {
+  const strip = document.getElementById('dr-chips');
+  if(strip) strip.scrollBy({ left: dir * Math.max(80, strip.clientWidth * 0.7), behavior: 'smooth' });
+};
+document.addEventListener('wheel', e => {
+  const strip = e.target.closest && e.target.closest('.dr-ltabs');
+  if(!strip || Math.abs(e.deltaX) >= Math.abs(e.deltaY) || strip.scrollWidth <= strip.clientWidth) return;
+  e.preventDefault();
+  strip.scrollLeft += e.deltaY;
+}, { passive: false });
+document.addEventListener('scroll', e => { if(e.target.id === 'dr-chips') syncLeagueTabs(); }, true);
+window.addEventListener('resize', () => syncLeagueTabs());
 
 // ---- View lifecycle (called by js/board.js's switchView) ----
 

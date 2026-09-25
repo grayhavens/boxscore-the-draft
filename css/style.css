@@ -4488,14 +4488,36 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-search::placeholder{ color: var(--text-mute); }
 
 /* Available: league tabs (a narrowing filter, so the selected tab is accent) */
+.dr-ltabs-wrap{ flex: 0 0 auto; position: relative; margin-left: -16px; }
 .dr-ltabs{
-  flex: 0 0 auto; display: flex; flex-wrap: nowrap; gap: 2px;
+  display: flex; flex-wrap: nowrap; gap: 2px;
   overflow-x: auto; scrollbar-width: none;
-  margin-left: -16px; padding-left: 16px;
+  padding-left: 16px;
   border-bottom: 1px solid var(--hairline);
-  -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
-  mask-image: linear-gradient(90deg, #000 88%, transparent);
 }
+/* Fade whichever edge has tabs cut off (set by syncLeagueTabs) */
+.dr-ltabs-wrap.more-r .dr-ltabs{
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent calc(100% - 14px));
+  mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent calc(100% - 14px));
+}
+.dr-ltabs-wrap.more-l .dr-ltabs{
+  -webkit-mask-image: linear-gradient(90deg, transparent 30px, #000 64px);
+  mask-image: linear-gradient(90deg, transparent 30px, #000 64px);
+}
+.dr-ltabs-wrap.more-l.more-r .dr-ltabs{
+  -webkit-mask-image: linear-gradient(90deg, transparent 30px, #000 64px, #000 calc(100% - 48px), transparent calc(100% - 14px));
+  mask-image: linear-gradient(90deg, transparent 30px, #000 64px, #000 calc(100% - 48px), transparent calc(100% - 14px));
+}
+.dr-ltabs-arrow{
+  position: absolute; top: 0; bottom: 1px; z-index: 1; width: 26px;
+  display: none; align-items: center; justify-content: center;
+  padding: 0; border: 0; background: none; color: var(--text-sub); cursor: pointer;
+}
+.dr-ltabs-arrow:hover{ color: var(--text); }
+.dr-ltabs-arrow.l{ left: 12px; }
+.dr-ltabs-arrow.r{ right: 0; }
+.dr-ltabs-wrap.more-l .dr-ltabs-arrow.l,
+.dr-ltabs-wrap.more-r .dr-ltabs-arrow.r{ display: flex; }
 .dr-ltabs::-webkit-scrollbar{ display: none; }
 .dr-ltab{
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
@@ -4608,9 +4630,8 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-timer{ font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .dr-timer.low{ color: var(--accent); }
 .dr-timer.over{ color: var(--loss); }
-.dr-bar{ width: 170px; max-width: 100%; height: 4px; margin: 6px 0 4px auto; border-radius: 2px; background: var(--seg-track); overflow: hidden; }
+.dr-bar{ width: 170px; max-width: 100%; height: 4px; margin: 6px 0 0 auto; border-radius: 2px; background: var(--seg-track); overflow: hidden; }
 .dr-bar span{ display: block; height: 100%; background: var(--text-sub); }
-.dr-timer-note{ font-size: var(--fs-11); color: var(--text-mute); }
 .dr-paused{ padding: 10px 14px; border-radius: var(--r-sm); background: var(--seg-track); font-size: var(--fs-13); color: var(--text-sub); }
 
 /* Board */
@@ -4868,5 +4889,6 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .dr-clock-card.strip .dr-clock-sub{ margin: 0; white-space: nowrap; }
 .dr-clock-card.strip .dr-proxy-btn{ margin: 0 0 0 4px; height: 30px; }
 .dr-strip-timer{ margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.dr-download-btn{ flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
 .dr-strip-timer .dr-timer{ font-size: 26px; }
 .dr-strip-timer .dr-bar{ width: 90px; margin: 0; }
