@@ -815,7 +815,7 @@ function handleGifConfig(request, env, headers){
 const ACTIVITY_KEY = 'activity:state';
 const ACTIVITY_MAX_EVENTS = 150;
 const ACTIVITY_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
-const ACTIVITY_EVENT_TYPES = ['rule', 'bonus', 'rank'];
+const ACTIVITY_EVENT_TYPES = ['rule', 'bonus', 'rank', 'lock'];
 
 function cleanStr(v, max){
   return typeof v === 'string' ? v.slice(0, max) : '';

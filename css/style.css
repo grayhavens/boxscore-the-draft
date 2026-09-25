@@ -203,6 +203,8 @@ html{ background: var(--bg); }
   --dur-press: 120ms; --dur-ui: 200ms; --dur-move: 320ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --live-stripe: repeating-linear-gradient(135deg, var(--provisional) 0 3px, var(--provisional-soft) 3px 6px);
+  --risk-stripe: repeating-linear-gradient(135deg, var(--loss) 0 3px, color-mix(in srgb, var(--loss) 35%, transparent) 3px 6px);
   --text-strong: #FFFFFF;
   --on-accent: #0A0B0D;
   --hover: rgba(var(--ink-rgb), 0.04);
@@ -369,14 +371,11 @@ body{
   color: var(--text);
 }
 
-/* Chat entry point (js/chat.js) — the center button in the tab bar
-   (.tab-btn.chat-hit, see .tab-bar below). The badge hangs off the icon's
-   top-right corner via .tab-icon, not off the full-width button. */
-.chat-badge{
-  display: none;
-  position: absolute;
-  top: -6px;
-  right: 4px;
+/* The one unread-count pill: the tab bar's chat badge and the Points
+   tab's Activity segment (segmentedControlHtml's `badge`) both use it. */
+.count-badge{
+  display: inline-block;
+  box-sizing: border-box;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -388,6 +387,17 @@ body{
   font-weight: 700;
   line-height: 16px;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chat entry point (js/chat.js) — the center button in the tab bar
+   (.tab-btn.chat-hit, see .tab-bar below). The badge hangs off the icon's
+   top-right corner via .tab-icon, not off the full-width button. */
+.chat-badge{
+  display: none;
+  position: absolute;
+  top: -6px;
+  right: 4px;
   box-shadow: 0 0 0 2px var(--bg);
 }
 .chat-badge.show{ display: block; }
@@ -464,6 +474,10 @@ body{
 /* Persistent selection (Standings' league filter) rather than the
    touch feedback above — filled solid so it reads as "on" even after
    you lift your finger, not just a footprint from the last :active tap. */
+/* Compact density, for a chip row that has to fit one phone width
+   (Points > Activity's four filters). */
+.filter-chips.sm{ gap: 6px; }
+.filter-chips.sm .filter-chip{ font-size: var(--fs-12); font-weight: 700; padding: 6px 11px; }
 .filter-chip.active{
   background: var(--accent-fill);
   border-color: var(--accent-fill);
@@ -1334,6 +1348,9 @@ body{
    js/live-now.js's "Show which teams?" scope sheet both use this same
    set) ---- */
 .sheet-title-row{
+  /* The containing block for .modal-close — .modal itself is static, so
+     without this the × was placed against the viewport, off the sheet. */
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2372,21 +2389,6 @@ body{
   border-color: transparent;
 }
 
-.provisional-tag{
-  display: inline-block;
-  margin-left: 6px;
-  font-family: 'Manrope', sans-serif;
-  font-size: var(--fs-10);
-  font-weight: 700;
-  letter-spacing: var(--track-tag);
-  text-transform: uppercase;
-  color: var(--provisional);
-  background: var(--provisional-soft);
-  border: 1px solid var(--provisional-border);
-  border-radius: 20px;
-  padding: 2px 6px;
-  vertical-align: middle;
-}
 
 .provisional-note{
   display: inline-block;
@@ -2842,13 +2844,13 @@ body{
   color: var(--record);
 }
 
-/* ---- Leaderboard view (cross-drafter standings, js/overall.js) ----
-   Two levels, both confirmed-points-only at the number that matters:
-   a plain scannable list (rank, name, confirmed total — no per-league
-   composition here at all) and a per-drafter detail with an accordion
-   of league cards plus a banner for any provisional points, which never
-   touch the ranking number. See design_handoff_leaderboard/README.md
-   for the full spec this implements. */
+/* ---- Points view (cross-drafter standings, js/overall.js) ----
+   Ranked by Projected = Locked + Live. A "You" hero, a Table | Activity
+   switch, a quick sheet per drafter and the pushed per-drafter
+   breakdown. Every Locked/Live visual goes through .split-bar /
+   .split-swatch / .pts-tag, so the two kinds of points read the same
+   everywhere (Compare and the team modal too). See
+   docs/points-ux-plan.md. */
 
 /* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
    Sits below the header/subheader rather than in the header-top row
@@ -2886,76 +2888,186 @@ body{
   color: var(--accent);
 }
 
-/* -- List -- */
-.ob-list{ display: flex; flex-direction: column; gap: 6px; }
+/* -- Locked / Live primitives --
+   Solid ink = Locked, blue hatch = Live, red hatch = Live at risk
+   (negative). Texture, not just hue, so it reads before color does. */
+.split-bar{
+  display: flex;
+  height: var(--split-h, 8px);
+  border-radius: 99px;
+  background: rgba(var(--ink-rgb), 0.06);
+  overflow: hidden;
+  min-width: 0;
+}
+.split-bar.lg{ --split-h: 12px; }
+.split-bar.sm{ --split-h: 8px; }
+.split-bar.xs{ --split-h: 6px; }
+.split-bar > span{ display: block; height: 100%; flex: none; }
+.split-bar .lk{ background: var(--text); }
+.split-bar .lv, .split-swatch.lv{ background: var(--live-stripe); }
+.split-bar .lv.risk, .split-swatch.lv.risk{ background: var(--risk-stripe); }
+.split-swatch{ display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.split-swatch.lk{ background: var(--text); }
+.split-swatch.lv{ background-size: 6px 6px; }
 
-.ob-row{
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 44px;
-  padding: 15px 16px;
+.pts-tag.live{ color: var(--provisional); background: var(--provisional-soft); box-shadow: inset 0 0 0 1px var(--provisional-border); }
+.pts-tag.locked{ color: var(--accent); background: var(--accent-soft); }
+.pts-tag.lock-in{ color: var(--on-accent); background: var(--accent-fill); }
+.pts-tag.rank{ color: var(--text-sub); background: rgba(var(--ink-rgb), 0.06); }
+.tracker-label .pts-tag{ margin-left: 6px; }
+
+.ob-move{ font-size: var(--fs-11); font-weight: 800; white-space: nowrap; }
+.ob-move.up{ color: var(--win); }
+.ob-move.down{ color: var(--loss); }
+
+/* -- Hero -- */
+.ob-hero{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   background: var(--surface);
   border: 1px solid var(--hairline);
-  border-radius: 14px;
-  color: inherit;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.ob-hero-top{ display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.ob-hero-left{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ob-hero-rankline{ display: flex; align-items: baseline; gap: 8px; }
+.ob-hero-rank, .ob-hero-total{
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ob-hero-rank{ color: var(--accent); }
+.ob-hero-rankline .ob-move{ font-size: var(--fs-12); }
+.ob-hero-note, .ob-hero-total-label{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.ob-hero-right{ display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ob-hero-total-label{ font-size: var(--fs-11); font-weight: 700; }
+.ob-split{ display: flex; flex-direction: column; gap: 8px; }
+.ob-split-legend{ display: flex; justify-content: space-between; font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
+.ob-split-legend > span{ display: flex; align-items: center; gap: 6px; }
+.ob-split-legend .lv{ color: var(--provisional); }
+.ob-split-legend .risk{ color: var(--loss); }
+.ob-ladder{ display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--hairline); padding-top: 8px; }
+.ob-ladder-row{
+  display: grid;
+  grid-template-columns: 22px 58px minmax(0, 1fr) 26px 30px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: var(--text);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  -webkit-appearance: none;
-  transition: border-color 0.15s ease;
 }
-.ob-row:hover{ border-color: var(--hairline-strong); }
-.ob-row.leader{ background: var(--lb-accent-wash); border-color: var(--lb-accent-wash-border); }
-.ob-row.leader:hover{ border-color: var(--lb-accent-wash-border); }
-.ob-row.current .ob-name{ color: var(--accent); }
+.ob-ladder-rank{ font-family: var(--font-display); font-size: var(--fs-12); font-weight: 700; color: var(--text-mute); }
+.ob-ladder-name{ font-size: var(--fs-13); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-ladder-row.me .ob-ladder-name{ color: var(--accent); }
+.ob-ladder-row .split-bar .lk{ background: var(--lb-rank-mid); }
+.ob-ladder-row.me .split-bar .lk{ background: var(--accent-fill); }
+.ob-ladder-total{ font-family: var(--font-display); font-size: 14px; font-weight: 700; text-align: right; }
+.ob-ladder-gap{ text-align: right; }
+.ob-gap{ font-size: var(--fs-11); font-weight: 800; }
+.ob-gap.ahead{ color: var(--loss); }
+.ob-gap.behind{ color: var(--win); }
+.ob-hero-explain{ font-size: var(--fs-12); font-weight: 600; color: var(--text-mute); line-height: 1.45; text-wrap: pretty; }
 
-.ob-rank{
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: var(--fs-15);
-  font-weight: 700;
-  color: var(--lb-rank-low);
+/* -- Table | Activity switch -- */
+.ob-seg{ margin-bottom: 14px; }
+.ob-seg .seg{ margin-bottom: 0; }
+.seg-btn .count-badge{ margin-left: 6px; vertical-align: 1px; }
+
+/* -- Table -- */
+.ob-table{
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  overflow: hidden;
 }
+.ob-table-row{
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 38px 34px 38px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 11px 14px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ob-table-row:last-child{ border-bottom: none; }
+.ob-table-row.head{
+  padding: 9px 14px;
+  border-bottom-color: var(--hairline-strong);
+  font-size: var(--fs-10);
+  font-weight: 800;
+  letter-spacing: var(--track-tag);
+  text-transform: uppercase;
+  color: var(--text-mute);
+  cursor: default;
+}
+.ob-table-row.head > span:nth-child(n+3){ text-align: right; }
+.ob-table-row.head .lv{ color: var(--provisional); }
+.ob-table-row.head .pj{ color: var(--text); }
+.ob-table-row.leader{ background: var(--lb-accent-wash); }
+.ob-rank{ font-family: var(--font-display); font-size: var(--fs-13); font-weight: 700; color: var(--lb-rank-low); }
 .ob-rank.rank-mid{ color: var(--lb-rank-mid); }
 .ob-rank.rank-1{ color: var(--accent); }
+.ob-table-name{ display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ob-table-name-text{ font-size: var(--fs-15); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ob-table-row.current .ob-table-name-text{ color: var(--accent); }
+.ob-table-locked, .ob-table-live, .ob-table-proj{ text-align: right; font-weight: 700; }
+.ob-table-locked{ font-family: var(--font-display); font-size: 14px; color: var(--text-sub); }
+.ob-table-live{ font-size: var(--fs-12); color: var(--provisional); }
+.ob-table-live.zero{ color: var(--text-mute); }
+.ob-table-live.neg{ color: var(--loss); }
+.ob-table-proj{ font-family: var(--font-display); font-size: 18px; color: var(--text); }
 
-.ob-identity{
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.ob-name{
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: var(--fs-20);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* -- Quick sheet (#ob-sheet-overlay) -- */
+.ob-sheet-head{ align-items: flex-end; padding-right: 60px; }
+.ob-sheet-head > div:first-child{ min-width: 0; }
+.ob-sheet-head .ob-detail-eyebrow{ white-space: nowrap; }
+.ob-sheet-name{ font-size: 26px; margin-top: 3px; }
+.ob-sheet-total{ display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; }
+.ob-sheet-total-num{ font-family: var(--font-display); font-size: 32px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.ob-sheet-total-split{ font-size: var(--fs-11); font-weight: 700; color: var(--text-sub); white-space: nowrap; }
+.ob-sheet-leagues{ display: flex; flex-direction: column; gap: 9px; padding: 4px 22px 16px; }
+.ob-sheet-league{ display: grid; grid-template-columns: 130px minmax(0, 1fr) 30px; gap: 10px; align-items: center; }
+.ob-sheet-league-name{ font-size: var(--fs-13); font-weight: 700; }
+.ob-sheet-league-pts{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; text-align: right; }
+.ob-sheet-league-pts.neg{ color: var(--loss); }
+.ob-sheet-empty{ font-size: var(--fs-13); color: var(--text-sub); }
+.ob-sheet-actions{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 22px 22px; }
+.ob-sheet-actions .modal-cta{ margin-top: 0; }
 
-.ob-totalwrap{ display: flex; align-items: center; gap: 8px; }
-.ob-total{
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: var(--fs-24);
-  font-weight: 700;
-  line-height: 0.95;
-  color: var(--lb-ink-2);
-  white-space: nowrap;
-}
-.ob-row.leader .ob-total{ color: var(--lb-ink-strong); }
-.ob-chevron{ flex: none; stroke: var(--lb-stroke); margin-left: 4px; }
+/* -- Breakdown additions -- */
+.ob-detail-split{ margin-bottom: 20px; }
+.ob-stat-row{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ob-stat-row .stat-tile{ border-radius: 12px; padding: 10px 11px; }
+.ob-stat-row .stat-tile .lbl{ margin: 0 0 3px; }
+.ob-stat-row .stat-tile .num{ font-size: var(--fs-17); }
+.ob-stat-row .stat-tile .num.lv{ color: var(--provisional); }
+.ob-stat-row .stat-tile .num.neg{ color: var(--loss); }
+.ob-stat-row .stat-tile .ob-move{ font-size: inherit; font-weight: 700; }
+.ob-section-split{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ob-section-note{ font-size: var(--fs-12); font-weight: 800; letter-spacing: 0; text-transform: none; }
+.ob-section-note.lv{ color: var(--provisional); }
+.ob-section-note.risk{ color: var(--loss); }
+.ob-section-note.locked{ color: var(--accent); }
 
-@media (max-width: 480px){
-  .ob-row{ grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 13px 12px; }
-  .ob-rank{ font-size: var(--fs-13); }
-  .ob-name{ font-size: var(--fs-17); }
-  .ob-total{ font-size: var(--fs-24); }
-}
+
+
+
+
 
 .ob-section-title{
   font-size: var(--fs-11);
@@ -3019,6 +3131,8 @@ body{
   text-transform: uppercase;
   color: var(--accent);
 }
+.ob-detail-eyebrow.mute{ font-weight: 800; color: var(--text-mute); }
+.ob-detail-name.current{ color: var(--accent); }
 .ob-detail-name{
   font-family: 'Space Grotesk', sans-serif;
   font-size: var(--fs-30);
@@ -3052,29 +3166,6 @@ body{
 
 /* Provisional banner — the only place a live-table number surfaces,
    texture (hatch), not just hue, so it reads before color is parsed. */
-.ob-prov-banner{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--provisional-soft);
-  border: 1px solid var(--provisional-border);
-  border-radius: 12px;
-  padding: 11px 13px;
-  margin-bottom: 18px;
-}
-.ob-prov-text{
-  font-size: var(--fs-13);
-  color: var(--lb-ink-3);
-  line-height: 1.4;
-  text-wrap: pretty;
-}
-.ob-stripe-swatch{
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: none;
-  background: repeating-linear-gradient(115deg, var(--provisional) 0 3px, var(--provisional-soft) 3px 6px);
-}
 
 .ob-cards{ display: flex; flex-direction: column; gap: 6px; }
 .ob-card{
@@ -3104,12 +3195,12 @@ body{
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   white-space: nowrap;
-  color: var(--win);
+  color: var(--text);
 }
-.ob-card-pts{ font-size: var(--fs-20); text-align: left; }
+.ob-card-pts{ font-size: 18px; text-align: left; }
 .ob-rule-pts{ font-size: var(--fs-15); text-align: right; }
 .ob-card-pts.neg, .ob-rule-pts.neg{ color: var(--loss); }
-.ob-card-pts.zero, .ob-rule-pts.zero{ color: var(--text-mute); }
+.ob-rule-pts.live{ color: var(--provisional); }
 
 .ob-card-main{ min-width: 0; }
 .ob-card-title{
@@ -3129,15 +3220,7 @@ body{
 }
 
 .ob-card-right{ display: flex; align-items: center; gap: 12px; }
-.ob-card-bar-track{
-  width: 54px;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(var(--ink-rgb), 0.06);
-  overflow: hidden;
-  display: flex;
-}
-.ob-card-bar-fill{ display: block; height: 100%; }
+.ob-card-bar{ width: 64px; }
 .ob-card-chevron{
   flex: none;
   stroke: var(--lb-stroke);
@@ -3177,16 +3260,6 @@ body{
 .ob-rule-meta span:first-child{
   font-size: var(--fs-12);
   color: var(--text-sub);
-}
-.ob-prov-tag{
-  font-size: var(--fs-10);
-  font-weight: 700;
-  letter-spacing: var(--track-tag);
-  text-transform: uppercase;
-  color: var(--provisional);
-  border: 1px solid var(--provisional-border);
-  border-radius: 4px;
-  padding: 2px 5px;
 }
 
 .ob-idle-block{
@@ -3544,6 +3617,11 @@ body{
   font-size: var(--fs-13);
   font-weight: 700;
   cursor: pointer;
+}
+.modal-cta.secondary{
+  background: transparent;
+  border-color: var(--hairline-strong);
+  color: var(--text);
 }
 .modal-cta-note{
   text-align: center;
@@ -4044,11 +4122,11 @@ html.chat-kb .tab-bar{ display: none; }
 
 /* Press feedback (R3). Card surfaces get a tint overlay via
    background-image so their own background color survives. */
-.ob-row, .news-card, .tg-card, .game-card, .ob-card-head,
+.ob-table-row, .news-card, .tg-card, .game-card, .ob-card-head,
 .standings-row.clickable, .sheet-row, .team.clickable{
   transition: background-color var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
-.ob-row:active, .news-card:active, .tg-row.clickable:active .tg-card{
+.news-card:active, .tg-row.clickable:active .tg-card{
   background-image: linear-gradient(var(--press), var(--press));
   transform: scale(0.985);
 }
@@ -4093,7 +4171,7 @@ html.chat-kb .tab-bar{ display: none; }
 
 /* Tabular numerals on every number column (R10) */
 .standings-row, .person-record-chip, .league-tab .n,
-.ob-rank, .ob-total, .ob-detail-total, .ob-card-pts, .ob-rule-pts,
+.ob-rank, .ob-detail-total, .ob-card-pts, .ob-rule-pts, .ob-table-row, .ob-ladder-row,
 .stat-cell .num, .stat-tile .num, .form-score, .tracker-total, .tracker-value,
 .scoring-value, .fact-pts, .tg-score, .tg-rail-top, .gd-score-team b,
 .linescore-table, .box-table, .gd-teamstats, .chat-time, .chat-badge{
@@ -4122,9 +4200,9 @@ html.chat-kb .tab-bar{ display: none; }
 
 
 /* ==== Tags: one shape for every status pill (R9) ====
-   season-badge, zone-tag, provisional-tag and status-pill all share
-   the same recipe; each keeps only its own color. */
-.season-badge, .zone-tag, .provisional-tag, .status-pill{
+   season-badge, zone-tag, pts-tag and status-pill all share the same
+   recipe; each keeps only its own color. */
+.season-badge, .zone-tag, .pts-tag, .status-pill{
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -4139,7 +4217,6 @@ html.chat-kb .tab-bar{ display: none; }
   vertical-align: middle;
   white-space: nowrap;
 }
-.provisional-tag{ border: none; }
 
 /* ============================================================
    Head to head (Compare) — see js/compare.js. Every colour here is an
@@ -4215,7 +4292,7 @@ html.chat-kb .tab-bar{ display: none; }
   border: 1px solid transparent; white-space: nowrap;
 }
 .cmp-chip.prov{ color: var(--provisional); background: var(--provisional-soft); border-color: var(--provisional-border); }
-.cmp-chip.win{ color: var(--win); background: var(--win-soft); border-color: var(--win); }
+.cmp-chip.locked{ color: var(--accent); background: var(--accent-soft); border-color: var(--accent-border); }
 .cmp-chip.other{ color: var(--text-sub); border-color: var(--hairline-strong); }
 .cmp-race-bar{ display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; gap: 12px; }
 .cmp-race-val{ font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: var(--lb-ink-2); white-space: nowrap; }
@@ -4309,11 +4386,6 @@ html.chat-kb .tab-bar{ display: none; }
    Activity feed — see js/activity.js. Existing tokens only.
    ============================================================ */
 .ob-toolbar-right{ display: flex; align-items: center; gap: 4px; }
-.ob-icon-dot{
-  width: 7px; height: 7px; border-radius: 50%; flex: none;
-  background: var(--accent);
-}
-.ob-icon-dot[hidden]{ display: none; }
 
 .act-tile{
   width: 30px; height: 30px; border-radius: 9px; flex: none;
@@ -4333,32 +4405,58 @@ html.chat-kb .tab-bar{ display: none; }
 .act-chip.rank{ color: var(--lb-ink-2); background: rgba(var(--ink-rgb),0.06); }
 .act-time{ font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); }
 
-/* Home card */
+/* Home: one slim link row into Points > Activity */
 #activity-home:empty{ display: none; }
-.act-card{ margin-bottom: 16px; }
-.act-card-head{ display: flex; align-items: center; gap: 8px; padding: 13px 16px 10px; }
 .act-dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
-.act-card-title{ font-family: 'Space Grotesk', sans-serif; font-size: var(--fs-15); font-weight: 700; flex: 1; }
-.act-see-all{ background: none; border: none; color: var(--accent); font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 700; cursor: pointer; padding: 4px 0 4px 8px; }
-.act-item{
-  display: grid; grid-template-columns: 30px 1fr auto; gap: 11px; align-items: start;
-  width: 100%; padding: 10px 16px 11px; background: none; border: none;
-  border-top: 1px solid rgba(var(--ink-rgb),0.06); cursor: pointer; text-align: left; color: var(--text);
+.act-link{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.act-link.unseen{ grid-template-columns: 8px minmax(0, 1fr) auto; }
+.act-link-body{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.act-link-title{ font-size: var(--fs-13); font-weight: 700; }
+.act-link.unseen .act-link-title{ font-weight: 800; }
+.act-link-sub{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-link-go{ font-size: var(--fs-12); font-weight: 800; color: var(--text-sub); white-space: nowrap; }
+.act-link.unseen .act-link-go{ color: var(--accent); }
 
-/* Full list */
-.act-h{ margin-top: 2px; }
-.act-sub-copy{ margin: 6px 0 16px; }
-.act-filter{ margin-bottom: 4px; }
-.act-day{ padding: 16px 2px 8px; }
-.act-group{ padding: 0; overflow: hidden; }
+/* Points > Activity */
+.act-filters{ padding-bottom: 14px; }
+.act-group{ padding: 0; overflow: hidden; margin-bottom: 14px; }
 .act-row{
-  display: grid; grid-template-columns: 30px 1fr auto; gap: 11px; align-items: start;
-  width: 100%; padding: 11px 12px 11px 13px; background: none; border: none;
-  border-bottom: 1px solid var(--lb-divider); cursor: pointer; text-align: left; color: var(--text);
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+  width: 100%; padding: 12px 14px; background: none; border: none;
+  border-bottom: 1px solid var(--hairline); cursor: pointer; text-align: left; color: var(--text); font: inherit;
 }
 .act-row:last-child{ border-bottom: none; }
-.act-time-col{ display: flex; align-items: center; gap: 6px; padding-top: 2px; color: var(--lb-stroke); }
+.act-row.lock{ background: var(--lb-accent-wash); }
+.act-row.compact{ align-items: center; padding: 11px 14px; cursor: default; }
+.act-row .act-tile{ width: 34px; height: 34px; font-size: var(--fs-10); }
+.act-row .pts-tag{ align-self: flex-start; }
+.act-row .act-title{ font-size: 14px; font-weight: 700; }
+.act-row.compact .act-title{ font-size: var(--fs-13); }
+.act-right{ display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.act-delta{ font-family: var(--font-display); font-size: 18px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.act-row.compact .act-delta{ font-size: 16px; }
+.act-delta.live, .act-delta-inline.live{ color: var(--provisional); }
+.act-delta.risk, .act-delta-inline.risk{ color: var(--loss); }
+.act-delta.lock, .act-delta-inline.lock{ color: var(--accent); }
+.act-delta.up, .act-delta-inline.up{ color: var(--win); }
+.act-delta.down, .act-delta-inline.down{ color: var(--loss); }
+.act-chip.locked{ color: var(--accent); background: var(--accent-soft); }
+.act-foot{ font-size: var(--fs-12); font-weight: 600; color: var(--text-mute); text-align: center; padding: 4px 0 8px; }
 
 /* ============================================================
    Draft room (js/draft.js) — #view-draft.

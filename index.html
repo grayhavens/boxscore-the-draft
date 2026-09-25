@@ -67,13 +67,8 @@
         <h1>Points</h1>
       </div>
       <div class="page-sub-row">
-        <div class="page-sub">Tap name for details</div>
+        <div class="page-sub">Projected = Locked + Live</div>
         <div class="ob-toolbar-right">
-          <button type="button" class="scoring-chip" onclick="obOpenActivity()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg>
-            Activity
-            <span class="ob-icon-dot" id="ob-activity-dot" hidden></span>
-          </button>
           <button type="button" class="scoring-chip" onclick="switchView('scoring')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
             Scoring
@@ -156,12 +151,17 @@
   </div>
 </div>
 
+<!-- Points: one drafter at a glance (js/overall.js's obOpenSheet). -->
+<div class="modal-overlay" id="ob-sheet-overlay" onclick="if(event.target===this) obCloseSheet()">
+  <div class="modal" id="ob-sheet-content"></div>
+</div>
+
 <div class="modal-overlay" id="compare-sheet-overlay" onclick="if(event.target===this) obCloseComparePicker()">
   <div class="modal" id="compare-sheet-content">
     <div class="sheet-title-row">
       <div>
         <div class="sheet-title" id="compare-sheet-title">Compare</div>
-        <div class="sheet-title-sub">Confirmed points, by rank</div>
+        <div class="sheet-title-sub">Projected points, by rank</div>
       </div>
       <button class="modal-close" onclick="obCloseComparePicker()">&times;</button>
     </div>
@@ -266,7 +266,7 @@
   <button class="tab-btn chat-hit" data-view="chat" onclick="switchView('chat')" aria-label="Chat">
     <span class="tab-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
-      <span class="chat-badge"></span>
+      <span class="chat-badge count-badge"></span>
     </span>
     <span class="tab-label">Chat</span>
   </button>

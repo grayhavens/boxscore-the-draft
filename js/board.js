@@ -60,7 +60,7 @@ import {
   espnCbbRankingsCache, fetchEspnCbbRankingsCached, loadEspnCbbRankingsCache,
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
-import { renderOverallStandings, setObMode } from './overall.js';
+import { renderOverallStandings, setObMode, obEnterView } from './overall.js';
 import { startActivity } from './activity.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -632,7 +632,8 @@ export function switchView(view){
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
-  if(view === 'overall') renderOverallStandings();
+  if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
+  else updateUrlParam('seg', null);
   if(view === 'admin') renderAdminPage();
   if(view === 'scoring') renderScoringPage();
 }

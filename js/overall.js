@@ -1,22 +1,31 @@
 /* ============================================================
-   Points view (formerly "Leaderboard"): cross-drafter standings.
+   Points view: cross-drafter standings, ranked by PROJECTED points.
 
-   The LIST is deliberately plain — rank, name, one confirmed total.
-   No per-league composition here at all (no mix bar, no legend); tap a
-   row to drill into a drafter's DETAIL, where each scoring league gets
-   its own accordion card (one open at a time) and provisional points
-   — the rankAuto slice that still moves with the live table — surface
-   in a banner and per-rule tags, never folded into the ranking number.
-   See obIsProvisional below for what counts as provisional, and
-   design_handoff_leaderboard/README.md (from the redesign handoff) for
-   the full visual spec this implements.
+   Every point a drafter holds is one of two kinds:
+   - Locked: permanent. Manual League Facts, a locked league's rankAuto
+     rules (js/season-lock.js), and admin adjustments.
+   - Live: held today off a live table (rankAuto / `live: true` rules
+     in a league that hasn't locked). Can still flip. The code calls
+     this "provisional" (isRuleProvisional); the UI says "Live".
+   Projected = Locked + Live, "if every season ended today", is the
+   ranking number. Locked is shown alongside it as the floor.
+   Each league's +5 bonus counts too: it goes to the leader of that
+   league's Drafted standings (bonusStandings, js/compare.js), Live
+   until the league locks.
+
+   The page: a "You" hero (projected rank, the locked/live split and a
+   ladder of the drafters around you), then a Table | Activity switch.
+   Any drafter opens a quick sheet; its Full breakdown pushes the
+   per-drafter detail (one accordion card per scoring league). The
+   Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
-import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss } from './utils.js';
-import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional } from './league-facts.js';
+import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, ordinal } from './utils.js';
+import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
-import { activityListHtml, markActivitySeen, runActivityDetection } from './activity.js';
-import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace } from './compare.js';
+import { currentProfileId } from './identity.js';
+import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink } from './activity.js';
+import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
 // each league's real modal accent (LEAGUE_SCORING[key].accent) — those
@@ -52,37 +61,37 @@ export function obLeagueFullName(leagueKey){
   return OB_LEAGUE_FULL_NAME[leagueKey] || (LEAGUES.find(l => l.key === leagueKey) || {}).label || leagueKey;
 }
 
-// Which drafter's full breakdown is open, and — within that — which
-// single league card is expanded. Within-session view state only, same
-// as standingsFilterKey in js/board.js. Both reset on every navigation
-// (obOpenDetail / obCloseDetail) per the design spec.
+// Within-session view state, same as standingsFilterKey in js/board.js.
+// obSegment is the Table | Activity switch (null until the first visit
+// picks it: Activity when there's something unseen, else Table). The
+// drafter being looked at in the quick sheet, the pushed breakdown, and —
+// within that — the one expanded league card and the Compare opponent.
+let obSegment = null;
+let obSheetId = null;
 let obDetailId = null;
 let obOpenLeagueKey = null;
-// Opponent when the Compare (head to head) view is open on top of obDetailId.
 let obCompareId = null;
-// The full Activity list (js/activity.js), pushed from the toolbar button.
-let obActivityOpen = false;
 
 export function obSignedPts(n){
-  return (n > 0 ? '+' : '') + n;
+  return n > 0 ? '+' + n : obPts(n);
 }
 
-function obPtsClass(n){
-  return n > 0 ? 'pos' : (n < 0 ? 'neg' : 'zero');
+// A total with a real minus sign, no plus: "29", "0", "−1".
+function obPts(n){
+  return n < 0 ? '&minus;' + Math.abs(n) : String(n);
 }
 
 /* ---- The seam a new league's scoring model plugs into ----
 
-   obIsProvisional(rule, leagueKey): whether a rule's points can still
-   move. Any rule carrying `rankAuto` (derived from a standings table)
-   counts as provisional UNLESS that league has already locked in its
-   regular season (js/season-lock.js) — see isRuleProvisional in
-   js/league-facts.js, the single source of truth this defers to so a
-   locked league's points stop reading as provisional here too. An
-   explicit `live: true` in LEAGUE_SCORING is league-agnostic and always
-   provisional, no lock involved. leagueKey is optional — the simulated-
-   data preview below has no real lock state to check, so it falls back
-   to the plain rankAuto/live check.
+   obIsProvisional(rule, leagueKey): whether a rule's points are Live.
+   Any rule carrying `rankAuto` (derived from a standings table) is Live
+   UNLESS that league has already locked in its regular season
+   (js/season-lock.js) — see isRuleProvisional in js/league-facts.js,
+   the single source of truth this defers to. An explicit `live: true`
+   in LEAGUE_SCORING is league-agnostic and always Live, no lock
+   involved. leagueKey is optional — the simulated-data preview below
+   has no real lock state to check, so it falls back to the plain
+   rankAuto/live check.
 
    Who satisfies a rule right now comes from getLeagueRuleTeams
    (js/league-facts.js) directly — every league is on that shared
@@ -100,9 +109,9 @@ function obIsProvisional(rule, leagueKey){
 
 // Every rule currently satisfied by one of a drafter's teams, itemized.
 // This is the single source for both levels of the view: per-league
-// point totals and the confirmed/provisional split are summed from it
-// (rather than from computeTeamPoints/computeTeamProvisionalPoints
-// directly), so a rule that becomes provisional needs no other change.
+// point totals and the locked/live split are summed from it (rather
+// than from computeTeamPoints/computeTeamProvisionalPoints directly), so
+// a rule that becomes Live needs no other change.
 // ---- TEMPORARY: Real/Simulated data preview ----
 //
 // The season hasn't produced enough real results to make this view
@@ -186,7 +195,8 @@ function obSimIndex(){
   const index = {};
   LEAGUES.forEach(league => {
     const scoring = LEAGUE_SCORING[league.key];
-    if(!scoring) return;
+    // A prior-season league doesn't score yet, in the preview either.
+    if(!scoring || PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)) return;
     const rng = obSeededRandom('ob-sim-' + league.key);
     // Excludes any favoriteOnly team (see its definition in js/data.js)
     // — a personal add-on outside the real draft, so it shouldn't be
@@ -210,6 +220,12 @@ function obSimIndex(){
       order.slice(n - count).forEach(teamKey => awards.push({ teamKey, rule }));
     });
 
+    // The league bonus goes to one seeded drafter.
+    if(scoring.bonus){
+      const holder = DRAFT_TEAMS[Math.floor(rng() * DRAFT_TEAMS.length)].id;
+      awards.push({ bonusHolder: holder, rule: scoring.bonus });
+    }
+
     index[league.key] = awards;
   });
   obSimIndexCache = index;
@@ -220,7 +236,11 @@ function obSimDrafterAwards(draftTeamId){
   const index = obSimIndex();
   const awards = [];
   LEAGUES.forEach(league => {
-    (index[league.key] || []).forEach(({ teamKey, rule }) => {
+    (index[league.key] || []).forEach(({ teamKey, rule, bonusHolder }) => {
+      if(bonusHolder){
+        if(bonusHolder === draftTeamId) awards.push(obBonusAward(league, rule.label, rule.pts, true));
+        return;
+      }
       const meta = TEAM_META[teamKey];
       if(!meta || meta.draftTeamId !== draftTeamId) return;
       awards.push({
@@ -239,7 +259,15 @@ function obSimDrafterAwards(draftTeamId){
 
 // ---- End temporary block ----
 
-function obDrafterAwards(draftTeamId){
+// The league bonus as one more award line. No team: it's won by a
+// drafter's whole roster in that league.
+function obBonusAward(league, label, pts, provisional){
+  return { leagueKey: league.key, leagueLabel: league.label, teamKey: '', teamName: 'League bonus', label, pts, provisional, bonus: true };
+}
+
+// `bonuses` is bonusStandings() (js/compare.js), computed once per
+// ranking pass by the caller rather than once per drafter.
+function obDrafterAwards(draftTeamId, bonuses){
   if(obMode === 'simulated') return obSimDrafterAwards(draftTeamId);
 
   const awards = [];
@@ -266,9 +294,14 @@ function obDrafterAwards(draftTeamId){
         });
       });
     });
+    const bonus = bonuses[league.key];
+    if(bonus && bonus.holderId === draftTeamId) awards.push(obBonusAward(league, bonus.label, bonus.pts, !bonus.locked));
     // Manual point adjustments — a flat delta an admin set for whatever a
-    // rule can't express. Always confirmed, never provisional: an admin
-    // decided them, they don't move with a live table.
+    // rule can't express. Always Locked: an admin decided them, they
+    // don't move with a live table. Skipped for a league still showing
+    // last season (PRIOR_SEASON_DISPLAY_LEAGUES), same as its rules are
+    // in getLeagueRuleTeams — nothing there counts yet.
+    if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)) return;
     league.teams.forEach(teamKey => {
       const meta = TEAM_META[teamKey];
       if(!meta || meta.draftTeamId !== draftTeamId || meta.favoriteOnly) return;
@@ -288,10 +321,10 @@ function obDrafterAwards(draftTeamId){
   return awards;
 }
 
-// One drafter's row model. The confirmed total is what ranks the board;
-// provisional only ever surfaces in the detail view.
-function obBuildRow(d){
-  const awards = obDrafterAwards(d.id);
+// One drafter's row model. `total` (projected) ranks the board;
+// `confirmedTotal` (locked) is the floor shown beside it.
+function obBuildRow(d, bonuses){
+  const awards = obDrafterAwards(d.id, bonuses);
   const leagues = LEAGUES.map(l => {
     const mine = awards.filter(a => a.leagueKey === l.key);
     const pts = mine.reduce((s, a) => s + a.pts, 0);
@@ -300,106 +333,374 @@ function obBuildRow(d){
   });
   const total = leagues.reduce((s, x) => s + x.pts, 0);
   const provisionalTotal = leagues.reduce((s, x) => s + x.provisional, 0);
-  const scoringLeagues = leagues.filter(x => x.confirmed !== 0);
-  const topLeague = scoringLeagues.slice().sort((a, b) => b.confirmed - a.confirmed)[0] || null;
   return {
     id: d.id,
     name: d.name,
     total,
     provisionalTotal,
     confirmedTotal: total - provisionalTotal,
-    leagues,
-    scoringCount: scoringLeagues.length,
-    topLeague
+    leagues
   };
 }
 
-// All ten rows, sorted by confirmed points (ties broken alphabetically)
-// and annotated with standard-competition rank + a "T" tie prefix, e.g.
-// 1, T2, T2, 4 — the single source both the list and the detail header
-// read rank from, so the two never drift out of sync.
-export function obRankedRows(){
-  const rows = DRAFT_TEAMS.map(obBuildRow)
-    .sort((a, b) => b.confirmedTotal - a.confirmedTotal || a.name.localeCompare(b.name));
-
-  let prevTotal = null, prevRank = 0;
-  rows.forEach((r, i) => {
-    r.rank = (prevTotal !== null && r.confirmedTotal === prevTotal) ? prevRank : i + 1;
-    prevTotal = r.confirmedTotal;
-    prevRank = r.rank;
+// Standard competition rank on `field` with a "T" tie prefix, e.g.
+// 1, T2, T2, 4, written to row[rankKey] / row[rankKey + 'Label'].
+function obAssignRank(rows, field, rankKey){
+  const sorted = rows.slice().sort((a, b) => b[field] - a[field] || a.name.localeCompare(b.name));
+  let prev = null, prevRank = 0;
+  sorted.forEach((r, i) => {
+    r[rankKey] = (prev !== null && r[field] === prev) ? prevRank : i + 1;
+    prev = r[field];
+    prevRank = r[rankKey];
   });
-  const rankCounts = {};
-  rows.forEach(r => { rankCounts[r.rank] = (rankCounts[r.rank] || 0) + 1; });
-  rows.forEach(r => { r.rankLabel = (rankCounts[r.rank] > 1 ? 'T' : '') + r.rank; });
-
-  return rows;
+  const counts = {};
+  sorted.forEach(r => { counts[r[rankKey]] = (counts[r[rankKey]] || 0) + 1; });
+  sorted.forEach(r => { r[rankKey + 'Label'] = (counts[r[rankKey]] > 1 ? 'T' : '') + r[rankKey]; });
+  return sorted;
 }
 
-// ---- List ----
+// All ten rows, sorted by projected points (ties broken alphabetically).
+// `rank`/`rankLabel` is the projected rank; `lockedRank`/`lockedRankLabel`
+// ranks the same rows on locked points. The single source every surface
+// (Table, hero, sheet, breakdown, Compare, Activity) reads rank from.
+export function obRankedRows(){
+  const bonuses = obMode === 'simulated' ? {} : bonusStandings();
+  const rows = DRAFT_TEAMS.map(d => obBuildRow(d, bonuses));
+  obAssignRank(rows, 'confirmedTotal', 'lockedRank');
+  return obAssignRank(rows, 'total', 'rank');
+}
 
-function obRowHtml(row, hasLeader){
-  const isTop = hasLeader && row.rank === 1;
-  const rankTier = isTop ? 'rank-1' : (hasLeader && row.rank <= 3 ? 'rank-mid' : '');
+// "T2" -> "T2nd", "3" -> "3rd".
+function obOrdinalLabel(label){
+  const s = String(label);
+  return s.startsWith('T') ? 'T' + ordinal(s.slice(1)) : ordinal(s);
+}
+
+// The one phrasing for "where this drafter stands" (hero, sheet, breakdown).
+function obRankPhrase(row){
+  return `${obOrdinalLabel(row.rankLabel)} projected &middot; ${obOrdinalLabel(row.lockedRankLabel)} locked`;
+}
+
+function obYouId(){
+  return currentDraftTeamId;
+}
+
+// ---- Rank change "since" your last visit (per device) ----
+//
+// { prev: {ranks, ts}, cur: {ranks, ts} } in localStorage. Arrows compare
+// today's projected ranks against `prev`. `cur` is the ranks from the
+// start of the latest visit; it only rolls into `prev` once it is
+// OB_BASELINE_ROLL_MS old, so hopping between tabs (or a re-render
+// mid-visit) doesn't wipe the arrows the moment they appear.
+const OB_BASELINE_KEY = 'teamDashboardObRankBaseline';
+const OB_BASELINE_ROLL_MS = 6 * 60 * 60 * 1000;
+let obBaseline = obLoadBaseline();
+let obBaselinePending = false;
+
+function obLoadBaseline(){
+  try {
+    const saved = JSON.parse(localStorage.getItem(OB_BASELINE_KEY));
+    if(saved && typeof saved === 'object') return saved;
+  } catch (e){}
+  return {};
+}
+
+function obRollBaseline(rows){
+  if(!obBaselinePending || obMode === 'simulated' || !leagueInputsSettled()) return;
+  obBaselinePending = false;
+  const now = Date.now();
+  const ranks = {};
+  rows.forEach(r => { ranks[r.id] = r.rank; });
+  if(!obBaseline.cur) obBaseline = { cur: { ranks, ts: now } };
+  else if(now - obBaseline.cur.ts > OB_BASELINE_ROLL_MS) obBaseline = { prev: obBaseline.cur, cur: { ranks, ts: now } };
+  else return;
+  try { localStorage.setItem(OB_BASELINE_KEY, JSON.stringify(obBaseline)); } catch (e){}
+}
+
+// Places gained (+) or lost (-) since the baseline; 0 when unknown.
+export function obRankMove(row){
+  if(obMode === 'simulated' || !obBaseline.prev) return 0;
+  const was = obBaseline.prev.ranks[row.id];
+  return was ? was - row.rank : 0;
+}
+
+// When "since" is: the baseline's timestamp, or 0 with no baseline.
+export function obSinceTs(){
+  return obBaseline.prev ? obBaseline.prev.ts : 0;
+}
+
+// "since Tue" / "since yesterday" / "today".
+export function obSinceLabel(ts){
+  if(!ts) return '';
+  const d = new Date(ts), now = new Date();
+  if(d.toDateString() === now.toDateString()) return 'today';
+  if(d.toDateString() === new Date(now.getTime() - 86400000).toDateString()) return 'since yesterday';
+  return 'since ' + d.toLocaleDateString([], { weekday: 'short' });
+}
+
+function obMoveHtml(move, withSince){
+  if(!move) return '';
+  const since = withSince ? ' ' + obSinceLabel(obSinceTs()) : '';
+  return `<span class="ob-move ${move > 0 ? 'up' : 'down'}">${move > 0 ? '&#9650;' : '&#9660;'}${Math.abs(move)}${since}</span>`;
+}
+
+// ---- Shared split bar (solid Locked + striped Live) ----
+//
+// scaleMax is the value a full-width bar stands for. Negative Live shows
+// as the red "risk" stripe: its width is |live| and the locked segment
+// shrinks to the projected total, so the two still add up to Locked.
+export function splitBarHtml(locked, live, scaleMax, cls){
+  const scale = Math.max(1, scaleMax);
+  const pct = n => Math.max(0, Math.min(100, (n / scale) * 100)).toFixed(1) + '%';
+  const lockedPart = live < 0 ? locked + live : locked;
+  return `<span class="split-bar ${cls || ''}"><span class="lk" style="width:${pct(Math.max(0, lockedPart))}"></span><span class="lv ${live < 0 ? 'risk' : ''}" style="width:${pct(Math.abs(live))}"></span></span>`;
+}
+
+function obBarScale(locked, live){
+  return Math.max(locked, locked + live, Math.abs(live));
+}
+
+// ---- Hero ----
+
+// Four rows: 1st pinned, then a three-row window starting at you, pulled
+// back from the bottom of the board (you're last -> the two above you).
+function obLadderRows(rows, meIdx){
+  if(meIdx <= 0) return rows.slice(0, 4);
+  const start = Math.max(1, Math.min(meIdx, rows.length - 3));
+  return [rows[0]].concat(rows.slice(start, start + 3));
+}
+
+function obHeroHtml(rows, me){
+  const meIdx = rows.indexOf(me);
+  const scale = Math.max(1, ...rows.map(r => obBarScale(r.confirmedTotal, r.provisionalTotal)));
+  const ladder = obLadderRows(rows, meIdx).map(r => {
+    const mine = r.id === me.id;
+    const gap = r.total - me.total;
+    const gapHtml = mine || gap === 0 ? '' : `<span class="ob-gap ${gap > 0 ? 'ahead' : 'behind'}">${obSignedPts(gap)}</span>`;
+    return `
+      <button type="button" class="ob-ladder-row ${mine ? 'me' : ''}" onclick="obOpenSheet('${r.id}')">
+        <span class="ob-ladder-rank">${r.rankLabel}</span>
+        <span class="ob-ladder-name">${r.name}</span>
+        ${splitBarHtml(r.confirmedTotal, r.provisionalTotal, scale, 'sm')}
+        <span class="ob-ladder-total">${obPts(r.total)}</span>
+        <span class="ob-ladder-gap">${gapHtml}</span>
+      </button>
+    `;
+  }).join('');
+  const live = me.provisionalTotal;
+  const you = me.id === currentProfileId ? ' &middot; You' : '';
   return `
-    <button type="button" class="ob-row ${isTop ? 'leader' : ''} ${row.id === currentDraftTeamId ? 'current' : ''}" onclick="obOpenDetail('${row.id}')">
-      <span class="ob-rank ${rankTier}">${row.rankLabel}</span>
-      <span class="ob-identity">
-        <span class="ob-name">${row.name}</span>
-      </span>
-      <span class="ob-totalwrap">
-        <span class="ob-total">${row.confirmedTotal}</span>
-        <svg class="ob-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
-      </span>
-    </button>
+    <div class="ob-hero">
+      <div class="ob-hero-top">
+        <div class="ob-hero-left">
+          <span class="ob-detail-eyebrow mute">${me.name}${you}</span>
+          <span class="ob-hero-rankline"><span class="ob-hero-rank">${obOrdinalLabel(me.rankLabel)}</span>${obMoveHtml(obRankMove(me), true)}</span>
+          <span class="ob-hero-note">projected &middot; ${obOrdinalLabel(me.lockedRankLabel)} locked</span>
+        </div>
+        <div class="ob-hero-right">
+          <span class="ob-hero-total">${obPts(me.total)}</span>
+          <span class="ob-hero-total-label">projected pts</span>
+        </div>
+      </div>
+      <div class="ob-split">
+        ${splitBarHtml(me.confirmedTotal, live, obBarScale(me.confirmedTotal, live), 'lg')}
+        <div class="ob-split-legend">
+          <span><span class="split-swatch lk"></span>${me.confirmedTotal} locked</span>
+          <span class="${live < 0 ? 'risk' : 'lv'}"><span class="split-swatch lv ${live < 0 ? 'risk' : ''}"></span>${obSignedPts(live)} live</span>
+        </div>
+      </div>
+      <div class="ob-ladder">${ladder}</div>
+      <div class="ob-hero-explain">Locked points only change when a regular season ends or a playoff round finishes. Live points move with the tables every day.</div>
+    </div>
   `;
 }
 
+// ---- Table ----
+
 // No genuine leader to call out when every row is tied for rank 1 (the
-// whole board sits at 0 confirmed points before anything's settled, most
-// obviously) — highlighting "the leader" in that case would just be
-// singling out an arbitrary alphabetical pick, so the leader wash/gold
-// rank only renders once someone has actually separated from the pack.
-function obListHtml(rows){
+// whole board sits at 0 before anything's settled, most obviously) —
+// highlighting "the leader" in that case would just be singling out an
+// arbitrary alphabetical pick, so the leader wash/gold rank only renders
+// once someone has actually separated from the pack.
+function obTableHtml(rows){
   const leaderCount = rows.filter(r => r.rank === 1).length;
   const hasLeader = leaderCount > 0 && leaderCount < rows.length;
-  const rowsHtml = rows.map(row => obRowHtml(row, hasLeader)).join('');
-  return `<div class="ob-list">${rowsHtml}</div>`;
+  const me = obYouId();
+  const body = rows.map(r => {
+    const isTop = hasLeader && r.rank === 1;
+    const tier = isTop ? 'rank-1' : (hasLeader && r.rank <= 3 ? 'rank-mid' : '');
+    const live = r.provisionalTotal;
+    return `
+      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''}" onclick="obOpenSheet('${r.id}')">
+        <span class="ob-rank ${tier}">${r.rankLabel}</span>
+        <span class="ob-table-name"><span class="ob-table-name-text">${r.name}</span>${obMoveHtml(obRankMove(r), false)}</span>
+        <span class="ob-table-locked">${obPts(r.confirmedTotal)}</span>
+        <span class="ob-table-live ${live === 0 ? 'zero' : (live < 0 ? 'neg' : '')}">${obSignedPts(live)}</span>
+        <span class="ob-table-proj">${obPts(r.total)}</span>
+      </button>
+    `;
+  }).join('');
+  return `
+    <div class="ob-table">
+      <div class="ob-table-row head">
+        <span></span><span>Ranked by projected</span><span>Locked</span><span class="lv">Live</span><span class="pj">Proj</span>
+      </div>
+      ${body}
+    </div>
+  `;
 }
+
+function obListHtml(rows){
+  const me = rows.find(r => r.id === obYouId());
+  const badge = obSegment === 'activity' ? 0 : unseenCount();
+  const seg = segmentedControlHtml([
+    { key: 'table', label: 'Table' },
+    { key: 'activity', label: 'Activity', badge }
+  ], obSegment, 'obSetSegment');
+  return `
+    ${me ? obHeroHtml(rows, me) : ''}
+    <div class="ob-seg">${seg}</div>
+    ${obSegment === 'activity' ? activityPanelHtml() : obTableHtml(rows)}
+  `;
+}
+
+// ---- Quick sheet ----
+
+const obSheetOverlay = () => document.getElementById('ob-sheet-overlay');
+
+function obSheetHtml(rows, row){
+  const me = rows.find(r => r.id === obYouId());
+  let vsYou = '';
+  if(me && me.id === row.id) vsYou = "That's you";
+  else if(me){
+    const d = row.total - me.total;
+    vsYou = d === 0 ? 'Level with you' : `${Math.abs(d)} ${d > 0 ? 'ahead of' : 'behind'} you projected`;
+  }
+  const leagues = row.leagues.filter(x => x.awards.length).sort((a, b) => b.pts - a.pts);
+  const scale = Math.max(1, ...leagues.map(x => obBarScale(x.confirmed, x.provisional)));
+  const leaguesHtml = leagues.length
+    ? leagues.map(x => `
+        <div class="ob-sheet-league">
+          <span class="ob-sheet-league-name">${obLeagueFullName(x.league.key)}</span>
+          ${splitBarHtml(x.confirmed, x.provisional, scale, 'xs')}
+          <span class="ob-sheet-league-pts ${x.pts < 0 ? 'neg' : ''}">${obPts(x.pts)}</span>
+        </div>
+      `).join('')
+    : `<div class="ob-sheet-empty">No points in any league yet.</div>`;
+  const own = me && me.id === row.id;
+  return `
+    <div class="sheet-title-row ob-sheet-head">
+      <div>
+        <div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>
+        <div class="sheet-title ob-sheet-name">${row.name}</div>
+        <div class="sheet-title-sub">${vsYou}</div>
+      </div>
+      <div class="ob-sheet-total">
+        <span class="ob-sheet-total-num">${obPts(row.total)}</span>
+        <span class="ob-sheet-total-split">${row.confirmedTotal} locked &middot; ${obSignedPts(row.provisionalTotal)} live</span>
+      </div>
+      <button class="modal-close" onclick="obCloseSheet()" aria-label="Close">&times;</button>
+    </div>
+    <div class="ob-sheet-leagues">${leaguesHtml}</div>
+    <div class="ob-sheet-actions">
+      <button type="button" class="modal-cta secondary" onclick="obSheetCompare('${row.id}')">${own || !me ? 'Compare&hellip;' : 'Compare with you'}</button>
+      <button type="button" class="modal-cta" onclick="obSheetFull('${row.id}')">Full breakdown</button>
+    </div>
+  `;
+}
+
+export function obOpenSheet(id){
+  const overlay = obSheetOverlay();
+  const rows = obRankedRows();
+  const row = rows.find(r => r.id === id);
+  if(!overlay || !row) return;
+  obSheetId = id;
+  document.getElementById('ob-sheet-content').innerHTML = obSheetHtml(rows, row);
+  if(!overlay.classList.contains('open')){
+    overlay.classList.add('open');
+    lockBodyScroll();
+  }
+}
+window.obOpenSheet = obOpenSheet;
+
+export function obCloseSheet(){
+  obSheetId = null;
+  const el = obSheetOverlay();
+  if(!el || !el.classList.contains('open')) return;
+  el.classList.remove('open');
+  unlockBodyScroll();
+}
+window.obCloseSheet = obCloseSheet;
+
+window.obSheetFull = id => {
+  obCloseSheet();
+  window.switchView('overall');
+  obOpenDetail(id, { push: true });
+};
+
+// From someone else's sheet: straight into you-vs-them. From your own
+// (or with no identity to compare from): your breakdown + the picker.
+window.obSheetCompare = id => {
+  obCloseSheet();
+  window.switchView('overall');
+  const me = obYouId();
+  if(me && me !== id){
+    obDetailId = me;
+    obOpenLeagueKey = null;
+    obCompareId = id;
+    window.scrollTo(0, 0);
+    renderOverallStandings({ push: true });
+    return;
+  }
+  obOpenDetail(id, { push: true });
+  obOpenComparePicker();
+};
+
+const obSheetEl = document.getElementById('ob-sheet-content');
+if(obSheetEl) enableSheetSwipeToDismiss(obSheetEl, obCloseSheet);
 
 // ---- Detail ----
 
-function obCardHtml(x, maxAbs){
+function obSplitText(locked, live){
+  const parts = [];
+  if(locked !== 0 || live === 0) parts.push(`${obPts(locked)} locked`);
+  if(live !== 0) parts.push(`${obSignedPts(live)} live`);
+  return parts.join(' &middot; ');
+}
+
+function obRulePtsClass(a){
+  if(a.pts < 0) return 'neg';
+  return a.provisional ? 'live' : '';
+}
+
+function obCardHtml(x, scale){
   const expanded = obOpenLeagueKey === x.league.key;
-  const teams = [];
-  x.awards.forEach(a => { if(teams.indexOf(a.teamName) === -1) teams.push(a.teamName); });
-  const pct = Math.round((Math.abs(x.confirmed) / maxAbs) * 100);
-  const barColor = x.confirmed < 0 ? 'var(--loss)' : obLeagueColor(x.league.key);
 
   const rulesHtml = x.awards.slice()
     .sort((a, b) => (a.provisional === b.provisional) ? b.pts - a.pts : (a.provisional ? 1 : -1))
     .map(a => `
-      <div class="ob-rule" onclick="openTeamModal('${a.teamKey}')">
+      <div class="ob-rule" ${a.teamKey ? `onclick="openTeamModal('${a.teamKey}')"` : ''}>
         <div class="ob-rule-main">
           <div class="ob-rule-label">${a.label}</div>
           <div class="ob-rule-meta">
             <span>${a.teamName}</span>
-            ${a.provisional ? '<span class="ob-prov-tag">Provisional</span>' : ''}
+            ${a.provisional ? '<span class="pts-tag live">Live</span>' : '<span class="pts-tag locked">Locked</span>'}
           </div>
         </div>
-        <div class="ob-rule-pts ${obPtsClass(a.pts)}">${obSignedPts(a.pts)}</div>
+        <div class="ob-rule-pts ${obRulePtsClass(a)}">${obSignedPts(a.pts)}</div>
       </div>
     `).join('');
 
   return `
     <div class="ob-card ${expanded ? 'expanded' : ''}">
       <button type="button" class="ob-card-head" onclick="obToggleLeague('${x.league.key}')" aria-expanded="${expanded}">
-        <div class="ob-card-pts ${obPtsClass(x.confirmed)}">${x.confirmed === 0 ? '0' : obSignedPts(x.confirmed)}</div>
+        <div class="ob-card-pts ${x.pts < 0 ? 'neg' : ''}">${obPts(x.pts)}</div>
         <div class="ob-card-main">
           <div class="ob-card-title">${obLeagueFullName(x.league.key)}</div>
-          <div class="ob-card-sub">${x.league.season} &middot; ${teams.join(' &middot; ')}</div>
+          <div class="ob-card-sub">${obSplitText(x.confirmed, x.provisional)}</div>
         </div>
         <div class="ob-card-right">
-          <div class="ob-card-bar-track"><span class="ob-card-bar-fill" style="width:${pct}%; background:${barColor};"></span></div>
+          ${splitBarHtml(x.confirmed, x.provisional, scale, 'xs ob-card-bar')}
           <svg class="ob-card-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
         </div>
       </button>
@@ -410,20 +711,12 @@ function obCardHtml(x, maxAbs){
 
 function obDetailHtml(row){
   const scoringRows = row.leagues.filter(x => x.awards.length > 0)
-    .sort((a, b) => b.confirmed - a.confirmed || Math.abs(b.pts) - Math.abs(a.pts));
+    .sort((a, b) => b.pts - a.pts || Math.abs(b.confirmed) - Math.abs(a.confirmed));
   const idle = row.leagues.filter(x => x.awards.length === 0);
-  const maxAbs = Math.max(1, ...scoringRows.map(x => Math.abs(x.confirmed)));
-
-  const bannerHtml = row.provisionalTotal !== 0
-    ? `
-      <div class="ob-prov-banner">
-        <span class="ob-stripe-swatch"></span>
-        <div class="ob-prov-text">${row.provisionalTotal > 0
-          ? obSignedPts(row.provisionalTotal) + ' more is provisional &mdash; it depends on where a club sits in a live table and is not in the total above.'
-          : obSignedPts(row.provisionalTotal) + ' is at risk from live tables &mdash; it is not in the total above, but would come off if the table holds.'}</div>
-      </div>
-    `
-    : '';
+  const scale = Math.max(1, ...scoringRows.map(x => obBarScale(x.confirmed, x.provisional)));
+  const live = row.provisionalTotal;
+  const move = obRankMove(row);
+  const since = obSinceLabel(obSinceTs());
 
   const idleHtml = idle.length
     ? `
@@ -433,6 +726,8 @@ function obDetailHtml(row){
       </div>
     `
     : '';
+
+  const recent = activityRecentHtml(row.id);
 
   return `
     <div class="ob-back-row">
@@ -444,18 +739,25 @@ function obDetailHtml(row){
     </div>
     <div class="ob-detail-head">
       <div class="ob-detail-left">
-        <div class="ob-detail-eyebrow">Rank ${row.rankLabel} of ${DRAFT_TEAMS.length}</div>
-        <h2 class="ob-detail-name">${row.name}</h2>
-        <div class="ob-detail-meta">${row.scoringCount} of ${LEAGUES.length} leagues scoring confirmed points</div>
+        <div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>
+        <h2 class="ob-detail-name ${row.id === obYouId() ? 'current' : ''}">${row.name}</h2>
       </div>
       <div class="ob-detail-right">
-        <div class="ob-detail-total">${row.confirmedTotal}</div>
-        <div class="ob-detail-total-label">Confirmed pts</div>
+        <div class="ob-detail-total">${obPts(row.total)}</div>
+        <div class="ob-detail-total-label">Projected pts</div>
       </div>
     </div>
-    ${bannerHtml}
+    <div class="ob-split ob-detail-split">
+      ${splitBarHtml(row.confirmedTotal, live, obBarScale(row.confirmedTotal, live), 'lg')}
+      <div class="ob-stat-row">
+        <div class="stat-tile"><div class="lbl">Locked</div><div class="num">${row.confirmedTotal}</div></div>
+        <div class="stat-tile"><div class="lbl">Live</div><div class="num ${live < 0 ? 'neg' : 'lv'}">${obSignedPts(live)}</div></div>
+        <div class="stat-tile"><div class="lbl">${since ? since.charAt(0).toUpperCase() + since.slice(1) : 'Rank move'}</div><div class="num">${move ? obMoveHtml(move, false) : '&ndash;'}</div></div>
+      </div>
+    </div>
+    ${recent ? `<div class="ob-section-title">Recent changes</div>${recent}` : ''}
     <div class="ob-section-title">Where the points come from</div>
-    <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, maxAbs)).join('')}</div>
+    <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, scale)).join('')}</div>
     ${idleHtml}
     <button class="ob-detail-link" onclick="setDraftTeam('${row.id}'); switchView('board');">See ${row.name}'s board &rarr;</button>
   `;
@@ -463,18 +765,34 @@ function obDetailHtml(row){
 
 // ---- Entry points ----
 
-export function obOpenDetail(id){
-  obActivityOpen = false;
+// Called by switchView (js/board.js) every time the Points tab opens.
+// Picks the segment (the URL's ?seg= wins, then this session's last
+// choice, then Activity if anything is unseen) and starts a new visit
+// for the "since" rank baseline.
+export function obEnterView(){
+  const fromUrl = new URLSearchParams(window.location.search).get('seg');
+  if(fromUrl === 'table' || fromUrl === 'activity') obSegment = fromUrl;
+  else if(!obSegment) obSegment = unseenCount() > 0 ? 'activity' : 'table';
+  obBaselinePending = true;
+}
+
+export function obSetSegment(key){
+  if(key !== 'table' && key !== 'activity') return;
+  obSegment = key;
+  renderOverallStandings();
+}
+window.obSetSegment = obSetSegment;
+
+export function obOpenDetail(id, opts){
   obDetailId = id;
   obOpenLeagueKey = null;
   obCompareId = null;
   window.scrollTo(0, 0);
-  renderOverallStandings();
+  renderOverallStandings(opts);
 }
 window.obOpenDetail = obOpenDetail;
 
 export function obCloseDetail(){
-  obActivityOpen = false;
   obDetailId = null;
   obOpenLeagueKey = null;
   obCompareId = null;
@@ -490,14 +808,14 @@ window.obToggleLeague = obToggleLeague;
 
 // ---- Activity ----
 
+// Every "go to Activity" (the Home link, a notification) lands here.
 export function obOpenActivity(){
-  obActivityOpen = true;
+  obSegment = 'activity';
   obDetailId = null;
   obCompareId = null;
+  obCloseSheet();
   window.switchView('overall');
   window.scrollTo(0, 0);
-  renderOverallStandings({ push: true });
-  markActivitySeen();
 }
 window.obOpenActivity = obOpenActivity;
 window.renderOverallStandings = () => renderOverallStandings();
@@ -511,7 +829,7 @@ export function obOpenComparePicker(){
   const rows = obRankedRows();
   const me = rows.find(r => r.id === obDetailId);
   if(!me) return;
-  document.getElementById('compare-sheet-title').textContent = 'Compare ' + me.name + ' with\u2026';
+  document.getElementById('compare-sheet-title').textContent = 'Compare ' + me.name + ' with…';
   document.getElementById('compare-sheet-rows').innerHTML = comparePickerHtml(rows, obDetailId, obCompareId);
   comparePickerOverlay().classList.add('open');
   lockBodyScroll();
@@ -547,34 +865,44 @@ window.obCloseCompare = obCloseCompare;
 const compareSheet = document.getElementById('compare-sheet-content');
 if(compareSheet) enableSheetSwipeToDismiss(compareSheet, obCloseComparePicker);
 
+// The bonus reads standings tables nothing else on this page loads, so
+// the first render fetches them and repaints once (totals would
+// otherwise sit 5 short for whoever holds each bonus until some other
+// tab happened to load that league).
+let obBonusPrimed = false;
+function obPrimeBonus(){
+  if(obBonusPrimed) return;
+  obBonusPrimed = true;
+  loadBonusInputs().then(() => {
+    renderActivityHomeLink();
+    const view = document.getElementById('view-overall');
+    if(view && view.classList.contains('active')) renderOverallStandings();
+  });
+}
+
 const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; set Points Tab Data to Real in Settings for live standings.</div>`;
 
 export function renderOverallStandings(opts){
   const container = document.getElementById('overall-content');
   if(!container) return;
+  const push = opts && opts.push ? 'view-push-in' : '';
   const simBanner = obMode === 'simulated' ? OB_SIM_BANNER_HTML : '';
   const rows = obRankedRows();
+  obRollBaseline(rows);
   runActivityDetection();
-
-  if(obActivityOpen){
-    container.innerHTML = `${simBanner}<div class="ob-detail ${opts && opts.push ? 'view-push-in' : ''}">
-      <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
-      ${activityListHtml()}
-    </div>`;
-    return;
-  }
+  obPrimeBonus();
 
   if(obDetailId){
     const row = rows.find(r => r.id === obDetailId);
     if(row){
       if(obCompareId && rows.some(r => r.id === obCompareId)){
-        container.innerHTML = `${simBanner}<div class="ob-detail cmp ${opts && opts.push ? 'view-push-in' : ''}">${compareHtml(rows, obDetailId, obCompareId)}</div>`;
+        container.innerHTML = `${simBanner}<div class="ob-detail cmp ${push}">${compareHtml(rows, obDetailId, obCompareId)}</div>`;
         setupCompareSticky();
         fillSameRace(rows, obDetailId, obCompareId);
         return;
       }
       obCompareId = null;
-      container.innerHTML = `${simBanner}<div class="ob-detail">${obDetailHtml(row)}</div>`;
+      container.innerHTML = `${simBanner}<div class="ob-detail ${push}">${obDetailHtml(row)}</div>`;
       setupCompareSticky();
       return;
     }
@@ -582,5 +910,12 @@ export function renderOverallStandings(opts){
     obCompareId = null;
   }
 
+  if(!obSegment) obSegment = 'table';
+  const viewEl = document.getElementById('view-overall');
+  if(viewEl && viewEl.classList.contains('active')) updateUrlParam('seg', obSegment);
+  // Looking at the feed is what marks it seen — quietly, so the Home link
+  // and badge repaint without re-entering this render.
+  if(obSegment === 'activity' && unseenCount() > 0) markActivitySeen(true);
   container.innerHTML = simBanner + obListHtml(rows);
+  if(obSheetId) obOpenSheet(obSheetId);
 }
