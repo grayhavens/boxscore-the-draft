@@ -166,4 +166,21 @@ export function isRegularSeasonOver(leagueKey){
   return new Date() > new Date(regular.endDate);
 }
 
+// Whether this league's current season is under way: from the first
+// day of its Regular Season through the end of its Postseason. Before
+// that (Pre-Season, or a table still showing last season's finish, or a
+// fresh 0-0 table) nothing it shows counts yet; after it, the league's
+// lock (js/season-lock.js) is what counts. null while the data hasn't
+// loaded, so a caller can tell "don't know yet" from "not yet".
+export function isSeasonUnderway(leagueKey){
+  const cache = phaseCacheFor(leagueKey);
+  if(!cache.data) return null;
+  const types = cache.data.types;
+  const regular = types.find(t => t.type === 2);
+  if(!regular || !regular.startDate) return null;
+  const end = (types.find(t => t.type === 3) || regular).endDate;
+  const now = new Date();
+  return now >= new Date(regular.startDate) && now <= new Date(end);
+}
+
 export const SEASON_PHASE_LEAGUES = Object.keys(SEASON_PHASE_PATHS);

@@ -3,8 +3,13 @@
    looked, who moved on a scoring line". An event only exists when a team
    crosses a line that scores (takes/loses a division lead or best record
    in its conference, moves into/out of last place or worst record,
-   clinches the playoffs), the +5 league bonus flips between drafters, or
-   a drafter's confirmed rank changes.
+   clinches the playoffs), the +5 league bonus flips between drafters, a
+   league locks (its Live points become Locked: type 'lock'), or a
+   drafter makes a notable projected-rank move (into/out of 1st, or 2+
+   places — anything smaller is left to the Table's arrows).
+
+   It renders as the Activity half of the Points tab (js/overall.js's
+   Table | Activity switch), plus the slim link row on Home.
 
    Detection lives here in the browser because the scoring logic does
    (standings -> who holds a line -> drafter points; see js/league-facts.js
@@ -17,23 +22,29 @@
    change overnight shows up when the next person opens it, stamped then.
 
    Safety rails so a partial or stale load can't invent events:
-   - a league only counts once its live table shows a game played (before
-     that, division tables can still hold last season's records);
+   - a league only counts once its season is under way (Regular Season
+     start through Postseason end, js/season-phase.js) and its live table
+     shows a game played (before that, division tables can still hold
+     last season's records, or preseason ones);
    - a league whose regular season is locked is skipped;
    - the snapshot's `dataAt` is the OLDEST cache timestamp used, and a
      client only writes if that is newer than the stored one, so a phone
      holding old data can never rewind the feed;
    - a group/rule only produces an event when it exists in BOTH snapshots;
+   - lock state is only recorded once every league's lock has loaded;
+   - a snapshot from an older SNAPSHOT_VERSION is never diffed against
+     (v1 ranked by locked points; diffing it would log fake rank moves);
    - simulated (Fake) points data never runs detection.
    ============================================================ */
-import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING } from './data.js';
+import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { chatWorkerBase } from './api.js';
-import { segmentedControlHtml } from './utils.js';
-import { isLeagueLocked } from './season-lock.js';
-import { leagueInputsSettled } from './league-facts.js';
+import { ordinal } from './utils.js';
+import { isLeagueLocked, leagueLocksSettled, getLockedRuleTeams } from './season-lock.js';
+import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
+import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { currentDraftTeamId } from './board.js';
-import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenDetail } from './overall.js';
-import { currentBonusHolders } from './compare.js';
+import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenSheet, obSinceTs, obSinceLabel } from './overall.js';
+import { currentBonusHolders, loadBonusInputs } from './compare.js';
 import {
   espnNflStandingsCache, espnNflDivisionCache, fetchEspnNflStandingsCached, fetchEspnNflDivisionStandingsCached,
   computeNflConferenceStandings, computeNflDivisionStandings, findNflTeamKeyByEspnAbbr
@@ -56,6 +67,8 @@ const SEEN_KEY = 'teamDashboardActivitySeen';
 const HOME_WINDOW_MS = 48 * 60 * 60 * 1000;
 const DETECT_COOLDOWN_MS = 5 * 60 * 1000;
 const INPUTS_WAIT_MS = 8000;
+// v2: totals/ranks are projected, plus per-league `locked` and `live`.
+const SNAPSHOT_VERSION = 2;
 
 // The shared state, mirrored to localStorage so the Home card can paint
 // before the network answers.
@@ -92,10 +105,13 @@ export function unseenCount(){
   return feed.events.filter(e => e.ts > seen).length;
 }
 
-export function markActivitySeen(){
+// `quiet` is for the Points render itself: repaint only the Home link
+// (the caller is already drawing the badge-free Points page).
+export function markActivitySeen(quiet){
   const newest = feed.events.reduce((m, e) => Math.max(m, e.ts), 0);
-  try { localStorage.setItem(SEEN_KEY, String(Math.max(newest, lastSeen()))); } catch (e){}
-  refreshActivityUi();
+  if(newest <= lastSeen()) return;
+  try { localStorage.setItem(SEEN_KEY, String(newest)); } catch (e){}
+  if(quiet) renderActivityHomeLink(); else refreshActivityUi();
 }
 
 // ---- Fetch / store ----
@@ -208,12 +224,13 @@ async function buildSnapshot(){
   await Promise.allSettled(
     TRACKED.flatMap(cfg => cfg.load())
       .concat([fetchEplStandingsTable(), fetchEspnCfbRecordsCached(), fetchEspnCbbStandingsCached()])
+      .concat(SEASON_PHASE_LEAGUES.map(fetchSeasonPhaseCached))
   );
 
   const holders = {};
   const times = [];
   TRACKED.forEach(cfg => {
-    if(isLeagueLocked(cfg.key)) return;
+    if(isLeagueLocked(cfg.key) || leagueSeasonUnderway(cfg.key) !== true) return;
     const at = cacheTimes(cfg.caches());
     if(!at || !cfg.rows().some(r => cfg.games(r) > 0)) return;
     Object.assign(holders, buildHolders(cfg));
@@ -239,13 +256,32 @@ async function buildSnapshot(){
   while(!leagueInputsSettled() && Date.now() - start < INPUTS_WAIT_MS){
     await new Promise(r => setTimeout(r, 250));
   }
-  let totals = null, ranks = null;
-  if(leagueInputsSettled()){
-    totals = {}; ranks = {};
-    obRankedRows().forEach(r => { totals[r.id] = r.confirmedTotal; ranks[r.id] = r.rank; });
+  // Projected totals/ranks, plus each drafter's Live points per league —
+  // the part a lock event will say "just became permanent".
+  // Totals also need every league's season phase: until it's known a
+  // league's live points read as 0, and a phase landing later would look
+  // like a rank move.
+  const phasesKnown = LEAGUES.every(l => PRIOR_SEASON_DISPLAY_LEAGUES.includes(l.key) || leagueSeasonUnderway(l.key) !== null);
+  let totals = null, ranks = null, live = null;
+  if(leagueInputsSettled() && phasesKnown){
+    totals = {}; ranks = {}; live = {};
+    obRankedRows().forEach(r => {
+      totals[r.id] = r.total;
+      ranks[r.id] = r.rank;
+      r.leagues.forEach(x => {
+        if(!x.provisional) return;
+        (live[x.league.key] || (live[x.league.key] = {}))[r.id] = x.provisional;
+      });
+    });
   }
 
-  return { dataAt: Math.min(...times), holders, bonus, totals, ranks };
+  let locked = null;
+  if(leagueLocksSettled()){
+    locked = {};
+    LEAGUES.forEach(l => { locked[l.key] = isLeagueLocked(l.key); });
+  }
+
+  return { v: SNAPSHOT_VERSION, dataAt: Math.min(...times), holders, bonus, totals, ranks, live, locked };
 }
 
 function delta(drafterId, pts, prov){
@@ -312,32 +348,63 @@ function diffSnapshots(prev, next, ts){
     events.push({
       id: id(), type: 'bonus', ts, league: leagueKey, teamKey: '', drafterId: now,
       title: `${drafterName(now)} takes the ${obLeagueFullName(leagueKey)} bonus lead`,
-      sub: `${drafterName(was)} lose it`,
+      sub: `${drafterName(was)} loses it`,
       deltas: [delta(now, pts, true), delta(was, -pts, true)], moves: []
     });
   });
 
+  // Projected rank moves. Only notable ones make an event — into or out
+  // of 1st, or 2+ places; every small shuffle is left to the Table's
+  // arrows, since projected moves with nearly every rule event.
   if(prev.ranks && next.ranks && prev.totals && next.totals){
     const moves = Object.keys(next.ranks)
       .filter(d => prev.ranks[d] !== undefined && prev.ranks[d] !== next.ranks[d] && prev.totals[d] !== next.totals[d])
       .map(d => ({ id: d, from: prev.ranks[d], to: next.ranks[d] }));
-    if(moves.length){
-      const top = moves.slice().sort((a, b) => (b.from - b.to) - (a.from - a.to))[0];
+    const notable = moves.filter(m => (m.from === 1) !== (m.to === 1) || Math.abs(m.from - m.to) >= 2);
+    if(notable.length){
+      const weight = m => (m.to === 1 ? 100 : 0) + Math.abs(m.from - m.to);
+      const top = notable.slice().sort((a, b) => weight(b) - weight(a))[0];
       const up = top.from > top.to;
       events.push({
         id: id(), type: 'rank', ts, league: '', teamKey: '', drafterId: top.id,
-        title: `${drafterName(top.id)} ${up ? 'moves up to' : 'drops to'} ${ordinalWord(top.to)}`,
+        title: top.to === 1
+          ? `${drafterName(top.id)} moves into 1st projected`
+          : `${drafterName(top.id)} ${up ? 'moves up to' : 'drops to'} ${ordinal(top.to)} projected`,
         sub: moves.length > 1 ? `${moves.length} drafters changed places` : '',
         deltas: [], moves
       });
     }
   }
+
+  // A league locked: every drafter's Live points there are now Locked.
+  // Projected doesn't move — the deltas are what became permanent.
+  if(prev.locked && next.locked){
+    Object.keys(next.locked).forEach(leagueKey => {
+      if(prev.locked[leagueKey] !== false || !next.locked[leagueKey]) return;
+      const held = (prev.live && prev.live[leagueKey]) || {};
+      const deltas = Object.keys(held).filter(d => held[d]).map(d => delta(d, held[d], false))
+        .sort((a, b) => b.pts - a.pts);
+      events.push({
+        id: id(), type: 'lock', ts, league: leagueKey, teamKey: '',
+        drafterId: deltas.length ? deltas[0].id : '',
+        title: `${obLeagueFullName(leagueKey)} regular season ends: points locked`,
+        sub: notableLockedRule(leagueKey),
+        deltas, moves: []
+      });
+    });
+  }
   return events;
 }
 
-function ordinalWord(n){
-  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+// "Chiefs lock in Division title" — the biggest drafted placement the
+// lock just froze, for the lock event's sub line.
+function notableLockedRule(leagueKey){
+  const best = LEAGUE_SCORING[leagueKey].rules
+    .filter(r => r.rankAuto && r.pts > 0)
+    .map(r => ({ rule: r, team: getLockedRuleTeams(leagueKey, r.label).find(t => ownerOf(t)) }))
+    .filter(x => x.team)
+    .sort((a, b) => b.rule.pts - a.rule.pts)[0];
+  return best ? `${holderName(best.team)} lock in ${best.rule.label}` : '';
 }
 
 let lastRun = 0;
@@ -358,11 +425,16 @@ export async function runActivityDetection(force){
     const prev = server.snapshot;
     if(prev && prev.dataAt >= snapshot.dataAt) return;   // someone has newer data than this device
 
-    // Carry the last known ranks forward if they couldn't be trusted this
-    // time, so the next run still has something to diff against.
-    if(!snapshot.totals && prev){ snapshot.totals = prev.totals || null; snapshot.ranks = prev.ranks || null; }
+    // An older-version snapshot can't be diffed (v1 ranked on locked
+    // points), so this run just replaces it.
+    const comparable = prev && prev.v === SNAPSHOT_VERSION;
 
-    const events = prev ? diffSnapshots(prev, snapshot, Date.now()) : [];
+    // Carry the last known ranks/locks forward if they couldn't be trusted
+    // this time, so the next run still has something to diff against.
+    if(comparable && !snapshot.totals){ snapshot.totals = prev.totals || null; snapshot.ranks = prev.ranks || null; snapshot.live = prev.live || null; }
+    if(comparable && !snapshot.locked) snapshot.locked = prev.locked || null;
+
+    const events = comparable ? diffSnapshots(prev, snapshot, Date.now()) : [];
     const res = await fetch(`${chatWorkerBase()}/activity`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -390,27 +462,68 @@ function tileHtml(e){
   return `<span class="act-tile" style="color:${color}; background:color-mix(in srgb, ${color} 16%, transparent);">${LEAGUE_ABBR[e.league] || ''}</span>`;
 }
 
+function kindTagHtml(e){
+  if(e.type === 'lock') return '<span class="pts-tag lock-in">Locked in</span>';
+  if(e.type === 'rank') return '<span class="pts-tag rank">Projected rank</span>';
+  return '<span class="pts-tag live">Live</span>';
+}
+
+function signed(n){
+  return (n > 0 ? '+' : '&minus;') + Math.abs(n);
+}
+
+function moveText(m){
+  return `${m.to < m.from ? '&#9650;' : '&#9660;'}${Math.abs(m.from - m.to)}`;
+}
+
+// "Around the league" chips: every drafter the event touched.
 function chipsHtml(e){
   const chips = [];
   (e.deltas || []).forEach(d => {
-    const cls = d.prov ? 'prov' : (d.pts > 0 ? 'win' : 'loss');
-    chips.push(`<span class="act-chip ${cls}">${drafterName(d.id)} ${d.pts > 0 ? '+' : '&minus;'}${Math.abs(d.pts)}</span>`);
+    if(e.type === 'lock') chips.push(`<span class="act-chip locked">${drafterName(d.id)} ${signed(d.pts)} locked</span>`);
+    else chips.push(`<span class="act-chip ${d.prov ? 'prov' : (d.pts > 0 ? 'win' : 'loss')}">${drafterName(d.id)} ${signed(d.pts)}</span>`);
   });
   (e.moves || []).forEach(m => {
-    chips.push(`<span class="act-chip rank">${drafterName(m.id)} ${m.to < m.from ? '&#9650;' : '&#9660;'}${Math.abs(m.from - m.to)}</span>`);
+    chips.push(`<span class="act-chip rank">${drafterName(m.id)} ${moveText(m)}</span>`);
   });
   return chips.join('');
 }
 
-function timeText(ts, relative){
-  const d = new Date(ts);
-  if(relative){
-    const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+// What an event did to one drafter: { html, cls, lock } or null.
+function deltaFor(e, drafterId){
+  if(e.type === 'rank'){
+    const m = (e.moves || []).find(x => x.id === drafterId);
+    return m ? { html: moveText(m), cls: m.to < m.from ? 'up' : 'down' } : null;
+  }
+  const d = (e.deltas || []).find(x => x.id === drafterId);
+  if(!d) return null;
+  if(e.type === 'lock') return { html: signed(d.pts), cls: 'lock', lock: true };
+  return { html: signed(d.pts), cls: d.prov ? (d.pts < 0 ? 'risk' : 'live') : (d.pts < 0 ? 'down' : 'up') };
+}
+
+export function myDelta(e){
+  return deltaFor(e, currentDraftTeamId);
+}
+
+// Everyone else's part in an event you're in, as plain text.
+function othersLine(e){
+  const me = currentDraftTeamId;
+  const parts = (e.deltas || []).filter(d => d.id !== me).map(d => `${drafterName(d.id)} ${signed(d.pts)}`)
+    .concat((e.moves || []).filter(m => m.id !== me).map(m => `${drafterName(m.id)} ${moveText(m)}`));
+  return parts.join(' &middot; ');
+}
+
+// Today: "2h" / "now"; otherwise "Yesterday" or the weekday.
+function timeText(ts){
+  const now = Date.now();
+  if(sameDay(ts, now)){
+    const mins = Math.max(0, Math.round((now - ts) / 60000));
     if(mins < 1) return 'now';
     if(mins < 60) return mins + 'm';
     return Math.floor(mins / 60) + 'h';
   }
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if(sameDay(ts, now - 86400000)) return 'Yesterday';
+  return new Date(ts).toLocaleDateString([], { weekday: 'short' });
 }
 
 function sameDay(a, b){
@@ -418,41 +531,11 @@ function sameDay(a, b){
 }
 
 function eventAction(e){
-  if(e.type === 'rank' || e.type === 'bonus') return `activityOpenDrafter('${e.drafterId}')`;
+  if(e.type === 'rank' || e.type === 'bonus' || e.type === 'lock'){
+    const id = e.type === 'lock' && mineEvent(e) ? currentDraftTeamId : e.drafterId;
+    return id ? `obOpenSheet('${id}')` : '';
+  }
   return e.teamKey ? `openTeamModal('${e.teamKey}')` : '';
-}
-
-function homeItemHtml(e){
-  return `
-    <button type="button" class="act-item" onclick="${eventAction(e)}">
-      ${tileHtml(e)}
-      <span class="act-body">
-        <span class="act-title">${e.title}</span>
-        <span class="act-chips">${chipsHtml(e)}</span>
-      </span>
-      <span class="act-time">${timeText(e.ts, true)}</span>
-    </button>
-  `;
-}
-
-// Home card: hidden entirely (no empty state) when nothing moved in the
-// last 48h. Once everything's been seen the dot goes and the title softens.
-export function renderActivityHomeCard(){
-  const el = document.getElementById('activity-home');
-  if(!el) return;
-  const recent = feed.events.filter(e => Date.now() - e.ts < HOME_WINDOW_MS);
-  if(!recent.length){ el.innerHTML = ''; return; }
-  const unseen = unseenCount() > 0;
-  el.innerHTML = `
-    <div class="league act-card">
-      <div class="act-card-head">
-        ${unseen ? '<span class="act-dot"></span>' : ''}
-        <span class="act-card-title">${unseen ? 'Since you last looked' : 'Recent changes'}</span>
-        <button type="button" class="act-see-all" onclick="obOpenActivity()">See all</button>
-      </div>
-      ${recent.slice(0, 3).map(homeItemHtml).join('')}
-    </div>
-  `;
 }
 
 function mineEvent(e){
@@ -461,77 +544,154 @@ function mineEvent(e){
   return (e.deltas || []).some(d => d.id === me) || (e.moves || []).some(m => m.id === me);
 }
 
-function dayLabel(ts){
-  const now = Date.now();
-  if(sameDay(ts, now)) return 'Today';
-  if(sameDay(ts, now - 86400000)) return 'Yesterday';
-  return new Date(ts).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+// One feed row. `mine` rows lead with your own delta on the right and
+// name everyone else in a plain line; the rest show every drafter as chips.
+function rowHtml(e, mine){
+  const d = mine ? myDelta(e) : null;
+  const right = d
+    ? `<span class="act-delta ${d.cls}">${d.html}</span><span class="act-time">${d.lock ? 'locked &middot; ' : ''}${timeText(e.ts)}</span>`
+    : `<span class="act-time">${timeText(e.ts)}</span>`;
+  const detail = mine
+    ? (othersLine(e) ? `<span class="act-sub">${othersLine(e)}</span>` : '')
+    : `${e.sub ? `<span class="act-sub">${e.sub}</span>` : ''}<span class="act-chips">${chipsHtml(e)}</span>`;
+  return `
+    <button type="button" class="act-row ${e.type === 'lock' ? 'lock' : ''}" onclick="${eventAction(e)}">
+      ${tileHtml(e)}
+      <span class="act-body">
+        ${kindTagHtml(e)}
+        <span class="act-title">${e.title}</span>
+        ${mine && e.sub && e.type === 'lock' ? `<span class="act-sub">${e.sub}</span>` : ''}
+        ${detail}
+      </span>
+      <span class="act-right">${right}</span>
+    </button>
+  `;
+}
+
+function sectionHtml(label, note, items, mine){
+  if(!items.length) return '';
+  return `
+    <div class="ob-section-title ob-section-split"><span>${label}</span>${note || ''}</div>
+    <div class="ob-card act-group">${items.map(e => rowHtml(e, mine)).join('')}</div>
+  `;
+}
+
+// "Live +3 since Tue": your net Live change across the feed since the
+// Points rank baseline (js/overall.js). Lock events don't count — they
+// turn Live into Locked without moving projected.
+function myLiveNote(events){
+  const since = obSinceTs();
+  const sum = events.filter(e => e.ts > since && e.type !== 'lock' && e.type !== 'rank')
+    .reduce((s, e) => s + ((e.deltas || []).find(d => d.id === currentDraftTeamId && d.prov) || { pts: 0 }).pts, 0);
+  if(!sum) return '';
+  const label = obSinceLabel(since);
+  return `<span class="ob-section-note ${sum < 0 ? 'risk' : 'lv'}">Live ${signed(sum)}${label ? ' ' + label : ''}</span>`;
 }
 
 export function setActivityFilter(key){
-  listFilter = ['all', 'mine', 'rank'].includes(key) ? key : 'all';
+  listFilter = ['all', 'mine', 'locked', 'rank'].includes(key) ? key : 'all';
   if(window.renderOverallStandings) window.renderOverallStandings();
 }
 window.setActivityFilter = setActivityFilter;
 
-export function activityListHtml(){
-  let events = feed.events;
-  if(listFilter === 'mine') events = events.filter(mineEvent);
-  if(listFilter === 'rank') events = events.filter(e => e.type === 'rank');
+const FILTERS = [
+  { key: 'all', label: 'All' }, { key: 'mine', label: 'My teams' },
+  { key: 'locked', label: 'Locked in' }, { key: 'rank', label: 'Rank moves' }
+];
 
-  const groups = [];
-  events.forEach(e => {
-    const label = dayLabel(e.ts);
-    const g = groups[groups.length - 1];
-    if(g && g.label === label) g.items.push(e); else groups.push({ label, items: [e] });
-  });
-
-  const body = groups.length ? groups.map(g => `
-    <div class="ob-section-title act-day">${g.label}</div>
-    <div class="ob-card act-group">
-      ${g.items.map(e => `
-        <button type="button" class="act-row" onclick="${eventAction(e)}">
-          ${tileHtml(e)}
-          <span class="act-body">
-            <span class="act-title">${e.title}</span>
-            ${e.sub ? `<span class="act-sub">${e.sub}</span>` : ''}
-            <span class="act-chips">${chipsHtml(e)}</span>
-          </span>
-          <span class="act-time-col">
-            <span class="act-time">${timeText(e.ts, sameDay(e.ts, Date.now()))}</span>
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
-          </span>
-        </button>
-      `).join('')}
-    </div>
-  `).join('') : `<div class="ob-idle-block"><div class="ob-idle-title">Nothing yet</div><div class="ob-idle-body">${listFilter === 'all' ? 'No scoring lines have moved yet.' : 'Nothing here for this filter.'}</div></div>`;
-
+// The Activity half of the Points tab.
+export function activityPanelHtml(){
+  const events = feed.events;
+  const mine = events.filter(mineEvent);
+  let body;
+  if(listFilter === 'locked'){
+    body = sectionHtml('Locked in', '<span class="ob-section-note locked">Permanent</span>', events.filter(e => e.type === 'lock'), false);
+  } else if(listFilter === 'rank'){
+    body = sectionHtml('Projected rank moves', '', events.filter(e => e.type === 'rank'), false);
+  } else {
+    body = sectionHtml('Moved your points', myLiveNote(mine), mine, true)
+      + (listFilter === 'all' ? sectionHtml('Around the league', '', events.filter(e => !mineEvent(e)), false) : '');
+  }
+  if(!body){
+    body = `<div class="ob-idle-block"><div class="ob-idle-title">Nothing here yet</div><div class="ob-idle-body">No scoring lines have moved for this filter.</div></div>`;
+  }
   return `
-    <h2 class="ob-detail-name act-h">Activity</h2>
-    <div class="ob-detail-meta act-sub-copy">Only changes that move points. Game results stay on Scores.</div>
-    <div class="act-filter">${segmentedControlHtml([
-      { key: 'all', label: 'All' }, { key: 'mine', label: 'My teams' }, { key: 'rank', label: 'Rank moves' }
-    ], listFilter, 'setActivityFilter')}</div>
+    <div class="filter-chips sm act-filters">${FILTERS.map(f =>
+      `<button type="button" class="filter-chip ${f.key === listFilter ? 'active' : ''}" onclick="setActivityFilter('${f.key}')">${f.label}</button>`
+    ).join('')}</div>
     ${body}
+    <div class="act-foot">Only changes that move points. Game results stay on Scores.</div>
   `;
 }
 
-// The Points toolbar's unseen dot and the Home card share one refresh.
-export function refreshActivityUi(){
-  renderActivityHomeCard();
-  const dot = document.getElementById('ob-activity-dot');
-  if(dot) dot.hidden = unseenCount() === 0;
+// A drafter breakdown's "Recent changes": the last few events that
+// touched them, compact. '' when there are none (the section hides).
+export function activityRecentHtml(drafterId){
+  const items = feed.events.filter(e => deltaFor(e, drafterId)).slice(0, 5);
+  if(!items.length) return '';
+  return `<div class="ob-card act-group">${items.map(e => {
+    const d = deltaFor(e, drafterId);
+    return `
+      <div class="act-row compact">
+        ${tileHtml(e)}
+        <span class="act-body">
+          <span class="act-title">${e.title}</span>
+          <span class="act-time">${timeText(e.ts)}${e.type === 'lock' ? ' &middot; locked in' : ''}</span>
+        </span>
+        <span class="act-right"><span class="act-delta ${d.cls}">${d.html}</span></span>
+      </div>
+    `;
+  }).join('')}</div>`;
 }
 
-window.activityOpenDrafter = id => {
-  window.switchView('overall');
-  obOpenDetail(id);
-};
+// Home: one slim row into Points > Activity. Hidden entirely when nothing
+// moved in the last 48h.
+export function renderActivityHomeLink(){
+  const el = document.getElementById('activity-home');
+  if(!el) return;
+  const recent = feed.events.filter(e => Date.now() - e.ts < HOME_WINDOW_MS);
+  if(!recent.length){ el.innerHTML = ''; return; }
+  const unseen = unseenCount();
+  const latest = recent[0];
+  let title, sub;
+  if(unseen){
+    const d = myDelta(latest);
+    title = `${unseen} point change${unseen === 1 ? '' : 's'} since you last looked`;
+    sub = `${latest.title}${d ? ` &middot; <span class="act-delta-inline ${d.cls}">${d.html}</span>` : ''}`;
+  } else {
+    const me = obRankedRows().find(r => r.id === currentDraftTeamId);
+    title = me ? `Projected ${me.rankLabel.startsWith('T') ? 'T' + ordinal(me.rankLabel.slice(1)) : ordinal(me.rankLabel)} &middot; ${me.total} pts` : 'Points';
+    sub = `Latest: ${latest.title}`;
+  }
+  el.innerHTML = `
+    <button type="button" class="act-link ${unseen ? 'unseen' : ''}" onclick="obOpenActivity()">
+      ${unseen ? '<span class="act-dot"></span>' : ''}
+      <span class="act-link-body">
+        <span class="act-link-title">${title}</span>
+        <span class="act-link-sub">${sub}</span>
+      </span>
+      <span class="act-link-go">Points &rsaquo;</span>
+    </button>
+  `;
+}
+
+// The Home link, and the Points tab (for its badge and the feed itself)
+// when it's the open view, share one refresh.
+export function refreshActivityUi(){
+  renderActivityHomeLink();
+  const view = document.getElementById('view-overall');
+  if(view && view.classList.contains('active') && window.renderOverallStandings) window.renderOverallStandings();
+}
+
+window.activityOpenDrafter = id => obOpenSheet(id);
 
 // ---- Boot ----
 
 export function startActivity(){
   refreshActivityUi();
+  // Home's "Projected 1st · 36 pts" includes the league bonus, which
+  // reads standings tables Home doesn't otherwise load.
+  loadBonusInputs().then(renderActivityHomeLink);
   loadActivity();
   setTimeout(() => runActivityDetection(), 6000);
   document.addEventListener('visibilitychange', () => {

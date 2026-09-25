@@ -8,25 +8,31 @@
    the same per-league combined computations the Standings "Person"
    view reads, so there is no new data source here.
 
-   Note the +5 league bonus isn't part of the Points totals in
-   js/overall.js today (only LEAGUE_SCORING `rules` are summed). This
-   view therefore shows it separately, as "who holds it right now",
-   and only the Net line in the gap table adds it in.
+   Totals, ranks and gaps are PROJECTED (Locked + Live), the same
+   number the Points tab ranks on (obRankedRows in js/overall.js).
+
+   This module is also the single source for the +5 league bonus
+   itself: bonusStandings() below says who holds each league's bonus
+   (the leader of that league's Drafted standings), and js/overall.js
+   folds it into every total as one more award — Live while the league
+   is open, Locked once it locks (the holder is frozen into the lock
+   snapshot, js/season-lock.js, so a postseason table can't move it).
 
    State (which two drafters) lives in js/overall.js; this module only
    turns rows into HTML.
    ============================================================ */
 import { LEAGUE_SCORING, TEAM_META } from './data.js';
+import { leagueSeasonUnderway } from './league-facts.js';
 import { CHEVRON_LEFT_SVG, ordinal, teamBadgeHtml } from './utils.js';
-import { isLeagueLocked } from './season-lock.js';
-import { computeEplDrafterCombined } from './standings-epl.js';
+import { isLeagueLocked, getLockedBonusHolder } from './season-lock.js';
+import { computeEplDrafterCombined, fetchEplStandingsTable } from './standings-epl.js';
 import {
   computeNflDrafterCombined, computeNflConferenceStandings, computeNflDivisionStandings,
   fetchEspnNflStandingsCached, fetchEspnNflDivisionStandingsCached, findNflTeamKeyByEspnAbbr
 } from './standings-nfl.js';
 import { findFlatTeamKey } from './standings-flat.js';
-import { computeCfbDrafterCombined } from './standings-cfb.js';
-import { computeCbbDrafterCombined } from './standings-cbb.js';
+import { computeCfbDrafterCombined, fetchEspnCfbRecordsCached } from './standings-cfb.js';
+import { computeCbbDrafterCombined, fetchEspnCbbStandingsCached } from './standings-cbb.js';
 import {
   computeNbaDrafterCombined, computeNbaConferenceStandings, computeNbaDivisionStandings,
   fetchEspnNbaStandingsCached, fetchEspnNbaDivisionStandingsCached, nbaConferences
@@ -35,7 +41,7 @@ import {
   computeNhlDrafterCombined, computeNhlConferenceStandings, computeNhlDivisionStandings,
   fetchEspnNhlStandingsCached, fetchEspnNhlDivisionStandingsCached, nhlConferences
 } from './standings-nhl.js';
-import { obLeagueColor, obLeagueFullName, obSignedPts } from './overall.js';
+import { obLeagueColor, obLeagueFullName } from './overall.js';
 
 // Only leagues that score today. MLB and WNBA are deliberately absent:
 // they're on prior-season data (PRIOR_SEASON_DISPLAY_LEAGUES in
@@ -44,13 +50,15 @@ import { obLeagueColor, obLeagueFullName, obSignedPts } from './overall.js';
 // win % for most leagues, combined points for EPL and NHL (see
 // LEAGUE_SCORING[key].bonus).
 // `minGames` keeps a bonus race from showing on a handful of games.
+// `load` fetches the standings `compute` reads (cached fetches, so
+// calling it again is free).
 const BONUS_SOURCES = [
-  { key: 'nfl',  compute: computeNflDrafterCombined, metric: 'pct',    minGames: 0 },
-  { key: 'nba',  compute: computeNbaDrafterCombined, metric: 'pct',    minGames: 0 },
-  { key: 'cfb',  compute: computeCfbDrafterCombined, metric: 'pct',    minGames: 0 },
-  { key: 'nhl',  compute: computeNhlDrafterCombined, metric: 'points', minGames: 0 },
-  { key: 'epl',  compute: computeEplDrafterCombined, metric: 'points', minGames: 0 },
-  { key: 'mcbb', compute: computeCbbDrafterCombined, metric: 'pct',    minGames: 10 }
+  { key: 'nfl',  compute: computeNflDrafterCombined, metric: 'pct',    minGames: 0,  load: fetchEspnNflStandingsCached },
+  { key: 'nba',  compute: computeNbaDrafterCombined, metric: 'pct',    minGames: 0,  load: fetchEspnNbaStandingsCached },
+  { key: 'cfb',  compute: computeCfbDrafterCombined, metric: 'pct',    minGames: 0,  load: fetchEspnCfbRecordsCached },
+  { key: 'nhl',  compute: computeNhlDrafterCombined, metric: 'points', minGames: 0,  load: fetchEspnNhlStandingsCached },
+  { key: 'epl',  compute: computeEplDrafterCombined, metric: 'points', minGames: 0,  load: fetchEplStandingsTable },
+  { key: 'mcbb', compute: computeCbbDrafterCombined, metric: 'pct',    minGames: 10, load: fetchEspnCbbStandingsCached }
 ];
 
 function gamesOf(r){
@@ -71,27 +79,74 @@ function formatValue(v, metric){
   return v.toFixed(3).replace(/^0/, '');
 }
 
-// One league's bonus race: everyone's value plus who holds the +5 now.
-// `active` is false until enough games are played (see minGames).
+// One league's bonus race: everyone's value plus who holds the +5 now —
+// the top row of that league's Drafted standings (the same compute the
+// Standings tab's Person view renders). `active` is false until enough
+// games are played (see minGames). Once the league is locked, the holder
+// frozen into its lock wins over whatever the live table says now.
 function bonusRace(src){
   const rows = src.compute();
   const byId = {};
   rows.forEach(r => { byId[r.id] = { value: valueOf(r, src.metric), games: gamesOf(r), found: r.found }; });
   const maxGames = Math.max(0, ...rows.map(gamesOf));
-  const active = maxGames > 0 && maxGames >= src.minGames;
+  const locked = isLeagueLocked(src.key);
+  // An open league's race only runs once its season is under way (see
+  // leagueSeasonUnderway) — not off last season's table or a preseason.
+  let active = maxGames > 0 && maxGames >= src.minGames && (locked || leagueSeasonUnderway(src.key) === true);
   const lead = rows[0];
-  const holderId = active && lead && lead.found > 0 ? lead.id : null;
+  let holderId = active && lead && lead.found > 0 ? lead.id : null;
+  const frozen = locked ? getLockedBonusHolder(src.key) : undefined;
+  if(frozen !== undefined){ holderId = frozen; active = active || !!frozen; }
   const scoring = LEAGUE_SCORING[src.key];
   return {
     key: src.key,
     metric: src.metric,
     pts: (scoring && scoring.bonus && scoring.bonus.pts) || 5,
+    label: (scoring && scoring.bonus && scoring.bonus.label) || 'League bonus',
     minGames: src.minGames,
     active,
     holderId,
-    locked: isLeagueLocked(src.key),
+    locked,
     byId
   };
+}
+
+// Who holds each league's bonus right now, from the LIVE table — what
+// js/season-lock.js freezes into a league's lock. undefined when there's
+// nothing to freeze (no bonus race in this league, its season isn't
+// under way, or its table hasn't loaded — never freeze "nobody" off
+// missing or off-season data); null when the table is in but nobody
+// holds it.
+export function liveBonusHolder(leagueKey){
+  const src = BONUS_SOURCES.find(s => s.key === leagueKey);
+  if(!src) return undefined;
+  // Only freeze off this season's own table.
+  if(leagueSeasonUnderway(leagueKey) !== true) return undefined;
+  const rows = src.compute();
+  const maxGames = Math.max(0, ...rows.map(gamesOf));
+  if(maxGames === 0) return undefined;
+  const lead = rows[0];
+  return maxGames >= src.minGames && lead && lead.found > 0 ? lead.id : null;
+}
+
+// Every league's bonus, for the Points totals (js/overall.js):
+// leagueKey -> { holderId, pts, label, locked }. Leagues nobody holds
+// yet are absent.
+export function bonusStandings(){
+  const out = {};
+  BONUS_SOURCES.forEach(src => {
+    const race = bonusRace(src);
+    if(race.active && race.holderId) out[src.key] = { holderId: race.holderId, pts: race.pts, label: race.label, locked: race.locked };
+  });
+  return out;
+}
+
+// Fetches every standings table the bonus races read. Memoized: the
+// first caller starts it, everyone gets the same promise.
+let bonusInputsPromise = null;
+export function loadBonusInputs(){
+  if(!bonusInputsPromise) bonusInputsPromise = Promise.allSettled(BONUS_SOURCES.map(src => src.load()));
+  return bonusInputsPromise;
 }
 
 export function compareData(rows, aId, bId){
@@ -100,18 +155,15 @@ export function compareData(rows, aId, bId){
   if(!a || !b) return null;
 
   const races = BONUS_SOURCES.map(bonusRace);
-  const raceByKey = {};
-  races.forEach(r => { raceByKey[r.key] = r; });
 
-  // Gap table: signed from a's side (a - b).
+  // Gap table: signed from a's side (a - b). The bonus is already one of
+  // each row's awards (js/overall.js); split it back out here.
+  const bonusOf = x => x ? x.awards.filter(w => w.bonus).reduce((s, w) => s + w.pts, 0) : 0;
   const leagueKeys = [];
   a.leagues.forEach(x => {
     const y = b.leagues.find(z => z.league.key === x.league.key);
-    const race = raceByKey[x.league.key];
-    const bonus = race && race.active
-      ? (race.holderId === a.id ? race.pts : (race.holderId === b.id ? -race.pts : 0))
-      : 0;
-    const placement = x.pts - (y ? y.pts : 0);
+    const bonus = bonusOf(x) - bonusOf(y);
+    const placement = (x.pts - bonusOf(x)) - (y ? y.pts - bonusOf(y) : 0);
     if(placement === 0 && bonus === 0) return;
     leagueKeys.push({ key: x.league.key, placement, bonus, net: placement + bonus });
   });
@@ -128,14 +180,14 @@ export function comparePickerHtml(rows, subjectId, currentOppId){
   if(!me) return '';
   const others = rows.filter(r => r.id !== subjectId);
   return others.map(r => {
-    const d = r.confirmedTotal - me.confirmedTotal;
+    const d = r.total - me.total;
     const gap = d > 0 ? d + ' ahead' : (d < 0 ? Math.abs(d) + ' behind' : 'Tied');
     return `
       <button type="button" class="cmp-pick ${r.id === currentOppId ? 'current' : ''}" onclick="obPickOpponent('${r.id}')">
         <span class="cmp-pick-rank">${r.rankLabel}</span>
         <span class="cmp-pick-name">${r.name}</span>
         <span class="cmp-pick-gap">${gap}</span>
-        <span class="cmp-pick-total">${r.confirmedTotal}</span>
+        <span class="cmp-pick-total">${r.total}</span>
       </button>
     `;
   }).join('');
@@ -163,7 +215,7 @@ function raceRowHtml(race, a, b, rowsById){
   if(mine || theirs){
     const who = mine ? a.name : b.name;
     chip = race.locked
-      ? `<span class="cmp-chip win">${who} +${race.pts} &middot; Locked</span>`
+      ? `<span class="cmp-chip locked">${who} +${race.pts} &middot; Locked</span>`
       : `<span class="cmp-chip prov">${who} +${race.pts}</span>`;
   } else if(holder){
     const h = rowsById[holder];
@@ -200,7 +252,7 @@ export function compareHtml(rows, aId, bId){
   const rowsById = {};
   rows.forEach(r => { rowsById[r.id] = r; });
 
-  const diff = a.confirmedTotal - b.confirmedTotal;
+  const diff = a.total - b.total;
 
   // Leagues where one of the two holds the bonus come first.
   const active = races.filter(r => r.active)
@@ -231,7 +283,7 @@ export function compareHtml(rows, aId, bId){
       <div class="ob-card cmp-card">
         <div class="cmp-gap-row head"><span>League</span><span>Placement</span><span>Bonus</span><span>Net</span></div>
         ${gapRows}
-        <div class="cmp-gap-foot"><span>Net, including provisional</span><span class="cmp-net-total ${net > 0 ? 'pos' : (net < 0 ? 'neg' : 'zero')}">${net === 0 ? '0' : (net > 0 ? '+' : '&minus;') + Math.abs(net)}</span></div>
+        <div class="cmp-gap-foot"><span>Net</span><span class="cmp-net-total ${net > 0 ? 'pos' : (net < 0 ? 'neg' : 'zero')}">${net === 0 ? '0' : (net > 0 ? '+' : '&minus;') + Math.abs(net)}</span></div>
       </div>
     `
     : '';
@@ -239,9 +291,9 @@ export function compareHtml(rows, aId, bId){
   return `
     <div class="cmp-sticky" id="cmp-sticky">
       <button type="button" class="cmp-sticky-back" onclick="obCloseCompare()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
-      <span class="cmp-sticky-a">${a.name} ${a.confirmedTotal}</span>
+      <span class="cmp-sticky-a">${a.name} ${a.total}</span>
       ${gapPill(diff).replace('cmp-gap-pill', 'cmp-sticky-gap')}
-      <span class="cmp-sticky-b">${b.confirmedTotal} ${b.name}</span>
+      <span class="cmp-sticky-b">${b.total} ${b.name}</span>
       <button type="button" class="cmp-change" onclick="obOpenComparePicker()">Change</button>
     </div>
     <button type="button" class="ob-back" onclick="obCloseCompare()">${CHEVRON_LEFT_SVG}${a.name}</button>
@@ -251,18 +303,18 @@ export function compareHtml(rows, aId, bId){
         <div class="cmp-side">
           <div class="cmp-side-label">Rank ${a.rankLabel}</div>
           <div class="cmp-side-name a">${a.name}</div>
-          <div class="cmp-side-total">${a.confirmedTotal}</div>
+          <div class="cmp-side-total">${a.total}</div>
         </div>
         <div class="cmp-mid">${gapPill(diff)}<div class="cmp-side-label">Gap</div></div>
         <div class="cmp-side r">
           <div class="cmp-side-label">Rank ${b.rankLabel}</div>
           <button type="button" class="cmp-side-name b" onclick="obOpenComparePicker()">${b.name}<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></button>
-          <div class="cmp-side-total b">${b.confirmedTotal}</div>
+          <div class="cmp-side-total b">${b.total}</div>
         </div>
       </div>
       <div class="cmp-head-foot">
-        <span class="ob-stripe-swatch"></span>
-        <span class="cmp-head-foot-text">With provisional: <strong>${a.total}</strong> vs <strong>${b.total}</strong></span>
+        <span class="split-swatch lk"></span>
+        <span class="cmp-head-foot-text">Locked: <strong>${a.confirmedTotal}</strong> vs <strong>${b.confirmedTotal}</strong></span>
         <button type="button" class="cmp-change" onclick="obOpenComparePicker()">Change</button>
       </div>
     </div>

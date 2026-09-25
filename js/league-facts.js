@@ -58,6 +58,7 @@ import {
 import { renderStandings } from './board.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
+import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 
 // Per-league config for rankAuto's 'conference'/'division' scopes —
 // NFL is kept separate (its own bespoke cache/lookup, not
@@ -415,6 +416,33 @@ export function computeLiveRankAutoTeams(leagueKey, rule){
   });
 }
 
+// Whether a league's live table counts toward points yet: its season
+// has to actually be under way (js/season-phase.js's isSeasonUnderway —
+// Regular Season start through Postseason end). Stops an off-season
+// table from scoring: College Basketball's still showing last season's
+// final standings in September, NBA's fresh 0-0 table, NHL's preseason.
+// EPL has no phase calendar; it counts once any club has played. null
+// while the phase data is still loading (callers treat that as "not
+// yet"; this kicks the fetch and repaints once it lands). Only gates
+// the LIVE table — a locked league reads its frozen snapshot regardless.
+const phasePrimed = {};
+export function leagueSeasonUnderway(leagueKey){
+  if(leagueKey === 'epl'){
+    const table = eplStandingsCache.table;
+    return table ? table.some(row => (row.gamesPlayed || 0) > 0) : null;
+  }
+  if(!SEASON_PHASE_LEAGUES.includes(leagueKey)) return true;
+  const underway = isSeasonUnderway(leagueKey);
+  if(underway === null && !phasePrimed[leagueKey]){
+    phasePrimed[leagueKey] = true;
+    fetchSeasonPhaseCached(leagueKey).then(() => {
+      renderStandings();
+      if(window.renderOverallStandings) window.renderOverallStandings();
+    });
+  }
+  return underway;
+}
+
 // Teams currently satisfying a rule — a frozen snapshot for a rankAuto
 // rule whose league has already locked in its regular season
 // (js/season-lock.js), the live ESPN table otherwise (computeLiveRankAutoTeams
@@ -431,6 +459,7 @@ export function getLeagueRuleTeams(leagueKey, rule){
     // season that isn't supposed to count yet.
     if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return [];
     if(isLeagueLocked(leagueKey)) return getLockedRuleTeams(leagueKey, rule.label);
+    if(leagueSeasonUnderway(leagueKey) !== true) return [];
     return computeLiveRankAutoTeams(leagueKey, rule);
   }
   return currentLeagueFacts(leagueKey)[rule.label] || [];
@@ -551,7 +580,7 @@ export function trackerSectionHtml(teamKey){
     return `
       <div class="tracker-item readonly ${stateClass}">
         <div class="tracker-check">${achieved ? CHECK_ICON_SVG : ''}</div>
-        <div class="tracker-label">${r.label}${isProvisional ? '<span class="provisional-tag">Current</span>' : ''}</div>
+        <div class="tracker-label">${r.label}${isProvisional ? '<span class="pts-tag live">Live</span>' : ''}</div>
         <div class="tracker-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts} pt${Math.abs(r.pts) === 1 ? '' : 's'}</div>
       </div>
     `;

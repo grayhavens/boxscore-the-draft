@@ -32,7 +32,9 @@
    as League Facts (js/league-facts.js) — see that file's own header
    comment for the full rationale, not repeated here. Storage shape:
    { lockedAt: isoString, rules: { [ruleLabel]: [teamKey, ...] },
-     standings?: { [storageKey]: cacheBlob } }, one blob per league.
+     bonus?: drafterId | null, standings?: { [storageKey]: cacheBlob } },
+   one blob per league. `bonus` is who held the league's +5 bonus (the
+   leader of its Drafted standings, js/compare.js) at lock time.
 
    `standings` is the league's ESPN standings caches at lock time
    (js/frozen-cache.js). It exists for draft classes that are no longer
@@ -52,6 +54,7 @@ import { snapshotLeagueCaches, freezeLeagueCaches } from './frozen-cache.js';
 import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { eplStandingsCache } from './standings-epl.js';
 import { computeLiveRankAutoTeams } from './league-facts.js';
+import { liveBonusHolder, loadBonusInputs } from './compare.js';
 import { renderStandings } from './board.js';
 import { renderAdminPage } from './admin.js';
 
@@ -144,6 +147,27 @@ export function isLeagueLocked(leagueKey){
   return !!(lock && lock.lockedAt);
 }
 
+// Whether every league's lock state has actually loaded (or failed), so
+// "not locked" means not locked rather than "not fetched yet". The
+// Activity feed (js/activity.js) only records lock state once this is
+// true — a false it recorded too early would log a bogus lock event
+// the moment the real answer arrived.
+export function leagueLocksSettled(){
+  return Object.keys(LEAGUE_SCORING).every(key => {
+    currentLock(key);
+    const cache = lockCacheFor(key);
+    return cache.data !== null || cache.error;
+  });
+}
+
+// The +5 bonus holder frozen at lock time: a drafter id, null (nobody
+// held it), or undefined when the league isn't locked or the lock
+// predates bonus freezing (the caller then falls back to the live table).
+export function getLockedBonusHolder(leagueKey){
+  const lock = currentLock(leagueKey);
+  return lock && lock.lockedAt && 'bonus' in lock ? lock.bonus : undefined;
+}
+
 export function getLockedRuleTeams(leagueKey, ruleLabel){
   const lock = currentLock(leagueKey);
   return (lock && lock.rules && lock.rules[ruleLabel]) || [];
@@ -187,22 +211,33 @@ function lockLeague(leagueKey){
     rules[r.label] = computeLiveRankAutoTeams(leagueKey, r);
   });
   const lock = { lockedAt: new Date().toISOString(), rules };
+  const bonus = liveBonusHolder(leagueKey);
+  if(bonus !== undefined) lock.bonus = bonus;
   const standings = snapshotLeagueCaches(leagueKey);
   if(standings) lock.standings = standings;
   persistLock(leagueKey, lock);
 }
 
-// Locks written before snapshots existed have rules but no standings.
-// While this is still the newest class the live tables are still this
-// season's (a lock happens when the regular season ends, long before
-// the next draft adds a newer class), so they can still be captured
-// into the existing lock. Once a newer class exists it's too late —
-// ESPN has moved on — and that league simply keeps reading live data.
+// Locks written before snapshots (or bonus freezing) existed have rules
+// but no standings / bonus. While this is still the newest class the
+// live tables are still this season's (a lock happens when the regular
+// season ends, long before the next draft adds a newer class), so they
+// can still be captured into the existing lock. Once a newer class
+// exists it's too late — ESPN has moved on — and that league simply
+// keeps reading live data.
 function backfillLockSnapshot(leagueKey){
   const lock = currentLock(leagueKey);
-  if(!lock || !lock.lockedAt || lock.standings || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
-  const standings = snapshotLeagueCaches(leagueKey);
-  if(standings) persistLock(leagueKey, { ...lock, standings });
+  if(!lock || !lock.lockedAt || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
+  const patch = {};
+  if(!lock.standings){
+    const standings = snapshotLeagueCaches(leagueKey);
+    if(standings) patch.standings = standings;
+  }
+  if(!('bonus' in lock)){
+    const bonus = liveBonusHolder(leagueKey);
+    if(bonus !== undefined) patch.bonus = bonus;
+  }
+  if(Object.keys(patch).length) persistLock(leagueKey, { ...lock, ...patch });
 }
 
 // Boot step for any class that isn't the newest: load every league's
@@ -268,6 +303,7 @@ export async function checkSeasonLocks(){
     if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) continue;
     await ensureLockLoaded(leagueKey);
     if(isLeagueLocked(leagueKey)){
+      await loadBonusInputs();
       backfillLockSnapshot(leagueKey);
       continue;
     }
@@ -278,6 +314,7 @@ export async function checkSeasonLocks(){
       await fetchSeasonPhaseCached(leagueKey);
       over = isRegularSeasonOver(leagueKey);
     }
-    if(over) lockLeague(leagueKey);
+    // The bonus holder is frozen into the lock, so its tables must be in.
+    if(over){ await loadBonusInputs(); lockLeague(leagueKey); }
   }
 }

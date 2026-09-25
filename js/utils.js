@@ -350,8 +350,10 @@ export function abbrFromName(name){
 export function segmentedControlHtml(segments, activeKey, onClickFnName){
   const idx = Math.max(0, segments.findIndex(s => s.key === activeKey));
   const thumbStyle = `width:calc((100% - 6px) / ${segments.length}); transform: translateX(${idx * 100}%);`;
+  // An optional `badge` count renders the app's shared unread pill
+  // (.count-badge, the same one the tab bar's chat badge uses).
   const buttons = segments.map(s =>
-    `<button type="button" class="seg-btn${s.key === activeKey ? ' active' : ''}" onclick="${onClickFnName}('${s.key}')">${s.label}</button>`
+    `<button type="button" class="seg-btn${s.key === activeKey ? ' active' : ''}" onclick="${onClickFnName}('${s.key}')">${s.label}${s.badge ? `<span class="count-badge">${s.badge > 99 ? '99+' : s.badge}</span>` : ''}</button>`
   ).join('');
   return `
     <div class="seg">
