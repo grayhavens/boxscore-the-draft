@@ -77,6 +77,9 @@ function segmented(key, options, current){
 // (the draft room, scoring admin and the Points data mode). The tab
 // survives the sheet redrawing itself when a control is toggled, and
 // resets to Preferences each time the sheet is opened.
+// Both panels are always rendered, stacked in one grid cell with the
+// inactive one hidden (.settings-panels), so the sheet is always as tall
+// as the taller tab and doesn't jump when you switch.
 let settingsTab = 'prefs';
 
 window.setSettingsTab = tab => {
@@ -144,7 +147,10 @@ function renderSettingsMain(){
       <span class="settings-chev">&rsaquo;</span>
     </button>
     <div class="settings-tabs">${segmentedControlHtml([{ key: 'prefs', label: 'Preferences' }, { key: 'league', label: 'League' }], settingsTab, 'setSettingsTab')}</div>
-    ${settingsTab === 'league' ? renderLeagueTab() : renderPreferencesTab(s)}
+    <div class="settings-panels">
+      <div class="settings-panel ${settingsTab === 'prefs' ? '' : 'inactive'}">${renderPreferencesTab(s)}</div>
+      <div class="settings-panel ${settingsTab === 'league' ? '' : 'inactive'}">${renderLeagueTab()}</div>
+    </div>
   `;
 }
 window.renderSettingsPeople = renderSettingsPeople;

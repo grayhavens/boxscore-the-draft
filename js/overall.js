@@ -14,7 +14,7 @@
    until the league locks.
 
    The page: a "You" hero (projected rank, the locked/live split and a
-   ladder of the drafters around you), then a Table | Activity switch.
+   ladder of the drafters around you), then a Standings | Activity switch.
    Any drafter opens a quick sheet; its Full breakdown pushes the
    per-drafter detail (one accordion card per scoring league). The
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
@@ -62,11 +62,14 @@ export function obLeagueFullName(leagueKey){
 }
 
 // Within-session view state, same as standingsFilterKey in js/board.js.
-// obSegment is the Table | Activity switch (null until the first visit
-// picks it: Activity when there's something unseen, else Table). The
+// obSegment is the Standings | Activity switch ('standings' | 'activity'):
+// every visit opens on Standings unless it was asked for Activity (the
+// Home link, or ?seg=activity). obSegmentNext carries that request
+// across switchView, which is what starts the visit. The
 // drafter being looked at in the quick sheet, the pushed breakdown, and —
 // within that — the one expanded league card and the Compare opponent.
-let obSegment = null;
+let obSegment = 'standings';
+let obSegmentNext = null;
 let obSheetId = null;
 let obDetailId = null;
 let obOpenLeagueKey = null;
@@ -495,7 +498,6 @@ function obHeroHtml(rows, me){
         <div class="ob-hero-left">
           <span class="ob-detail-eyebrow mute">${me.name}${you}</span>
           <span class="ob-hero-rankline"><span class="ob-hero-rank">${obOrdinalLabel(me.rankLabel)}</span>${obMoveHtml(obRankMove(me), true)}</span>
-          <span class="ob-hero-note">projected &middot; ${obOrdinalLabel(me.lockedRankLabel)} locked</span>
         </div>
         <div class="ob-hero-right">
           <span class="ob-hero-total">${obPts(me.total)}</span>
@@ -554,7 +556,7 @@ function obListHtml(rows){
   const me = rows.find(r => r.id === obYouId());
   const badge = obSegment === 'activity' ? 0 : unseenCount();
   const seg = segmentedControlHtml([
-    { key: 'table', label: 'Table' },
+    { key: 'standings', label: 'Standings' },
     { key: 'activity', label: 'Activity', badge }
   ], obSegment, 'obSetSegment');
   return `
@@ -766,18 +768,18 @@ function obDetailHtml(row){
 // ---- Entry points ----
 
 // Called by switchView (js/board.js) every time the Points tab opens.
-// Picks the segment (the URL's ?seg= wins, then this session's last
-// choice, then Activity if anything is unseen) and starts a new visit
-// for the "since" rank baseline.
+// Standings first, unless this visit was asked for Activity (see
+// obSegmentNext) or the URL says so (a reload, a shared link). Also
+// starts a new visit for the "since" rank baseline.
 export function obEnterView(){
   const fromUrl = new URLSearchParams(window.location.search).get('seg');
-  if(fromUrl === 'table' || fromUrl === 'activity') obSegment = fromUrl;
-  else if(!obSegment) obSegment = unseenCount() > 0 ? 'activity' : 'table';
+  obSegment = obSegmentNext || (fromUrl === 'activity' ? 'activity' : 'standings');
+  obSegmentNext = null;
   obBaselinePending = true;
 }
 
 export function obSetSegment(key){
-  if(key !== 'table' && key !== 'activity') return;
+  if(key !== 'standings' && key !== 'activity') return;
   obSegment = key;
   renderOverallStandings();
 }
@@ -811,6 +813,7 @@ window.obToggleLeague = obToggleLeague;
 // Every "go to Activity" (the Home link, a notification) lands here.
 export function obOpenActivity(){
   obSegment = 'activity';
+  obSegmentNext = 'activity';
   obDetailId = null;
   obCompareId = null;
   obCloseSheet();
@@ -910,7 +913,6 @@ export function renderOverallStandings(opts){
     obCompareId = null;
   }
 
-  if(!obSegment) obSegment = 'table';
   const viewEl = document.getElementById('view-overall');
   if(viewEl && viewEl.classList.contains('active')) updateUrlParam('seg', obSegment);
   // Looking at the feed is what marks it seen — quietly, so the Home link

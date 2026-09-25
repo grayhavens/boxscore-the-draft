@@ -2943,7 +2943,7 @@ body{
 }
 .ob-hero-rank{ color: var(--accent); }
 .ob-hero-rankline .ob-move{ font-size: var(--fs-12); }
-.ob-hero-note, .ob-hero-total-label{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.ob-hero-total-label{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
 .ob-hero-right{ display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .ob-hero-total-label{ font-size: var(--fs-11); font-weight: 700; }
 .ob-split{ display: flex; flex-direction: column; gap: 8px; }
@@ -4040,6 +4040,13 @@ html.chat-kb .tab-bar{ display: none; }
 /* Preferences | League switch at the top of the Settings sheet (js/identity.js) */
 .settings-tabs{ padding: 4px 22px 6px; }
 .settings-tabs .seg{ margin-bottom: 0; }
+/* Preferences and League stacked in one cell: the sheet takes the taller
+   tab's height, so switching tabs never resizes it. visibility (not
+   display) keeps the hidden tab's height while dropping it from taps,
+   tab order and the accessibility tree. */
+.settings-panels{ display: grid; }
+.settings-panel{ grid-area: 1 / 1; min-width: 0; }
+.settings-panel.inactive{ visibility: hidden; pointer-events: none; }
 
 .settings-section{
   padding: 14px 22px 4px;
