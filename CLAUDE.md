@@ -149,6 +149,10 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password. See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
+Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
+`mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
+rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
+whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
 written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft
 is done; the commissioner bar has it any time as a mid-draft backup. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back

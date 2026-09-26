@@ -1692,7 +1692,7 @@ export async function openGameDetail(teamKey, eventId){
   if(!overlay || !el) return;
 
   // Opened straight from the Scores tab there's no team modal holding the
-  // scroll lock (and the card-stack recede) underneath, so take it here.
+  // scroll lock underneath, so take it here.
   if(!isSheetOpen(overlay) && !isSheetOpen(document.getElementById('modal-overlay'))){
     gameDetailOwnsLock = true;
     lockBodyScroll();

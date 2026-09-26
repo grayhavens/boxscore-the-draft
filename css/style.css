@@ -733,6 +733,9 @@ body{
 
 .favorite-star:active{ transform: scale(1.18); }
 
+/* Read-only indicator (favoriteMarkHtml) — taps fall through to the row. */
+.favorite-mark{ pointer-events: none; cursor: default; }
+
 /* Right-hand status column: a small uppercase label over a bolder
    value (day/LIVE/FINAL over time/score) rather than a colored pill —
    see renderRowStatus in js/live-data.js. */
@@ -1249,7 +1252,7 @@ body{
     max-width: none;
     /* Tall content (an MLB box score) tops out well short of the status
        bar: at most 80% of the screen, and always leaving a strip of the
-       receded page card (css "Card-stack sheets") showing above it. */
+       dimmed page showing above it. */
     max-height: 80vh;
     max-height: min(80dvh, calc(100dvh - env(safe-area-inset-top) - 88px));
     border-left: none;
@@ -4048,54 +4051,144 @@ html.chat-kb .tab-bar{ display: none; }
   color: var(--text-mute);
 }
 
-/* ---- Settings sheet (js/identity.js) ---- */
-/* Preferences | League switch at the top of the Settings sheet (js/identity.js) */
-.settings-tabs{ padding: 4px 22px 6px; }
-.settings-tabs .seg{ margin-bottom: 0; }
-/* Preferences and League stacked in one cell: the sheet takes the taller
-   tab's height, so switching tabs never resizes it. visibility (not
-   display) keeps the hidden tab's height while dropping it from taps,
-   tab order and the accessibility tree. */
-.settings-panels{ display: grid; }
-.settings-panel{ grid-area: 1 / 1; min-width: 0; }
-.settings-panel.inactive{ visibility: hidden; pointer-events: none; }
+/* ---- Settings page (#view-settings, js/identity.js) ----
+   One scrolling column of cards pushed in from the header gear. Every
+   control saves on tap and repaints in place. */
+.settings-page{
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 4px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 
-.settings-section{
-  padding: 14px 22px 4px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: var(--fs-11);
+/* Same header as every other page (logo + h1; no gear, since this is
+   where it leads), with the back row under it like Manage Scoring's.
+   .set-head keeps the two together as one item of the page's 24px-gap
+   column. */
+.set-head .page-header{ padding-bottom: 4px; }
+
+.set-identity{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  color: var(--text);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.set-mono{
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.set-identity-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.set-identity-name{ font-weight: 800; font-size: 20px; letter-spacing: -0.01em; }
+.set-identity-switch{ font-size: 13px; font-weight: 700; color: var(--accent); }
+
+.set-section{ display: flex; flex-direction: column; gap: 10px; }
+.set-label{
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   color: var(--text-mute);
 }
 
-.settings-row{
+.set-themes{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.set-theme{
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1.5px solid transparent;
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.set-theme.on{ border-color: var(--accent); }
+.set-swatch{ height: 56px; border-radius: 8px; border: 1px solid var(--hairline); }
+.set-theme-label{ font-size: 13px; font-weight: 700; color: var(--text-sub); transition: color 0.15s ease; }
+.set-theme.on .set-theme-label{ color: var(--text); }
+
+.set-chips{ display: flex; flex-wrap: wrap; gap: 8px; }
+.set-chip{
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.set-chip.on{ background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+
+.set-row{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 10px 22px;
-  min-height: 48px;
-  font-size: var(--fs-15);
-  font-weight: 600;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--surface);
   color: var(--text);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
 }
+.set-row-text{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-row-title{ font-size: 15px; font-weight: 700; }
+.set-row-sub{ font-size: 13px; color: var(--text-sub); }
+.set-chev{ color: var(--text-mute); font-size: var(--fs-20); }
 
-.settings-row + .settings-row{ border-top: 1px solid var(--hairline); }
-
-.settings-row .sheet-desc{ display: block; }
-
-.settings-value{
-  margin-left: auto;
-  color: var(--text-sub);
-  font-weight: 600;
+.set-tiles{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.set-tile{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
 }
+.set-tile-sub{ font-size: 12px; color: var(--text-sub); }
 
-.settings-chev{ color: var(--text-mute); font-size: var(--fs-20); margin-left: 8px; }
+.set-foot{ font-size: 12px; color: var(--text-mute); text-align: center; }
 
-.settings-row .seg{ flex: 0 0 auto; width: 210px; margin-bottom: 0; }
-.settings-row .seg-btn{ min-height: 30px; padding: 5px 0; }
+/* Light theme: labels one step darker for contrast, chips get an edge
+   against the pale page. */
+html[data-theme="light"] .set-label{ color: var(--text-sub); }
+html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
+@media (prefers-color-scheme: light){
+  html[data-theme="auto"] .set-label{ color: var(--text-sub); }
+  html[data-theme="auto"] .set-chip:not(.on){ border-color: var(--hairline); }
+}
 
 .switch{
   flex: 0 0 auto;
@@ -4104,36 +4197,25 @@ html.chat-kb .tab-bar{ display: none; }
   height: 26px;
   border-radius: 999px;
   border: none;
-  background: rgba(var(--ink-rgb),0.18);
+  background: rgba(var(--ink-rgb),0.16);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.2s ease;
 }
 
 .switch::after{
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   background: #fff;
-  transition: transform 0.15s ease;
+  transition: transform 0.2s ease;
 }
 
 .switch.on{ background: var(--accent-fill); }
 .switch.on::after{ transform: translateX(18px); }
-
-.settings-back{
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-family: 'Manrope', sans-serif;
-  font-size: var(--fs-15);
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-}
 
 
 /* ==== UI consistency pass — interaction layer ====
@@ -4514,6 +4596,15 @@ html.chat-kb .tab-bar{ display: none; }
 .draft-status i{ width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
 .draft-status[hidden]{ display: none; }
 .draft-status:not([hidden]) + .picker-hit{ margin-left: 8px; }
+/* Phones: the chip drops to its own line under the title (the ::after is
+   a full-width line break inside the wrapping header row), smaller, so
+   the title row keeps the Settings gear in the top-right corner. */
+@media (max-width: 700px){
+  .draft-head .page-header-top::after{ content: ''; order: 9; flex-basis: 100%; height: 0; }
+  .draft-head .draft-status{ order: 10; margin-left: 0; height: 22px; padding: 0 9px; gap: 6px; font-size: var(--fs-11); }
+  .draft-head .draft-status i{ width: 6px; height: 6px; }
+  .draft-head .draft-status:not([hidden]) + .picker-hit{ margin-left: auto; }
+}
 .draft-body{ flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .dr-connecting{ padding: 60px 24px; text-align: center; color: var(--text-sub); font-size: var(--fs-15); }
 .dr-dim{ color: var(--text-mute); }
@@ -4560,6 +4651,8 @@ html.chat-kb .tab-bar{ display: none; }
 .dr-first-picks{ font-size: var(--fs-13); color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .dr-actions{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dr-actions-sub{ gap: 12px; }
+.dr-bot-actions{ padding: 14px 18px; margin: 0; }
+.dr-bot-row .dr-order-n{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-label); color: var(--accent); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
@@ -4831,6 +4924,15 @@ html.chat-kb .tab-bar{ display: none; }
   padding: 8px var(--page-pad); border-bottom: 1px solid var(--hairline);
 }
 .draft-comm[hidden]{ display: none; }
+/* Phones: one row that scrolls sideways instead of wrapping into three. */
+@media (max-width: 700px){
+  .draft-comm{ flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .draft-comm::-webkit-scrollbar{ display: none; }
+  .draft-comm > *{ flex: 0 0 auto; }
+}
+.dm-proxy .dr-proxy-btn{ width: 100%; }
+.dm-brow.editable{ cursor: pointer; }
+.dr-modal-card{ margin: 0; }
 .dr-comm-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.06em; color: var(--text-mute); margin-right: 4px; }
 .dr-btn-ghost{ background: transparent; color: var(--text-sub); }
 .dr-btn-red{ background: var(--loss-soft); border-color: transparent; color: var(--loss); }
@@ -5145,36 +5247,16 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 }
 
 /* ============================================================
-   Card-stack sheets (phones). While any bottom sheet is up, the page
-   recedes behind it like an iOS card: lockBodyScroll/unlockBodyScroll
-   (js/utils.js) toggle html.sheet-open, and html.sheet-card holds the
-   card's clip until the scale-back finishes. .board is transparent and
-   taller than the screen, so the card is .board clipped at the viewport
-   (--sheet-top) with its background painted out to the screen edges.
-   Sheets themselves open/close through openSheetOverlay/closeSheetOverlay:
-   .entering while they spring up and their rows stagger in, .closing
+   Sheet motion (phones). The page behind a sheet stays still under the
+   dimmed overlay (a card-stack recede read as the background jumping).
+   Sheets open/close through openSheetOverlay/closeSheetOverlay:
+   .entering while they slide up and their rows stagger in, .closing
    while they slide down. Fill modes stay off the resting state so the
    swipe-to-dismiss drag (an inline transform) is never overridden.
    With reduced motion, the older .modal sheet-up above still applies.
    ============================================================ */
 @media (max-width: 700px) and (prefers-reduced-motion: no-preference){
-  .board{ transition: transform 480ms var(--ease-out); transform-origin: 50% var(--sheet-top, 0px); }
-  html.sheet-card, html.sheet-card body{ background: #000; }
-  html.sheet-card .board{
-    background: var(--bg);
-    box-shadow: 0 0 0 100vh var(--bg);
-    clip-path: inset(var(--sheet-top, 0px) calc(-1 * var(--page-pad)) -100vh round 22px);
-  }
-  /* --sheet-drag (0-1, set by the swipe-to-dismiss drag in js/utils.js)
-     brings the page back toward full size with the finger; the
-     transition is off while the finger drives it. */
-  html.sheet-open .board{
-    transform: translateY(calc((env(safe-area-inset-top) + 10px) * (1 - var(--sheet-drag, 0)))) scale(calc(0.93 + 0.07 * var(--sheet-drag, 0)));
-  }
-  html.sheet-dragging .board{ transition: none; }
   .modal-overlay{ transition: background-color 0.45s var(--ease-sheet); }
-  .safe-area-top{ transition: background-color 480ms var(--ease-out); }
-  html.sheet-open .safe-area-top{ background: #000; }
 
   .modal-overlay.open{ animation: overlay-in 380ms ease backwards; }
   .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }

@@ -74,9 +74,9 @@ import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
-import { currentProfileId, paintIdentityChrome, maybeShowWelcome } from './identity.js';
+import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
 import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
-import { favoriteStarHtml, isFavorite } from './favorites.js';
+import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
@@ -84,7 +84,7 @@ import { navigate, enableNavMotion } from './motion.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.25-1';
+const APP_VERSION = '2026.09.26-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -122,7 +122,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring' || explicitView === 'settings')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   // No view in the URL: fall back to the "Open to" setting (js/settings.js).
@@ -230,11 +230,9 @@ export function renderBoard(){
       const subHtml = league.key === 'epl'
         ? `<span class="epl-record" id="epl-record-${teamKey}"></span>`
         : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}${mcbbRecordHtml}`;
-      // The star is a favorited-status indicator here, not a persistent
-      // toggle affordance on every row — it only appears once a team is
-      // actually favorited (toggling that on happens from the team
-      // modal). Keeps a drafter's own roster from being cluttered with
-      // empty stars on every single team.
+      // The star is a read-only favorited-status indicator here — it only
+      // appears once a team is favorited, and toggling happens solely on
+      // the team page.
       return `
         <div class="team clickable" onclick="openTeamModal('${teamKey}')">
           ${teamBadgeHtml(meta)}
@@ -242,7 +240,7 @@ export function renderBoard(){
             <div class="team-name">${meta.name}</div>
             <div class="team-sub">${subHtml}</div>
           </div>
-          ${isFavorite(teamKey) ? favoriteStarHtml(teamKey) : ''}
+          ${isFavorite(teamKey) ? favoriteMarkHtml() : ''}
           <div class="status-slot" id="row-status-${teamKey}"></div>
         </div>
       `;
@@ -652,7 +650,57 @@ function showView(view){
   else updateUrlParam('seg', null);
   if(view === 'admin') renderAdminPage();
   if(view === 'scoring') renderScoringPage();
+  if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
 }
+
+// ---- Settings page ----
+// The header gear pushes Settings in like the team page, and its back
+// button pops to whichever view the gear was tapped on, at the same
+// scroll position. A ?view=settings deep link has no origin, so back
+// lands on Teams.
+let settingsOrigin = 'board';
+let settingsOriginScrollY = 0;
+// What Settings' back button says: the page it returns to.
+const SETTINGS_BACK_LABELS = {
+  'board': 'Home', 'live-now': 'Scores', 'chat': 'Chat', 'standings': 'Standings',
+  'overall': 'Points', 'draft': 'Draft', 'admin': 'Manage Scoring', 'scoring': 'Scoring'
+};
+
+export function openSettings(){
+  const active = document.querySelector('.view.active');
+  const from = active ? active.id.replace(/^view-/, '') : 'board';
+  if(from === 'settings') return;
+  settingsOrigin = from;
+  settingsOriginScrollY = window.scrollY;
+  navigate('push', () => {
+    showView('settings');
+    window.scrollTo(0, 0);
+  });
+}
+window.openSettings = openSettings;
+
+export function closeSettings(){
+  // navigate runs the update inside the transition, after this returns.
+  const origin = settingsOrigin, y = settingsOriginScrollY;
+  settingsOrigin = 'board';
+  settingsOriginScrollY = 0;
+  navigate('pop', () => {
+    showView(origin);
+    window.scrollTo(0, y);
+  });
+}
+window.closeSettings = closeSettings;
+
+// Back from a page Settings opened (Manage Scoring): pops to Settings
+// without touching its origin, so Settings' own back still returns to
+// the tab the gear was tapped on.
+export function backToSettings(){
+  navigate('pop', () => {
+    showView('settings');
+    window.scrollTo(0, 0);
+  });
+}
+window.backToSettings = backToSettings;
 
 // The gold pill behind the active tab (.tab-pill) springs to its slot
 // via a CSS transition on --tab-i; off the five tabs it fades out.

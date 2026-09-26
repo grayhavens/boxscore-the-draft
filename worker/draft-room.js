@@ -5,14 +5,24 @@
    connects here over a WebSocket; every action is run through the
    shared pure reducer (js/draft-engine.js — the same file the draft UI
    imports, so client and server can't disagree about the rules) and the
-   resulting state is persisted, then broadcast to everyone. The room
-   never ticks: the pick clock is a set of timestamps inside the state
-   (see js/draft-rules.js), so it costs nothing while the room
-   hibernates and there is no auto-pick to schedule.
+   resulting state is persisted, then broadcast to everyone. The pick
+   clock is a set of timestamps inside the state (see js/draft-rules.js),
+   so the real room never ticks: its clock is soft and nothing
+   auto-picks.
 
-   One instance per room name (`?room=`, default "main"), so the
-   commissioner can run throwaway mock drafts on their own rooms before
-   the real one. See docs/draft-room-plan.md.
+   One instance per room name (`?room=`, default "main"), so throwaway
+   mock drafts run on their own rooms before the real one. See
+   docs/draft-room-plan.md.
+
+   Mock rooms (isMockRoom: mock, mock-1, …) differ in two ways:
+   - Self-serve: every socket is treated as commissioner (sent an
+     `authed` ok on connect), so anyone can set it up and run it.
+   - Auto-picks: a Durable Object alarm is kept set for whoever is on
+     the clock — a bot (config.bots) after config.botSeconds, anyone
+     else once config.clockSeconds runs out — and picks from their queue,
+     else the best-ranked team that fits (autoPickTeam).
+   The room learns its own name from the WebSocket URL on first connect
+   (kv 'room'); a Durable Object isn't told the name it was created by.
 
    Trust model: the same no-auth tier as chat and favorites for
    drafters — an action's `from` is whichever drafter the client says it
@@ -40,7 +50,8 @@
        { type: 'state', now, state }                 after every accepted action
        { type: 'pool', pool }                        only when the pool changed
        { type: 'ok', id }  /  { type: 'rejected', id, error, detail? }
-       { type: 'authed', ok }
+       { type: 'authed', ok }                        (also sent unasked on
+                                                     connect in a mock room)
        { type: 'queue', teams }
        { type: 'error', reason }                     malformed frame / rate limit
      `now` is the server's clock; clients use it to correct their own
@@ -53,7 +64,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
-import { totalPicks, teamById } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
 // Mirrors KNOWN_DRAFT_TEAM_IDS in rundown-proxy.js / DRAFT_TEAMS in
 // js/data.js. Only the default for a brand-new room: the commissioner can
@@ -103,15 +114,23 @@ export class DraftRoom extends DurableObject {
     ctx.blockConcurrencyWhile(async () => {
       const row = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
       this.state = row ? JSON.parse(row.v) : createState(DRAFTER_IDS);
+      const room = this.sql.exec("SELECT v FROM kv WHERE k = 'room'").toArray()[0];
+      this.room = room ? room.v : null;
     });
   }
 
   async fetch(request){
     if(request.headers.get('Upgrade') === 'websocket'){
+      if(this.room === null){
+        this.room = new URL(request.url).searchParams.get('room') || 'main';
+        this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('room', ?)", this.room);
+      }
+      const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
       this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ commissioner: false, authFailures: 0, sent: [] });
+      server.serializeAttachment({ commissioner: mock, authFailures: 0, sent: [] });
       server.send(JSON.stringify({ type: 'hello', now: Date.now(), state: publicState(this.state), pool: this.state.pool }));
+      if(mock) server.send(JSON.stringify({ type: 'authed', ok: true }));
       return new Response(null, { status: 101, webSocket: client });
     }
     if(new URL(request.url).pathname.endsWith('/result')){
@@ -191,6 +210,9 @@ export class DraftRoom extends DurableObject {
   }
 
   handleAuth(ws, attachment, msg){
+    // Everyone's already commissioner in a mock room, whatever password
+    // (a stale saved one, say) comes in.
+    if(isMockRoom(this.room)) return this.send(ws, { type: 'authed', ok: true });
     if(attachment.authFailures >= MAX_AUTH_FAILURES){
       this.send(ws, { type: 'error', reason: 'rate' });
       return;
@@ -205,7 +227,7 @@ export class DraftRoom extends DurableObject {
     this.send(ws, { type: 'authed', ok });
   }
 
-  handleAction(ws, attachment, msg){
+  async handleAction(ws, attachment, msg){
     const from = typeof msg.from === 'string' ? msg.from : null;
     if(msg.id !== undefined && !(typeof msg.id === 'number' || (typeof msg.id === 'string' && msg.id.length <= 40))) return;
     // Drafters are checked by the reducer against the current config;
@@ -222,20 +244,64 @@ export class DraftRoom extends DurableObject {
     if(!result.state){
       return this.send(ws, { type: 'rejected', id: msg.id, error: result.error, detail: result.detail });
     }
+    this.send(ws, { type: 'ok', id: msg.id });
+    await this.commit(before, result.state, from, attachment.commissioner, msg.action);
+  }
 
-    this.state = result.state;
+  // Persists an accepted state, logs the action, tells everyone, and
+  // re-arms the mock room's auto-pick for whoever is now on the clock.
+  async commit(before, state, actor, commissioner, action){
+    this.state = state;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
     const { id: eventId } = this.sql.exec(
       'INSERT INTO events (ts, actor, commissioner, action) VALUES (?, ?, ?, ?) RETURNING id',
-      Date.now(), from, attachment.commissioner ? 1 : 0, JSON.stringify(msg.action)
+      Date.now(), actor, commissioner ? 1 : 0, JSON.stringify(action)
     ).one();
     this.sql.exec('DELETE FROM events WHERE id <= ?', eventId - KEEP_EVENTS);
 
-    this.send(ws, { type: 'ok', id: msg.id });
-    if(this.state.pool.length !== before.pool.length || msg.action.type === 'setPool'){
+    if(this.state.pool.length !== before.pool.length || action.type === 'setPool'){
       this.broadcast({ type: 'pool', pool: this.state.pool });
     }
     this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
+    await this.armAutoPick();
+  }
+
+  // ---- Mock-room auto-pick ----
+
+  // When the pick on the clock is due to be made for its owner, or null
+  // when nothing should auto-pick (the real room, paused, lobby, done).
+  autoPickDue(){
+    if(!isMockRoom(this.room)) return null;
+    const { state } = this;
+    const clock = onTheClock(state);
+    if(!clock || !state.clock.running) return null;
+    const { config } = state;
+    // A room saved before bots existed has no botSeconds.
+    const limitMs = ((config.bots || []).includes(clock.owner) ? (config.botSeconds || DEFAULT_BOT_SECONDS) : config.clockSeconds) * 1000;
+    return Date.now() + Math.max(0, limitMs - clockElapsedMs(state.clock, Date.now()));
+  }
+
+  async armAutoPick(){
+    const due = this.autoPickDue();
+    if(due === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(due);
+  }
+
+  async alarm(){
+    const due = this.autoPickDue();
+    if(due === null) return;
+    // Woken early (the clock was paused and resumed, a pick was undone…):
+    // just re-arm for the real deadline.
+    if(due > Date.now() + 250) return this.armAutoPick();
+    const clock = onTheClock(this.state);
+    const row = this.sql.exec('SELECT teams FROM queues WHERE drafter = ?', clock.owner).toArray()[0];
+    const team = autoPickTeam(this.state, clock.owner, row ? JSON.parse(row.teams) : [], randomUnit);
+    if(!team) return;
+    const action = { type: 'pick', slot: clock.slot, team, auto: true };
+    const before = this.state;
+    const result = reduce(before, action, { now: Date.now(), actor: null, isCommissioner: true, rand: randomUnit });
+    if(!result.state) return;
+    await this.commit(before, result.state, 'auto', true, action);
   }
 
   validQueueOwner(from){

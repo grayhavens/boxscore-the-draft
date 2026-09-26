@@ -196,35 +196,18 @@ export function countUp(el, from, to, fmt, ms = 700){
 // Pins the page in place behind the modal (rather than just hiding
 // overflow) so iOS Safari can't rubber-band-scroll the background
 // while a modal is open. Restores the exact scroll position on close.
-//
-// Also the hook for the card-stack look on phones (css/style.css, "Card-
-// stack sheets"): html.sheet-open recedes .board behind the sheet, and
-// html.sheet-card keeps it clipped to a card at the viewport until it has
-// finished scaling back. --sheet-top is where the viewport's top edge sits
-// in .board's own coordinates, so the card's top edge is the screen's.
+// The page itself stays put under the sheet's dimmed overlay — no
+// recede/scale, which read as the background jumping.
 let lockedScrollY = 0;
-let sheetCardTimer = 0;
-const SHEET_CARD_MS = 500; // just past the 480ms scale-back
 
 export function lockBodyScroll(){
-  const root = document.documentElement;
-  const board = document.querySelector('.board');
-  if(board) root.style.setProperty('--sheet-top', (-board.getBoundingClientRect().top) + 'px');
   lockedScrollY = window.scrollY;
   document.body.style.position = 'fixed';
   document.body.style.top = `-${lockedScrollY}px`;
   document.body.style.width = '100%';
-  clearTimeout(sheetCardTimer);
-  root.classList.add('sheet-open', 'sheet-card');
 }
 
 export function unlockBodyScroll(){
-  const root = document.documentElement;
-  root.classList.remove('sheet-open');
-  clearTimeout(sheetCardTimer);
-  sheetCardTimer = setTimeout(() => {
-    if(!root.classList.contains('sheet-open')) root.classList.remove('sheet-card');
-  }, SHEET_CARD_MS);
   document.body.style.position = '';
   document.body.style.top = '';
   document.body.style.width = '';
@@ -236,8 +219,7 @@ export function unlockBodyScroll(){
 // motion allowed) the sheet slides up on the iOS sheet curve and its rows
 // stagger in while .entering is on; closing slides it down (.closing)
 // before dropping .open. Elsewhere both are the old instant toggle.
-// Scroll locking stays with the callers; unlock before closing so the
-// page scales back while the sheet slides out.
+// Scroll locking stays with the callers.
 const SHEET_ENTER_MS = 900; // the slide plus the last row's stagger
 export const SHEET_EASE = 'cubic-bezier(0.32,0.72,0,1)'; // matches --ease-sheet
 
@@ -344,9 +326,7 @@ function watchSheetHeight(sheet){
 // touchstart, or later in the same touch once a scroll up reaches the
 // top — and only for a mostly-vertical pull, so horizontal scrollers
 // inside the sheet (linescores, chips) never move it. While dragging,
-// the backdrop lightens and, if this is the only sheet up, the receded
-// page (--sheet-drag, css/style.css) comes back toward full size with
-// the finger. A dismiss hands the sheet straight to the close animation
+// the backdrop lightens with the finger. A dismiss hands the sheet straight to the close animation
 // from wherever the finger left it, timed off the flick's speed.
 const SHEET_BREAKPOINT = '(max-width: 700px)';
 const SHEET_DISMISS_DISTANCE = 0.3;  // fraction of the sheet's height dragged down
@@ -358,22 +338,19 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
   if(!sheetEl || sheetEl.dataset.swipeBound) return;
   sheetEl.dataset.swipeBound = '1';
 
-  const root = document.documentElement;
   let tracking = false, dragging = false, decided = false;
   let startX = 0, startY = 0, lastY = 0, dragY = 0, sheetHeight = 0;
-  let overlay = null, soleSheet = false, samples = [];
+  let overlay = null, samples = [];
 
   const setDrag = (delta) => {
     const p = Math.min(1, delta / sheetHeight);
     sheetEl.style.transform = delta > 0 ? `translateY(${delta}px)` : '';
     if(overlay) overlay.style.backgroundColor = `rgba(6,7,9,${(OVERLAY_DIM * (1 - p)).toFixed(3)})`;
-    if(soleSheet) root.style.setProperty('--sheet-drag', p.toFixed(4));
   };
 
   const endDrag = () => {
     dragging = false;
     sheetEl._dragging = false;
-    root.classList.remove('sheet-dragging');
     sheetEl.style.transition = '';
   };
 
@@ -381,7 +358,6 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
     endDrag();
     sheetEl.style.transform = '';
     if(overlay) overlay.style.backgroundColor = '';
-    root.style.removeProperty('--sheet-drag');
   };
 
   const beginDrag = (y) => {
@@ -391,9 +367,7 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
     samples = [[performance.now(), y]];
     sheetHeight = sheetEl.getBoundingClientRect().height || 1;
     overlay = sheetEl.closest('.modal-overlay');
-    soleSheet = document.querySelectorAll('.modal-overlay.open:not(.closing)').length === 1;
     sheetEl.style.transition = 'none';
-    if(soleSheet) root.classList.add('sheet-dragging');
   };
 
   sheetEl.addEventListener('touchstart', (e) => {
@@ -461,10 +435,7 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
       const ms = Math.round(Math.min(320, Math.max(160, remaining / Math.max(velocity, 1.2))));
       sheetEl.style.animationDuration = ms + 'ms';
       sheetEl.style.animationTimingFunction = 'cubic-bezier(0.2,0.6,0.35,1)';
-      // closeFn unlocks the page (dropping html.sheet-open), and the page
-      // scales back from wherever the drag had brought it.
       closeFn();
-      root.style.removeProperty('--sheet-drag');
     } else {
       snapBack();
     }

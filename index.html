@@ -140,6 +140,11 @@
     <div id="team-squad-content"></div>
   </div>
 
+  <!-- Settings page (js/identity.js renders it, js/board.js pushes it). -->
+  <div id="view-settings" class="view view-push-in">
+    <div id="settings-content" class="settings-page"></div>
+  </div>
+
 </div>
 
 <div class="build-tag" id="build-tag"></div>
@@ -161,11 +166,11 @@
   </div>
 </div>
 
-<!-- Settings sheet — who this device is "signed in" as plus per-device preferences (see js/identity.js, js/settings.js). -->
+<!-- Drafter switcher sheet — who this device is "signed in" as, opened from the Settings page's identity card (see js/identity.js). -->
 <div class="modal-overlay" id="identity-sheet-overlay" onclick="if(event.target===this) closeIdentitySheet()">
   <div class="modal" id="identity-sheet-content">
     <div class="sheet-title-row">
-      <div class="sheet-title" id="identity-sheet-title">Settings</div>
+      <div class="sheet-title" id="identity-sheet-title">Who are you?</div>
       <button class="modal-close" onclick="closeIdentitySheet()">&times;</button>
     </div>
     <div id="identity-sheet-rows"></div>
