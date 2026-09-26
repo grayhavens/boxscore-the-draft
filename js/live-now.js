@@ -32,7 +32,7 @@
 import { TEAM_META, LEAGUES } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, reducedMotion, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteStarHtml } from './favorites.js';
 
@@ -45,6 +45,14 @@ let filterKey = 'live'; // 'live' | 'upcoming' | 'completed' — game STATE
 // False until the user taps a filter; until then the first render picks the
 // most useful tab itself (there's no catch-all tab to fall back on).
 let filterPicked = false;
+
+// Odometer scores: the last score each side of each game showed, so a
+// background refresh that finds a live game's score changed can roll the
+// digits (odometerHtml) and flash the card. Nothing animates until the
+// current slate has rendered once (scoresPrimed) — not the first paint,
+// not arrowing to another day, not a filter or scope switch.
+const lastScores = new Map(); // `${dayOffset}:${gameId}:${away|home}` -> score string
+let scoresPrimed = false;
 
 // Team SCOPE — a different axis from filterKey above, and independent
 // toggles rather than one exclusive choice: both can be on at once
@@ -267,15 +275,34 @@ function railHtml(game){
   return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
 }
 
+// One rolling strip (0-9) per digit, parked on the old digit; renderLiveNow
+// then moves each to its new one (data-to). A digit the old score didn't
+// have (9 -> 10) rolls up from 0.
+function odometerHtml(score, prev){
+  const p = String(prev).padStart(score.length, ' ').slice(-score.length);
+  return [...score].map((ch, i) => {
+    if(!/\d/.test(ch)) return ch;
+    const from = /\d/.test(p[i]) ? p[i] : '0';
+    return `<span class="odo-d"><span class="odo-strip" style="--n:${from}" data-to="${ch}">${[...'0123456789'].map(d => `<span>${d}</span>`).join('')}</span></span>`;
+  }).join('');
+}
+
 // The badge is the one carve-out from the row's own click-to-open-
 // Game-Details behavior (gameHtml's onclick, on .tg-row) — everything
 // else in the card, including the team name, bubbles up to that. Only
 // the badge button stops propagation, so tapping the crest still opens
 // that team's modal instead.
-function sideHtml(side, dim){
+function sideHtml(side, dim, game, which){
   const nameClass = `tg-name${dim ? ' dim' : ''}`;
+  const score = side.score === null || side.score === undefined ? '' : String(side.score);
+  const key = `${game.day}:${game.id}:${which}`;
+  const prev = lastScores.get(key);
+  const scored = scoresPrimed && game.state === 'live' && prev !== undefined && prev !== score && score !== '';
+  if(score !== '') lastScores.set(key, score);
   const scoreClass = `tg-score${dim ? ' dim' : ''}`;
-  const score = side.score === null || side.score === undefined ? '' : side.score;
+  const scoreHtml = scored
+    ? `<span class="${scoreClass}" data-scored="1"><span class="odo-sr">${score}</span><span aria-hidden="true">${odometerHtml(score, prev)}</span></span>`
+    : `<span class="${scoreClass}">${score}</span>`;
   // AP Top 25 rank (CFB / College Basketball) — the usual "#5 Texas Tech"
   // convention, shown for undrafted opponents too.
   const rankHtml = side.rank ? `<span class="tg-rank" aria-label="Ranked ${side.rank}">${side.rank}</span>` : '';
@@ -284,7 +311,7 @@ function sideHtml(side, dim){
       <div class="tg-side">
         ${teamBadgeHtml(side.meta)}
         <div class="tg-label">${rankHtml}<span class="${nameClass}">${side.meta.name}</span></div>
-        <span class="${scoreClass}">${score}</span>
+        ${scoreHtml}
       </div>
     `;
   }
@@ -300,7 +327,7 @@ function sideHtml(side, dim){
         <span class="tg-owner">${side.owner}</span>
       </div>
       ${favHtml}
-      <span class="${scoreClass}">${score}</span>
+      ${scoreHtml}
     </div>
   `;
 }
@@ -329,8 +356,8 @@ function gameHtml(game){
       <span class="tg-node ${game.state}"></span>
       <div class="tg-card ${game.state}">
         ${game.tag ? `<div class="tg-tag ${game.tag.cls}">${game.tag.text}</div>` : ''}
-        ${sideHtml(game.away, awayDim)}
-        ${sideHtml(game.home, homeDim)}
+        ${sideHtml(game.away, awayDim, game, 'away')}
+        ${sideHtml(game.home, homeDim, game, 'home')}
       </div>
     </div>
   `;
@@ -350,11 +377,13 @@ function sectionHtml(label, games){
 export function setTodayFilter(key){
   filterKey = key;
   filterPicked = true;
+  scoresPrimed = false;
   renderLiveNow();
 }
 
 export function stepTodayDay(delta){
   dayOffset += delta;
+  scoresPrimed = false;
   renderLiveNow();
 }
 
@@ -362,6 +391,7 @@ export function stepTodayDay(delta){
 // lands on today rather than wherever the arrows were left.
 export function resetTodayDay(){
   dayOffset = 0;
+  scoresPrimed = false;
   filterKey = 'live';
   filterPicked = false;
   scopeFilter.mine = false;
@@ -404,13 +434,13 @@ function refreshTodayScopeChrome(){
 
 export function openTodayScopeSheet(){
   refreshTodayScopeChrome();
-  document.getElementById('today-scope-sheet-overlay').classList.add('open');
+  openSheetOverlay(document.getElementById('today-scope-sheet-overlay'));
   lockBodyScroll();
 }
 
 export function closeTodayScopeSheet(){
-  document.getElementById('today-scope-sheet-overlay').classList.remove('open');
   unlockBodyScroll();
+  closeSheetOverlay(document.getElementById('today-scope-sheet-overlay'));
 }
 
 // "All teams" clears both toggles (a one-tap reset); Drafted/Favorites
@@ -420,6 +450,7 @@ export function closeTodayScopeSheet(){
 export function toggleTodayScope(key){
   if(key === 'all'){ scopeFilter.mine = false; scopeFilter.fav = false; }
   else scopeFilter[key] = !scopeFilter[key];
+  scoresPrimed = false;
   refreshTodayScopeChrome();
   renderLiveNow();
 }
@@ -496,7 +527,7 @@ export async function renderLiveNow(){
   if(token !== renderToken) return;
 
   const all = [];
-  LEAGUES.forEach(l => { if(byLeague[l.key]) all.push(...byLeague[l.key].map(g => ({ ...g, league: l }))); });
+  LEAGUES.forEach(l => { if(byLeague[l.key]) all.push(...byLeague[l.key].map(g => ({ ...g, league: l, day: offsetAtStart }))); });
   // Everything downstream (the count line, the Live badge, the list
   // itself) works off the scope-filtered set, not the full day's slate
   // \u2014 so picking "Drafted" actually narrows what "3 live" means too,
@@ -526,7 +557,7 @@ export async function renderLiveNow(){
   if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
   if(filterKey === 'completed') shown = shown.filter(g => g.state === 'final');
 
-  if(!shown.length){ listEl.innerHTML = emptyHtml(inScope.length > 0); return; }
+  if(!shown.length){ listEl.innerHTML = emptyHtml(inScope.length > 0); scoresPrimed = true; return; }
 
   // Every filter groups by league; a live game keeps its "LIVE" rail
   // label and node on the row itself rather than a section of its own.
@@ -538,4 +569,14 @@ export async function renderLiveNow(){
   });
 
   listEl.innerHTML = html.join('');
+  scoresPrimed = true;
+  if(reducedMotion() || !listEl.querySelector('[data-scored]')) return;
+  // Two frames: the strips have to paint on the old digit before moving.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    listEl.querySelectorAll('.odo-strip[data-to]').forEach(s => s.style.setProperty('--n', s.dataset.to));
+    listEl.querySelectorAll('.tg-score[data-scored]').forEach(s => {
+      const card = s.closest('.tg-card');
+      if(card){ card.classList.remove('just-scored'); void card.offsetWidth; card.classList.add('just-scored'); }
+    });
+  }));
 }

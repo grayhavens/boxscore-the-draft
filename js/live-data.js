@@ -5,7 +5,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -1117,7 +1117,7 @@ export function openTeamModal(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return;
 
-  document.getElementById('modal-overlay').classList.add('open');
+  openSheetOverlay(document.getElementById('modal-overlay'));
   lockBodyScroll();
 
   const modalContent = document.getElementById('modal-content');
@@ -1179,10 +1179,13 @@ window.openTeamModal = openTeamModal;
 
 export function closeTeamModal(){
   closeGameDetail();
-  document.getElementById('modal-overlay').classList.remove('open');
+  // Escape lands here with any sheet up; only unlock for our own.
+  const overlay = document.getElementById('modal-overlay');
+  if(!isSheetOpen(overlay)) return;
   const modalContent = document.getElementById('modal-content');
   modalContent.dataset.activeTeam = '';
   unlockBodyScroll();
+  closeSheetOverlay(overlay);
 }
 window.closeTeamModal = closeTeamModal;
 
@@ -1688,7 +1691,13 @@ export async function openGameDetail(teamKey, eventId){
   const el = document.getElementById('game-detail-content');
   if(!overlay || !el) return;
 
-  overlay.classList.add('open');
+  // Opened straight from the Scores tab there's no team modal holding the
+  // scroll lock (and the card-stack recede) underneath, so take it here.
+  if(!isSheetOpen(overlay) && !isSheetOpen(document.getElementById('modal-overlay'))){
+    gameDetailOwnsLock = true;
+    lockBodyScroll();
+  }
+  openSheetOverlay(overlay);
   // Guards the fetch below the same way openLiveTeam guards the team
   // modal's own fetch — if the sheet gets closed, or reopened for a
   // different game, while this request is in flight, its result is
@@ -1736,9 +1745,15 @@ export async function openGameDetail(teamKey, eventId){
 }
 window.openGameDetail = openGameDetail;
 
+let gameDetailOwnsLock = false;
+
 export function closeGameDetail(){
   const overlay = document.getElementById('game-detail-overlay');
-  if(overlay) overlay.classList.remove('open');
+  if(gameDetailOwnsLock && isSheetOpen(overlay)){
+    gameDetailOwnsLock = false;
+    unlockBodyScroll();
+  }
+  closeSheetOverlay(overlay);
   gameDetailRenderState = null;
 }
 window.closeGameDetail = closeGameDetail;
@@ -1749,7 +1764,7 @@ enableSheetSwipeToDismiss(document.getElementById('game-detail-content'), closeG
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
   const gdOverlay = document.getElementById('game-detail-overlay');
-  if(gdOverlay && gdOverlay.classList.contains('open')){ closeGameDetail(); return; }
+  if(isSheetOpen(gdOverlay)){ closeGameDetail(); return; }
   closeTeamModal();
 });
 

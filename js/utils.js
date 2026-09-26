@@ -167,24 +167,118 @@ export function updateUrlParam(key, value){
   }
 }
 
+// ---- Motion helpers ----
+// One place for the reduced-motion check every animation defers to; with
+// it on, the app behaves exactly as it did before any of the motion work.
+export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const EASE_OUT = 'cubic-bezier(0.22,1,0.36,1)';
+export const EASE_SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+
+// Tween a number inside `el` from `from` to `to` (cubic ease-out); `fmt`
+// builds the HTML for each frame. Lands on `to` exactly. A later call on
+// the same element takes over from an earlier one still running.
+export function countUp(el, from, to, fmt, ms = 700){
+  if(!el) return;
+  const token = el._countUp = {};
+  if(from === to || reducedMotion()){ el.innerHTML = fmt(to); return; }
+  const t0 = performance.now();
+  const step = now => {
+    if(el._countUp !== token) return;
+    const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+    el.innerHTML = fmt(k === 1 ? to : Math.round(from + (to - from) * e));
+    if(k < 1) requestAnimationFrame(step);
+  };
+  el.innerHTML = fmt(from);
+  requestAnimationFrame(step);
+}
+
 // ---- Modal scroll lock ----
 // Pins the page in place behind the modal (rather than just hiding
 // overflow) so iOS Safari can't rubber-band-scroll the background
 // while a modal is open. Restores the exact scroll position on close.
+//
+// Also the hook for the card-stack look on phones (css/style.css, "Card-
+// stack sheets"): html.sheet-open recedes .board behind the sheet, and
+// html.sheet-card keeps it clipped to a card at the viewport until it has
+// finished scaling back. --sheet-top is where the viewport's top edge sits
+// in .board's own coordinates, so the card's top edge is the screen's.
 let lockedScrollY = 0;
+let sheetCardTimer = 0;
+const SHEET_CARD_MS = 500; // just past the 480ms scale-back
 
 export function lockBodyScroll(){
+  const root = document.documentElement;
+  const board = document.querySelector('.board');
+  if(board) root.style.setProperty('--sheet-top', (-board.getBoundingClientRect().top) + 'px');
   lockedScrollY = window.scrollY;
   document.body.style.position = 'fixed';
   document.body.style.top = `-${lockedScrollY}px`;
   document.body.style.width = '100%';
+  clearTimeout(sheetCardTimer);
+  root.classList.add('sheet-open', 'sheet-card');
 }
 
 export function unlockBodyScroll(){
+  const root = document.documentElement;
+  root.classList.remove('sheet-open');
+  clearTimeout(sheetCardTimer);
+  sheetCardTimer = setTimeout(() => {
+    if(!root.classList.contains('sheet-open')) root.classList.remove('sheet-card');
+  }, SHEET_CARD_MS);
   document.body.style.position = '';
   document.body.style.top = '';
   document.body.style.width = '';
   window.scrollTo(0, lockedScrollY);
+}
+
+// ---- Sheet open/close ----
+// Every .modal-overlay opens and closes through these. On phones (with
+// motion allowed) the sheet springs up and its rows stagger in while
+// .entering is on; closing slides it down (.closing) before dropping
+// .open. Elsewhere both are the old instant toggle. Scroll locking stays
+// with the callers; unlock before closing so the page scales back while
+// the sheet slides out.
+const SHEET_ENTER_MS = 900; // the spring plus the last row's stagger
+
+// Open and not on its way out: a closing sheet still carries .open for
+// the length of its slide, but counts as closed to everything else.
+export function isSheetOpen(overlay){
+  return !!overlay && overlay.classList.contains('open') && !overlay.classList.contains('closing');
+}
+
+export function openSheetOverlay(overlay){
+  if(!overlay || isSheetOpen(overlay)) return;
+  overlay._sheetClose = null;
+  const sheet = overlay.querySelector('.modal');
+  if(sheet){ sheet.style.transition = ''; sheet.style.transform = ''; }
+  overlay.classList.remove('closing');
+  overlay.classList.add('open', 'entering');
+  clearTimeout(overlay._sheetEnter);
+  overlay._sheetEnter = setTimeout(() => overlay.classList.remove('entering'), SHEET_ENTER_MS);
+}
+
+export function closeSheetOverlay(overlay){
+  if(!isSheetOpen(overlay)) return;
+  const sheet = overlay.querySelector('.modal');
+  const token = overlay._sheetClose = {};
+  const done = () => {
+    if(overlay._sheetClose !== token) return;
+    overlay._sheetClose = null;
+    overlay.classList.remove('open', 'closing', 'entering');
+    // A swipe-to-dismiss leaves the sheet's drag offset inline until now.
+    if(sheet){ sheet.style.transition = ''; sheet.style.transform = ''; }
+  };
+  clearTimeout(overlay._sheetEnter);
+  if(!sheet || reducedMotion() || !window.matchMedia(SHEET_BREAKPOINT).matches){ done(); return; }
+  overlay.classList.remove('entering');
+  overlay.classList.add('closing');
+  const onEnd = e => {
+    if(e.target !== sheet) return;
+    sheet.removeEventListener('animationend', onEnd);
+    done();
+  };
+  sheet.addEventListener('animationend', onEnd);
+  setTimeout(done, 400); // safety net if animationend never fires
 }
 
 // ---- Bottom-sheet swipe-to-dismiss ----
@@ -244,9 +338,12 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
     const velocity = delta / Math.max(1, Date.now() - startTime);
     if(delta > 0 && (delta > SHEET_DISMISS_DISTANCE || velocity > SHEET_DISMISS_VELOCITY)){
       sheetEl.style.transform = `translateY(${sheetHeight}px)`;
-      sheetEl.addEventListener('transitionend', function onEnd(){
+      // The sheet stays where the drag threw it: closeSheetOverlay
+      // clears the offset once the overlay is gone, so the close
+      // animation starts from here rather than snapping back up first.
+      sheetEl.addEventListener('transitionend', function onEnd(e){
+        if(e.target !== sheetEl) return;
         sheetEl.removeEventListener('transitionend', onEnd);
-        sheetEl.style.transform = '';
         closeFn();
       });
     } else {

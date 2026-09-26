@@ -20,7 +20,7 @@
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, ordinal } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 import { currentProfileId } from './identity.js';
@@ -74,6 +74,16 @@ let obSheetId = null;
 let obDetailId = null;
 let obOpenLeagueKey = null;
 let obCompareId = null;
+
+// Split bars that build (css/style.css, "Split bars that build"): entering
+// the tab fills the hero and ladder bars from zero and counts the hero
+// total up. Only the first list render of a visit plays it. A re-render
+// while it's still playing (the bonus repaint just after entering) picks
+// it up where it was instead of snapping to full.
+const OB_GROW_MS = 1400; // the last ladder bar's delay plus its fill
+const OB_COUNT_MS = 800;
+let obGrowNext = false;
+let obGrowStart = 0;
 
 export function obSignedPts(n){
   return n > 0 ? '+' + n : obPts(n);
@@ -481,7 +491,7 @@ function obHeroHtml(rows, me){
     const gap = r.total - me.total;
     const gapHtml = mine || gap === 0 ? '' : `<span class="ob-gap ${gap > 0 ? 'ahead' : 'behind'}">${obSignedPts(gap)}</span>`;
     return `
-      <button type="button" class="ob-ladder-row ${mine ? 'me' : ''}" onclick="obOpenSheet('${r.id}')">
+      <button type="button" class="ob-ladder-row ${mine ? 'me' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="obOpenSheet('${r.id}')">
         <span class="ob-ladder-rank">${r.rankLabel}</span>
         <span class="ob-ladder-name">${r.name}</span>
         ${splitBarHtml(r.confirmedTotal, r.provisionalTotal, scale, 'sm')}
@@ -533,7 +543,7 @@ function obTableHtml(rows){
     const tier = isTop ? 'rank-1' : (hasLeader && r.rank <= 3 ? 'rank-mid' : '');
     const live = r.provisionalTotal;
     return `
-      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''}" onclick="obOpenSheet('${r.id}')">
+      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="obOpenSheet('${r.id}')">
         <span class="ob-rank ${tier}">${r.rankLabel}</span>
         <span class="ob-table-name"><span class="ob-table-name-text">${r.name}</span>${obMoveHtml(obRankMove(r), false)}</span>
         <span class="ob-table-locked">${obPts(r.confirmedTotal)}</span>
@@ -564,6 +574,83 @@ function obListHtml(rows){
     <div class="ob-seg">${seg}</div>
     ${obSegment === 'activity' ? activityPanelHtml() : obTableHtml(rows)}
   `;
+}
+
+// ---- Re-rank motion ----
+// Before a list re-render, note where every row sits (the table and the
+// hero's ladder separately), its total and its move chip. Afterwards,
+// rows that moved glide from the old spot to the new one (FLIP), those
+// moving up under a green wash; changed totals count up, and a changed
+// move chip pops in once the row has mostly landed.
+const OB_ROW_SEL = '.ob-table-row[data-id], .ob-ladder-row[data-id]';
+const obRowKey = el => (el.classList.contains('ob-ladder-row') ? 'L:' : 'T:') + el.dataset.id;
+
+function obSnapshot(container){
+  const snap = { hero: null, rows: {} };
+  container.querySelectorAll(OB_ROW_SEL).forEach(el => {
+    const chip = el.querySelector('.ob-move');
+    snap.rows[obRowKey(el)] = { top: el.getBoundingClientRect().top, total: Number(el.dataset.total), chip: chip ? chip.textContent : '' };
+  });
+  const me = container.querySelector('.ob-ladder-row.me');
+  if(me) snap.hero = Number(me.dataset.total);
+  return snap;
+}
+
+function obPlayFlip(container, before, rows){
+  if(reducedMotion()) return;
+  container.querySelectorAll(OB_ROW_SEL).forEach(el => {
+    const old = before.rows[obRowKey(el)];
+    if(!old) return;
+    const dy = old.top - el.getBoundingClientRect().top;
+    if(Math.abs(dy) > 1){
+      el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 700, easing: EASE_OUT });
+      if(dy > 0){
+        const rest = getComputedStyle(el).backgroundColor;
+        el.animate([{ backgroundColor: 'rgba(95,184,138,0.14)' }, { backgroundColor: rest }], { duration: 1400, easing: 'ease-out' });
+      }
+    }
+    const total = Number(el.dataset.total);
+    if(old.total !== total){
+      countUp(el.querySelector(el.classList.contains('ob-ladder-row') ? '.ob-ladder-total' : '.ob-table-proj'), old.total, total, obPts);
+    }
+    const chip = el.querySelector('.ob-move');
+    if(chip && chip.textContent !== old.chip){
+      chip.animate([
+        { transform: 'scale(0.6)', opacity: 0 },
+        { transform: 'scale(1.08)', opacity: 1, offset: 0.6 },
+        { transform: 'scale(1)', opacity: 1 }
+      ], { duration: 320, easing: EASE_SPRING, delay: 450, fill: 'backwards' });
+    }
+  });
+  // The hero's own total, unless the entry build is still counting it.
+  const me = rows.find(r => r.id === obYouId());
+  if(me && before.hero !== null && before.hero !== me.total && performance.now() - obGrowStart >= OB_COUNT_MS){
+    countUp(container.querySelector('.ob-hero-total'), before.hero, me.total, obPts);
+  }
+}
+
+// Tag split bars to fill from zero, staggered by --row (60ms each). `skip`
+// fast-forwards them that far in, for a re-render mid-way through.
+function obGrowBars(bars, firstRow, skip){
+  bars.forEach((bar, i) => {
+    bar.style.setProperty('--row', firstRow + i);
+    if(skip) bar.style.setProperty('--grow-skip', skip + 'ms');
+    bar.classList.add('grow');
+  });
+}
+
+// prevHeroTotal is the replaced hero's total when this is a re-render
+// (null on the visit's first render, which counts up from zero).
+function obPlayGrow(container, rows, prevHeroTotal){
+  const elapsed = performance.now() - obGrowStart;
+  if(elapsed >= OB_GROW_MS || reducedMotion()) return;
+  obGrowBars(container.querySelectorAll('.ob-split .split-bar, .ob-ladder-row .split-bar'), 0, Math.round(elapsed));
+  const heroTotal = container.querySelector('.ob-hero-total');
+  const me = rows.find(r => r.id === obYouId());
+  if(!heroTotal || !me || elapsed >= OB_COUNT_MS) return;
+  // Resuming: carry on from the number the old hero was showing.
+  const shown = prevHeroTotal ? Number(prevHeroTotal.textContent.replace('\u2212', '-')) : 0;
+  countUp(heroTotal, Number.isFinite(shown) ? shown : 0, me.total, obPts, OB_COUNT_MS - elapsed);
 }
 
 // ---- Quick sheet ----
@@ -618,8 +705,10 @@ export function obOpenSheet(id){
   if(!overlay || !row) return;
   obSheetId = id;
   document.getElementById('ob-sheet-content').innerHTML = obSheetHtml(rows, row);
-  if(!overlay.classList.contains('open')){
-    overlay.classList.add('open');
+  if(!isSheetOpen(overlay)){
+    // Rows 0-1 are the sheet's own spring, so its bars start after it.
+    if(!reducedMotion()) obGrowBars(document.querySelectorAll('#ob-sheet-content .split-bar'), 2, 0);
+    openSheetOverlay(overlay);
     lockBodyScroll();
   }
 }
@@ -628,9 +717,9 @@ window.obOpenSheet = obOpenSheet;
 export function obCloseSheet(){
   obSheetId = null;
   const el = obSheetOverlay();
-  if(!el || !el.classList.contains('open')) return;
-  el.classList.remove('open');
+  if(!isSheetOpen(el)) return;
   unlockBodyScroll();
+  closeSheetOverlay(el);
 }
 window.obCloseSheet = obCloseSheet;
 
@@ -776,6 +865,7 @@ export function obEnterView(){
   obSegment = obSegmentNext || (fromUrl === 'activity' ? 'activity' : 'standings');
   obSegmentNext = null;
   obBaselinePending = true;
+  obGrowNext = true;
 }
 
 export function obSetSegment(key){
@@ -834,16 +924,16 @@ export function obOpenComparePicker(){
   if(!me) return;
   document.getElementById('compare-sheet-title').textContent = 'Compare ' + me.name + ' with…';
   document.getElementById('compare-sheet-rows').innerHTML = comparePickerHtml(rows, obDetailId, obCompareId);
-  comparePickerOverlay().classList.add('open');
+  openSheetOverlay(comparePickerOverlay());
   lockBodyScroll();
 }
 window.obOpenComparePicker = obOpenComparePicker;
 
 export function obCloseComparePicker(){
   const el = comparePickerOverlay();
-  if(!el || !el.classList.contains('open')) return;
-  el.classList.remove('open');
+  if(!isSheetOpen(el)) return;
   unlockBodyScroll();
+  closeSheetOverlay(el);
 }
 window.obCloseComparePicker = obCloseComparePicker;
 
@@ -891,6 +981,8 @@ export function renderOverallStandings(opts){
   const push = opts && opts.push ? 'view-push-in' : '';
   const simBanner = obMode === 'simulated' ? OB_SIM_BANNER_HTML : '';
   const rows = obRankedRows();
+  const growNow = obGrowNext;
+  obGrowNext = false;
   obRollBaseline(rows);
   runActivityDetection();
   obPrimeBonus();
@@ -900,12 +992,14 @@ export function renderOverallStandings(opts){
     if(row){
       if(obCompareId && rows.some(r => r.id === obCompareId)){
         container.innerHTML = `${simBanner}<div class="ob-detail cmp ${push}">${compareHtml(rows, obDetailId, obCompareId)}</div>`;
+        container.dataset.obSurface = 'detail';
         setupCompareSticky();
         fillSameRace(rows, obDetailId, obCompareId);
         return;
       }
       obCompareId = null;
       container.innerHTML = `${simBanner}<div class="ob-detail ${push}">${obDetailHtml(row)}</div>`;
+      container.dataset.obSurface = 'detail';
       setupCompareSticky();
       return;
     }
@@ -918,6 +1012,15 @@ export function renderOverallStandings(opts){
   // Looking at the feed is what marks it seen — quietly, so the Home link
   // and badge repaint without re-entering this render.
   if(obSegment === 'activity' && unseenCount() > 0) markActivitySeen(true);
+  // Re-rank: only a re-render of the same list glides (never entering
+  // the tab, a push back from a detail, or a segment switch).
+  const surface = 'list:' + obSegment;
+  const before = !growNow && !push && container.dataset.obSurface === surface ? obSnapshot(container) : null;
+  const prevHeroTotal = container.querySelector('.ob-hero-total');
   container.innerHTML = simBanner + obListHtml(rows);
+  container.dataset.obSurface = surface;
+  if(growNow) obGrowStart = performance.now();
+  obPlayGrow(container, rows, growNow ? null : prevHeroTotal);
+  if(before) obPlayFlip(container, before, rows);
   if(obSheetId) obOpenSheet(obSheetId);
 }

@@ -173,8 +173,7 @@ modals also suppress the season-phase badge (`In-Season`/`Pre-Season`/etc.) enti
 it would read as if the current season counts.
 
 **Motion** (`js/motion.js`, `js/launch-splash.js`): tab switches slide toward the tapped tab and the team
-page pushes in with the tapped row's badge morphing into its hero, both on same-document View Transitions
-(`navigate(kind, update, shared)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the
+page pushes in and pops back out, both on same-document View Transitions (`navigate(kind, update)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the
 team page's open/back functions therefore apply their DOM change asynchronously, inside the transition. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in
 `<body>`. Everything falls back to the old instant switch without View Transitions or with reduced motion.
