@@ -108,13 +108,20 @@ const STAR_PATH = 'M12 3.5l2.6 5.4 5.9.7-4.3 4.1 1.1 5.9L12 16.7l-5.3 2.9 1.1-5.
 const STAR_FILLED_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>`;
 const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>`;
 
-// Markup for one team's star toggle — used by both the Teams tab's
-// team rows (js/board.js) and the team modal head (js/live-data.js).
-// event.stopPropagation() keeps a tap here from also firing the row's
-// own onclick="openTeamModal(...)".
+// Markup for one team's star toggle — only the team page head
+// (js/live-data.js) gets this; that's the one place a favorite can be
+// set or cleared.
 export function favoriteStarHtml(teamKey){
   const active = isFavorite(teamKey);
   return `<button class="favorite-star${active ? ' active' : ''}" data-fav-key="${teamKey}" onclick="event.stopPropagation(); toggleFavorite('${teamKey}')" aria-label="${active ? 'Remove from favorites' : 'Add to favorites'}">${active ? STAR_FILLED_SVG : STAR_OUTLINE_SVG}</button>`;
+}
+
+// Read-only filled star for lists (Teams tab rows, Home's game cards):
+// marks a team as favorited but isn't tappable — pointer-events: none
+// lets a tap fall through to the row underneath. No data-fav-key, so
+// repaintAllStars leaves it alone; those lists re-render on change.
+export function favoriteMarkHtml(){
+  return `<span class="favorite-star favorite-mark active" aria-label="Favorite">${STAR_FILLED_SVG}</span>`;
 }
 
 function repaintStar(btn, active){
@@ -146,9 +153,7 @@ export function toggleFavorite(teamKey){
   const next = list.includes(teamKey) ? list.filter(k => k !== teamKey) : list.concat(teamKey);
   cacheFor(id).data = next;
   persistFavorites(id, next);
-  // Instant feedback on whatever star was actually tapped (usually the
-  // team modal's, since a Teams-tab row only shows one once it's
-  // already favorited — see renderBoard in js/board.js).
+  // Instant feedback on the team page's star (the only toggle).
   repaintStarsFor(teamKey, next.includes(teamKey));
   // Full resync of the Teams tab: a row's star can appear/disappear
   // entirely now (not just flip icon), and a favorited-but-not-drafted

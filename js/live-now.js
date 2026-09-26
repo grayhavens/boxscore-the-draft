@@ -34,7 +34,7 @@ import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, reducedMotion, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
-import { isFavorite, favoriteStarHtml } from './favorites.js';
+import { isFavorite, favoriteMarkHtml } from './favorites.js';
 
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
@@ -316,9 +316,9 @@ function sideHtml(side, dim, game, which){
     `;
   }
   const openTeam = `onclick="event.stopPropagation(); openTeamModal('${side.teamKey}')"`;
-  // Same rule as the Teams tab: the star only appears once a team is
-  // actually favorited, not as an empty toggle on every row.
-  const favHtml = side.isFav ? favoriteStarHtml(side.teamKey) : '';
+  // Same rule as the Teams tab: a read-only star, only once a team is
+  // favorited — toggling happens on the team page.
+  const favHtml = side.isFav ? favoriteMarkHtml() : '';
   return `
     <div class="tg-side">
       <button type="button" class="tg-badge-btn" ${openTeam} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
@@ -347,8 +347,8 @@ function gameHtml(game){
   // rail (the clock/LIVE/Final label off to the side) opens Game
   // Details too — a tap anywhere on the row's real estate should work,
   // not just the two team lines. The badge/name buttons inside each
-  // side (and the favorite star) still stopPropagation, so they keep
-  // opening the team modal / toggling a favorite instead.
+  // side still stopPropagation, so they keep opening the team modal
+  // instead.
   return `
     <div class="tg-row${clickable ? ' clickable' : ''}"${onClick}>
       ${railHtml(game)}

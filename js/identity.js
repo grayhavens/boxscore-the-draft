@@ -1,10 +1,10 @@
 /* ============================================================
    Identity: which of the 10 drafters this device is "signed in" as.
    Deliberately not real auth — this is a friend-group app, not a
-   walled system — just a persisted, visible choice (made in the
-   settings sheet behind the gear in every view's header) instead of an
-   implicit one. That sheet also hosts the per-device preferences in
-   js/settings.js.
+   walled system — just a persisted, visible choice (made from the
+   Settings page behind the gear in every view's header) instead of an
+   implicit one. Also renders the Settings page (#view-settings) that
+   gear opens, which hosts the per-device preferences in js/settings.js.
 
    Kept separate from js/board.js's currentDraftTeamId (which
    roster is currently DISPLAYED on the Board/Standings views):
@@ -23,8 +23,10 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
-import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
-import { seasonSettingsRowHtml } from './season-switcher.js';
+import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, CHEVRON_LEFT_SVG } from './utils.js';
+import { SEASON_IDS } from './seasons/index.js';
+import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
+import './season-switcher.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -68,144 +70,176 @@ export function paintIdentityChrome(displayedDraftTeamId){
 const sheetRows = () => document.getElementById('identity-sheet-rows');
 const setSheetTitle = t => { document.getElementById('identity-sheet-title').textContent = t; };
 
-function segmented(key, options, current){
-  return segmentedControlHtml(options.map(([k, label]) => ({ key: k, label })), current, 'setSheetTheme');
-}
+/* ---- Settings page (#view-settings) ----
+   A full page pushed in from the header gear (openSettings in
+   js/board.js), not a sheet: one scrolling column of cards, every
+   control saving the moment it's tapped. renderSettingsPage builds it
+   once per open; after that each control repaints itself in place
+   (paintSettingsPage) so the scroll position never resets. The sheet
+   (#identity-sheet-overlay) is kept only for the drafter switcher the
+   identity card opens. */
+const settingsEl = () => document.getElementById('settings-content');
 
-// The sheet is split in two, switched with the same segmented toggle the
-// Standings tab uses: Preferences (per-device settings) and League
-// (the draft room, scoring admin and the Points data mode). The tab
-// survives the sheet redrawing itself when a control is toggled, and
-// resets to Preferences each time the sheet is opened.
-// Both panels are always rendered, stacked in one grid cell with the
-// inactive one hidden (.settings-panels), so the sheet is always as tall
-// as the taller tab and doesn't jump when you switch.
-let settingsTab = 'prefs';
-
-window.setSettingsTab = tab => {
-  settingsTab = tab;
-  renderSettingsMain();
+const THEME_SWATCH = {
+  dark: '#0A0B0D',
+  light: '#F4F3EF',
+  auto: 'linear-gradient(135deg,#0A0B0D 50%,#F4F3EF 50%)'
 };
 
-function renderPreferencesTab(s){
+function switchRowHtml(key, title, sub, on, onclick){
   return `
-    <div class="settings-section">Appearance</div>
-    <div class="settings-row"><span>Theme</span>${segmented('theme', THEME_OPTIONS, s.theme)}</div>
-    <div class="settings-section">Home</div>
-    <button class="sheet-row" onclick="renderSettingsLanding()">
-      <span>Open to</span>
-      <span class="settings-value">${LANDING_OPTIONS.find(([v]) => v === s.landing)[1]}</span>
-      <span class="settings-chev">&rsaquo;</span>
-    </button>
-    <div class="settings-section">Chat</div>
-    <div class="settings-row">
-      <span>Unread badge<span class="sheet-desc">Count on the Chat tab</span></span>
-      <button class="switch ${s.chatBadge ? 'on' : ''}" role="switch" aria-checked="${s.chatBadge}" aria-label="Unread badge" onclick="setSheetSetting('chatBadge', ${!s.chatBadge})"></button>
-    </div>
-    ${installPlatform() ? `
-    <div class="settings-section">App</div>
-    <button class="sheet-row" onclick="openInstallGuideFromSheet()">
-      <span class="sheet-row-text">
-        Add to Home Screen
-        <span class="sheet-desc" style="display:block">Open Boxscore like an app</span>
-      </span>
-    </button>` : ''}`;
-}
-
-function renderLeagueTab(){
-  return `${seasonSettingsRowHtml()}
-    <div class="settings-section">Points Tab Data</div>
-    <div class="settings-row"><span>Data<span class="sheet-desc">Fake = preview</span></span>${segmentedControlHtml([{ key: 'real', label: 'Real' }, { key: 'simulated', label: 'Fake' }], window.getObMode ? window.getObMode() : 'real', 'setSheetObMode')}</div>
-    <div class="settings-section">Draft</div>
-    <button class="sheet-row" onclick="closeIdentitySheet(); switchView('draft')">
-      <span class="sheet-row-text">
-        Draft room
-        <span class="sheet-desc" style="display:block">Live snake draft for the next season</span>
-      </span>
-      <span class="settings-chev">&rsaquo;</span>
-    </button>
-    <div class="settings-section">Scoring</div>
-    <button class="sheet-row" onclick="closeIdentitySheet(); switchView('admin')">
-      <span class="sheet-row-text">
-        Manage scoring
-        <span class="sheet-desc" style="display:block">Mark results and adjustments · password required</span>
-      </span>
-      <span class="settings-chev">&rsaquo;</span>
+    <button type="button" class="set-row" data-switch="${key}" role="switch" aria-checked="${on}" onclick="${onclick}">
+      <span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span>
+      <span class="switch ${on ? 'on' : ''}" aria-hidden="true"></span>
     </button>`;
 }
 
-function renderSettingsMain(){
+function sectionHtml(label, body){
+  return `<section class="set-section"><div class="set-label">${label}</div>${body}</section>`;
+}
+
+const LOGO_HTML = '<a class="app-logo-link" href="#" onclick="switchView(\'board\'); return false;" aria-label="Home"><img class="app-logo" src="icons/logo-header.png" alt=""></a>';
+
+// backLabel names the page the back button returns to (js/board.js).
+export function renderSettingsPage(backLabel = 'Back'){
+  const el = settingsEl();
+  if(!el) return;
   const s = getSettings();
   const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
-  setSheetTitle('Settings');
-  // "Signed in as" sits above the tab switch on purpose: it's about who
-  // you are, not about either tab, so it stays put whichever is showing.
-  sheetRows().innerHTML = `
-    <button class="sheet-row" onclick="renderSettingsPeople()">
-      <span>Signed in as</span>
-      <span class="settings-value">${me.name}</span>
-      <span class="settings-chev">&rsaquo;</span>
-    </button>
-    <div class="settings-tabs">${segmentedControlHtml([{ key: 'prefs', label: 'Preferences' }, { key: 'league', label: 'League' }], settingsTab, 'setSettingsTab')}</div>
-    <div class="settings-panels">
-      <div class="settings-panel ${settingsTab === 'prefs' ? '' : 'inactive'}">${renderPreferencesTab(s)}</div>
-      <div class="settings-panel ${settingsTab === 'league' ? '' : 'inactive'}">${renderLeagueTab()}</div>
+  const fake = (window.getObMode ? window.getObMode() : 'real') === 'simulated';
+  el.innerHTML = `
+    <div class="set-head">
+      <div class="page-header">
+        <div class="page-header-top">${LOGO_HTML}<h1>Settings</h1></div>
+      </div>
+      <div class="ob-back-row">
+        <button type="button" class="ob-back" onclick="closeSettings()">${CHEVRON_LEFT_SVG}${backLabel}</button>
+      </div>
     </div>
+    <button type="button" class="set-identity" onclick="openProfileSwitcher()">
+      <span class="set-mono" id="set-mono">${me.name.charAt(0)}</span>
+      <span class="set-identity-text"><span class="set-identity-name" id="set-name">${me.name}</span><span class="set-row-sub">Drafting on this device</span></span>
+      <span class="set-identity-switch">Switch</span>
+    </button>
+    ${sectionHtml('Appearance', `<div class="set-themes">${THEME_OPTIONS.map(([v, label]) => `
+      <button type="button" class="set-theme ${v === s.theme ? 'on' : ''}" data-theme-opt="${v}" aria-pressed="${v === s.theme}" onclick="setSetting('theme', '${v}')">
+        <span class="set-swatch" style="background:${THEME_SWATCH[v]}"></span>
+        <span class="set-theme-label">${label}</span>
+      </button>`).join('')}</div>`)}
+    ${sectionHtml('Open app to', `<div class="set-chips">${LANDING_OPTIONS.map(([v, label]) => `
+      <button type="button" class="set-chip ${v === s.landing ? 'on' : ''}" data-landing-opt="${v}" aria-pressed="${v === s.landing}" onclick="setSetting('landing', '${v}')">${label}</button>`).join('')}</div>`)}
+    ${sectionHtml('Chat', switchRowHtml('chatBadge', 'Unread badge', 'Message count on the Chat tab', s.chatBadge, "setSetting('chatBadge', !getSettingsValue('chatBadge'))"))}
+    ${sectionHtml('League', `
+      <div class="set-tiles">
+        <button type="button" class="set-tile" onclick="openDraftPicker()"><span class="set-row-title">Draft &rsaquo;</span><span class="set-tile-sub">Mock or live</span></button>
+        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Scoring &rsaquo;</span><span class="set-tile-sub">Admin password</span></button>
+      </div>
+      ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
+    ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
+      <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
+    ${installPlatform() ? sectionHtml('App', `
+      <button type="button" class="set-row" onclick="openInstallGuide()">
+        <span class="set-row-text"><span class="set-row-title">Add to Home Screen</span><span class="set-row-sub">Open Boxscore like an app</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>`) : ''}
+    <div class="set-foot">Saved on this device only</div>
   `;
 }
-window.renderSettingsPeople = renderSettingsPeople;
 
-function renderSettingsPeople(){
+function setSwitch(key, on){
+  const row = settingsEl()?.querySelector(`[data-switch="${key}"]`);
+  if(!row) return;
+  row.setAttribute('aria-checked', on);
+  row.querySelector('.switch').classList.toggle('on', on);
+}
+
+// Repaints every control's selected state from current values without
+// rebuilding the page.
+function paintSettingsPage(){
+  const el = settingsEl();
+  if(!el || !el.firstElementChild) return;
+  const s = getSettings();
+  el.querySelectorAll('[data-theme-opt]').forEach(b => {
+    const on = b.dataset.themeOpt === s.theme;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  el.querySelectorAll('[data-landing-opt]').forEach(b => {
+    const on = b.dataset.landingOpt === s.landing;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  setSwitch('chatBadge', s.chatBadge);
+  setSwitch('obMode', (window.getObMode ? window.getObMode() : 'real') === 'simulated');
+  const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
+  const name = document.getElementById('set-name');
+  if(name) name.textContent = me.name;
+  const mono = document.getElementById('set-mono');
+  if(mono) mono.textContent = me.name.charAt(0);
+}
+
+window.addEventListener('boxscore:settings', paintSettingsPage);
+
+window.getSettingsValue = key => getSettings()[key];
+
+window.toggleSettingsObMode = () => {
+  const fake = (window.getObMode ? window.getObMode() : 'real') === 'simulated';
+  window.setObMode(fake ? 'real' : 'simulated');
+  paintSettingsPage();
+};
+
+// The identity card's drafter switcher: the one job the sheet still has.
+export function openProfileSwitcher(){
+  if(!sheetRows()) return;
   setSheetTitle('Who are you?');
-  sheetRows().innerHTML = `
-    <div class="settings-row"><button class="settings-back" onclick="renderSettingsMain()">&lsaquo; Settings</button></div>
-  ` + DRAFT_TEAMS.map(d => `
+  sheetRows().innerHTML = DRAFT_TEAMS.map(d => `
     <button class="sheet-row ${d.id === currentProfileId ? 'active' : ''}" onclick="chooseProfile('${d.id}')">
       <span>${d.name}</span>
       <span class="sheet-check">${d.id === currentProfileId ? CHECK_ICON_SVG : ''}</span>
     </button>
   `).join('');
-}
-window.renderSettingsMain = renderSettingsMain;
-
-function renderSettingsLanding(){
-  const current = getSettings().landing;
-  setSheetTitle('Open to');
-  sheetRows().innerHTML = `
-    <div class="settings-row"><button class="settings-back" onclick="renderSettingsMain()">&lsaquo; Settings</button></div>
-  ` + LANDING_OPTIONS.map(([v, label]) => `
-    <button class="sheet-row ${v === current ? 'active' : ''}" onclick="chooseLanding('${v}')">
-      <span>${label}</span>
-      <span class="sheet-check">${v === current ? CHECK_ICON_SVG : ''}</span>
-    </button>
-  `).join('');
-}
-window.renderSettingsLanding = renderSettingsLanding;
-
-window.chooseLanding = v => {
-  window.setSetting('landing', v);
-  renderSettingsMain();
-};
-
-// Redraws in place so the sheet stays open while a control is toggled.
-window.setSheetObMode = v => {
-  window.setObMode(v);
-  renderSettingsMain();
-};
-window.setSheetTheme = v => window.setSheetSetting('theme', v);
-window.setSheetSetting = (key, value) => {
-  window.setSetting(key, value);
-  renderSettingsMain();
-};
-
-export function openSettingsSheet(){
-  if(!sheetRows()) return;
-  settingsTab = 'prefs';
-  renderSettingsMain();
   openSheetOverlay(document.getElementById('identity-sheet-overlay'));
   lockBodyScroll();
 }
-window.openSettingsSheet = openSettingsSheet;
+window.openProfileSwitcher = openProfileSwitcher;
+
+// The Draft tile's picker, in the same sheet: the rehearsal room or the
+// real one. MOCK_DRAFT_ROOM is the throwaway room from
+// docs/draft-day-runbook.md.
+const MOCK_DRAFT_ROOM = 'mock-1';
+
+export function openDraftPicker(){
+  if(!sheetRows()) return;
+  setSheetTitle('Draft');
+  sheetRows().innerHTML = `
+    <button class="sheet-row" onclick="goToDraftRoom('${MOCK_DRAFT_ROOM}')">
+      <span class="sheet-row-text">Mock Draft<span class="sheet-desc" style="display:block">Practice room &middot; picks don&rsquo;t count</span></span>
+      <span class="set-chev">&rsaquo;</span>
+    </button>
+    <button class="sheet-row" onclick="goToDraftRoom('main')">
+      <span class="sheet-row-text">Live Draft<span class="sheet-desc" style="display:block">The real draft lobby</span></span>
+      <span class="set-chev">&rsaquo;</span>
+    </button>`;
+  openSheetOverlay(document.getElementById('identity-sheet-overlay'));
+  lockBodyScroll();
+}
+window.openDraftPicker = openDraftPicker;
+
+// js/draft-client.js reads the room from ?room= once, at load, so
+// changing rooms means loading the draft view fresh on the new URL.
+// Staying in the same room is just a view switch.
+export function goToDraftRoom(room){
+  closeIdentitySheet();
+  let current = 'main';
+  try { current = new URLSearchParams(window.location.search).get('room') || 'main'; } catch (e){}
+  if(room === current){ window.switchView('draft'); return; }
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('view', 'draft');
+  if(room !== 'main') url.searchParams.set('room', room);
+  window.location.href = url.toString();
+}
+window.goToDraftRoom = goToDraftRoom;
 
 export function closeIdentitySheet(){
   unlockBodyScroll();
@@ -221,6 +255,7 @@ export function chooseProfile(id){
   // Also brings the displayed roster back in sync and repaints the
   // header/peek banner — see setDraftTeam in js/board.js.
   window.setDraftTeam(id);
+  paintSettingsPage();
 }
 window.chooseProfile = chooseProfile;
 
@@ -388,12 +423,11 @@ export function maybeShowWelcome(){
   openWelcomeOverlay();
 }
 
-// The identity sheet's "Add to Home Screen" row.
-export function openInstallGuideFromSheet(){
+// The Settings page's "Add to Home Screen" row.
+export function openInstallGuide(){
   const platform = installPlatform();
-  closeIdentitySheet();
   if(!platform) return;
   renderWelcomeInstall(platform, null);
   openWelcomeOverlay();
 }
-window.openInstallGuideFromSheet = openInstallGuideFromSheet;
+window.openInstallGuide = openInstallGuide;

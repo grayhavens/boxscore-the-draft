@@ -196,35 +196,18 @@ export function countUp(el, from, to, fmt, ms = 700){
 // Pins the page in place behind the modal (rather than just hiding
 // overflow) so iOS Safari can't rubber-band-scroll the background
 // while a modal is open. Restores the exact scroll position on close.
-//
-// Also the hook for the card-stack look on phones (css/style.css, "Card-
-// stack sheets"): html.sheet-open recedes .board behind the sheet, and
-// html.sheet-card keeps it clipped to a card at the viewport until it has
-// finished scaling back. --sheet-top is where the viewport's top edge sits
-// in .board's own coordinates, so the card's top edge is the screen's.
+// The page itself stays put under the sheet's dimmed overlay — no
+// recede/scale, which read as the background jumping.
 let lockedScrollY = 0;
-let sheetCardTimer = 0;
-const SHEET_CARD_MS = 500; // just past the 480ms scale-back
 
 export function lockBodyScroll(){
-  const root = document.documentElement;
-  const board = document.querySelector('.board');
-  if(board) root.style.setProperty('--sheet-top', (-board.getBoundingClientRect().top) + 'px');
   lockedScrollY = window.scrollY;
   document.body.style.position = 'fixed';
   document.body.style.top = `-${lockedScrollY}px`;
   document.body.style.width = '100%';
-  clearTimeout(sheetCardTimer);
-  root.classList.add('sheet-open', 'sheet-card');
 }
 
 export function unlockBodyScroll(){
-  const root = document.documentElement;
-  root.classList.remove('sheet-open');
-  clearTimeout(sheetCardTimer);
-  sheetCardTimer = setTimeout(() => {
-    if(!root.classList.contains('sheet-open')) root.classList.remove('sheet-card');
-  }, SHEET_CARD_MS);
   document.body.style.position = '';
   document.body.style.top = '';
   document.body.style.width = '';
@@ -236,8 +219,7 @@ export function unlockBodyScroll(){
 // motion allowed) the sheet springs up and its rows stagger in while
 // .entering is on; closing slides it down (.closing) before dropping
 // .open. Elsewhere both are the old instant toggle. Scroll locking stays
-// with the callers; unlock before closing so the page scales back while
-// the sheet slides out.
+// with the callers.
 const SHEET_ENTER_MS = 900; // the spring plus the last row's stagger
 
 // Open and not on its way out: a closing sheet still carries .open for

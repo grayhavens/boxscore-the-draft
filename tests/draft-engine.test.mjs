@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
-  clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr
+  clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
+  autoPickTeam, isMockRoom
 } from '../js/draft-rules.js';
 
 const D = ['a', 'b', 'c', 'd'];
@@ -338,4 +339,59 @@ test('setPool keeps a team\'s rank (the UI orders the list by it)', () => {
   let s = createState(D, { caps: CAPS });
   s = ok(s, { type: 'setPool', teams: [{ ...team('e1', 'epl'), rank: 3 }, { ...team('e2', 'epl'), rank: 0 }, { ...team('e3', 'epl'), rank: 'x' }] }, COMM);
   assert.deepEqual(s.pool.map(t => t.rank), [3, undefined, undefined]);
+});
+
+test('mock bots: config validates, survives a roster change, and is not structural', () => {
+  let s = lobby();
+  s = ok(s, { type: 'setConfig', bots: ['b', 'c'], botSeconds: 5 }, COMM);
+  assert.deepEqual(s.config.bots, ['b', 'c']);
+  assert.equal(s.config.botSeconds, 5);
+  assert.ok(s.order, 'toggling bots keeps the lottery');
+  err(s, { type: 'setConfig', bots: ['zz'] }, COMM, 'bad_input');
+  err(s, { type: 'setConfig', bots: ['b', 'b'] }, COMM, 'bad_input');
+  err(s, { type: 'setConfig', botSeconds: 0 }, COMM, 'bad_input');
+  err(s, { type: 'setConfig', bots: [] }, as('a'), 'forbidden');
+  s = ok(s, { type: 'setConfig', drafters: ['a', 'b', 'd'] }, COMM);
+  assert.deepEqual(s.config.bots, ['b'], 'a drafter who leaves stops being a bot');
+  s = ok(live(), { type: 'setConfig', bots: ['a'] }, COMM);
+  assert.deepEqual(s.config.bots, ['a'], 'seats can become bots mid-draft');
+});
+
+test('auto-picks are marked auto, not proxy', () => {
+  const s = live();
+  const r = ok(s, { type: 'pick', team: 'e1', auto: true }, COMM);
+  assert.equal(r.picks[0].auto, true);
+  assert.equal(r.picks[0].proxy, undefined);
+  const faked = ok(s, { type: 'pick', team: 'e1', auto: true }, as(ownerNow(s)));
+  assert.equal(faked.picks[0].auto, undefined, 'only the commissioner/worker can mark auto');
+});
+
+test('autoPickTeam: queue first, then best rank across leagues, never an illegal team', () => {
+  const ranked = [
+    { ...team('e1', 'epl'), rank: 1 }, { ...team('e2', 'epl'), rank: 2 },
+    { ...team('n1', 'nfl'), rank: 1 }, { ...team('n2', 'nfl'), rank: 2 }, { ...team('n3', 'nfl'), rank: 3 }, { ...team('n4', 'nfl'), rank: 4 },
+    team('e3', 'epl'), team('e4', 'epl'), team('n5', 'nfl')
+  ];
+  let s = createState(D, { caps: CAPS });
+  s = ok(s, { type: 'setPool', teams: ranked }, COMM);
+  s = ok(s, { type: 'runLottery' }, { ...COMM, rand: () => 0 });
+  s = ok(s, { type: 'startDraft' }, COMM);
+  const owner = ownerNow(s);
+  assert.equal(autoPickTeam(s, owner, ['n4', 'e2']), 'n4', 'first legal queued team');
+  // e1 (1/5 of epl) and n1 (1/6 of nfl): n1 is relatively better.
+  assert.equal(autoPickTeam(s, owner, []), 'n1');
+  s = draftOne(s, 'n1');
+  s = draftOne(s, 'e1');
+  // Owner of slot 2 has no picks: e2 (2/5) vs n2 (2/6) -> n2.
+  assert.equal(autoPickTeam(s, ownerNow(s), ['n1']), 'n2', 'a taken queued team is skipped');
+  // A drafter at their NFL cap only gets EPL.
+  s = draftOne(s, 'n2');
+  s = draftOne(s, 'n3');
+  const pick = autoPickTeam(s, ownerNow(s), []);
+  assert.equal(s.pool.find(t => t.id === pick).league, 'epl');
+});
+
+test('mock rooms are the mock-* names only', () => {
+  assert.ok(isMockRoom('mock') && isMockRoom('mock-1') && isMockRoom('mock-2'));
+  assert.ok(!isMockRoom('main') && !isMockRoom('mockery') && !isMockRoom('rehearsal-x') && !isMockRoom(null));
 });

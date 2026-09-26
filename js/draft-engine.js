@@ -18,12 +18,16 @@
    state {
      v, seq            schema version; bumps on every accepted action
      phase             'lobby' | 'draft' | 'done'
-     config            { drafters: [id], caps: {league: n}, clockSeconds }
+     config            { drafters: [id], caps: {league: n}, clockSeconds,
+                         bots: [id], botSeconds } — bots/botSeconds only
+                       matter in mock rooms, where the worker auto-picks
+                       (bots after botSeconds, anyone after clockSeconds)
      order             lottery result (drafter ids by round-1 position)
                        or null until the lottery has run
-     picks             { [slot]: { team, by, at, n, proxy?, edited? } }
+     picks             { [slot]: { team, by, at, n, proxy?, auto?, edited? } }
                        `by` is the roster the team lands on (the slot's
-                       owner); `proxy` marks a commissioner picking for them
+                       owner); `proxy` marks a commissioner picking for them,
+                       `auto` the mock room's bot/timeout auto-pick
      overrides         { [slot]: drafterId } — traded slots
      pool              [{ id, name, league, abbr, color, custom?, ... }]
                        in rank order; write-ins are appended with custom:true
@@ -37,6 +41,7 @@
    ============================================================ */
 import {
   DEFAULT_CAPS, DEFAULT_CLOCK_SECONDS, MIN_CLOCK_SECONDS, MAX_CLOCK_SECONDS, WRITE_IN_LEAGUES,
+  DEFAULT_BOT_SECONDS, MIN_BOT_SECONDS, MAX_BOT_SECONDS,
   totalPicks, totalRounds, ownerOf, currentSlot, teamById, takenTeamIds, leagueCounts,
   shuffled, swapSlots, newClock, stoppedClock, pauseClock, resumeClock, slugify, writeInAbbr
 } from './draft-rules.js';
@@ -58,6 +63,8 @@ export function createState(drafters, overrides = {}){
       drafters: drafters.slice(),
       caps: { ...DEFAULT_CAPS },
       clockSeconds: DEFAULT_CLOCK_SECONDS,
+      bots: [],
+      botSeconds: DEFAULT_BOT_SECONDS,
       ...overrides
     },
     order: null,
@@ -139,10 +146,14 @@ export function reduce(prev, action, ctx){
 // ---- Lobby ----
 
 function setConfig(state, a){
-  const { drafters, caps, clockSeconds } = a;
+  const { drafters, caps, clockSeconds, bots, botSeconds } = a;
   if(clockSeconds !== undefined){
     if(!isInt(clockSeconds, MIN_CLOCK_SECONDS, MAX_CLOCK_SECONDS)) return fail('bad_input', 'clockSeconds');
     state.config.clockSeconds = clockSeconds;
+  }
+  if(botSeconds !== undefined){
+    if(!isInt(botSeconds, MIN_BOT_SECONDS, MAX_BOT_SECONDS)) return fail('bad_input', 'botSeconds');
+    state.config.botSeconds = botSeconds;
   }
   const structural = drafters !== undefined || caps !== undefined;
   if(structural && state.phase !== 'lobby') return fail('bad_phase');
@@ -159,6 +170,14 @@ function setConfig(state, a){
     if(rounds < 1 || rounds > MAX_ROUNDS) return fail('bad_input', 'caps');
     state.config.caps = { ...caps };
   }
+  // Checked after drafters so a roster change and its bots can land
+  // together. Not structural: seats can turn into bots mid-draft.
+  if(bots !== undefined){
+    if(!Array.isArray(bots) || new Set(bots).size !== bots.length || !bots.every(b => state.config.drafters.includes(b))) return fail('bad_input', 'bots');
+    state.config.bots = bots.slice();
+  }
+  // States saved before bots existed have no bots field.
+  state.config.bots = (state.config.bots || []).filter(b => state.config.drafters.includes(b));
   if(structural){
     // The lottery order and any pool built against the old shape no
     // longer line up; make the commissioner redo them.
@@ -260,7 +279,10 @@ function pick(state, a, ctx){
 
   state.pickSeq += 1;
   const record = { team: team.id, by: owner, at: ctx.now, n: state.pickSeq };
-  if(ctx.actor !== owner) record.proxy = true;
+  // `auto` is the worker's own mock-room auto-pick (it acts as
+  // commissioner); anything else made for someone else is a proxy.
+  if(a.auto === true && ctx.isCommissioner) record.auto = true;
+  else if(ctx.actor !== owner) record.proxy = true;
   state.picks[slot] = record;
   settle(state, ctx);
   return done(state);

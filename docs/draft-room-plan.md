@@ -53,7 +53,11 @@ drafts can run on a throwaway room.
 
 - Owns phase (`lobby | draft | done`), lottery order, picks, trade overrides, write-in teams, clock
   start/pause, and each drafter's queue (server-side so it follows you across devices).
-- Soft clock, no auto-pick, so no alarms: clients render the countdown from a server timestamp.
+- Soft clock, no auto-pick, so no alarms in the real room: clients render the countdown from a server
+  timestamp. Mock rooms (`mock`, `mock-*`) are the exception: they're self-serve (every socket is
+  commissioner) and a Durable Object alarm auto-picks for bots (`config.bots`, after `config.botSeconds`)
+  and for anyone whose clock runs out, from their queue or else the best-ranked team that fits
+  (`autoPickTeam` in `js/draft-rules.js`). Set up from the mock lobby's Bots card.
 - Server validates every pick: correct owner (or commissioner), team not taken, league cap not exceeded,
   not paused.
 - Reconnect resumes with `?after=<lastPickId>`; first frame is a full state snapshot.
@@ -102,7 +106,9 @@ light theme works.
 
 ### As built (Phase E)
 
-- Commissioner bar (desktop, live room, signed in): Pause/Resume, Undo pick, Trade, Reset (confirm modal).
+- Commissioner bar (every screen size, live and mock rooms, signed in): Pause/Resume, Undo pick, Trade,
+  Clock (Bots & clock in a mock room, mid-draft too), Download board, Reset (confirm modal). Off the lobby,
+  a live-room visitor who isn't signed in sees a "Commissioner sign-in" button there instead.
   "Pick for {name}" on the on-the-clock card turns the pool's Draft buttons into a proxy pick for whoever is
   on the clock (caps checked against them); clicking any filled board cell opens "Change this pick"
   (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
@@ -122,7 +128,8 @@ light theme works.
 - Phone shell (<=700px, switches live with the viewport): compact sticky clock over Pick / Board / My team
   tabs; Pick has "From your queue" (top three fitting), search, scrolling league chips and a 40-team list
   with 44px hit targets; Board is the last three rounds newest first; My team is roster + queue. The
-  commissioner bar is desktop-only by design.
+  commissioner bar scrolls sideways under the header, the clock card has "Pick for {name}", and tapping a
+  filled Board row opens Change this pick (was desktop-only until 2026-09-26).
 - Verified against `wrangler dev`: pause/resume/undo, proxy pick, make-up pick round trip, trade, reset,
   and the phone tabs.
 

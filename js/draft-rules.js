@@ -17,8 +17,17 @@
 // Roster slots per drafter, by league key — sums to the number of rounds.
 export const DEFAULT_CAPS = { epl: 2, nfl: 3, nba: 3, nhl: 3, mlb: 3, wnba: 1, cfb: 3, mcbb: 3 };
 export const DEFAULT_CLOCK_SECONDS = 90;
-export const MIN_CLOCK_SECONDS = 30;
+export const MIN_CLOCK_SECONDS = 10;
 export const MAX_CLOCK_SECONDS = 300;
+
+// Mock rooms (?room=mock-1, …) are the self-serve practice drafts: bots
+// and auto-picks run there (worker/draft-room.js), never in "main".
+export const DEFAULT_BOT_SECONDS = 3;
+export const MIN_BOT_SECONDS = 1;
+export const MAX_BOT_SECONDS = 60;
+export function isMockRoom(room){
+  return typeof room === 'string' && /^mock(-|$)/.test(room);
+}
 
 // Leagues whose pool is only pre-loaded with the top schools; any other
 // school can be added on the fly as a "write-in".
@@ -95,6 +104,27 @@ export function availableTeams(state, drafterId){
     ? leagueCounts(state.picks, state.pool, state.order, state.overrides, drafterId)
     : {};
   return state.pool.filter(t => !taken.has(t.id) && (counts[t.league] || 0) < (state.config.caps[t.league] || 0));
+}
+
+// What an auto-pick takes for `drafterId`: the first team on their own
+// queue that's still legal for them, else the best one left that fits.
+// "Best" compares leagues fairly: a team's rank as a fraction of its
+// league's pool (Liverpool 1/20 beats the 5th NFL team, 5/32), unranked
+// write-ins last. Ties (every league's #1 at the start) go to `rand`
+// when given, so a room of bots doesn't all draft the same league.
+// null if nothing fits.
+export function autoPickTeam(state, drafterId, queue, rand){
+  const open = availableTeams(state, drafterId);
+  if(!open.length) return null;
+  const ids = new Set(open.map(t => t.id));
+  const queued = (queue || []).find(id => ids.has(id));
+  if(queued) return queued;
+  const size = {};
+  state.pool.forEach(t => { size[t.league] = (size[t.league] || 0) + 1; });
+  const score = t => (Number.isInteger(t.rank) ? t.rank / size[t.league] : 2);
+  const best = Math.min(...open.map(score));
+  const tied = open.filter(t => score(t) === best);
+  return tied[rand ? Math.floor(rand() * tied.length) : 0].id;
 }
 
 // Random order for the lottery. `rand` is injectable (returns [0,1)) so
