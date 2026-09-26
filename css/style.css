@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root{
   color-scheme: dark;
@@ -206,6 +205,10 @@ html{ background: var(--bg); }
   --dur-press: 120ms; --dur-ui: 200ms; --dur-move: 320ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* iOS's own sheet curve: fast out, long settle, no overshoot (a bottom
+     sheet that overshoots lifts off the bottom edge). SHEET_EASE in
+     js/utils.js mirrors it. */
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --live-stripe: repeating-linear-gradient(135deg, var(--provisional) 0 3px, var(--provisional-soft) 3px 6px);
   --risk-stripe: repeating-linear-gradient(135deg, var(--loss) 0 3px, color-mix(in srgb, var(--loss) 35%, transparent) 3px 6px);
   --text-strong: #FFFFFF;
@@ -1231,6 +1234,9 @@ body{
   width: 100%;
   max-height: 85vh;
   overflow-y: auto;
+  /* Scrolling past either end of a sheet's content stays in the sheet
+     rather than chaining out to the (locked) page behind it. */
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 700px){
@@ -1241,7 +1247,11 @@ body{
 
   .modal{
     max-width: none;
-    max-height: 88vh;
+    /* Tall content (an MLB box score) tops out well short of the status
+       bar: at most 80% of the screen, and always leaving a strip of the
+       receded page card (css "Card-stack sheets") showing above it. */
+    max-height: 80vh;
+    max-height: min(80dvh, calc(100dvh - env(safe-area-inset-top) - 88px));
     border-left: none;
     border-right: none;
     border-bottom: none;
@@ -1251,9 +1261,8 @@ body{
     animation: sheet-up 0.22s ease-out;
     /* Swipe-to-dismiss (see enableSheetSwipeToDismiss in js/utils.js)
        drives transform directly while dragging (transition: none) and
-       clears it on release, falling back to this for the snap-back/
-       dismiss animation. */
-    transition: transform 0.25s ease;
+       clears it on release, falling back to this for the snap-back. */
+    transition: transform 0.45s var(--ease-sheet);
   }
 
   .modal::before{
@@ -1707,6 +1716,7 @@ body{
 .modal-overlay.stacked{ z-index: 310; }
 
 .modal.modal-wide{ max-width: 560px; }
+.gd-loading{ min-height: 100vh; }
 
 .gd-head{
   display: flex;
@@ -5038,6 +5048,29 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes vt-pop-old{ to{ transform: translateX(100%); } }
 @keyframes vt-pop-new{ from{ transform: translateX(-28%); filter: brightness(0.55); } }
 
+/* Standings row ↔ Team page container transform (js/team-page.js,
+   expandFromRow/collapseToRow). While it runs the team page is a fixed
+   layer over the Standings view, at exactly its in-flow spot at scroll 0:
+   the view's own column (--tp-l/--tp-w), pushed down by --tp-t, with the
+   screen around it painted --bg. The clip-path that grows it out of the
+   row is animated on it from JS. .tp-still holds off .view-push-in, which
+   would otherwise restart whenever the layer's display changes. */
+.view.tp-layer{
+  display: block;
+  position: fixed; top: 0; bottom: 0; left: var(--tp-l); width: var(--tp-w);
+  border-top: var(--tp-t) solid transparent; box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg); box-shadow: 0 0 0 100vmax var(--bg);
+  z-index: 150;
+}
+.view.tp-under{ display: block; }
+.view.tp-layer, .view.tp-still{ animation: none !important; }
+#tp-fx{ position: fixed; inset: 0; z-index: 151; pointer-events: none; }
+#tp-fx > *{ position: fixed; margin: 0; box-sizing: border-box; }
+#tp-fx .tp-veil{ inset: 0; }
+#tp-fx .tp-ghost{ background: transparent; }
+#tp-fx .tp-fly{ flex: none; transform-origin: 0 0; }
+
 /* The tab bar and the notch cover hold still while the page moves. Their
    "new" image is live, so the pill's own transition plays through it. */
 .tab-bar{ view-transition-name: tab-bar; }
@@ -5082,10 +5115,17 @@ html[data-theme="light"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
 #launch-splash .ls-bg{ position: absolute; inset: 0; background: var(--ls-bg); }
 #launch-splash .ls-stage{ position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
 #launch-splash .ls-logo{ position: absolute; inset: 0; transform: translateY(-26px); transform-origin: 50% 50%; }
+/* Brackets: a clip window (.ls-tl/.ls-br) around the ink (<i>), slid in
+   opposite directions by the splash script to draw each from its corner.
+   Starting offsets here match its first frame so nothing shows early. */
 #launch-splash .ls-tl,
-#launch-splash .ls-br{ position: absolute; width: 45px; height: 45px; }
-#launch-splash .ls-tl{ left: 43px; top: 43px; border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; clip-path: inset(0 100% 100% 0); }
-#launch-splash .ls-br{ left: 112px; top: 112px; border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; clip-path: inset(100% 0 0 100%); }
+#launch-splash .ls-br{ position: absolute; width: 45px; height: 45px; overflow: hidden; }
+#launch-splash .ls-tl > i,
+#launch-splash .ls-br > i{ position: absolute; inset: 0; box-sizing: border-box; }
+#launch-splash .ls-tl{ left: 43px; top: 43px; transform: translate(-100%, -100%); }
+#launch-splash .ls-tl > i{ border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; transform: translate(100%, 100%); }
+#launch-splash .ls-br{ left: 112px; top: 112px; transform: translate(100%, 100%); }
+#launch-splash .ls-br > i{ border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; transform: translate(-100%, -100%); }
 #launch-splash .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); transform: scale(0); }
 #launch-splash .ls-word{
   position: absolute; left: 50%; top: 152px; transform: translateX(-50%);
@@ -5125,14 +5165,21 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
     box-shadow: 0 0 0 100vh var(--bg);
     clip-path: inset(var(--sheet-top, 0px) calc(-1 * var(--page-pad)) -100vh round 22px);
   }
-  html.sheet-open .board{ transform: translateY(calc(env(safe-area-inset-top) + 10px)) scale(0.93); }
+  /* --sheet-drag (0-1, set by the swipe-to-dismiss drag in js/utils.js)
+     brings the page back toward full size with the finger; the
+     transition is off while the finger drives it. */
+  html.sheet-open .board{
+    transform: translateY(calc((env(safe-area-inset-top) + 10px) * (1 - var(--sheet-drag, 0)))) scale(calc(0.93 + 0.07 * var(--sheet-drag, 0)));
+  }
+  html.sheet-dragging .board{ transition: none; }
+  .modal-overlay{ transition: background-color 0.45s var(--ease-sheet); }
   .safe-area-top{ transition: background-color 480ms var(--ease-out); }
   html.sheet-open .safe-area-top{ background: #000; }
 
-  .modal-overlay.open{ animation: overlay-in 300ms ease backwards; }
-  .modal-overlay.open .modal{ animation: sheet-spring 560ms cubic-bezier(0.34, 1.28, 0.64, 1) backwards; }
-  .modal-overlay.closing{ animation: overlay-out 260ms ease forwards; }
-  .modal-overlay.closing .modal{ animation: sheet-down 260ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+  .modal-overlay.open{ animation: overlay-in 380ms ease backwards; }
+  .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }
+  .modal-overlay.closing{ animation: overlay-out 280ms ease forwards; }
+  .modal-overlay.closing .modal{ animation: sheet-down 280ms cubic-bezier(0.32, 0, 0.67, 0) forwards; }
 
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }

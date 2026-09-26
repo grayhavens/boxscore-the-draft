@@ -70,7 +70,7 @@ import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
 import { ACTIVE_SEASON_ID } from './season.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
-import { openTeamPage } from './team-page.js';
+import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { renderAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
@@ -630,6 +630,7 @@ export function renderStandings(){
 const TAB_ORDER = ['board', 'live-now', 'chat', 'standings', 'overall'];
 
 export function switchView(view){
+  settleTeamTransition();
   const activeTab = document.querySelector('.tab-btn.active');
   const from = TAB_ORDER.indexOf(activeTab ? activeTab.dataset.view : '');
   const to = TAB_ORDER.indexOf(view);

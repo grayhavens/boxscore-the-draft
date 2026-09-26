@@ -19,6 +19,13 @@ export function canAnimateNav(){
   return enabled && !!document.startViewTransition && !reducedMotion();
 }
 
+// For motion run on the live DOM (Web Animations) rather than a View
+// Transition: the Standings row ↔ Team page container transform in
+// js/team-page.js. Same gate otherwise.
+export function canAnimateLive(){
+  return enabled && !!Element.prototype.animate && !reducedMotion();
+}
+
 // kind: 'fwd' | 'back' (tab slide), 'push' | 'pop' (team page), or null
 // for a plain crossfade.
 export function navigate(kind, update){
