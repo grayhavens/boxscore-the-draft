@@ -23,7 +23,7 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
-import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { segmentedControlHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { seasonSettingsRowHtml } from './season-switcher.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
@@ -202,14 +202,14 @@ export function openSettingsSheet(){
   if(!sheetRows()) return;
   settingsTab = 'prefs';
   renderSettingsMain();
-  document.getElementById('identity-sheet-overlay').classList.add('open');
+  openSheetOverlay(document.getElementById('identity-sheet-overlay'));
   lockBodyScroll();
 }
 window.openSettingsSheet = openSettingsSheet;
 
 export function closeIdentitySheet(){
-  document.getElementById('identity-sheet-overlay').classList.remove('open');
   unlockBodyScroll();
+  closeSheetOverlay(document.getElementById('identity-sheet-overlay'));
 }
 window.closeIdentitySheet = closeIdentitySheet;
 
@@ -282,16 +282,16 @@ const welcomeEl = () => document.getElementById('welcome-content');
 
 function openWelcomeOverlay(){
   const overlay = document.getElementById('welcome-overlay');
-  if(!overlay || overlay.classList.contains('open')) return;
-  overlay.classList.add('open');
+  if(!overlay || isSheetOpen(overlay)) return;
+  openSheetOverlay(overlay);
   lockBodyScroll();
 }
 
 export function closeWelcome(){
   const overlay = document.getElementById('welcome-overlay');
-  if(!overlay || !overlay.classList.contains('open')) return;
-  overlay.classList.remove('open');
+  if(!isSheetOpen(overlay)) return;
   unlockBodyScroll();
+  closeSheetOverlay(overlay);
 }
 window.closeWelcome = closeWelcome;
 

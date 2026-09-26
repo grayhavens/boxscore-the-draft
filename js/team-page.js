@@ -42,7 +42,7 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
-import { navigate, firstVisible } from './motion.js';
+import { navigate } from './motion.js';
 import { trackerSectionHtml } from './league-facts.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
@@ -103,16 +103,6 @@ function setActiveView(viewId){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
 }
 
-// The push/pop below morphs the tapped row's badge into the hero's and
-// back (see js/motion.js). Rows reach the page either directly
-// (Standings) or through the team modal (Home's cards), so the origin
-// badge is whichever row opens either one for this team.
-const BADGE_SEL = ':is(.badge, .crest-bare)';
-const heroBadge = () => document.querySelector(`#team-page-content .team-hero-row > ${BADGE_SEL}`);
-const rowBadge = (view, key) => firstVisible(
-  `#view-${view} :is([onclick*="openTeamPage('${key}'"], [onclick*="openTeamModal('${key}'"]) ${BADGE_SEL}`
-);
-
 // Note: this app's `?team=` param already means something else (which
 // drafter's board you're peeking — see setDraftTeam in js/board.js), so
 // the Team Page's own team key rides in `?tp=` instead to avoid
@@ -120,7 +110,7 @@ const rowBadge = (view, key) => firstVisible(
 export function openTeamPage(teamKey, originView){
   if(!TEAM_META[teamKey]) return;
   const origin = originView || 'board';
-  navigate('push', () => openTeamPageNow(teamKey, origin), { from: rowBadge(origin, teamKey), to: heroBadge });
+  navigate('push', () => openTeamPageNow(teamKey, origin));
 }
 window.openTeamPage = openTeamPage;
 
@@ -138,16 +128,14 @@ function openTeamPageNow(teamKey, originView){
   ensureBundle(teamKey);
 }
 
-// Scroll is restored inside the update, so the badge lands on the row
-// where it now sits on screen.
 export function backFromTeamPage(){
-  const { originView, teamKey } = state;
+  const { originView } = state;
   navigate('pop', () => {
     setActiveView('view-' + originView);
     updateUrlParam('view', originView === 'board' ? null : originView);
     updateUrlParam('tp', null);
     window.scrollTo(0, state.originScrollY);
-  }, { from: heroBadge(), to: () => rowBadge(originView, teamKey) });
+  });
 }
 window.backFromTeamPage = backFromTeamPage;
 

@@ -2919,7 +2919,7 @@ body{
 .pts-tag.rank{ color: var(--text-sub); background: rgba(var(--ink-rgb), 0.06); }
 .tracker-label .pts-tag{ margin-left: 6px; }
 
-.ob-move{ font-size: var(--fs-11); font-weight: 800; white-space: nowrap; }
+.ob-move{ display: inline-block; font-size: var(--fs-11); font-weight: 800; white-space: nowrap; } /* inline-block so the re-rank pop can scale it */
 .ob-move.up{ color: var(--win); }
 .ob-move.down{ color: var(--loss); }
 
@@ -5002,7 +5002,7 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 
 /* ============================================================
    View transitions (js/motion.js) — the directional tab slide and the
-   team page push/pop with its shared badge. `html[data-nav]` picks the
+   team page push/pop. `html[data-nav]` picks the
    keyframes; with no data-nav (Draft, Admin, Scoring) it's a plain
    crossfade. Without View Transitions, or with reduced motion, none of
    this runs and the older CSS fades below keep working as before.
@@ -5019,7 +5019,6 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   html[data-nav="push"]::view-transition-new(root){ animation: vt-push-new 400ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
   html[data-nav="pop"]::view-transition-old(root){ animation: vt-pop-old 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; z-index: 1; }
   html[data-nav="pop"]::view-transition-new(root){ animation: vt-pop-new 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
-  ::view-transition-group(team-badge){ animation-duration: 480ms; animation-timing-function: var(--ease-out); z-index: 2; }
 
   /* Where View Transitions exist they replace the tab fade (R5) and the
      team views' slide-in (.view-push-in) — both would otherwise play a
@@ -5085,3 +5084,80 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 #launch-splash .ls-word > span{ display: block; overflow: hidden; padding: 2px 0 4px; }
 #launch-splash .ls-word > span > span{ display: block; transform: translateY(110%); }
 @media (prefers-reduced-motion: reduce){ #launch-splash{ display: none; } }
+
+/* ============================================================
+   Card-stack sheets (phones). While any bottom sheet is up, the page
+   recedes behind it like an iOS card: lockBodyScroll/unlockBodyScroll
+   (js/utils.js) toggle html.sheet-open, and html.sheet-card holds the
+   card's clip until the scale-back finishes. .board is transparent and
+   taller than the screen, so the card is .board clipped at the viewport
+   (--sheet-top) with its background painted out to the screen edges.
+   Sheets themselves open/close through openSheetOverlay/closeSheetOverlay:
+   .entering while they spring up and their rows stagger in, .closing
+   while they slide down. Fill modes stay off the resting state so the
+   swipe-to-dismiss drag (an inline transform) is never overridden.
+   With reduced motion, the older .modal sheet-up above still applies.
+   ============================================================ */
+@media (max-width: 700px) and (prefers-reduced-motion: no-preference){
+  .board{ transition: transform 480ms var(--ease-out); transform-origin: 50% var(--sheet-top, 0px); }
+  html.sheet-card, html.sheet-card body{ background: #000; }
+  html.sheet-card .board{
+    background: var(--bg);
+    box-shadow: 0 0 0 100vh var(--bg);
+    clip-path: inset(var(--sheet-top, 0px) calc(-1 * var(--page-pad)) -100vh round 22px);
+  }
+  html.sheet-open .board{ transform: translateY(calc(env(safe-area-inset-top) + 10px)) scale(0.93); }
+  .safe-area-top{ transition: background-color 480ms var(--ease-out); }
+  html.sheet-open .safe-area-top{ background: #000; }
+
+  .modal-overlay.open{ animation: overlay-in 300ms ease backwards; }
+  .modal-overlay.open .modal{ animation: sheet-spring 560ms cubic-bezier(0.34, 1.28, 0.64, 1) backwards; }
+  .modal-overlay.closing{ animation: overlay-out 260ms ease forwards; }
+  .modal-overlay.closing .modal{ animation: sheet-down 260ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(2){ animation-delay: 205ms; }
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(3){ animation-delay: 250ms; }
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(4){ animation-delay: 295ms; }
+  .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(5){ animation-delay: 340ms; }
+}
+@keyframes overlay-in{ from{ background-color: rgba(6,7,9,0); } }
+@keyframes overlay-out{ to{ background-color: rgba(6,7,9,0); } }
+@keyframes sheet-spring{ from{ transform: translateY(100%); } to{ transform: translateY(0); } }
+@keyframes sheet-down{ to{ transform: translateY(100%); } }
+@keyframes sheet-row-in{ from{ opacity: 0; transform: translateY(14px); } }
+
+/* ============================================================
+   Split bars that build (js/overall.js, obGrowBars). Entering the Points
+   tab or opening a drafter's sheet fills each Locked/Live bar from zero:
+   Locked first, then the Live stripe, 60ms further per --row. bar-grow
+   has no `to` frame, so each segment grows to its own inline width.
+   --grow-skip fast-forwards a bar that was re-rendered mid-fill.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference){
+  .split-bar.grow > span{ animation: bar-grow 560ms var(--ease-out) backwards; animation-delay: calc(120ms + var(--row, 0) * 60ms - var(--grow-skip, 0ms)); }
+  .split-bar.grow > .lv{ animation-delay: calc(230ms + var(--row, 0) * 60ms - var(--grow-skip, 0ms)); }
+}
+@keyframes bar-grow{ from{ width: 0; } }
+
+/* ============================================================
+   Odometer scores (js/live-now.js, odometerHtml). When a refresh finds a
+   live game's score changed, each digit rolls on a 0-9 strip to its new
+   value and the card flashes a gold ring. The strips are aria-hidden;
+   .odo-sr carries the real score for screen readers. The gold wash is an
+   inset shadow because a live card's background is a gradient that
+   would cover a background-color change.
+   ============================================================ */
+.odo-sr{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tg-score[data-scored]{ position: relative; }
+.tg-score .odo-d{ display: inline-block; height: 1em; line-height: 1; overflow: hidden; vertical-align: -0.12em; }
+.tg-score .odo-strip{ display: flex; flex-direction: column; transform: translateY(calc(var(--n) * -1em)); transition: transform 700ms var(--ease-spring); }
+.tg-score .odo-strip > span{ display: block; height: 1em; }
+.tg-card.just-scored{ animation: just-scored 1500ms ease-out; }
+@keyframes just-scored{
+  0%  { box-shadow: 0 0 0 0 rgba(217,180,91,0), inset 0 0 0 999px rgba(217,180,91,0); }
+  18% { box-shadow: 0 0 0 2px rgba(217,180,91,0.9), inset 0 0 0 999px rgba(217,180,91,0.08); }
+  100%{ box-shadow: 0 0 0 0 rgba(217,180,91,0), inset 0 0 0 999px rgba(217,180,91,0); }
+}
+@media (prefers-reduced-motion: reduce){ .tg-score .odo-strip{ transition: none; } .tg-card.just-scored{ animation: none; } }
