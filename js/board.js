@@ -77,13 +77,14 @@ import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome } from './identity.js';
 import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
 import { favoriteStarHtml, isFavorite } from './favorites.js';
+import { navigate, enableNavMotion } from './motion.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // in the corner of the app (see #build-tag in index.html) so you can
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.19-3';
+const APP_VERSION = '2026.09.25-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -623,9 +624,24 @@ export function renderStandings(){
 
 // ---- Bottom tab navigation ----
 
+// Tab bar order, left to right: a switch between two of these slides
+// toward the tapped tab (see js/motion.js); any other switch (Draft,
+// Admin, Scoring, or leaving one of those) crossfades instead.
+const TAB_ORDER = ['board', 'live-now', 'chat', 'standings', 'overall'];
+
 export function switchView(view){
+  const activeTab = document.querySelector('.tab-btn.active');
+  const from = TAB_ORDER.indexOf(activeTab ? activeTab.dataset.view : '');
+  const to = TAB_ORDER.indexOf(view);
+  const kind = from < 0 || to < 0 || from === to ? null : (to > from ? 'fwd' : 'back');
+  navigate(kind, () => showView(view));
+}
+window.switchView = switchView;
+
+function showView(view){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  paintTabPill(view);
   updateUrlParam('view', view === 'board' ? null : view);
   setChatActive(view === 'chat');
   setDraftActive(view === 'draft');
@@ -636,7 +652,16 @@ export function switchView(view){
   if(view === 'admin') renderAdminPage();
   if(view === 'scoring') renderScoringPage();
 }
-window.switchView = switchView;
+
+// The gold pill behind the active tab (.tab-pill) springs to its slot
+// via a CSS transition on --tab-i; off the five tabs it fades out.
+function paintTabPill(view){
+  const bar = document.querySelector('.tab-bar');
+  if(!bar) return;
+  const i = TAB_ORDER.indexOf(view);
+  if(i >= 0) bar.style.setProperty('--tab-i', i);
+  bar.classList.toggle('no-pill', i < 0);
+}
 
 // ---- Boot ----
 
@@ -680,6 +705,7 @@ initDraftLive();
 paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
+enableNavMotion();
 maybeShowWelcome();
 startActivity();
 

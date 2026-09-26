@@ -172,6 +172,13 @@ styling — this is easy to misread as counting if skimmed) rather than hiding t
 modals also suppress the season-phase badge (`In-Season`/`Pre-Season`/etc.) entirely, since showing
 it would read as if the current season counts.
 
+**Motion** (`js/motion.js`, `js/launch-splash.js`): tab switches slide toward the tapped tab and the team
+page pushes in with the tapped row's badge morphing into its hero, both on same-document View Transitions
+(`navigate(kind, update, shared)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the
+team page's open/back functions therefore apply their DOM change asynchronously, inside the transition. The
+launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in
+`<body>`. Everything falls back to the old instant switch without View Transitions or with reduced motion.
+
 **PWA shell:** `manifest.json` + `sw.js` (network-first with a cached-shell fallback, so the app
 still opens offline) exist because this runs installed on iOS. `index.html`'s `.safe-area-top` fixed
 div exists because the installed PWA's translucent status bar shows real page content through it —
