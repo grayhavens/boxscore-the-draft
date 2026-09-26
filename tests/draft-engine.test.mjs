@@ -395,3 +395,12 @@ test('mock rooms are the mock-* names only', () => {
   assert.ok(isMockRoom('mock') && isMockRoom('mock-1') && isMockRoom('mock-2'));
   assert.ok(!isMockRoom('main') && !isMockRoom('mockery') && !isMockRoom('rehearsal-x') && !isMockRoom(null));
 });
+
+test('a room saved before bots existed gets bot defaults on its next setConfig', () => {
+  const s = lobby();
+  delete s.config.bots;
+  delete s.config.botSeconds;
+  const r = ok(s, { type: 'setConfig', bots: ['a'] }, COMM);
+  assert.deepEqual(r.config.bots, ['a']);
+  assert.equal(r.config.botSeconds, 3);
+});

@@ -176,8 +176,9 @@ function setConfig(state, a){
     if(!Array.isArray(bots) || new Set(bots).size !== bots.length || !bots.every(b => state.config.drafters.includes(b))) return fail('bad_input', 'bots');
     state.config.bots = bots.slice();
   }
-  // States saved before bots existed have no bots field.
+  // States saved before bots existed have neither field.
   state.config.bots = (state.config.bots || []).filter(b => state.config.drafters.includes(b));
+  if(state.config.botSeconds === undefined) state.config.botSeconds = DEFAULT_BOT_SECONDS;
   if(structural){
     // The lottery order and any pool built against the old shape no
     // longer line up; make the commissioner redo them.

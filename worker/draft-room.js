@@ -64,7 +64,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
 // Mirrors KNOWN_DRAFT_TEAM_IDS in rundown-proxy.js / DRAFT_TEAMS in
 // js/data.js. Only the default for a brand-new room: the commissioner can
@@ -276,7 +276,8 @@ export class DraftRoom extends DurableObject {
     const clock = onTheClock(state);
     if(!clock || !state.clock.running) return null;
     const { config } = state;
-    const limitMs = ((config.bots || []).includes(clock.owner) ? config.botSeconds : config.clockSeconds) * 1000;
+    // A room saved before bots existed has no botSeconds.
+    const limitMs = ((config.bots || []).includes(clock.owner) ? (config.botSeconds || DEFAULT_BOT_SECONDS) : config.clockSeconds) * 1000;
     return Date.now() + Math.max(0, limitMs - clockElapsedMs(state.clock, Date.now()));
   }
 

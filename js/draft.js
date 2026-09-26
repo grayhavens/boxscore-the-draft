@@ -37,7 +37,7 @@ import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
-  leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom
+  leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS
 } from './draft-rules.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
@@ -350,7 +350,7 @@ function botControlsHtml(d){
       <div class="dr-actions dr-actions-sub dr-bot-actions">
         <button class="dr-btn" onclick="draftSetBots('others')">Everyone but me</button>
         <button class="dr-btn" onclick="draftSetBots('none')">No bots</button>
-        <label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, config.botSeconds, 'draftSetBotSeconds')}</label>
+        <label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>
       </div>`;
 }
 
