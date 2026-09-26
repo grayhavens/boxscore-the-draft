@@ -344,7 +344,7 @@ export function renderNflStandingsRow(row, rank){
   const recordHtml = `<span class="person-record-primary">${recordLabel}</span>${row.winPercent !== null && row.winPercent !== undefined ? `<span class="person-record-secondary">${formatWinPct(row.winPercent)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">

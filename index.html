@@ -13,6 +13,12 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <title>Boxscore</title>
+<!-- Fonts load in parallel with style.css rather than from an @import
+     inside it (which waits for style.css first), so Space Grotesk is
+     usually in hand before the launch splash's wordmark rises. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -23,8 +29,8 @@
   <div class="ls-bg"></div>
   <div class="ls-stage">
     <div class="ls-logo">
-      <div class="ls-tl"></div>
-      <div class="ls-br"></div>
+      <div class="ls-tl"><i></i></div>
+      <div class="ls-br"><i></i></div>
       <div class="ls-sq"></div>
     </div>
     <div class="ls-word"><span><span>B</span></span><span><span>o</span></span><span><span>x</span></span><span><span>s</span></span><span><span>c</span></span><span><span>o</span></span><span><span>r</span></span><span><span>e</span></span></div>

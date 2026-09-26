@@ -1703,7 +1703,11 @@ export async function openGameDetail(teamKey, eventId){
   // different game, while this request is in flight, its result is
   // stale and shouldn't paint over whatever's showing now.
   el.dataset.activeEvent = String(eventId);
-  el.innerHTML = `<div class="modal-body">${skeletonLinesHtml(6)}</div>`;
+  // Tall enough to fill the sheet's max-height, so it opens at the size
+  // a box score will need and the real content fills in without moving it
+  // (a short result glides the sheet down to size — see watchSheetHeight
+  // in js/utils.js).
+  el.innerHTML = `<div class="modal-body gd-loading">${skeletonLinesHtml(6)}</div>`;
 
   const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
   if(el.dataset.activeEvent !== String(eventId)) return;

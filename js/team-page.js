@@ -42,7 +42,7 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
-import { navigate } from './motion.js';
+import { navigate, canAnimateLive } from './motion.js';
 import { trackerSectionHtml } from './league-facts.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
@@ -100,36 +100,52 @@ function espnTeamRowFor(meta){
 // ---- Navigation ----
 
 function setActiveView(viewId){
-  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.toggle('active', v.id === viewId);
+    // See .tp-still in css/style.css: only needed until the page is next hidden.
+    if(v.id !== viewId) v.classList.remove('tp-still');
+  });
 }
 
 // Note: this app's `?team=` param already means something else (which
 // drafter's board you're peeking — see setDraftTeam in js/board.js), so
 // the Team Page's own team key rides in `?tp=` instead to avoid
 // colliding with that existing, unrelated param.
-export function openTeamPage(teamKey, originView){
-  if(!TEAM_META[teamKey]) return;
+// rowEl: the Standings row that was tapped, when there is one — the page
+// then grows out of that row (expandFromRow below) instead of pushing in.
+export function openTeamPage(teamKey, originView, rowEl){
+  if(!TEAM_META[teamKey] || rowMotion) return;
   const origin = originView || 'board';
+  if(rowEl && origin === 'standings' && canAnimateLive() && rowOnScreen(rowEl)){
+    expandFromRow(teamKey, rowEl);
+    return;
+  }
   navigate('push', () => openTeamPageNow(teamKey, origin));
 }
 window.openTeamPage = openTeamPage;
 
-function openTeamPageNow(teamKey, originView){
+function setTeamPageState(teamKey, originView){
   state.teamKey = teamKey;
   state.originView = originView;
   state.originScrollY = window.scrollY;
   state.activeTab = 'schedule';
   state.squadFilter = null;
-  setActiveView('view-team-page');
-  window.scrollTo(0, 0);
   updateUrlParam('view', 'team');
   updateUrlParam('tp', teamKey);
+}
+
+function openTeamPageNow(teamKey, originView){
+  setTeamPageState(teamKey, originView);
+  setActiveView('view-team-page');
+  window.scrollTo(0, 0);
   renderTeamPage();
   ensureBundle(teamKey);
 }
 
 export function backFromTeamPage(){
+  if(rowMotion) return;
   const { originView } = state;
+  if(originView === 'standings' && canAnimateLive() && collapseToRow()) return;
   navigate('pop', () => {
     setActiveView('view-' + originView);
     updateUrlParam('view', originView === 'board' ? null : originView);
@@ -138,6 +154,296 @@ export function backFromTeamPage(){
   });
 }
 window.backFromTeamPage = backFromTeamPage;
+
+/* ---- Standings row ↔ Team page: container transform ----
+   The tapped row grows into the page, and Back shrinks the page back into
+   that row (design handoff "Row Expand Transition"; timings, curves and
+   sequencing are theirs). Run with Web Animations on the live DOM rather
+   than a View Transition: on the way back the team page is the *old*
+   state, and a View Transition only has a frozen picture of that, so its
+   body, veil and ghost couldn't fade on their own.
+
+   While it runs, both views are showing: the Standings view stays in the
+   page flow (.tp-under) and the team page sits over it as a fixed layer
+   (.tp-layer) laid out exactly where it sits in the flow at scroll 0, so
+   swapping back to the plain layout at the end moves no pixels. Above
+   the layer, #tp-fx holds the pieces that fly: a veil the color of the
+   row's own surface, a "ghost" of the row's rank and record, and copies
+   of the hero crest and name (the real ones sit inside .team-hero's
+   overflow: hidden, which would clip them in flight). */
+const ROW_D = 560;                                 // open; close runs at 0.85x
+const ROW_EASE = 'cubic-bezier(0.45,0.05,0.15,1)';  // gentle start, long settle
+const ROW_SOFT = 'cubic-bezier(0.45,0,0.55,1)';     // crossfades
+const TP_BODY = '#team-page-stats, #team-page-game-card, #team-page-tabs, #team-page-tab-body';
+
+let rowMotion = null;       // the running transition, if any: { finish }
+let pendingRender = false;  // a render that landed mid-transition, held until it ends
+
+function rowOnScreen(el){
+  if(!el || !el.isConnected) return false;
+  const r = el.getBoundingClientRect();
+  return r.height > 0 && r.bottom > 0 && r.top < window.innerHeight;
+}
+
+// The row's own surface (its league card), for the veil.
+function surfaceColor(el){
+  for(let n = el; n && n !== document.documentElement; n = n.parentElement){
+    const c = getComputedStyle(n).backgroundColor;
+    if(c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) return c;
+  }
+  return getComputedStyle(document.body).backgroundColor;
+}
+
+const rect = el => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
+const insetOf = (top, right, bottom, left, round) => `inset(${top}px ${right}px ${bottom}px ${left}px round ${round}px)`;
+
+// Everything both directions share. `opening` picks the direction; every
+// keyframe pair is written open-wise and swapped for close, with easing
+// still running forward (no `direction: reverse`, which would turn the
+// ease-out into an ease-in).
+function runRowMotion({ opening, row, page, standings, layout, onDone }){
+  const D = opening ? ROW_D : Math.round(ROW_D * 0.85);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const rr = rect(row);
+  const rowCrest = row.querySelector('.badge'), rowName = row.querySelector('.team-name'), rowOwner = row.querySelector('.team-sub');
+  const heroCrest = page.querySelector('.team-hero-row > :first-child');
+  const heroName = page.querySelector('.team-hero-name'), heroOwner = page.querySelector('.team-hero-owner');
+  const anims = [];
+  const go = (el, a, b, opts) => {
+    if(!el) return;
+    anims.push(el.animate(opening ? [a, b] : [b, a], Object.assign({ duration: D, easing: ROW_EASE, fill: 'both' }, opts)));
+  };
+
+  // The page clip: the row's rectangle → the whole screen. Insets are
+  // relative to the layer's own box (the view's column, full height).
+  const { L, W } = layout;
+  go(page,
+    { clipPath: insetOf(rr.y, L + W - (rr.x + rr.w), vh - (rr.y + rr.h), rr.x - L, 4) },
+    { clipPath: insetOf(0, -(vw - L - W), 0, -L, 0) });
+
+  const fx = document.createElement('div');
+  fx.id = 'tp-fx';
+  document.body.appendChild(fx);
+
+  // Veil: the row's surface, clipped exactly like the page, fading off it.
+  const veil = document.createElement('div');
+  veil.className = 'tp-veil';
+  veil.style.background = surfaceColor(row);
+  fx.appendChild(veil);
+  go(veil, { clipPath: insetOf(rr.y, vw - (rr.x + rr.w), vh - (rr.y + rr.h), rr.x, 4) }, { clipPath: insetOf(0, 0, 0, 0, 0) });
+  // Closing, the veil is in (and the page's content gone) by the time
+  // the card is half its way down, so what lands is a clean row-colored
+  // card rather than an empty page-colored box that changes color as it
+  // settles.
+  go(veil, { opacity: 1 }, { opacity: 0 }, opening
+    ? { easing: ROW_SOFT, duration: D * 0.6, delay: D * 0.1 }
+    : { easing: ROW_SOFT, duration: D * 0.35, delay: D * 0.1 });
+
+  // Copies of the row pinned where it is, showing only some of it, laid
+  // out exactly like the real one — including the top hairline, which the
+  // row gets from its neighbor (a sibling rule), not from itself.
+  const rowBorder = getComputedStyle(row).borderTopWidth;
+  const rowCopy = hideSel => {
+    const c = row.cloneNode(true);
+    c.removeAttribute('onclick');
+    c.classList.add('tp-ghost');
+    c.querySelectorAll(hideSel).forEach(n => { n.style.visibility = 'hidden'; });
+    Object.assign(c.style, {
+      left: rr.x + 'px', top: rr.y + 'px', width: rr.w + 'px', height: rr.h + 'px',
+      borderTop: `${rowBorder} solid transparent`
+    });
+    fx.appendChild(c);
+    return c;
+  };
+
+  // Ghost: the row's rank and record — its crest, name and owner fly
+  // instead.
+  const ghost = rowCopy('.badge, .team-main');
+  // Closing, the rank and record fill in while the card lands, not after.
+  go(ghost, { opacity: 1 }, { opacity: 0 }, opening
+    ? { easing: ROW_SOFT, duration: D * 0.35 }
+    : { easing: ROW_SOFT, duration: D * 0.35, delay: D * 0.45 });
+
+  // Shared crest, name and owner: copies of the hero's, flown from the row's
+  // (FLIP, origin 0 0, uniform scale — separate x/y scales would squash
+  // the text). The name scales by font size, which stays right even when
+  // the hero name wraps to two lines.
+  //
+  // The row's own crest and name aren't the same pixels as the hero's (a
+  // padded 32px badge with a tight shadow, Manrope vs Space Grotesk, maybe
+  // another variant of the crest image), so they never just swap: the copy
+  // lands on what the row actually draws (the image inside the badge's
+  // padding) and cross-fades with the real thing over the stretch nearest
+  // the row — the start of opening, the end of closing. The row's side of
+  // that cross-fade is a copy of the row showing only its crest and name,
+  // above the veil (the real row sits under it) and pixel-identical to the
+  // real row that replaces it when the transition ends.
+  const face = rowCopy('.standings-row > :not(.badge):not(.team-main), .team-main > :not(.team-name):not(.team-sub)');
+  const hidden = [];
+  const hide = el => { if(el){ el.style.visibility = 'hidden'; hidden.push(el); } };
+  const handoff = opening ? { easing: ROW_SOFT, duration: D * 0.15 } : { easing: ROW_SOFT, duration: D * 0.22, delay: D * 0.78 };
+  // The box an element's picture actually fills: a crest's image inside
+  // any padding, otherwise the element itself.
+  const drawn = el => {
+    const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+    const box = rect(img || el);
+    if(!img) return box;
+    const cs = getComputedStyle(img);
+    const pl = parseFloat(cs.paddingLeft) || 0, pt = parseFloat(cs.paddingTop) || 0;
+    const pr = parseFloat(cs.paddingRight) || 0, pb = parseFloat(cs.paddingBottom) || 0;
+    return { x: box.x + pl, y: box.y + pt, w: box.w - pl - pr, h: box.h - pt - pb };
+  };
+  const fly = (src, dst, scale) => {
+    if(!src || !dst) return;
+    const box = rect(dst);
+    if(!box.w || !box.h) return;
+    const s = drawn(src), t = drawn(dst);
+    const copy = dst.cloneNode(true);
+    const cs = getComputedStyle(dst);
+    copy.classList.add('tp-fly');
+    // Styles the copy would lose outside the page (the owner's come from
+    // .team-hero-meta, the crest's size and shadow from .team-hero).
+    Object.assign(copy.style, {
+      left: box.x + 'px', top: box.y + 'px', width: box.w + 'px', height: box.h + 'px',
+      filter: cs.filter, color: cs.color,
+      fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight,
+      lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing
+    });
+    fx.appendChild(copy);
+    // Map the copy's drawn box onto the row's: scale about the copy's
+    // top-left corner, then shift by wherever that leaves its drawn box.
+    const k = scale(s, t);
+    const tx = s.x - box.x - k * (t.x - box.x), ty = s.y - box.y - k * (t.y - box.y);
+    go(copy, { transform: `translate(${tx}px, ${ty}px) scale(${k})` }, { transform: 'translate(0px, 0px) scale(1)' });
+    go(copy, { opacity: 0 }, { opacity: 1 }, handoff);
+    hide(src); hide(dst);
+  };
+  fly(rowCrest, heroCrest, (s, t) => s.h / t.h);
+  const byFont = (src, dst) => () => parseFloat(getComputedStyle(src).fontSize) / parseFloat(getComputedStyle(dst).fontSize);
+  fly(rowName, heroName, byFont(rowName, heroName));
+  fly(rowOwner, heroOwner, byFont(rowOwner, heroOwner));
+  go(face, { opacity: 1 }, { opacity: 0 }, handoff);
+
+  // The page's own content comes in once the shape is mostly there (and
+  // goes first on the way back).
+  const inT = opening ? { delay: D * 0.25, duration: D * 0.75 } : { delay: 0, duration: D * 0.3, easing: ROW_SOFT };
+  page.querySelectorAll(TP_BODY).forEach(el => go(el, { opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'translateY(0px)' }, inT));
+  // The meta line fades except the owner, which flies (its original stays
+  // hidden until the copy lands on it).
+  page.querySelectorAll('.team-page-nav, .team-hero-meta > :not(.team-hero-owner)').forEach(el => go(el, { opacity: 0 }, { opacity: 1 }, inT));
+
+  // Standings recede behind, toward the row.
+  const sr = standings.getBoundingClientRect();
+  standings.style.transformOrigin = `50% ${rr.y + rr.h / 2 - sr.top}px`;
+  go(standings, { transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.93)', opacity: 0.3 });
+
+  let ended = false;
+  const finish = () => {
+    if(ended) return;
+    ended = true;
+    anims.forEach(a => { try{ a.cancel(); }catch(e){} });
+    hidden.forEach(el => { el.style.visibility = ''; });
+    standings.style.transformOrigin = '';
+    fx.remove();
+    rowMotion = null;
+    onDone();
+    if(pendingRender){ pendingRender = false; renderTeamPage(); }
+  };
+  rowMotion = { finish };
+  // Whatever happens to the animations, always land the navigation.
+  Promise.all(anims.map(a => a.finished)).then(finish, finish);
+  setTimeout(finish, D + 400);
+}
+
+// Lays the team page over the Standings view as a fixed layer that
+// matches its in-flow position at scroll 0 (see the section comment).
+// Measured off whichever of the two is in the flow right now; both sit in
+// the same spot in .board.
+function layTeamPageOver(page, standings){
+  const sr = (page.classList.contains('active') ? page : standings).getBoundingClientRect();
+  const layout = { T: sr.top + window.scrollY, L: sr.left, W: sr.width };
+  page.style.setProperty('--tp-t', layout.T + 'px');
+  page.style.setProperty('--tp-l', layout.L + 'px');
+  page.style.setProperty('--tp-w', layout.W + 'px');
+  page.classList.add('tp-layer', 'tp-still');
+  standings.classList.add('tp-under');
+  return layout;
+}
+
+function liftTeamPageLayer(page, standings){
+  page.classList.remove('tp-layer');
+  ['--tp-t', '--tp-l', '--tp-w'].forEach(p => page.style.removeProperty(p));
+  standings.classList.remove('tp-under');
+}
+
+function expandFromRow(teamKey, row){
+  const page = document.getElementById('view-team-page');
+  const standings = document.getElementById('view-standings');
+  if(!page || !standings){ openTeamPageNow(teamKey, 'standings'); return; }
+  try{
+    const layout = layTeamPageOver(page, standings);
+    setTeamPageState(teamKey, 'standings');
+    setActiveView('view-team-page');
+    page.classList.add('tp-still');
+    renderTeamPage();
+    ensureBundle(teamKey);
+    page.scrollTop = 0;
+    runRowMotion({ opening: true, row, page, standings, layout, onDone: () => {
+      liftTeamPageLayer(page, standings);
+      if(page.classList.contains('active')) window.scrollTo(0, 0);
+    } });
+  }catch(e){
+    console.error(e);
+    if(rowMotion) rowMotion.finish();
+    else { liftTeamPageLayer(page, standings); openTeamPageNow(teamKey, 'standings'); }
+  }
+}
+
+// false when there's no row to shrink into (it scrolled away or a refresh
+// dropped it) — the caller then pops the ordinary way.
+function collapseToRow(){
+  const page = document.getElementById('view-team-page');
+  const standings = document.getElementById('view-standings');
+  if(!page || !standings) return false;
+  const pageScroll = window.scrollY;
+  try{
+    const layout = layTeamPageOver(page, standings);
+    page.scrollTop = pageScroll;
+    setActiveView('view-standings');
+    page.classList.add('tp-still');
+    updateUrlParam('view', 'standings');
+    updateUrlParam('tp', null);
+    window.scrollTo(0, state.originScrollY);
+    const key = state.teamKey;
+    const row = [...standings.querySelectorAll('.standings-row')]
+      .find(r => (r.getAttribute('onclick') || '').includes(`openTeamPage('${key}'`) && rowOnScreen(r));
+    if(!row){
+      // Nothing to land on: put the page back and let the caller pop.
+      liftTeamPageLayer(page, standings);
+      setActiveView('view-team-page');
+      updateUrlParam('view', 'team');
+      updateUrlParam('tp', key);
+      window.scrollTo(0, pageScroll);
+      return false;
+    }
+    runRowMotion({ opening: false, row, page, standings, layout, onDone: () => {
+      liftTeamPageLayer(page, standings);
+      page.classList.remove('tp-still');
+    } });
+    return true;
+  }catch(e){
+    console.error(e);
+    if(rowMotion) rowMotion.finish();
+    else liftTeamPageLayer(page, standings);
+    return true;
+  }
+}
+
+// Jump a running row transition straight to its end (switchView calls
+// this so a tab tap mid-flight lands cleanly).
+export function settleTeamTransition(){
+  if(rowMotion) rowMotion.finish();
+}
 
 export function openFullSchedule(teamKey){
   navigate('push', () => {
@@ -176,7 +482,11 @@ window.backFromFullScreen = backFromFullScreen;
 function ensureBundle(teamKey){
   if(liveDataCache[teamKey]) return;
   fetchTeamBundle(teamKey).then(bundle => {
-    if(bundle && state.teamKey === teamKey) renderTeamPage();
+    if(!bundle || state.teamKey !== teamKey) return;
+    // Mid-transition the page's pieces are being animated; replacing
+    // them now would pop them in. Render once it lands instead.
+    if(rowMotion) pendingRender = true;
+    else renderTeamPage();
   });
 }
 
@@ -209,9 +519,9 @@ function heroHtml(teamKey, meta){
         <div>
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
           <div class="team-hero-meta">
-            <span>${league ? league.label : ''}</span>
+            <span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
             <span>&middot;</span>
-            <span>${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
+            <span>${league ? league.label : ''}</span>
             ${status ? `<span class="status-pill">${status.label}</span>` : ''}
           </div>
         </div>

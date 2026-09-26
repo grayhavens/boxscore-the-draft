@@ -314,7 +314,7 @@ export function createFlatStandingsBoard(opts){
     const recordHtml = `<span class="person-record-primary">${primary}</span>${secondary ? `<span class="person-record-secondary">${secondary}</span>` : ''}`;
 
     return `
-      <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
+      <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
         <div class="standings-rank">${rank}</div>
         ${teamBadgeHtml(meta)}
         <div class="team-main">

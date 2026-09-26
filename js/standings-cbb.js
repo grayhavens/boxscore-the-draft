@@ -262,7 +262,7 @@ export function renderCbbRankingRow(rank){
   const recordHtml = `<span class="person-record-primary">${rank.record || ''}</span>${pct !== null ? `<span class="person-record-secondary">${formatWinPct(pct)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${rank.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">

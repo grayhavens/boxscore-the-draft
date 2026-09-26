@@ -134,7 +134,7 @@ export function renderWnbaStandingsRow(row, rank){
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.losses}</span>${rowPct !== null ? `<span class="person-record-secondary">${formatWinPct(rowPct)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
