@@ -66,10 +66,23 @@
       dx = r.left + r.width / 2 - cx; dy = r.top + r.height / 2 - (cy + 26); // back out the -26px lift
       s = r.width / logo.offsetWidth;
       img.style.opacity = '0';
-      at(2780, function(){ img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 100 * S, fill: 'forwards' }).onfinish = function(){ img.style.opacity = ''; }; });
     }
     turn.cancel();
-    seq(logo, [[2280, M(0, -26, 180, 1.05), IO], [2800, M(dx, dy, 180, s)], [2880, M(dx, dy, 180, s, 0)], [T, M(dx, dy, 180, s, 0)]], 2280);
+    // Handoff: the mark lands exactly on the header logo's pixels, so the real
+    // logo switches on at full opacity underneath it and only then does the
+    // mark fade. No crossfade (two half-transparent layers read as a dim
+    // flicker), and it's driven by the flight's own finish, not a timer, so a
+    // busy boot can't pull the two apart.
+    var flight = logo.animate([
+      { transform: M(0, -26, 180, 1.05).transform, easing: IO },
+      { transform: M(dx, dy, 180, s).transform }
+    ], { duration: (2800 - 2280) * S, fill: 'forwards' });
+    anims.push(flight);
+    flight.onfinish = function(){
+      if(done) return;
+      if(img) img.style.opacity = '';
+      anims.push(logo.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 80 * S, fill: 'forwards' }));
+    };
   });
 
   // 5. Reveal Home underneath: splash ground fades, the active view's blocks cascade up.

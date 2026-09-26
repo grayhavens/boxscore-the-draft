@@ -5065,25 +5065,44 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @media (prefers-reduced-motion: reduce){ .tab-pill{ transition: none; } }
 
 /* ---- Launch splash (js/launch-splash.js) ----
-   Geometry is the 512px app icon scaled to a 200px box. The splash stays
-   dark in light theme too, matching the icon and the iOS launch screen. */
-#launch-splash{ position: fixed; inset: 0; z-index: 10000; }
-#launch-splash .ls-bg{ position: absolute; inset: 0; background: #0A0B0D; }
+   Geometry is the 512px app icon scaled to a 200px box. Colors follow the
+   theme the inline <head> script sets on <html> (data-theme="light" |
+   "auto" | none = dark). Ink and square are sampled from the header logo
+   PNGs, so the mark and the real logo match when the mark lands on it. The
+   light ground equals the light --bg, so the reveal has no visible edge.
+   The iOS system launch screen (manifest background_color) stays dark. */
+#launch-splash{
+  --ls-bg: #0A0B0D; --ls-ink: #F3F2EF; --ls-sq: #DC7D00;
+  position: fixed; inset: 0; z-index: 10000;
+}
+html[data-theme="light"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
+@media (prefers-color-scheme: light){
+  html[data-theme="auto"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
+}
+#launch-splash .ls-bg{ position: absolute; inset: 0; background: var(--ls-bg); }
 #launch-splash .ls-stage{ position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
 #launch-splash .ls-logo{ position: absolute; inset: 0; transform: translateY(-26px); transform-origin: 50% 50%; }
 #launch-splash .ls-tl,
 #launch-splash .ls-br{ position: absolute; width: 45px; height: 45px; }
-#launch-splash .ls-tl{ left: 43px; top: 43px; border-top: 13px solid #F2F1EC; border-left: 13px solid #F2F1EC; border-top-left-radius: 13px; clip-path: inset(0 100% 100% 0); }
-#launch-splash .ls-br{ left: 112px; top: 112px; border-bottom: 13px solid #F2F1EC; border-right: 13px solid #F2F1EC; border-bottom-right-radius: 13px; clip-path: inset(100% 0 0 100%); }
-#launch-splash .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: #E07C00; transform: scale(0); }
+#launch-splash .ls-tl{ left: 43px; top: 43px; border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; clip-path: inset(0 100% 100% 0); }
+#launch-splash .ls-br{ left: 112px; top: 112px; border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; clip-path: inset(100% 0 0 100%); }
+#launch-splash .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); transform: scale(0); }
 #launch-splash .ls-word{
   position: absolute; left: 50%; top: 152px; transform: translateX(-50%);
   display: flex; font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;
-  letter-spacing: 0.01em; line-height: 1; color: #F2F1EC; white-space: nowrap;
+  letter-spacing: 0.01em; line-height: 1; color: var(--ls-ink); white-space: nowrap;
 }
 #launch-splash .ls-word > span{ display: block; overflow: hidden; padding: 2px 0 4px; }
 #launch-splash .ls-word > span > span{ display: block; transform: translateY(110%); }
 @media (prefers-reduced-motion: reduce){ #launch-splash{ display: none; } }
+
+/* Light header logo (inverse of the app icon), so the header and the splash
+   mark match the theme. `content` on an <img> swaps its source, so
+   js/page-header.js needs no change. */
+html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png); }
+@media (prefers-color-scheme: light){
+  html[data-theme="auto"] .app-logo{ content: url(../icons/logo-header-light.png); }
+}
 
 /* ============================================================
    Card-stack sheets (phones). While any bottom sheet is up, the page
