@@ -154,7 +154,7 @@ export function renderStandingsRow(leagueKey, row){
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.draws}-${row.losses}</span><span class="person-record-secondary">${row.points} PTS</span>`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings')"` : ''}>
+    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
