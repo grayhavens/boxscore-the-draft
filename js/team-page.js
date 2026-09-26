@@ -42,6 +42,7 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
+import { navigate, firstVisible } from './motion.js';
 import { trackerSectionHtml } from './league-facts.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
@@ -102,14 +103,30 @@ function setActiveView(viewId){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === viewId));
 }
 
+// The push/pop below morphs the tapped row's badge into the hero's and
+// back (see js/motion.js). Rows reach the page either directly
+// (Standings) or through the team modal (Home's cards), so the origin
+// badge is whichever row opens either one for this team.
+const BADGE_SEL = ':is(.badge, .crest-bare)';
+const heroBadge = () => document.querySelector(`#team-page-content .team-hero-row > ${BADGE_SEL}`);
+const rowBadge = (view, key) => firstVisible(
+  `#view-${view} :is([onclick*="openTeamPage('${key}'"], [onclick*="openTeamModal('${key}'"]) ${BADGE_SEL}`
+);
+
 // Note: this app's `?team=` param already means something else (which
 // drafter's board you're peeking — see setDraftTeam in js/board.js), so
 // the Team Page's own team key rides in `?tp=` instead to avoid
 // colliding with that existing, unrelated param.
 export function openTeamPage(teamKey, originView){
   if(!TEAM_META[teamKey]) return;
+  const origin = originView || 'board';
+  navigate('push', () => openTeamPageNow(teamKey, origin), { from: rowBadge(origin, teamKey), to: heroBadge });
+}
+window.openTeamPage = openTeamPage;
+
+function openTeamPageNow(teamKey, originView){
   state.teamKey = teamKey;
-  state.originView = originView || 'board';
+  state.originView = originView;
   state.originScrollY = window.scrollY;
   state.activeTab = 'schedule';
   state.squadFilter = null;
@@ -120,31 +137,39 @@ export function openTeamPage(teamKey, originView){
   renderTeamPage();
   ensureBundle(teamKey);
 }
-window.openTeamPage = openTeamPage;
 
+// Scroll is restored inside the update, so the badge lands on the row
+// where it now sits on screen.
 export function backFromTeamPage(){
-  setActiveView('view-' + state.originView);
-  updateUrlParam('view', state.originView === 'board' ? null : state.originView);
-  updateUrlParam('tp', null);
-  window.scrollTo(0, state.originScrollY);
+  const { originView, teamKey } = state;
+  navigate('pop', () => {
+    setActiveView('view-' + originView);
+    updateUrlParam('view', originView === 'board' ? null : originView);
+    updateUrlParam('tp', null);
+    window.scrollTo(0, state.originScrollY);
+  }, { from: heroBadge(), to: () => rowBadge(originView, teamKey) });
 }
 window.backFromTeamPage = backFromTeamPage;
 
 export function openFullSchedule(teamKey){
-  state.teamKey = teamKey;
-  setActiveView('view-team-schedule');
-  window.scrollTo(0, 0);
-  updateUrlParam('view', 'team-schedule');
-  renderFullSchedule('all');
+  navigate('push', () => {
+    state.teamKey = teamKey;
+    setActiveView('view-team-schedule');
+    window.scrollTo(0, 0);
+    updateUrlParam('view', 'team-schedule');
+    renderFullSchedule('all');
+  });
 }
 window.openFullSchedule = openFullSchedule;
 
 export function openFullSquad(teamKey){
-  state.teamKey = teamKey;
-  setActiveView('view-team-squad');
-  window.scrollTo(0, 0);
-  updateUrlParam('view', 'team-squad');
-  renderFullSquad('all');
+  navigate('push', () => {
+    state.teamKey = teamKey;
+    setActiveView('view-team-squad');
+    window.scrollTo(0, 0);
+    updateUrlParam('view', 'team-squad');
+    renderFullSquad('all');
+  });
 }
 window.openFullSquad = openFullSquad;
 
@@ -152,9 +177,11 @@ window.openFullSquad = openFullSquad;
 // the origin tab — "Full schedule ›"/"Full squad ›" are one level down
 // from the page, not siblings of it.
 export function backFromFullScreen(){
-  setActiveView('view-team-page');
-  updateUrlParam('view', 'team');
-  window.scrollTo(0, 0);
+  navigate('pop', () => {
+    setActiveView('view-team-page');
+    updateUrlParam('view', 'team');
+    window.scrollTo(0, 0);
+  });
 }
 window.backFromFullScreen = backFromFullScreen;
 

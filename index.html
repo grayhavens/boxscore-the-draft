@@ -16,6 +16,21 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<!-- Launch splash, once per cold launch — see js/launch-splash.js.
+     Must stay the first thing in <body>, with its classic (non-module)
+     script right after it, so it paints before anything else. -->
+<div id="launch-splash" aria-hidden="true">
+  <div class="ls-bg"></div>
+  <div class="ls-stage">
+    <div class="ls-logo">
+      <div class="ls-tl"></div>
+      <div class="ls-br"></div>
+      <div class="ls-sq"></div>
+    </div>
+    <div class="ls-word"><span><span>B</span></span><span><span>o</span></span><span><span>x</span></span><span><span>s</span></span><span><span>c</span></span><span><span>o</span></span><span><span>r</span></span><span><span>e</span></span></div>
+  </div>
+</div>
+<script src="js/launch-splash.js"></script>
 <!-- Permanent opaque cover for the notch/status-bar strip (env(safe-area-inset-top))
      — see .safe-area-top in css/style.css for why this exists. -->
 <div class="safe-area-top" aria-hidden="true"></div>
@@ -255,6 +270,7 @@
 <script src="js/page-header.js"></script>
 
 <nav class="tab-bar">
+  <span class="tab-pill" aria-hidden="true"></span>
   <button class="tab-btn active" data-view="board" onclick="switchView('board')">
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg></span>
     <span class="tab-label">Home</span>
