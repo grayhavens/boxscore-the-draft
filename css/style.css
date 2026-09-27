@@ -300,8 +300,7 @@ body{
   font-weight: 500;
 }
 
-/* Same ghost-button language as .scoring-chip below — invisible fill
-   until touched. Sits in .page-header-top right before the identity
+/* Ghost button — invisible fill until touched. Sits in .page-header-top right before the identity
    circle (js/identity.js): margin-left:auto pushes this chip (and the
    circle after it) to the row's right edge as one cluster; the sibling
    rule below cancels .picker-hit's OWN margin-left:auto so the two
@@ -639,36 +638,6 @@ body{
   font-weight: 500;
   letter-spacing: 0.1px;
   margin-top: 1px;
-}
-
-/* Ghost icon button — invisible until hovered, so it reads as a
-   lightweight in-context action rather than a persistent pill. Used by
-   the Points tab's toolbar (see .ob-toolbar below) to open the
-   Scoring page (js/scoring-page.js). Negative margin cancels the
-   button's own left padding so its icon/text sits flush with whatever
-   edge it's the first/last element against, same as any other
-   unpadded header text. */
-.scoring-chip{
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: -9px;
-  font-family: 'Manrope', sans-serif;
-  font-size: var(--fs-12);
-  font-weight: 700;
-  color: var(--text-sub);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 9px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.scoring-chip:hover{
-  background: var(--surface-2);
-  color: var(--accent);
 }
 
 @media (max-width: 1100px){
@@ -2899,23 +2868,14 @@ body{
    everywhere (Compare and the team modal too). See
    docs/points-ux-plan.md. */
 
-/* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
-   Sits below the header/subheader rather than in the header-top row
-   beside the title, so the mode switch can be a plain two-button pill
-   (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
-   defined above) reads as a lightweight in-page action rather than
-   competing with the identity picker up top. */
+/* -- Sub row under the Points header. The Scoring entry point is the
+   full-width button at the bottom of the page (.ob-scoring-btn). -- */
 .page-sub-row{
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
-/* The chips are 30px tall against a ~18px sub line; negative vertical
-   margins keep them from stretching the header row, and the right
-   margin lines their text up with the page edge. */
-.page-sub-row .scoring-chip{ margin-top: -6px; margin-bottom: -6px; }
-.page-sub-row .ob-toolbar-right{ margin-right: -9px; }
 
 /* TEMPORARY: a preview aid for showing the page's shape before the
    season produces real results. Safe to delete this block (and the
@@ -3652,6 +3612,14 @@ body{
   border-color: var(--hairline-strong);
   color: var(--text);
 }
+/* Points tab: the way into the Scoring page, under the table. */
+.ob-scoring-btn{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ob-scoring-btn svg{ color: var(--accent); }
 .modal-cta-note{
   text-align: center;
   font-size: var(--fs-11);
@@ -4248,12 +4216,12 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .standings-row.clickable:active, .sheet-row:active, .ob-card-head:active{ background-color: var(--press); }
 
 .modal-cta, .admin-gate-btn, .ob-detail-link, .admin-adj-save, .chat-send,
-.scope-chip, .scoring-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
+.scope-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
 .chat-send:active, .peek-banner button:active{ transform: scale(0.97); }
-.scope-chip:active, .scoring-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
+.scope-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
 .gd-back:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
 .tab-btn:active .tab-icon{ transform: scale(0.94); }
 
@@ -4500,8 +4468,6 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 /* ============================================================
    Activity feed — see js/activity.js. Existing tokens only.
    ============================================================ */
-.ob-toolbar-right{ display: flex; align-items: center; gap: 4px; }
-
 .act-tile{
   width: 30px; height: 30px; border-radius: 9px; flex: none;
   display: flex; align-items: center; justify-content: center;
