@@ -147,8 +147,6 @@
 
 </div>
 
-<div class="build-tag" id="build-tag"></div>
-
 <!-- Team / league detail modal -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this) closeTeamModal()">
   <div class="modal" id="modal-content">
@@ -271,8 +269,14 @@
   </div>
   <div class="draft-comm" id="draft-comm" hidden></div>
   <div class="draft-body" id="draft-content"></div>
-  <div class="dr-modal-back" id="draft-modal" hidden onclick="draftCloseModal()"></div>
   <div class="draft-toast" id="draft-toast" role="status" aria-live="polite"></div>
+</div>
+
+<!-- The draft room's modals (js/draft.js renderModal). Out here rather than
+     inside #view-draft, whose own stacking context (fixed, z-index 190)
+     would keep the sheet under the tab bar. -->
+<div class="modal-overlay dr-modal-back" id="draft-modal" onclick="draftCloseModal()">
+  <div class="modal dr-modal" id="draft-modal-content" role="dialog" aria-modal="true" onclick="event.stopPropagation()"></div>
 </div>
 
 <!-- Shared header chrome (logo + settings) injected into every

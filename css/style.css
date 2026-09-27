@@ -3335,31 +3335,13 @@ body{
 .view{ display: none; }
 .view.active{ display: block; }
 
-/* Tiny build marker in the corner so you can confirm a device is
-   running the latest deploy rather than a stale cached copy. */
-.build-tag{
-  position: fixed;
-  left: 10px;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 6px);
-  font-size: var(--fs-10);
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  color: var(--text-mute);
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: 150;
-}
-
 /* Total height is --nav-h PLUS the safe-area inset, not just --nav-h
    with the inset squeezed inside it (which is what a plain `height:
    var(--nav-h)` gave, since everything here is box-sizing: border-box —
    padding-bottom ate into the box instead of extending it). That left
    the tab icons/labels cramped into less than --nav-h of real space on
-   any notched/home-indicator iPhone, and the bar's top edge sitting
-   well below where .build-tag already assumed it would be (that
-   marker's own `bottom` calc was already written for a bar this tall —
-   see above) — the mismatch is what read as the bar looking short/cut
-   off just above it. */
+   any notched/home-indicator iPhone, which read as the bar looking
+   short/cut off. */
 .tab-bar{
   position: fixed;
   left: 0;
@@ -4211,6 +4193,7 @@ html.chat-kb .tab-bar{ display: none; }
 .set-tile-sub{ font-size: 12px; color: var(--text-sub); }
 
 .set-foot{ font-size: 12px; color: var(--text-mute); text-align: center; }
+.set-version{ margin-top: -14px; font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.2px; opacity: 0.6; }
 
 /* Light theme: labels one step darker for contrast, chips get an edge
    against the pale page. */
@@ -4968,15 +4951,20 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }
-.dr-modal-back{
-  position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6);
-  display: flex; align-items: center; justify-content: center; padding: 16px;
-}
-.dr-modal-back[hidden]{ display: none; }
-.dr-modal{
-  width: min(460px, 100%); max-height: 90vh; overflow-y: auto;
-  background: var(--sheet); border: 1px solid var(--hairline-strong); border-radius: 18px; padding: 22px;
+/* The draft room's modals ride the shared .modal-overlay/.modal sheet
+   (a bottom sheet on phones); this only lifts it over the draft view
+   and lays out the body. */
+.modal-overlay.dr-modal-back{ z-index: 500; }
+.modal.dr-modal{
+  max-width: 460px; padding: 22px;
   display: flex; flex-direction: column; gap: 14px;
+}
+/* Tall bodies (the bot list) scroll the sheet rather than squashing a card. */
+.modal.dr-modal > *{ flex-shrink: 0; }
+@media (max-width: 700px){
+  .modal.dr-modal{ max-width: none; padding: 0 20px calc(20px + env(safe-area-inset-bottom)); }
+  /* The grabber sits in the flex column; pull it into the top gap. */
+  .modal.dr-modal::before{ flex: 0 0 auto; margin-bottom: 4px; }
 }
 .dr-modal h3{ margin: 0; font-size: var(--fs-20); font-weight: 700; }
 .dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }

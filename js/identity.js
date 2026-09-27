@@ -27,6 +27,7 @@ import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeS
 import { SEASON_IDS } from './seasons/index.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
+import { APP_VERSION } from './board.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -143,6 +144,7 @@ export function renderSettingsPage(backLabel = 'Back'){
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
       <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
     <div class="set-foot">Saved on this device only</div>
+    <div class="set-foot set-version">Version ${APP_VERSION}</div>
   `;
 }
 

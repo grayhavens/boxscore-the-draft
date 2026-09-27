@@ -55,7 +55,7 @@ import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } fro
 import { eplStandingsCache } from './standings-epl.js';
 import { computeLiveRankAutoTeams } from './league-facts.js';
 import { liveBonusHolder, loadBonusInputs } from './compare.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { renderAdminPage } from './admin.js';
 
 const SEASON_LOCK_KEY = 'teamDashboardSeasonLock';
@@ -137,7 +137,7 @@ function currentLock(leagueKey){
   const cache = lockCacheFor(leagueKey);
   if(cache.data === null && !cache.loading && !cache.error){
     cache.loading = true;
-    ensureLockLoaded(leagueKey).then(() => { cache.loading = false; renderStandings(); renderAdminPage(); });
+    ensureLockLoaded(leagueKey).then(() => { cache.loading = false; standingsDataChanged(); renderAdminPage(); });
   }
   return cache.data || loadLocalLock(leagueKey);
 }

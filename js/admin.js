@@ -24,7 +24,7 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
@@ -73,14 +73,10 @@ window.setAdminSection = function(key){
 async function loadDraftStatus(){
   if(draftStatusLoading) return;
   draftStatusLoading = true;
-  try {
-    const res = await fetch(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`, { cache: 'no-store' });
-    if(!res.ok) throw new Error(`status ${res.status}`);
-    draftStatus = await res.json();
-    draftStatusError = false;
-  } catch (e){
-    draftStatusError = true;
-  }
+  // fetchJSON resolves null on any failure (offline, timeout, non-2xx).
+  const data = await fetchJSON(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`);
+  if(data) draftStatus = data;
+  draftStatusError = !data;
   draftStatusLoading = false;
   renderAdminPage();
 }
@@ -156,7 +152,7 @@ function adjustmentRowHtml(teamKey, adjustments){
         ${meta.name} <span class="fact-chip-owner">${drafter.name}</span>
       </div>
       <input type="number" class="admin-adj-pts" id="admin-adj-pts-${teamKey}" value="${current.pts || ''}" placeholder="0">
-      <input type="text" class="admin-adj-note" id="admin-adj-note-${teamKey}" value="${current.note || ''}" placeholder="Why?">
+      <input type="text" class="admin-adj-note" id="admin-adj-note-${teamKey}" value="${escapeHtml(current.note || '')}" placeholder="Why?">
       <button class="admin-adj-save" onclick="saveTeamAdjustment('${teamKey}')">Save</button>
     </div>
   `;

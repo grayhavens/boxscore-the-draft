@@ -20,7 +20,7 @@
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 import { currentProfileId } from './identity.js';
@@ -772,7 +772,7 @@ function obCardHtml(x, scale){
     .map(a => `
       <div class="ob-rule" ${a.teamKey ? `onclick="openTeamModal('${a.teamKey}')"` : ''}>
         <div class="ob-rule-main">
-          <div class="ob-rule-label">${a.label}</div>
+          <div class="ob-rule-label">${escapeHtml(a.label)}</div>
           <div class="ob-rule-meta">
             <span>${a.teamName}</span>
             ${a.provisional ? '<span class="pts-tag live">Live</span>' : '<span class="pts-tag locked">Locked</span>'}
