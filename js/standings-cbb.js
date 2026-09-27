@@ -41,9 +41,9 @@
    happen for any of today's 30 drafted teams.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName, retryPending } from './utils.js';
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -79,7 +79,7 @@ export function loadEspnCbbStandingsCache(){
 
 export function fetchEspnCbbStandingsCached(){
   if(espnCbbStandingsCache.loading) return espnCbbStandingsPromise;
-  if(espnCbbStandingsIsFresh()) return Promise.resolve();
+  if(espnCbbStandingsIsFresh() || retryPending(espnCbbStandingsCache)) return Promise.resolve();
 
   espnCbbStandingsCache.loading = true;
   espnCbbStandingsPromise = (async () => {
@@ -90,12 +90,13 @@ export function fetchEspnCbbStandingsCached(){
       espnCbbStandingsCache.error = false;
       espnCbbStandingsCache.fetchedAt = Date.now();
       saveEspnCbbStandingsCache();
-    } else if(!espnCbbStandingsCache.rows){
+    } else {
+      espnCbbStandingsCache.failedAt = Date.now();
       // Same "don't blank out a good cache on a transient miss" rule
       // every other ESPN-standings cache in this app follows.
-      espnCbbStandingsCache.error = true;
+      if(!espnCbbStandingsCache.rows) espnCbbStandingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllCbbCardRecords();
     const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
     const activeMeta = activeTeam && TEAM_META[activeTeam];
@@ -208,7 +209,7 @@ export function loadEspnCbbRankingsCache(){
 
 export function fetchEspnCbbRankingsCached(){
   if(espnCbbRankingsCache.loading) return espnCbbRankingsPromise;
-  if(espnCbbRankingsIsFresh()) return Promise.resolve();
+  if(espnCbbRankingsIsFresh() || retryPending(espnCbbRankingsCache)) return Promise.resolve();
 
   espnCbbRankingsCache.loading = true;
   espnCbbRankingsPromise = (async () => {
@@ -219,10 +220,11 @@ export function fetchEspnCbbRankingsCached(){
       espnCbbRankingsCache.error = false;
       espnCbbRankingsCache.fetchedAt = Date.now();
       saveEspnCbbRankingsCache();
-    } else if(!espnCbbRankingsCache.ranks){
-      espnCbbRankingsCache.error = true;
+    } else {
+      espnCbbRankingsCache.failedAt = Date.now();
+      if(!espnCbbRankingsCache.ranks) espnCbbRankingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
   })();
   return espnCbbRankingsPromise;
 }

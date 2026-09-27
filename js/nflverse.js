@@ -14,7 +14,7 @@
    every other NFL team then reads from the same cache for free.
    ============================================================ */
 import { DASHBOARD_WORKER_BASE } from './api.js';
-import { fetchJSON } from './utils.js';
+import { fetchJSON, retryPending } from './utils.js';
 
 // nflverse's team abbreviations match this app's own TEAM_META.badgeText
 // verbatim for every NFL team except the Rams — nflverse says "LA",
@@ -71,7 +71,7 @@ export function loadNflverseCaches(){
 
 export function fetchNflverseInjuriesCached(){
   if(nflverseInjuriesCache.loading) return injuriesPromise;
-  if(isFresh(nflverseInjuriesCache, NFLVERSE_INJURIES_TTL_MS)) return Promise.resolve();
+  if(retryPending(nflverseInjuriesCache) || isFresh(nflverseInjuriesCache, NFLVERSE_INJURIES_TTL_MS)) return Promise.resolve();
   if(!DASHBOARD_WORKER_BASE) return Promise.resolve();
 
   nflverseInjuriesCache.loading = true;
@@ -82,6 +82,8 @@ export function fetchNflverseInjuriesCached(){
       nflverseInjuriesCache.byTeam = byTeam;
       nflverseInjuriesCache.fetchedAt = Date.now();
       saveCache(NFLVERSE_INJURIES_CACHE_KEY, nflverseInjuriesCache);
+    } else {
+      nflverseInjuriesCache.failedAt = Date.now();
     }
   })();
   return injuriesPromise;
@@ -89,7 +91,7 @@ export function fetchNflverseInjuriesCached(){
 
 export function fetchNflverseDepthChartCached(){
   if(nflverseDepthChartCache.loading) return depthChartPromise;
-  if(isFresh(nflverseDepthChartCache, NFLVERSE_DEPTH_CHART_TTL_MS)) return Promise.resolve();
+  if(retryPending(nflverseDepthChartCache) || isFresh(nflverseDepthChartCache, NFLVERSE_DEPTH_CHART_TTL_MS)) return Promise.resolve();
   if(!DASHBOARD_WORKER_BASE) return Promise.resolve();
 
   nflverseDepthChartCache.loading = true;
@@ -100,6 +102,8 @@ export function fetchNflverseDepthChartCached(){
       nflverseDepthChartCache.byTeam = byTeam;
       nflverseDepthChartCache.fetchedAt = Date.now();
       saveCache(NFLVERSE_DEPTH_CHART_CACHE_KEY, nflverseDepthChartCache);
+    } else {
+      nflverseDepthChartCache.failedAt = Date.now();
     }
   })();
   return depthChartPromise;

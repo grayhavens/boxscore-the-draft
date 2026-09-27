@@ -12,7 +12,7 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort, CHEVRON_LEFT_SVG } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, formatDateShort, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
@@ -105,7 +105,7 @@ function adjustmentRowHtml(teamKey, adjustments){
         ${meta.name} <span class="fact-chip-owner">${drafter.name}</span>
       </div>
       <input type="number" class="admin-adj-pts" id="admin-adj-pts-${teamKey}" value="${current.pts || ''}" placeholder="0">
-      <input type="text" class="admin-adj-note" id="admin-adj-note-${teamKey}" value="${current.note || ''}" placeholder="Why?">
+      <input type="text" class="admin-adj-note" id="admin-adj-note-${teamKey}" value="${escapeHtml(current.note || '')}" placeholder="Why?">
       <button class="admin-adj-save" onclick="saveTeamAdjustment('${teamKey}')">Save</button>
     </div>
   `;

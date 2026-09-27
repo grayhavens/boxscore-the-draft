@@ -10,10 +10,10 @@
    by win%).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, retryPending } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 const ESPN_WNBA_STANDINGS_CACHE_KEY = 'teamDashboardEspnWnbaStandingsCache';
@@ -53,7 +53,7 @@ export function loadEspnWnbaStandingsCache(){
 // rank, since there's no per-conference view left to rank within.
 export function fetchEspnWnbaStandingsCached(){
   if(espnWnbaStandingsCache.loading) return wnbaStandingsPromise;
-  if(wnbaStandingsIsFresh()) return Promise.resolve();
+  if(wnbaStandingsIsFresh() || retryPending(espnWnbaStandingsCache)) return Promise.resolve();
 
   espnWnbaStandingsCache.loading = true;
   wnbaStandingsPromise = (async () => {
@@ -71,13 +71,14 @@ export function fetchEspnWnbaStandingsCached(){
       espnWnbaStandingsCache.error = false;
       espnWnbaStandingsCache.fetchedAt = Date.now();
       saveWnbaStandingsCache();
-    } else if(!espnWnbaStandingsCache.table){
+    } else {
+      espnWnbaStandingsCache.failedAt = Date.now();
       // Only flag "no data" if we never had a table to fall back on —
       // a transient failure on a background refresh should keep
       // showing the last-known-good table, not blank it out.
-      espnWnbaStandingsCache.error = true;
+      if(!espnWnbaStandingsCache.table) espnWnbaStandingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllWnbaCardRecords();
   })();
   return wnbaStandingsPromise;

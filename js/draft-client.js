@@ -158,23 +158,29 @@ function connect(){
     setStatus('open');
     clearInterval(pingTimer);
     pingTimer = setInterval(() => {
-      if(Date.now() - lastHeard > DEAD_AFTER_MS){ try { ws.close(); } catch (e){} return; }
+      // A dead socket's close handshake can itself hang, so don't wait on
+      // its 'close' event: handle the close now (the late event is then
+      // ignored, since `socket` no longer points at it).
+      if(Date.now() - lastHeard > DEAD_AFTER_MS){ try { ws.close(); } catch (e){} onClose(); return; }
       try { ws.send('ping'); } catch (e){}
     }, PING_EVERY_MS);
   });
   ws.addEventListener('message', ev => {
-    if(ev.data === 'pong'){ lastHeard = Date.now(); return; }
+    lastHeard = Date.now();
+    if(ev.data === 'pong') return;
     try { onFrame(JSON.parse(ev.data)); } catch (e){ console.error('[Draft] bad frame', e); }
   });
-  ws.addEventListener('close', () => {
+  const onClose = () => {
     if(socket !== ws) return;
+    socket = null;
     clearInterval(pingTimer);
     draftStore.commissioner = false;
     failPending('offline');
     if(authResolve){ authResolve(false); authResolve = null; }
     setStatus(wanted ? 'offline' : 'idle');
     scheduleReconnect();
-  });
+  };
+  ws.addEventListener('close', onClose);
   ws.addEventListener('error', () => {});
 }
 

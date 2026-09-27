@@ -29,6 +29,8 @@
    client code calls at runtime.
    ============================================================ */
 
+import { fetchJSON } from './utils.js';
+
 export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // The hypermedia "core" API — a completely different, much more
 // granular API than the "site" one above. Used only for NFL division
@@ -36,24 +38,10 @@ export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // doesn't have at all.
 const ESPN_CORE_BASE = 'https://sports.core.api.espn.com';
 
-async function fetchEspnJSON(path){
-  try {
-    const res = await fetch(`${ESPN_SITE_BASE}${path}`);
-    if(!res.ok) return null;
-    return await res.json();
-  } catch (e){
-    return null;
-  }
-}
-
-async function fetchEspnCoreJSON(url){
-  try {
-    const res = await fetch(url);
-    if(!res.ok) return null;
-    return await res.json();
-  } catch (e){
-    return null;
-  }
+// fetchJSON (js/utils.js) gives these the shared request timeout — a
+// hung ESPN request used to hold up whatever was awaiting it indefinitely.
+function fetchEspnJSON(path){
+  return fetchJSON(`${ESPN_SITE_BASE}${path}`);
 }
 
 // Both endpoints below carry a team.logos[] array — used for teams
@@ -319,7 +307,7 @@ export async function fetchEspnNflDivisionStandings(){
   const seasonYear = new Date().getFullYear();
   const divisions = await Promise.all(
     Object.entries(NFL_DIVISION_GROUP_IDS).map(async ([division, groupId]) => {
-      const data = await fetchEspnCoreJSON(
+      const data = await fetchJSON(
         `${ESPN_CORE_BASE}/v2/sports/football/leagues/nfl/seasons/${seasonYear}/types/2/groups/${groupId}/standings/0?lang=en&region=us`
       );
       const entries = (data && data.standings) || [];
@@ -400,7 +388,7 @@ async function fetchEspnCoreDivisionStandings(corePath, divisionDefs, recordName
   const seasonYear = new Date().getFullYear();
   const divisions = await Promise.all(
     Object.entries(divisionDefs).map(async ([division, { groupId, conferenceAbbr, shortName }]) => {
-      const data = await fetchEspnCoreJSON(
+      const data = await fetchJSON(
         `${ESPN_CORE_BASE}/v2/sports/${corePath}/seasons/${seasonYear}/types/2/groups/${groupId}/standings/0?lang=en&region=us`
       );
       const entries = (data && data.standings) || [];
@@ -711,12 +699,12 @@ export async function fetchEspnSeasonTypes(siteSportPath, coreLeaguePath){
   const standings = await fetchEspnJSON(`/apis/v2/sports/${siteSportPath}/standings`);
   const year = standings && standings.season && standings.season.year;
   if(!year) return null;
-  const listData = await fetchEspnCoreJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/types?lang=en&region=us`);
+  const listData = await fetchJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/types?lang=en&region=us`);
   const items = (listData && listData.items) || [];
   const types = await Promise.all(items.map(async item => {
     const ref = item && item['$ref'];
     if(!ref) return null;
-    const d = await fetchEspnCoreJSON(ref.replace(/^http:/, 'https:'));
+    const d = await fetchJSON(ref.replace(/^http:/, 'https:'));
     return d ? { type: d.type, name: d.name, startDate: d.startDate, endDate: d.endDate } : null;
   }));
   const clean = types.filter(Boolean);

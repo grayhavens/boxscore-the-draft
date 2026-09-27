@@ -226,15 +226,27 @@ const WEEK_SCOREBOARD_SPORT_PATHS = new Set(['football/nfl', 'football/college-f
 // cache for the exact same sportPath/date — two uncoordinated caches
 // meant double the real network calls to ESPN whenever the Today tab
 // was open alongside the background refresh/sweep loops below.
+//
+// The per-team refresh (every ~1.6s) and the live sweep both land here,
+// so an expired entry used to draw several identical requests at once;
+// callers arriving mid-fetch now share the one already in flight.
+const espnScoreboardInFlight = {}; // sportPath -> { day, promise }
 export async function fetchEspnScoreboardCached(sportPath){
   const day = WEEK_SCOREBOARD_SPORT_PATHS.has(sportPath) ? null : localYyyymmdd();
   const cached = espnScoreboardCache[sportPath];
   // `day` is part of the hit check so a tab left open past midnight
   // refetches for the new date instead of serving yesterday's slate.
   if(cached && cached.day === day && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
-  const data = await fetchEspnScoreboard(sportPath, day || undefined);
-  espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
-  return data;
+  const pending = espnScoreboardInFlight[sportPath];
+  if(pending && pending.day === day) return pending.promise;
+  const promise = fetchEspnScoreboard(sportPath, day || undefined).then(data => {
+    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
+    return data;
+  }).finally(() => {
+    if(espnScoreboardInFlight[sportPath] && espnScoreboardInFlight[sportPath].promise === promise) delete espnScoreboardInFlight[sportPath];
+  });
+  espnScoreboardInFlight[sportPath] = { day, promise };
+  return promise;
 }
 
 export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetchedAt }
