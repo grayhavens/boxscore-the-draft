@@ -37,6 +37,7 @@ import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-grou
 import { onTheClock } from './draft-engine.js';
 import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
+import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss } from './utils.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
   leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS
@@ -911,14 +912,18 @@ function modalBody(d){
   return null;
 }
 
+// The app's shared .modal-overlay sheet: centered on desktop, a bottom
+// sheet on phones (slides up, swipe down to dismiss). Closing leaves the
+// body in place so it slides out with the sheet.
 function renderModal(d){
-  const el = document.getElementById('draft-modal');
-  if(!el) return;
+  const overlay = document.getElementById('draft-modal');
+  const sheet = document.getElementById('draft-modal-content');
+  if(!overlay || !sheet) return;
   const body = d && ui.modal ? modalBody(d) : null;
-  if(!body){ el.hidden = true; el.innerHTML = ''; regionHtml.delete('draft-modal'); if(ui.modal && d) ui.modal = null; return; }
-  el.hidden = false;
-  const html = `<div class="dr-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">${body}</div>`;
-  if(regionHtml.get('draft-modal') !== html){ el.innerHTML = html; regionHtml.set('draft-modal', html); }
+  if(!body){ closeSheetOverlay(overlay); if(ui.modal && d) ui.modal = null; return; }
+  if(regionHtml.get('draft-modal') !== body){ sheet.innerHTML = body; regionHtml.set('draft-modal', body); }
+  enableSheetSwipeToDismiss(sheet, window.draftCloseModal);
+  openSheetOverlay(overlay);
 }
 
 // ---- Phone shell ----
@@ -1508,6 +1513,9 @@ export function setDraftActive(on){
     scheduleRender();
   } else {
     hideTip();
+    // The sheet lives outside #view-draft, so it doesn't hide with it.
+    ui.modal = null; ui.trade = null; ui.editSlot = null;
+    renderModal(null);
     clearInterval(clockTimer);
     clearInterval(ui.revealTimer);
     closeDraftConnection();
