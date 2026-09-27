@@ -9,9 +9,9 @@
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml, draftOwnerName } from './utils.js';
+import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml, draftOwnerName, retryPending } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -57,7 +57,7 @@ export function loadEplStandingsCache(){
 // instead of firing their own — this is the actual "load once" part.
 export function fetchEplStandingsTable(){
   if(eplStandingsCache.loading) return eplStandingsPromise;
-  if(eplStandingsIsFresh()) return Promise.resolve();
+  if(eplStandingsIsFresh() || retryPending(eplStandingsCache)) return Promise.resolve();
 
   eplStandingsCache.loading = true;
   eplStandingsPromise = (async () => {
@@ -68,13 +68,14 @@ export function fetchEplStandingsTable(){
       eplStandingsCache.error = false;
       eplStandingsCache.fetchedAt = Date.now();
       saveEplStandingsCache();
-    } else if(!eplStandingsCache.table){
+    } else {
+      eplStandingsCache.failedAt = Date.now();
       // Only flag "no data" if we never had a table to fall back on —
       // a transient failure on a background refresh should keep
       // showing the last-known-good table, not blank it out.
-      eplStandingsCache.error = true;
+      if(!eplStandingsCache.table) eplStandingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllEplCardRecords();
     // Modal stats (renderStats) read eplStandingsCache.table directly
     // rather than storing their own copy, so if the currently-open

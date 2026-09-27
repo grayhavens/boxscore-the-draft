@@ -27,6 +27,7 @@ import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeS
 import { SEASON_IDS } from './seasons/index.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
+import { APP_VERSION } from './board.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -143,6 +144,7 @@ export function renderSettingsPage(backLabel = 'Back'){
         <span class="set-chev">&rsaquo;</span>
       </button>`) : ''}
     <div class="set-foot">Saved on this device only</div>
+    <div class="set-foot set-version">Version ${APP_VERSION}</div>
   `;
 }
 

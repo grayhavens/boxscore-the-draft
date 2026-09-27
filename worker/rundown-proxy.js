@@ -837,7 +837,8 @@ function cleanActivityEvent(e){
     id, type: e.type, ts: e.ts,
     league: KNOWN_LEAGUES.includes(e.league) ? e.league : '',
     title: cleanStr(e.title, 140), sub: cleanStr(e.sub, 140),
-    teamKey: cleanStr(e.teamKey, 60),
+    // Rendered into an inline onclick by every client, so only key-shaped values.
+    teamKey: /^[a-z0-9_-]{1,60}$/i.test(e.teamKey || '') ? e.teamKey : '',
     drafterId: KNOWN_DRAFT_TEAM_IDS.includes(e.drafterId) ? e.drafterId : '',
     deltas, moves
   };
@@ -887,56 +888,68 @@ async function handleActivity(request, env, headers){
 }
 
 export default {
+  // An exception anywhere below (an upstream fetch that throws, a KV
+  // hiccup) would otherwise surface as a bare 500 without CORS headers,
+  // which the browser reports as an opaque network error.
   async fetch(request, env, ctx){
-    const url = new URL(request.url);
-    const origin = request.headers.get('Origin') || '';
-    const headers = corsHeaders(origin);
-
-    if(request.method === 'OPTIONS'){
-      return new Response(null, { headers });
+    try {
+      return await route(request, env, ctx);
+    } catch (e){
+      console.error('[worker] unhandled', e);
+      return new Response('Upstream error', { status: 502, headers: corsHeaders(request.headers.get('Origin') || '') });
     }
-
-    if(url.pathname === '/admin/verify'){
-      if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-      return isAuthorized(request, env)
-        ? json({ ok: true }, 200, headers)
-        : new Response('Unauthorized', { status: 401, headers });
-    }
-
-    if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
-
-    if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env);
-
-    if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, headers);
-
-    if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, headers, ctx);
-
-    if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
-
-    if(url.pathname === '/activity') return handleActivity(request, env, headers);
-
-    const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
-    if(factsMatch) return handleLeagueFacts(request, url, env, factsMatch[1], headers);
-
-    const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
-    if(adjustmentsMatch) return handleAdjustments(request, url, env, adjustmentsMatch[1], headers);
-
-    const lockMatch = url.pathname.match(/^\/lock\/([a-z]+)$/);
-    if(lockMatch) return handleSeasonLock(request, url, env, lockMatch[1], headers);
-
-    const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
-    if(favoritesMatch) return handleFavorites(request, url, env, favoritesMatch[1], headers);
-
-    if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
-
-    if(url.pathname === '/nflverse/injuries') return handleNflverseInjuries(request, env, headers, ctx);
-
-    if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
-
-    if(url.pathname.startsWith('/nhl/score/')) return handleNhlScore(request, url, headers, ctx);
-
-    if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
-
-    return handleRundownEvents(request, url, env, headers, ctx);
   }
 };
+
+async function route(request, env, ctx){
+  const url = new URL(request.url);
+  const origin = request.headers.get('Origin') || '';
+  const headers = corsHeaders(origin);
+
+  if(request.method === 'OPTIONS'){
+    return new Response(null, { headers });
+  }
+
+  if(url.pathname === '/admin/verify'){
+    if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+    return isAuthorized(request, env)
+      ? json({ ok: true }, 200, headers)
+      : new Response('Unauthorized', { status: 401, headers });
+  }
+
+  if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
+
+  if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env);
+
+  if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, headers);
+
+  if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, headers, ctx);
+
+  if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
+
+  if(url.pathname === '/activity') return handleActivity(request, env, headers);
+
+  const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
+  if(factsMatch) return handleLeagueFacts(request, url, env, factsMatch[1], headers);
+
+  const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
+  if(adjustmentsMatch) return handleAdjustments(request, url, env, adjustmentsMatch[1], headers);
+
+  const lockMatch = url.pathname.match(/^\/lock\/([a-z]+)$/);
+  if(lockMatch) return handleSeasonLock(request, url, env, lockMatch[1], headers);
+
+  const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
+  if(favoritesMatch) return handleFavorites(request, url, env, favoritesMatch[1], headers);
+
+  if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
+
+  if(url.pathname === '/nflverse/injuries') return handleNflverseInjuries(request, env, headers, ctx);
+
+  if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
+
+  if(url.pathname.startsWith('/nhl/score/')) return handleNhlScore(request, url, headers, ctx);
+
+  if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
+
+  return handleRundownEvents(request, url, env, headers, ctx);
+}

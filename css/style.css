@@ -3304,31 +3304,13 @@ body{
 .view{ display: none; }
 .view.active{ display: block; }
 
-/* Tiny build marker in the corner so you can confirm a device is
-   running the latest deploy rather than a stale cached copy. */
-.build-tag{
-  position: fixed;
-  left: 10px;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 6px);
-  font-size: var(--fs-10);
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  color: var(--text-mute);
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: 150;
-}
-
 /* Total height is --nav-h PLUS the safe-area inset, not just --nav-h
    with the inset squeezed inside it (which is what a plain `height:
    var(--nav-h)` gave, since everything here is box-sizing: border-box —
    padding-bottom ate into the box instead of extending it). That left
    the tab icons/labels cramped into less than --nav-h of real space on
-   any notched/home-indicator iPhone, and the bar's top edge sitting
-   well below where .build-tag already assumed it would be (that
-   marker's own `bottom` calc was already written for a bar this tall —
-   see above) — the mismatch is what read as the bar looking short/cut
-   off just above it. */
+   any notched/home-indicator iPhone, which read as the bar looking
+   short/cut off. */
 .tab-bar{
   position: fixed;
   left: 0;
@@ -4180,6 +4162,7 @@ html.chat-kb .tab-bar{ display: none; }
 .set-tile-sub{ font-size: 12px; color: var(--text-sub); }
 
 .set-foot{ font-size: 12px; color: var(--text-mute); text-align: center; }
+.set-version{ margin-top: -14px; font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.2px; opacity: 0.6; }
 
 /* Light theme: labels one step darker for contrast, chips get an edge
    against the pale page. */

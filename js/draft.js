@@ -45,6 +45,7 @@ import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
   sendDraftAction, signInCommissioner, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
+import { escapeHtml as esc } from './utils.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -168,7 +169,6 @@ let clockTimer = null;
 let renderQueued = false;
 let lastQueueFor = null;
 
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const drafterName = id => (DRAFT_TEAMS.find(d => d.id === id) || { name: id }).name;
 const root = () => document.getElementById('draft-content');
 

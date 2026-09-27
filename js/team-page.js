@@ -32,7 +32,7 @@
    alone.
    ============================================================ */
 import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml } from './utils.js';
+import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
   FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle,
@@ -738,16 +738,19 @@ function newsTabHtml(teamKey){
   `).join('') + `<div class="news-footer-note">Headlines via ESPN team news</div>`;
 }
 
+// Each tab's fetch repaints the tab when it settles, and painting asks
+// for anything missing — so a failed fetch waits out retryPending
+// (js/utils.js) instead of being retried by its own repaint in a loop.
 function ensureNews(teamKey){
   const meta = TEAM_META[teamKey];
   const row = espnTeamRowFor(meta);
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
   if(!row || !flat){ newsCache[teamKey] = { status: 'error', items: [] }; return; }
-  if(newsCache[teamKey] && newsCache[teamKey].status !== 'error') return;
+  if(newsCache[teamKey] && (newsCache[teamKey].status !== 'error' || retryPending(newsCache[teamKey]))) return;
 
   newsCache[teamKey] = { status: 'loading', items: [] };
   fetchEspnTeamNews(flat.sportPath, row.id).then(items => {
-    newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [] };
+    newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [], failedAt: Date.now() };
     if(state.teamKey === teamKey && state.activeTab === 'schedule') renderTabBody();
   });
 }
@@ -1025,13 +1028,13 @@ const CFB = {
 const PLAYER_STATS_LEAGUES = { nba: BASKETBALL, wnba: BASKETBALL, mcbb: BASKETBALL, nhl: NHL, cfb: CFB };
 
 function ensurePlayerStats(teamKey, meta){
-  if(playerStatsCache[teamKey] && playerStatsCache[teamKey].status !== 'error') return;
+  if(playerStatsCache[teamKey] && (playerStatsCache[teamKey].status !== 'error' || retryPending(playerStatsCache[teamKey]))) return;
   const row = espnTeamRowFor(meta);
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
   if(!row || !flat){ playerStatsCache[teamKey] = { status: 'error', data: null }; return; }
   playerStatsCache[teamKey] = { status: 'loading', data: null };
   fetchEspnTeamPlayerStats(flat.sportPath, row.id).then(data => {
-    playerStatsCache[teamKey] = data ? { status: 'ready', data } : { status: 'error', data: null };
+    playerStatsCache[teamKey] = data ? { status: 'ready', data } : { status: 'error', data: null, failedAt: Date.now() };
     if(state.teamKey === teamKey && (state.activeTab === 'stats' || state.activeTab === 'squad')) renderTabBody();
   });
 }
@@ -1460,11 +1463,11 @@ function ensureRoster(teamKey){
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
   if(meta.leagueKey === 'nfl') ensureNflverse();
   if(!row || !flat){ rosterCache[teamKey] = { status: 'error', items: [] }; return; }
-  if(rosterCache[teamKey] && rosterCache[teamKey].status !== 'error') return;
+  if(rosterCache[teamKey] && (rosterCache[teamKey].status !== 'error' || retryPending(rosterCache[teamKey]))) return;
 
   rosterCache[teamKey] = { status: 'loading', items: [] };
   fetchEspnTeamRoster(flat.sportPath, row.id).then(items => {
-    rosterCache[teamKey] = items ? { status: 'ready', items } : { status: 'error', items: [] };
+    rosterCache[teamKey] = items ? { status: 'ready', items } : { status: 'error', items: [], failedAt: Date.now() };
     if(state.teamKey === teamKey && state.activeTab === 'squad') renderTabBody();
   });
 }
@@ -1484,8 +1487,12 @@ function ensureNflverse(){
   if(nflverseDepthChartCache.byTeam && nflverseInjuriesCache.byTeam) return;
   if(nflverseRenderPending) return;
   nflverseRenderPending = true;
+  const before = [nflverseDepthChartCache.byTeam, nflverseInjuriesCache.byTeam];
   Promise.all([fetchNflverseDepthChartCached(), fetchNflverseInjuriesCached()]).then(() => {
     nflverseRenderPending = false;
+    // Nothing new (a fetch failed, or is backing off): repainting would
+    // just call back in here.
+    if(nflverseDepthChartCache.byTeam === before[0] && nflverseInjuriesCache.byTeam === before[1]) return;
     const meta = TEAM_META[state.teamKey];
     if(meta && meta.leagueKey === 'nfl' && (state.activeTab === 'squad' || state.activeTab === 'injuries')) renderTabBody();
   });

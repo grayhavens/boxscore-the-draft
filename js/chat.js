@@ -19,6 +19,7 @@ import { currentProfileId } from './identity.js';
 import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
+import { escapeHtml as esc } from './utils.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -80,9 +81,6 @@ function lastId(){
   return messages.length ? messages[messages.length - 1].id : 0;
 }
 
-function esc(s){
-  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
 
 function drafterName(id){
   const d = DRAFT_TEAMS.find(t => t.id === id);
@@ -201,7 +199,13 @@ function applyReactions(messageId, reactions){
 setInterval(() => {
   if(!socket || socket.readyState !== WebSocket.OPEN) return;
   if(Date.now() - lastHeard > DEAD_AFTER_MS){
-    socket.close();
+    // A dead socket's close handshake can itself hang (its 'close' event
+    // is what would normally reconnect), so drop it and reconnect now.
+    const dead = socket;
+    socket = null;
+    try { dead.close(); } catch (e){}
+    setStatus('offline');
+    reconnectNow();
     return;
   }
   try { socket.send('ping'); } catch (e){}

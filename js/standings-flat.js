@@ -39,8 +39,8 @@
    labels, and how a record renders/sorts/combines).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, draftOwnerName } from './utils.js';
-import { renderStandings } from './board.js';
+import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, draftOwnerName, retryPending } from './utils.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -96,7 +96,7 @@ export function createFlatStandingsBoard(opts){
 
   function fetchCached(){
     if(cache.loading) return promise;
-    if(isFresh()) return Promise.resolve();
+    if(isFresh() || retryPending(cache)) return Promise.resolve();
 
     cache.loading = true;
     promise = (async () => {
@@ -107,13 +107,14 @@ export function createFlatStandingsBoard(opts){
         cache.error = false;
         cache.fetchedAt = Date.now();
         save();
-      } else if(!cache.rows){
+      } else {
+        cache.failedAt = Date.now();
         // Only flag "no data" if we never had a table to fall back on —
         // a transient failure on a background refresh should keep
         // showing the last-known-good table, not blank it out.
-        cache.error = true;
+        if(!cache.rows) cache.error = true;
       }
-      renderStandings();
+      standingsDataChanged();
       renderAllCardRecords();
     })();
     return promise;
@@ -205,7 +206,7 @@ export function createFlatStandingsBoard(opts){
   function fetchDivisionCached(){
     if(!hasDivisions) return Promise.resolve();
     if(divisionCache.loading) return divisionPromise;
-    if(divisionIsFresh()) return Promise.resolve();
+    if(divisionIsFresh() || retryPending(divisionCache)) return Promise.resolve();
 
     divisionCache.loading = true;
     divisionPromise = (async () => {
@@ -216,12 +217,13 @@ export function createFlatStandingsBoard(opts){
         divisionCache.error = false;
         divisionCache.fetchedAt = Date.now();
         saveDivisionCache();
-      } else if(!divisionCache.divisions){
+      } else {
+        divisionCache.failedAt = Date.now();
         // Same "don't blank out a good cache on a transient miss" rule
         // as the flat cache above.
-        divisionCache.error = true;
+        if(!divisionCache.divisions) divisionCache.error = true;
       }
-      renderStandings();
+      standingsDataChanged();
       // The team modal's Division stat cell (js/live-data.js's
       // renderStats) reads this same cache, and can easily open before
       // this heavier fetch resolves (it's only triggered on-demand, not

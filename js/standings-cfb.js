@@ -28,10 +28,10 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, draftOwnerName } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, draftOwnerName, retryPending } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -75,7 +75,7 @@ export function parseWinLossRecord(record){
 
 export function fetchCfbRecords(){
   if(cfbRecordsCache.loading) return cfbRecordsPromise;
-  if(cfbRecordsIsFresh()) return Promise.resolve();
+  if(cfbRecordsIsFresh() || retryPending(cfbRecordsCache)) return Promise.resolve();
   const sportId = RUNDOWN_SPORT_ID.cfb;
   if(!DASHBOARD_WORKER_BASE || !sportId) return Promise.resolve();
 
@@ -91,13 +91,14 @@ export function fetchCfbRecords(){
       cfbRecordsCache.error = false;
       cfbRecordsCache.fetchedAt = Date.now();
       saveCfbRecordsCache();
-    } else if(!cfbRecordsCache.byTeamId){
+    } else {
+      cfbRecordsCache.failedAt = Date.now();
       // Only flag "no data" if we never had a table to fall back on —
       // same "don't blank out a good cache on a transient miss" rule
       // fetchEplStandingsTable follows in js/standings-epl.js.
-      cfbRecordsCache.error = true;
+      if(!cfbRecordsCache.byTeamId) cfbRecordsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllCfbCardRecords();
 
     // If a CFB team's modal happens to be open already (its stats
@@ -169,7 +170,7 @@ export function loadEspnCfbRankingsCache(){
 
 export function fetchEspnCfbRankingsCached(){
   if(espnCfbRankingsCache.loading) return espnCfbRankingsPromise;
-  if(espnCfbRankingsIsFresh()) return Promise.resolve();
+  if(espnCfbRankingsIsFresh() || retryPending(espnCfbRankingsCache)) return Promise.resolve();
 
   espnCfbRankingsCache.loading = true;
   espnCfbRankingsPromise = (async () => {
@@ -180,12 +181,13 @@ export function fetchEspnCfbRankingsCached(){
       espnCfbRankingsCache.error = false;
       espnCfbRankingsCache.fetchedAt = Date.now();
       saveEspnCfbRankingsCache();
-    } else if(!espnCfbRankingsCache.ranks){
+    } else {
+      espnCfbRankingsCache.failedAt = Date.now();
       // Same "don't blank out a good cache on a transient miss" rule as
       // cfbRecordsCache/fetchEplStandingsTable.
-      espnCfbRankingsCache.error = true;
+      if(!espnCfbRankingsCache.ranks) espnCfbRankingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
   })();
   return espnCfbRankingsPromise;
 }
@@ -243,7 +245,7 @@ export function loadEspnCfbRecordsCache(){
 
 export function fetchEspnCfbRecordsCached(){
   if(espnCfbRecordsCache.loading) return espnCfbRecordsPromise;
-  if(espnCfbRecordsIsFresh()) return Promise.resolve();
+  if(espnCfbRecordsIsFresh() || retryPending(espnCfbRecordsCache)) return Promise.resolve();
 
   espnCfbRecordsCache.loading = true;
   espnCfbRecordsPromise = (async () => {
@@ -262,12 +264,13 @@ export function fetchEspnCfbRecordsCached(){
       espnCfbRecordsCache.error = false;
       espnCfbRecordsCache.fetchedAt = Date.now();
       saveEspnCfbRecordsCache();
-    } else if(!espnCfbRecordsCache.rows){
+    } else {
+      espnCfbRecordsCache.failedAt = Date.now();
       // Same "don't blank out a good cache on a transient miss" rule as
       // cfbRecordsCache above.
-      espnCfbRecordsCache.error = true;
+      if(!espnCfbRecordsCache.rows) espnCfbRecordsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllCfbCardRecords();
     const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
     const activeMeta = activeTeam && TEAM_META[activeTeam];

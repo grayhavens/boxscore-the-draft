@@ -25,16 +25,12 @@
    its own.
    ============================================================ */
 
+import { fetchJSON } from './utils.js';
+
 const MLB_STATS_BASE = 'https://statsapi.mlb.com';
 
-async function fetchMlbJSON(path){
-  try {
-    const res = await fetch(`${MLB_STATS_BASE}${path}`);
-    if(!res.ok) return null;
-    return await res.json();
-  } catch (e){
-    return null;
-  }
+function fetchMlbJSON(path){
+  return fetchJSON(`${MLB_STATS_BASE}${path}`);
 }
 
 // This app has no MLB Stats API team-id mapping anywhere (TEAM_META
