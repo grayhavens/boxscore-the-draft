@@ -685,11 +685,14 @@ function scheduleTabHtml(teamKey, meta, bundle){
 
   // News used to be its own tab — it's a section here now, below the
   // schedule content, so it still shows even while schedule/bundle data
-  // is loading or unavailable rather than being gated on it.
+  // is loading or unavailable rather than being gated on it. Draft Points
+  // (js/league-facts.js) closes out the tab for every team; it used to sit
+  // at the bottom of Stats, which some leagues don't have.
   return `
     ${scheduleHtml}
     <div class="modal-section-title" style="margin-top:16px;">News</div>
     ${newsTabHtml(teamKey)}
+    <div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>
   `;
 }
 
@@ -799,7 +802,6 @@ function statsTilesHtml(teamKey, meta){
 function statsTabHtml(teamKey, meta, bundle){
   const tiles = statsTilesHtml(teamKey, meta);
   const splitHtml = homeAwaySplitHtml(bundle);
-  const trackerHtml = `<div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>`;
 
   if(meta.leagueKey !== 'epl' && !statsCache[teamKey]) ensureStats(teamKey, meta);
   const noteHtml = seasonNoteHtml(meta, null);
@@ -809,7 +811,7 @@ function statsTabHtml(teamKey, meta, bundle){
     const body = (entry && entry.status === 'error')
       ? `<div class="no-live-note">Season stats aren't available for this team right now.</div>`
       : `<div class="loading-note">Loading season stats…</div>`;
-    return noteHtml + body + splitHtml + trackerHtml;
+    return noteHtml + body + splitHtml;
   }
 
   return `
@@ -818,7 +820,6 @@ function statsTabHtml(teamKey, meta, bundle){
       ${tiles.map(t => `<div class="stat-tile"><div class="num">${t.num}</div><div class="lbl">${t.lbl}</div></div>`).join('')}
     </div>
     ${splitHtml}
-    ${trackerHtml}
   `;
 }
 
@@ -1081,7 +1082,6 @@ function leaderRowsHtml(cfg, data){
 function playerStatsTabHtml(teamKey, meta, bundle){
   const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
   const splitHtml = homeAwaySplitHtml(bundle);
-  const trackerHtml = `<div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>`;
   ensurePlayerStats(teamKey, meta);
 
   const entry = playerStatsCache[teamKey];
@@ -1089,7 +1089,7 @@ function playerStatsTabHtml(teamKey, meta, bundle){
     const body = (entry && entry.status === 'error')
       ? `<div class="no-live-note">Season stats aren't available for this team right now.</div>`
       : `<div class="loading-note">Loading season stats…</div>`;
-    return seasonNoteHtml(meta, null) + body + splitHtml + trackerHtml;
+    return seasonNoteHtml(meta, null) + body + splitHtml;
   }
 
   const data = entry.data;
@@ -1102,7 +1102,6 @@ function playerStatsTabHtml(teamKey, meta, bundle){
     ${leadersHtml ? `<div class="modal-section-title" style="margin-top:16px;">Team leaders</div>${leadersHtml}` : ''}
     <div class="news-footer-note">${data.seasonLabel ? data.seasonLabel + ' · ' : ''}Stats via ESPN</div>
     ${splitHtml}
-    ${trackerHtml}
   `;
 }
 

@@ -116,14 +116,14 @@ function obRuleTeams(league, rule){
 }
 
 function obIsProvisional(rule, leagueKey){
-  if(leagueKey) return isRuleProvisional(rule, leagueKey) || !!rule.live;
+  if(leagueKey) return isRuleProvisional(rule, leagueKey);
   return !!(rule.rankAuto || rule.live);
 }
 
 // Every rule currently satisfied by one of a drafter's teams, itemized.
 // This is the single source for both levels of the view: per-league
 // point totals and the locked/live split are summed from it (rather
-// than from computeTeamPoints/computeTeamProvisionalPoints directly), so
+// than from per-team totals), so
 // a rule that becomes Live needs no other change.
 // ---- TEMPORARY: Real/Simulated data preview ----
 //

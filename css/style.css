@@ -2375,14 +2375,17 @@ body{
 }
 
 
-.provisional-note{
-  display: inline-block;
+/* "10 locked · +2 live" beside the projected total — the same split
+   (and Live color) the Points tab shows for a drafter. */
+.tracker-split{
+  display: inline-flex;
+  gap: 8px;
   margin-left: 10px;
   padding-left: 10px;
-  border-left: 1px solid var(--provisional-border);
-  color: var(--provisional);
-  font-weight: 600;
+  border-left: 1px solid rgba(var(--ink-rgb),0.12);
 }
+.tracker-split .lv{ color: var(--provisional); }
+.tracker-split .risk{ color: var(--loss); }
 
 .tracker-item.readonly{ cursor: default; }
 
