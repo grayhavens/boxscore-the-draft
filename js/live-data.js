@@ -874,7 +874,7 @@ export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
     el.innerHTML = `
       <div class="nm-left">
         <div class="nm-teams">${evt.isHome ? 'vs' : 'at'} ${evt.opponentName}</div>
-        <div class="nm-when">${formatKickoff(evt.date)}</div>
+        <div class="nm-when">${evt.timeTbd ? `${formatDateShort(evt.date)} · Time TBD` : formatKickoff(evt.date)}</div>
         <div class="nm-venue">${metaLine}</div>
       </div>
     `;
@@ -906,8 +906,8 @@ export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
 // than one combined string. A bare weekday only reads right within the
 // coming week: a week or more out ("Mon" for a game 16 days away, or
 // "Sat" a week from today) it gets the date too ("Mon, Oct 12").
-function formatChipUpcomingParts(d){
-  const value = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+function formatChipUpcomingParts(d, timeTbd){
+  const value = timeTbd ? 'TBD' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const today = new Date();
   const daysAway = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
   const label = daysAway === 0
@@ -1048,7 +1048,7 @@ export function renderRowStatus(teamKey, bundle){
     if(nextEvt){
       const d = new Date(nextEvt.date);
       if(!isNaN(d.getTime()) && (showsUpcoming || d.toDateString() === new Date().toDateString())){
-        paintStatusSlot(el, formatChipUpcomingParts(d));
+        paintStatusSlot(el, formatChipUpcomingParts(d, nextEvt.timeTbd));
         return;
       }
     }
@@ -1101,6 +1101,15 @@ export function renderLiveBundle(teamKey, bundle){
   renderSeasonBadge(meta, bundle);
   renderForm(teamKey, meta, bundle);
   renderNext(teamKey, meta, bundle);
+}
+
+// How old a cached bundle can be before opening that team refetches it.
+// Same order as the 5-minute background rotation (MIN_REFRESH_CYCLE_MS),
+// so a team viewed mid-rotation isn't refetched twice for nothing.
+const BUNDLE_STALE_MS = 3 * 60 * 1000;
+export function isBundleStale(bundle){
+  const at = bundle && bundle.fetchedAt ? new Date(bundle.fetchedAt).getTime() : 0;
+  return !at || (Date.now() - at) > BUNDLE_STALE_MS;
 }
 
 async function openLiveTeam(teamKey){
@@ -1174,9 +1183,12 @@ export function openTeamModal(teamKey){
     `}
   `;
 
+  // A cached bundle paints instantly, but it may have been restored from
+  // localStorage days ago — refetch behind it rather than waiting for the
+  // background rotation to reach this team.
   if(hasLive){
     if(cached) renderLiveBundle(teamKey, cached);
-    else openLiveTeam(teamKey);
+    if(!cached || isBundleStale(cached)) openLiveTeam(teamKey);
   }
 }
 window.openTeamModal = openTeamModal;
