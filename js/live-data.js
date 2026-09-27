@@ -903,12 +903,16 @@ export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
 // Compact date label for the "next match" status slot — split into a
 // small label ("Today"/"Sat") and the time value, painted as the two
 // stacked lines of .status-slot (see paintStatusSlot below) rather
-// than one combined string.
+// than one combined string. A bare weekday only reads right within the
+// coming week: a week or more out ("Mon" for a game 16 days away, or
+// "Sat" a week from today) it gets the date too ("Mon, Oct 12").
 function formatChipUpcomingParts(d){
   const value = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const label = d.toDateString() === new Date().toDateString()
+  const today = new Date();
+  const daysAway = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  const label = daysAway === 0
     ? 'Today'
-    : d.toLocaleDateString('en-US', { weekday: 'short' });
+    : d.toLocaleDateString('en-US', daysAway >= 7 ? { weekday: 'short', month: 'short', day: 'numeric' } : { weekday: 'short' });
   return { label, value };
 }
 

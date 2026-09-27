@@ -128,7 +128,7 @@ export function reduce(prev, action, ctx){
   switch(action.type){
     case 'setConfig': return setConfig(state, action);
     case 'setPool': return setPool(state, action);
-    case 'runLottery': return runLottery(state, ctx);
+    case 'runLottery': return runLottery(state, action, ctx);
     case 'startDraft': return startDraft(state, ctx);
     case 'pick': return pick(state, action, ctx);
     case 'undo': return undo(state, ctx);
@@ -220,8 +220,11 @@ function setPool(state, a){
   return done(state);
 }
 
-function runLottery(state, ctx){
+// `ifUndrawn` is the mock lobby's automatic first draw: it must not
+// reshuffle an order someone else drew a moment earlier.
+function runLottery(state, a, ctx){
   if(state.phase !== 'lobby') return fail('bad_phase');
+  if(a.ifUndrawn && state.order) return fail('already_drawn');
   state.order = shuffled(state.config.drafters, ctx.rand || Math.random);
   state.overrides = {};
   return done(state);

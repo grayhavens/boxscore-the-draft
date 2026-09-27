@@ -4652,7 +4652,7 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-actions{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dr-actions-sub{ gap: 12px; }
 .dr-bot-actions{ padding: 14px 18px; margin: 0; }
-.dr-bot-row .dr-order-n{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-label); color: var(--accent); }
+.dr-bot-tag{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-label); color: var(--text-mute); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
