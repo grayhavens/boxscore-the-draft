@@ -346,7 +346,7 @@ export function setTeamAdjustment(teamKey, pts, note){
 window.setTeamAdjustment = setTeamAdjustment;
 
 // A team's current manual adjustment, or null if it has none — read by
-// computeTeamPoints below and by obDrafterAwards in js/overall.js.
+// teamPointsSplit below and by obDrafterAwards in js/overall.js.
 export function getTeamAdjustment(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return null;
@@ -466,38 +466,45 @@ export function toggleTrackerSection(teamKey){
 }
 window.toggleTrackerSection = toggleTrackerSection;
 
-function computeTeamPoints(teamKey){
-  const meta = TEAM_META[teamKey];
-  const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
-  if(!scoring) return 0;
-  const rulePts = scoring.rules.reduce((sum, r) => sum + (getLeagueRuleTeams(meta.leagueKey, r).includes(teamKey) ? r.pts : 0), 0);
-  const adj = getTeamAdjustment(teamKey);
-  return rulePts + (adj ? adj.pts : 0);
-}
-
-// A rankAuto rule stops being provisional the moment its league locks
-// in its regular season (js/season-lock.js) — from then on
-// getLeagueRuleTeams is reading a frozen snapshot, not a moving table,
-// so there's nothing left for this rule to still move on.
+// A rule's points are Live (the code's "provisional") while they read
+// off a moving table: a rankAuto rule until its league locks in its
+// regular season (js/season-lock.js) — from then on getLeagueRuleTeams
+// is reading a frozen snapshot — or any rule marked `live: true`, which
+// is always Live, no lock involved. Everything else is Locked. The one
+// definition of Live the Points tab (js/overall.js) and the team page's
+// Draft Points section share.
 export function isRuleProvisional(rule, leagueKey){
-  return !!rule.rankAuto && !isLeagueLocked(leagueKey);
+  return (!!rule.rankAuto && !isLeagueLocked(leagueKey)) || !!rule.live;
 }
 
-// The slice of a team's points that comes from current-standings rules
-// (rankAuto) rather than a real, locked-in fact — these can still move
-// as the table changes before the season ends (every league's division/
-// conference/league-wide title and last-place rules are on this model
-// now — see rankAutoTables above). Manual adjustments are never
-// provisional — an admin decided them.
-function computeTeamProvisionalPoints(teamKey){
+// One team's points, split the same way the Points tab splits a
+// drafter's: Locked (manual facts, a locked league's rankAuto rules,
+// admin adjustments), Live (see isRuleProvisional), and Projected =
+// Locked + Live, "if the season ended today". Adjustments are skipped
+// for a league still showing last season (PRIOR_SEASON_DISPLAY_LEAGUES),
+// same as obDrafterAwards does — nothing there counts yet.
+function teamPointsSplit(teamKey){
   const meta = TEAM_META[teamKey];
   const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
-  if(!scoring) return 0;
-  return scoring.rules.reduce((sum, r) => sum + (isRuleProvisional(r, meta.leagueKey) && getLeagueRuleTeams(meta.leagueKey, r).includes(teamKey) ? r.pts : 0), 0);
+  const split = { locked: 0, live: 0, projected: 0 };
+  if(!scoring) return split;
+  scoring.rules.forEach(r => {
+    if(!(getLeagueRuleTeams(meta.leagueKey, r) || []).includes(teamKey)) return;
+    if(isRuleProvisional(r, meta.leagueKey)) split.live += r.pts;
+    else split.locked += r.pts;
+  });
+  const adj = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey) ? null : getTeamAdjustment(teamKey);
+  if(adj) split.locked += adj.pts;
+  split.projected = split.locked + split.live;
+  return split;
+}
+
+function signedPts(n){
+  return n > 0 ? '+' + n : (n < 0 ? '&minus;' + Math.abs(n) : '0');
 }
 
 // Header row shown whether the tracker is collapsed or expanded: the
-// "Track This Season" title and the "Earned so far" summary stay
+// "Draft Points" title and the projected/locked/live summary stay
 // visible either way, with a chevron (flipped via CSS when expanded)
 // as the only visual cue that there's more underneath. Clicking
 // anywhere on the row toggles it, not just the chevron itself.
@@ -521,23 +528,23 @@ export function trackerSectionHtml(teamKey){
   if(!scoring) return '';
 
   const expanded = trackerExpandedTeamKey === teamKey;
-  const total = computeTeamPoints(teamKey);
-  const provisionalPts = computeTeamProvisionalPoints(teamKey);
-  const adj = getTeamAdjustment(teamKey);
+  const split = teamPointsSplit(teamKey);
+  const adj = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey) ? null : getTeamAdjustment(teamKey);
 
   const itemsHtml = scoring.rules.map(r => {
-    const achieved = getLeagueRuleTeams(meta.leagueKey, r).includes(teamKey);
-    // Rank-based rules (rankAuto) reflect the table as it stands right
-    // now, not a locked-in result — "2nd in EPL" today could be 5th by
-    // the time the season actually ends. Give those a visibly
-    // different (amber, not green/red) state instead of the same
-    // checkmark used for a real fact like "Win FA Cup".
-    const isProvisional = achieved && isRuleProvisional(r, meta.leagueKey);
-    const stateClass = achieved ? (isProvisional ? 'provisional' : 'achieved') : '';
+    const achieved = (getLeagueRuleTeams(meta.leagueKey, r) || []).includes(teamKey);
+    // A Live rule (e.g. "2nd in EPL" off today's table) gets a visibly
+    // different state from a Locked one, since it can still flip before
+    // the season ends — the same Live/Locked tags the Points tab uses.
+    const isLive = achieved && isRuleProvisional(r, meta.leagueKey);
+    const stateClass = achieved ? (isLive ? 'provisional' : 'achieved') : '';
+    const tagHtml = achieved
+      ? (isLive ? '<span class="pts-tag live">Live</span>' : '<span class="pts-tag locked">Locked</span>')
+      : '';
     return `
       <div class="tracker-item readonly ${stateClass}">
         <div class="tracker-check">${achieved ? CHECK_ICON_SVG : ''}</div>
-        <div class="tracker-label">${r.label}${isProvisional ? '<span class="pts-tag live">Live</span>' : ''}</div>
+        <div class="tracker-label">${r.label}${tagHtml}</div>
         <div class="tracker-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts} pt${Math.abs(r.pts) === 1 ? '' : 's'}</div>
       </div>
     `;
@@ -546,21 +553,21 @@ export function trackerSectionHtml(teamKey){
   const adjItemHtml = adj ? `
     <div class="tracker-item readonly achieved">
       <div class="tracker-check">${CHECK_ICON_SVG}</div>
-      <div class="tracker-label">${adj.note || 'Manual adjustment'}</div>
+      <div class="tracker-label">${adj.note || 'Manual adjustment'}<span class="pts-tag locked">Locked</span></div>
       <div class="tracker-value ${adj.pts >= 0 ? 'pos' : 'neg'}">${adj.pts >= 0 ? '+' : ''}${adj.pts} pt${Math.abs(adj.pts) === 1 ? '' : 's'}</div>
     </div>
   ` : '';
 
-  // "Earned so far" is confirmed points only — locked-in facts and
-  // adjustments, not whatever the table currently implies. Provisional
-  // points are shown separately alongside it, not folded into that
-  // headline number, since they can still move before the season ends.
-  const confirmedPts = total - provisionalPts;
-  const provisionalNoteHtml = provisionalPts !== 0
-    ? `<span class="provisional-note">${provisionalPts >= 0 ? '+' : ''}${provisionalPts} provisional</span>`
-    : '';
-
-  const totalHtml = `Earned so far: <b>${confirmedPts >= 0 ? '+' : ''}${confirmedPts}</b> pt${Math.abs(confirmedPts) === 1 ? '' : 's'}${provisionalNoteHtml}`;
+  // Projected is the headline, the same number the Points tab ranks on;
+  // the Locked/Live split beside it says how much of that is permanent.
+  const liveCls = split.live < 0 ? 'risk' : 'lv';
+  const totalHtml = `
+    <b>${split.projected < 0 ? '&minus;' + Math.abs(split.projected) : split.projected}</b> projected
+    <span class="tracker-split">
+      <span>${split.locked < 0 ? '&minus;' + Math.abs(split.locked) : split.locked} locked</span>
+      ${split.live !== 0 ? `<span class="${liveCls}">${signedPts(split.live)} live</span>` : ''}
+    </span>
+  `;
   const bodyHtml = expanded ? `
     <div class="tracker-body">
       <div class="tracker-list">${itemsHtml}${adjItemHtml}</div>
