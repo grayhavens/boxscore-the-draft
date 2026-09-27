@@ -122,6 +122,11 @@ export function renderSettingsPage(backLabel = 'Back'){
       <span class="set-identity-text"><span class="set-identity-name" id="set-name">${me.name}</span><span class="set-row-sub">Drafting on this device</span></span>
       <span class="set-identity-switch">Switch</span>
     </button>
+    ${installPlatform() ? sectionHtml('App', `
+      <button type="button" class="set-row" onclick="openInstallGuide()">
+        <span class="set-row-text"><span class="set-row-title">Add to Home Screen</span><span class="set-row-sub">Open Boxscore like an app</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>`) : ''}
     ${sectionHtml('Appearance', `<div class="set-themes">${THEME_OPTIONS.map(([v, label]) => `
       <button type="button" class="set-theme ${v === s.theme ? 'on' : ''}" data-theme-opt="${v}" aria-pressed="${v === s.theme}" onclick="setSetting('theme', '${v}')">
         <span class="set-swatch" style="background:${THEME_SWATCH[v]}"></span>
@@ -133,16 +138,11 @@ export function renderSettingsPage(backLabel = 'Back'){
     ${sectionHtml('League', `
       <div class="set-tiles">
         <button type="button" class="set-tile" onclick="openDraftPicker()"><span class="set-row-title">Draft &rsaquo;</span><span class="set-tile-sub">Mock or live</span></button>
-        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Scoring &rsaquo;</span><span class="set-tile-sub">Admin password</span></button>
+        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Commissioner &rsaquo;</span><span class="set-tile-sub">Draft &amp; scoring</span></button>
       </div>
       ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
       <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
-    ${installPlatform() ? sectionHtml('App', `
-      <button type="button" class="set-row" onclick="openInstallGuide()">
-        <span class="set-row-text"><span class="set-row-title">Add to Home Screen</span><span class="set-row-sub">Open Boxscore like an app</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>`) : ''}
     <div class="set-foot">Saved on this device only</div>
     <div class="set-foot set-version">Version ${APP_VERSION}</div>
   `;

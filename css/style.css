@@ -2525,7 +2525,7 @@ body{
   padding: 8px 10px;
 }
 
-/* ---- Scoring admin page (js/admin.js) ---- */
+/* ---- Commissioner page (js/admin.js) ---- */
 .admin-gate{
   max-width: 320px;
   margin: 48px auto 0;
@@ -2652,6 +2652,37 @@ body{
   cursor: pointer;
 }
 .admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
+
+/* Draft section: the live room's status as label/value rows. */
+#admin-content .seg{ margin-bottom: 16px; }
+.admin-status{
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.admin-status-row{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  font-size: var(--fs-13);
+}
+.admin-status-row + .admin-status-row{ border-top: 1px solid var(--hairline); }
+.admin-status-label{ color: var(--text-sub); font-weight: 600; }
+.admin-status-value{ color: var(--text); font-weight: 700; text-align: right; }
+.admin-status-value[data-state="ok"]{ color: var(--win); }
+.admin-status-value[data-state="warn"]{ color: var(--accent); }
+.admin-status-value[data-state="live"]{ color: var(--loss); }
+.admin-draft-cta{ width: 100%; margin-top: 14px; }
+.admin-status-note{
+  margin: 10px 0;
+  font-size: var(--fs-12);
+  color: var(--text-mute);
+  line-height: 1.45;
+}
 
 /* ---- Live data additions ---- */
 
@@ -4046,7 +4077,7 @@ html.chat-kb .tab-bar{ display: none; }
 }
 
 /* Same header as every other page (logo + h1; no gear, since this is
-   where it leads), with the back row under it like Manage Scoring's.
+   where it leads), with the back row under it like the Commissioner page's.
    .set-head keeps the two together as one item of the page's 24px-gap
    column. */
 .set-head .page-header{ padding-bottom: 4px; }
@@ -4639,9 +4670,6 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
-.dr-signin{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.dr-signin input{ height: 34px; padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 16px; min-width: 0; flex: 1 1 180px; max-width: 260px; }
-.dr-err{ font-size: var(--fs-12); color: var(--loss); }
 
 /* Live room layout */
 .dr-layout{

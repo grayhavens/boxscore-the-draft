@@ -45,7 +45,7 @@ const OB_LEAGUE_CHART_COLOR = {
 
 // League full names for the detail view's card titles — LEAGUE_SCORING's
 // own `full` is a scoring-table heading ("Premier League Scoring", used
-// on the Manage Scoring page), not a display name, so this view keeps
+// on the Commissioner page), not a display name, so this view keeps
 // its own short list rather than borrowing that string.
 const OB_LEAGUE_FULL_NAME = {
   epl: 'Premier League', cfb: 'College Football', nfl: 'NFL', mcbb: 'College Basketball',

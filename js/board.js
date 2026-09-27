@@ -71,7 +71,7 @@ import { initDraftLive } from './draft-live.js';
 import { ACTIVE_SEASON_ID } from './season.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
-import { renderAdminPage } from './admin.js';
+import { showAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
@@ -667,7 +667,7 @@ function showView(view){
   if(view === 'standings') renderStandings();
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
-  if(view === 'admin') renderAdminPage();
+  if(view === 'admin') showAdminPage();
   if(view === 'scoring') renderScoringPage();
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
 }
@@ -682,7 +682,7 @@ let settingsOriginScrollY = 0;
 // What Settings' back button says: the page it returns to.
 const SETTINGS_BACK_LABELS = {
   'board': 'Home', 'live-now': 'Scores', 'chat': 'Chat', 'standings': 'Standings',
-  'overall': 'Points', 'draft': 'Draft', 'admin': 'Manage Scoring', 'scoring': 'Scoring'
+  'overall': 'Points', 'draft': 'Draft', 'admin': 'Commissioner', 'scoring': 'Scoring'
 };
 
 export function openSettings(){
@@ -710,7 +710,7 @@ export function closeSettings(){
 }
 window.closeSettings = closeSettings;
 
-// Back from a page Settings opened (Manage Scoring): pops to Settings
+// Back from a page Settings opened (Commissioner): pops to Settings
 // without touching its origin, so Settings' own back still returns to
 // the tab the gear was tapped on.
 export function backToSettings(){

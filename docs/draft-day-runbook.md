@@ -13,7 +13,7 @@ step-by-step for the commissioner.
       migration): `cd worker && npx wrangler deploy`. `DASHBOARD_WORKER_BASE` in `js/api.js` must point
       at it.
 - [ ] `ADMIN_PASSWORD` is set as a worker secret (`npx wrangler secret put ADMIN_PASSWORD`). It is the
-      commissioner password in the draft room and on Manage Scoring.
+      commissioner password, entered once on Settings → Commissioner (it covers the draft room and scoring).
 - [ ] Everyone's device has the latest site (the service worker refreshes on the next open; the tiny
       build tag in the corner confirms it).
 
@@ -60,7 +60,9 @@ to the lobby; or just use a new room name.
 ## 2. Draft-day setup (about 15 minutes before)
 
 1. Run the preflight above.
-2. Open `?view=draft` (the real room, "main"). Sign in as commissioner in the lobby (password field).
+2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the lobby's
+   "Commissioner sign-in" button goes there too), then "Open draft lobby". The Draft section there shows
+   whether the pool is loaded and the lottery has run.
 3. **Load team pool.** It should say 258 teams. If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
 4. Set the clock length (90s default; the clock is soft — it counts up in red, nothing auto-picks. Only
@@ -114,7 +116,7 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
 - A device's choice is remembered only while that class is still the newest one it was made under, so when
   the next class ships everyone lands on it and can switch back if they want.
 - The old class's finished leagues render from their saved end-of-season snapshot (the season lock), but
-  only for leagues that were **locked while that class was still the newest**. Check on the Manage Scoring
+  only for leagues that were **locked while that class was still the newest**. Check on the Commissioner page's Scoring
   page that every league that has finished its season shows "Locked" before the new class goes live;
   anything not yet locked will start showing the next season's numbers for the old class.
 - Points, facts, adjustments, favorites and locks are stored per class, so nothing from the old class is

@@ -143,7 +143,8 @@ export class DraftRoom extends DurableObject {
   }
 
   // Just enough for a page outside the draft room to say the draft is on
-  // and whose pick it is.
+  // and whose pick it is — plus the lobby's setup progress (lottery drawn,
+  // team pool loaded) for the Commissioner page (js/admin.js).
   status(){
     const { state } = this;
     const clock = onTheClock(state);
@@ -153,7 +154,9 @@ export class DraftRoom extends DurableObject {
       slot: clock ? clock.slot : null,
       owner: clock ? clock.owner : null,
       drafters: state.config.drafters.length,
-      total: totalPicks(state.config)
+      total: totalPicks(state.config),
+      ordered: !!state.order,
+      poolSize: state.pool.length
     };
   }
 
