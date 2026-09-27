@@ -9,6 +9,8 @@
 
    Three screens share the view:
    - Lobby: draft order (lottery), commissioner setup. Phase 'lobby'.
+     A mock lobby draws its order on arrival and puts each seat's bot
+     switch on the order rows (one table).
    - Live room: Available pool | Board | My roster + queue. Phases
      'draft' and 'done'. Built once as a shell and then updated region by
      region, so the search box keeps focus and scroll positions survive
@@ -125,6 +127,7 @@ const ui = {
   picking: false,         // a pick is in flight; ignore further taps until the room answers
   leftTab: 'available',   // narrow screens: which panel occupies the side slot
   revealed: null,         // lottery reveal: positions shown from the bottom, or null when settled
+  autoDrawFor: null,      // mock lobby: room:seq the automatic first draw was sent for
   revealTimer: null,
   lastOrderKey: undefined, // undefined until the first state has been seen (so a late joiner doesn't replay the reveal)
   shell: null,            // 'live' once the live-room shell is built
@@ -270,7 +273,8 @@ function lobbyHtml(d){
   const order = s.order;
   const drawn = !!order;
   const revealed = ui.revealed === null ? d.n : ui.revealed;
-  const rows = Array.from({ length: d.n }, (_, pos) => {
+  const mock = isMockRoom(draftStore.room);
+  const rows = mock ? mockOrderRowsHtml(d) : Array.from({ length: d.n }, (_, pos) => {
     const visible = drawn && pos >= d.n - revealed;
     const id = visible ? order[pos] : null;
     const isMe = id === d.me;
@@ -294,7 +298,6 @@ function lobbyHtml(d){
   }
 
   const settled = !drawn || revealed >= d.n;
-  const mock = isMockRoom(draftStore.room);
   let actions;
   if(draftStore.commissioner){
     const poolBtn = `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload team pool (${s.poolSize})` : 'Load team pool'}</button>`;
@@ -324,43 +327,46 @@ function lobbyHtml(d){
         ? 'Practice snake draft, nothing counts. Anyone here can set it up and run it. Bots pick on their own, and anyone whose clock runs out is auto-picked from their queue, or the best team left.'
         : "Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. Order is set by random lottery."}</p>
       <div class="dr-card">
-        <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…')}</span></div>
+        <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${mock
+          ? `${(s.config.bots || []).length} of ${d.n} bots`
+          : (!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…'))}</span></div>
         ${rows}
+        ${mock && draftStore.commissioner ? botActionsHtml(d) : ''}
       </div>
       ${firstPicks}
-      ${mock && draftStore.commissioner ? botsCardHtml(d) : ''}
       ${actions}
     </div>`;
 }
 
-// Mock rooms only: which seats the worker drafts for, and how fast. The
-// lobby shows it as a card; mid-draft it's in the settings modal.
-function botControlsHtml(d){
-  const { config } = d.s;
+// Mock rooms only: one table for the draft order and which seats the
+// worker drafts for. The order is drawn automatically on arrival (see
+// maybeAutoDraw), so the rows only fall back to roster order for the
+// moment before it lands. Used by the lobby and the mid-draft modal.
+function mockOrderRowsHtml(d){
+  const { config, order } = d.s;
   const bots = config.bots || [];
-  const rows = config.drafters.map(id => {
+  const canEdit = draftStore.commissioner;
+  return (order || config.drafters).map((id, pos) => {
     const on = bots.includes(id);
-    return `<div class="dr-order-row dr-bot-row">
-      <span class="dr-order-n">${on ? 'BOT' : ''}</span>
-      <span class="dr-order-name">${esc(drafterName(id))}${id === d.me ? ' <span class="dr-you">YOU</span>' : ''}</span>
-      <button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(drafterName(id))} is a bot" onclick="draftToggleBot('${id}')"></button>
+    const isMe = id === d.me;
+    return `<div class="dr-order-row dr-bot-row${isMe ? ' me' : ''}">
+      <span class="dr-order-n">${order ? pos + 1 : '<span class="dr-dim">—</span>'}</span>
+      <span class="dr-order-name">${esc(drafterName(id))}${isMe ? ' <span class="dr-you">YOU</span>' : ''}${on ? ' <span class="dr-bot-tag">BOT</span>' : ''}</span>
+      ${canEdit ? `<button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(drafterName(id))} is a bot" onclick="draftToggleBot('${id}')"></button>` : ''}
     </div>`;
   }).join('');
-  return `${rows}
-      <div class="dr-actions dr-actions-sub dr-bot-actions">
+}
+
+function botActionsHtml(d){
+  return `<div class="dr-actions dr-actions-sub dr-bot-actions">
         <button class="dr-btn" onclick="draftSetBots('others')">Everyone but me</button>
         <button class="dr-btn" onclick="draftSetBots('none')">No bots</button>
-        <label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>
+        <label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, d.s.config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>
       </div>`;
 }
 
-function botsCardHtml(d){
-  const { config } = d.s;
-  return `
-    <div class="dr-card">
-      <div class="dr-card-head"><h3>Bots</h3><span class="dr-dim">${(config.bots || []).length} of ${config.drafters.length}</span></div>
-      ${botControlsHtml(d)}
-    </div>`;
+function botControlsHtml(d){
+  return mockOrderRowsHtml(d) + botActionsHtml(d);
 }
 
 // The pick clock select: mock rooms auto-pick when it runs out.
@@ -1049,6 +1055,7 @@ function render(){
     requestDraftQueue();
   }
   maybeStartReveal(d);
+  maybeAutoDraw(d);
   if(d.s.phase === 'lobby'){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
@@ -1083,7 +1090,8 @@ function maybeStartReveal(d){
   const firstLook = ui.lastOrderKey === undefined;
   ui.lastOrderKey = orderKey;
   clearInterval(ui.revealTimer);
-  if(orderKey && !firstLook && d.s.phase === 'lobby'){
+  // Mock rooms skip it: a practice run shouldn't make you wait 6s per draw.
+  if(orderKey && !firstLook && d.s.phase === 'lobby' && !isMockRoom(draftStore.room)){
     ui.revealed = 0;
     ui.revealTimer = setInterval(() => {
       ui.revealed += 1;
@@ -1093,6 +1101,18 @@ function maybeStartReveal(d){
   } else {
     ui.revealed = null;
   }
+}
+
+// A mock lobby always has an order: the first signed-in viewer to see it
+// undrawn (a new room, or one just reset) draws it. `ifUndrawn` makes a
+// second viewer racing the same draw a no-op instead of a reshuffle, and
+// its refusal is expected, so it isn't toasted.
+function maybeAutoDraw(d){
+  if(d.s.order || d.s.phase !== 'lobby' || !draftStore.commissioner || !isMockRoom(draftStore.room)) return;
+  const key = `${draftStore.room}:${d.s.seq}`;
+  if(ui.autoDrawFor === key) return;
+  ui.autoDrawFor = key;
+  sendDraftAction(currentProfileId, { type: 'runLottery', ifUndrawn: true });
 }
 
 // ---- Clock ----

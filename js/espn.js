@@ -1075,8 +1075,14 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
   // just on the scoreboard endpoint instead. `groups=50` (all Division
   // I, not just ESPN's default "featured" slate) + a high `limit`
   // avoids that; every other sportLeaguePath here plays too few games a
-  // day to ever hit a default limit, so this only applies to mcbb.
+  // day to ever hit a default limit (CFB below is a different problem).
   if(sportLeaguePath === 'basketball/mens-college-basketball') params.push('groups=50', 'limit=400');
+  // College football's bare (no `?dates=`) week scoreboard is ESPN's
+  // Top 25 slate only — 18 games on 2026-09-26 vs 71 for all of FBS —
+  // so unranked teams (Oklahoma State, Liberty, Toledo, …) were missing
+  // from today's Scores tab and the live-score sweep. `groups=80` (FBS)
+  // is what a dated request already returns by default.
+  if(sportLeaguePath === 'football/college-football' && !dates) params.push('groups=80', 'limit=400');
   const query = params.length ? `?${params.join('&')}` : '';
   const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/scoreboard${query}`);
   if(!data) return null;

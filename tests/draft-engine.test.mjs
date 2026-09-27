@@ -74,6 +74,14 @@ test('lobby validation', () => {
   assert.equal(reduce(s, { type: 'pick', team: 'e1' }, as('stranger')).error, 'forbidden');
 });
 
+test('ifUndrawn draws once and never reshuffles an existing order', () => {
+  const s = createState(D, { caps: CAPS });
+  const drawn = ok(s, { type: 'runLottery', ifUndrawn: true }, { ...COMM, rand: () => 0 });
+  assert.deepEqual(drawn.order.slice().sort(), D);
+  err(drawn, { type: 'runLottery', ifUndrawn: true }, COMM, 'already_drawn');
+  ok(drawn, { type: 'runLottery' }, COMM);        // a deliberate re-run still works
+});
+
 test('changing structure clears the lottery and stale-league teams', () => {
   let s = lobby();
   s = ok(s, { type: 'setConfig', caps: { epl: 1 } }, COMM);
