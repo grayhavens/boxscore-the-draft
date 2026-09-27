@@ -226,15 +226,27 @@ const WEEK_SCOREBOARD_SPORT_PATHS = new Set(['football/nfl', 'football/college-f
 // cache for the exact same sportPath/date — two uncoordinated caches
 // meant double the real network calls to ESPN whenever the Today tab
 // was open alongside the background refresh/sweep loops below.
+//
+// The per-team refresh (every ~1.6s) and the live sweep both land here,
+// so an expired entry used to draw several identical requests at once;
+// callers arriving mid-fetch now share the one already in flight.
+const espnScoreboardInFlight = {}; // sportPath -> { day, promise }
 export async function fetchEspnScoreboardCached(sportPath){
   const day = WEEK_SCOREBOARD_SPORT_PATHS.has(sportPath) ? null : localYyyymmdd();
   const cached = espnScoreboardCache[sportPath];
   // `day` is part of the hit check so a tab left open past midnight
   // refetches for the new date instead of serving yesterday's slate.
   if(cached && cached.day === day && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
-  const data = await fetchEspnScoreboard(sportPath, day || undefined);
-  espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
-  return data;
+  const pending = espnScoreboardInFlight[sportPath];
+  if(pending && pending.day === day) return pending.promise;
+  const promise = fetchEspnScoreboard(sportPath, day || undefined).then(data => {
+    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
+    return data;
+  }).finally(() => {
+    if(espnScoreboardInFlight[sportPath] && espnScoreboardInFlight[sportPath].promise === promise) delete espnScoreboardInFlight[sportPath];
+  });
+  espnScoreboardInFlight[sportPath] = { day, promise };
+  return promise;
 }
 
 export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetchedAt }
@@ -874,7 +886,7 @@ export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
     el.innerHTML = `
       <div class="nm-left">
         <div class="nm-teams">${evt.isHome ? 'vs' : 'at'} ${evt.opponentName}</div>
-        <div class="nm-when">${formatKickoff(evt.date)}</div>
+        <div class="nm-when">${evt.timeTbd ? `${formatDateShort(evt.date)} · Time TBD` : formatKickoff(evt.date)}</div>
         <div class="nm-venue">${metaLine}</div>
       </div>
     `;
@@ -906,8 +918,8 @@ export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
 // than one combined string. A bare weekday only reads right within the
 // coming week: a week or more out ("Mon" for a game 16 days away, or
 // "Sat" a week from today) it gets the date too ("Mon, Oct 12").
-function formatChipUpcomingParts(d){
-  const value = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+function formatChipUpcomingParts(d, timeTbd){
+  const value = timeTbd ? 'TBD' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const today = new Date();
   const daysAway = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
   const label = daysAway === 0
@@ -1048,7 +1060,7 @@ export function renderRowStatus(teamKey, bundle){
     if(nextEvt){
       const d = new Date(nextEvt.date);
       if(!isNaN(d.getTime()) && (showsUpcoming || d.toDateString() === new Date().toDateString())){
-        paintStatusSlot(el, formatChipUpcomingParts(d));
+        paintStatusSlot(el, formatChipUpcomingParts(d, nextEvt.timeTbd));
         return;
       }
     }
@@ -1101,6 +1113,15 @@ export function renderLiveBundle(teamKey, bundle){
   renderSeasonBadge(meta, bundle);
   renderForm(teamKey, meta, bundle);
   renderNext(teamKey, meta, bundle);
+}
+
+// How old a cached bundle can be before opening that team refetches it.
+// Same order as the 5-minute background rotation (MIN_REFRESH_CYCLE_MS),
+// so a team viewed mid-rotation isn't refetched twice for nothing.
+const BUNDLE_STALE_MS = 3 * 60 * 1000;
+export function isBundleStale(bundle){
+  const at = bundle && bundle.fetchedAt ? new Date(bundle.fetchedAt).getTime() : 0;
+  return !at || (Date.now() - at) > BUNDLE_STALE_MS;
 }
 
 async function openLiveTeam(teamKey){
@@ -1174,9 +1195,12 @@ export function openTeamModal(teamKey){
     `}
   `;
 
+  // A cached bundle paints instantly, but it may have been restored from
+  // localStorage days ago — refetch behind it rather than waiting for the
+  // background rotation to reach this team.
   if(hasLive){
     if(cached) renderLiveBundle(teamKey, cached);
-    else openLiveTeam(teamKey);
+    if(!cached || isBundleStale(cached)) openLiveTeam(teamKey);
   }
 }
 window.openTeamModal = openTeamModal;

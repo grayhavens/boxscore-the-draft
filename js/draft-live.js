@@ -22,6 +22,7 @@ import { currentProfileId } from './identity.js';
 import { onTheClock } from './draft-engine.js';
 import { totalPicks } from './draft-rules.js';
 import { draftStore, subscribeDraft } from './draft-client.js';
+import { escapeHtml as esc } from './utils.js';
 
 const POLL_LIVE_MS = 20000;
 const POLL_IDLE_MS = 90000;
@@ -29,7 +30,6 @@ const POLL_IDLE_MS = 90000;
 let status = null;      // { phase, running, slot, owner, drafters, total } or null
 let pollTimer = null;
 
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const drafterName = id => (DRAFT_TEAMS.find(d => d.id === id) || { name: id }).name;
 const isLive = () => !!status && status.phase === 'draft';
 

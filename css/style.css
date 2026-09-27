@@ -300,8 +300,7 @@ body{
   font-weight: 500;
 }
 
-/* Same ghost-button language as .scoring-chip below — invisible fill
-   until touched. Sits in .page-header-top right before the identity
+/* Ghost button — invisible fill until touched. Sits in .page-header-top right before the identity
    circle (js/identity.js): margin-left:auto pushes this chip (and the
    circle after it) to the row's right edge as one cluster; the sibling
    rule below cancels .picker-hit's OWN margin-left:auto so the two
@@ -639,36 +638,6 @@ body{
   font-weight: 500;
   letter-spacing: 0.1px;
   margin-top: 1px;
-}
-
-/* Ghost icon button — invisible until hovered, so it reads as a
-   lightweight in-context action rather than a persistent pill. Used by
-   the Points tab's toolbar (see .ob-toolbar below) to open the
-   Scoring page (js/scoring-page.js). Negative margin cancels the
-   button's own left padding so its icon/text sits flush with whatever
-   edge it's the first/last element against, same as any other
-   unpadded header text. */
-.scoring-chip{
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: -9px;
-  font-family: 'Manrope', sans-serif;
-  font-size: var(--fs-12);
-  font-weight: 700;
-  color: var(--text-sub);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 9px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.scoring-chip:hover{
-  background: var(--surface-2);
-  color: var(--accent);
 }
 
 @media (max-width: 1100px){
@@ -2528,7 +2497,7 @@ body{
   padding: 8px 10px;
 }
 
-/* ---- Scoring admin page (js/admin.js) ---- */
+/* ---- Commissioner page (js/admin.js) ---- */
 .admin-gate{
   max-width: 320px;
   margin: 48px auto 0;
@@ -2655,6 +2624,37 @@ body{
   cursor: pointer;
 }
 .admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
+
+/* Draft section: the live room's status as label/value rows. */
+#admin-content .seg{ margin-bottom: 16px; }
+.admin-status{
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.admin-status-row{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  font-size: var(--fs-13);
+}
+.admin-status-row + .admin-status-row{ border-top: 1px solid var(--hairline); }
+.admin-status-label{ color: var(--text-sub); font-weight: 600; }
+.admin-status-value{ color: var(--text); font-weight: 700; text-align: right; }
+.admin-status-value[data-state="ok"]{ color: var(--win); }
+.admin-status-value[data-state="warn"]{ color: var(--accent); }
+.admin-status-value[data-state="live"]{ color: var(--loss); }
+.admin-draft-cta{ width: 100%; margin-top: 14px; }
+.admin-status-note{
+  margin: 10px 0;
+  font-size: var(--fs-12);
+  color: var(--text-mute);
+  line-height: 1.45;
+}
 
 /* ---- Live data additions ---- */
 
@@ -2871,23 +2871,14 @@ body{
    everywhere (Compare and the team modal too). See
    docs/points-ux-plan.md. */
 
-/* -- Toolbar: Scoring ghost chip + Real/Simulated data toggle --
-   Sits below the header/subheader rather than in the header-top row
-   beside the title, so the mode switch can be a plain two-button pill
-   (no phone-width squeeze) and the Scoring entry point (.scoring-chip,
-   defined above) reads as a lightweight in-page action rather than
-   competing with the identity picker up top. */
+/* -- Sub row under the Points header. The Scoring entry point is the
+   full-width button at the bottom of the page (.ob-scoring-btn). -- */
 .page-sub-row{
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
-/* The chips are 30px tall against a ~18px sub line; negative vertical
-   margins keep them from stretching the header row, and the right
-   margin lines their text up with the page edge. */
-.page-sub-row .scoring-chip{ margin-top: -6px; margin-bottom: -6px; }
-.page-sub-row .ob-toolbar-right{ margin-right: -9px; }
 
 /* TEMPORARY: a preview aid for showing the page's shape before the
    season produces real results. Safe to delete this block (and the
@@ -3307,31 +3298,13 @@ body{
 .view{ display: none; }
 .view.active{ display: block; }
 
-/* Tiny build marker in the corner so you can confirm a device is
-   running the latest deploy rather than a stale cached copy. */
-.build-tag{
-  position: fixed;
-  left: 10px;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 6px);
-  font-size: var(--fs-10);
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  color: var(--text-mute);
-  opacity: 0.45;
-  pointer-events: none;
-  z-index: 150;
-}
-
 /* Total height is --nav-h PLUS the safe-area inset, not just --nav-h
    with the inset squeezed inside it (which is what a plain `height:
    var(--nav-h)` gave, since everything here is box-sizing: border-box —
    padding-bottom ate into the box instead of extending it). That left
    the tab icons/labels cramped into less than --nav-h of real space on
-   any notched/home-indicator iPhone, and the bar's top edge sitting
-   well below where .build-tag already assumed it would be (that
-   marker's own `bottom` calc was already written for a bar this tall —
-   see above) — the mismatch is what read as the bar looking short/cut
-   off just above it. */
+   any notched/home-indicator iPhone, which read as the bar looking
+   short/cut off. */
 .tab-bar{
   position: fixed;
   left: 0;
@@ -3642,6 +3615,14 @@ body{
   border-color: var(--hairline-strong);
   color: var(--text);
 }
+/* Points tab: the way into the Scoring page, under the table. */
+.ob-scoring-btn{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ob-scoring-btn svg{ color: var(--accent); }
 .modal-cta-note{
   text-align: center;
   font-size: var(--fs-11);
@@ -3913,6 +3894,20 @@ html.chat-kb .tab-bar{ display: none; }
   -webkit-tap-highlight-color: transparent;
 }
 .chat-react-pill span{ font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+
+/* A newly arrived message (and an opened reaction picker) eases in from
+   its own side. js/chat.js's renderList adds .chat-in only to rows it
+   just created, never to the history painted when the tab opens, and
+   skips it entirely under reduced motion. */
+@media (prefers-reduced-motion: no-preference){
+  .chat-in{ animation: chat-in 240ms var(--ease-out) both; transform-origin: bottom left; }
+  .chat-in.mine{ transform-origin: bottom right; }
+  .chat-react-bar.chat-in{ animation: chat-react-in 200ms var(--ease-spring) both; }
+  .gif-panel.open{ animation: gif-panel-in 220ms var(--ease-out); }
+}
+@keyframes chat-in{ from{ opacity: 0; transform: translateY(8px) scale(0.96); } }
+@keyframes chat-react-in{ from{ opacity: 0; transform: translateY(-4px) scale(0.9); } }
+@keyframes gif-panel-in{ from{ opacity: 0; transform: translateY(12px); } }
 .chat-react-pill.on{
   background: var(--accent-soft);
   border-color: var(--accent-border);
@@ -4067,7 +4062,7 @@ html.chat-kb .tab-bar{ display: none; }
 }
 
 /* Same header as every other page (logo + h1; no gear, since this is
-   where it leads), with the back row under it like Manage Scoring's.
+   where it leads), with the back row under it like the Commissioner page's.
    .set-head keeps the two together as one item of the page's 24px-gap
    column. */
 .set-head .page-header{ padding-bottom: 4px; }
@@ -4183,6 +4178,7 @@ html.chat-kb .tab-bar{ display: none; }
 .set-tile-sub{ font-size: 12px; color: var(--text-sub); }
 
 .set-foot{ font-size: 12px; color: var(--text-mute); text-align: center; }
+.set-version{ margin-top: -14px; font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.2px; opacity: 0.6; }
 
 /* Light theme: labels one step darker for contrast, chips get an edge
    against the pale page. */
@@ -4237,12 +4233,12 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .standings-row.clickable:active, .sheet-row:active, .ob-card-head:active{ background-color: var(--press); }
 
 .modal-cta, .admin-gate-btn, .ob-detail-link, .admin-adj-save, .chat-send,
-.scope-chip, .scoring-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
+.scope-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
 .chat-send:active, .peek-banner button:active{ transform: scale(0.97); }
-.scope-chip:active, .scoring-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
+.scope-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
 .gd-back:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
 .tab-btn:active .tab-icon{ transform: scale(0.94); }
 
@@ -4489,8 +4485,6 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 /* ============================================================
    Activity feed — see js/activity.js. Existing tokens only.
    ============================================================ */
-.ob-toolbar-right{ display: flex; align-items: center; gap: 4px; }
-
 .act-tile{
   width: 30px; height: 30px; border-radius: 9px; flex: none;
   display: flex; align-items: center; justify-content: center;
@@ -4659,9 +4653,6 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
-.dr-signin{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.dr-signin input{ height: 34px; padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 16px; min-width: 0; flex: 1 1 180px; max-width: 260px; }
-.dr-err{ font-size: var(--fs-12); color: var(--loss); }
 
 /* Live room layout */
 .dr-layout{
@@ -4943,15 +4934,20 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }
-.dr-modal-back{
-  position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6);
-  display: flex; align-items: center; justify-content: center; padding: 16px;
-}
-.dr-modal-back[hidden]{ display: none; }
-.dr-modal{
-  width: min(460px, 100%); max-height: 90vh; overflow-y: auto;
-  background: var(--sheet); border: 1px solid var(--hairline-strong); border-radius: 18px; padding: 22px;
+/* The draft room's modals ride the shared .modal-overlay/.modal sheet
+   (a bottom sheet on phones); this only lifts it over the draft view
+   and lays out the body. */
+.modal-overlay.dr-modal-back{ z-index: 500; }
+.modal.dr-modal{
+  max-width: 460px; padding: 22px;
   display: flex; flex-direction: column; gap: 14px;
+}
+/* Tall bodies (the bot list) scroll the sheet rather than squashing a card. */
+.modal.dr-modal > *{ flex-shrink: 0; }
+@media (max-width: 700px){
+  .modal.dr-modal{ max-width: none; padding: 0 20px calc(20px + env(safe-area-inset-bottom)); }
+  /* The grabber sits in the flex column; pull it into the top gap. */
+  .modal.dr-modal::before{ flex: 0 0 auto; margin-bottom: 4px; }
 }
 .dr-modal h3{ margin: 0; font-size: var(--fs-20); font-weight: 700; }
 .dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }

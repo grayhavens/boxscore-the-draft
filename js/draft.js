@@ -22,8 +22,10 @@
    in the live room and mock rooms alike): pause/resume, undo, trade,
    draft settings (clock; bots too in a mock room), download, reset, tap
    a filled board cell/row to change that pick, and "Pick for {name}" to
-   draft for whoever is on the clock. Off the lobby, a live-room visitor
-   who isn't signed in gets a "Commissioner sign-in" button there instead.
+   draft for whoever is on the clock. A live-room visitor who isn't signed
+   in gets a "Commissioner sign-in" button (there, or in the lobby) that
+   opens the Commissioner page (js/admin.js) — the only place the password
+   is typed; this room signs in with the one saved there.
    Mock rooms sign everyone in automatically (worker/draft-room.js).
    Phones (<=700px) get their own shell — a compact clock over Pick /
    Board / My team tabs — instead of the three-column layout; the bar
@@ -37,14 +39,16 @@ import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-grou
 import { onTheClock } from './draft-engine.js';
 import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
+import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss } from './utils.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
   leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS
 } from './draft-rules.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
-  sendDraftAction, signInCommissioner, resumeCommissioner, saveDraftQueue, requestDraftQueue
+  sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
+import { escapeHtml as esc } from './utils.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -168,7 +172,6 @@ let clockTimer = null;
 let renderQueued = false;
 let lastQueueFor = null;
 
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const drafterName = id => (DRAFT_TEAMS.find(d => d.id === id) || { name: id }).name;
 const root = () => document.getElementById('draft-content');
 
@@ -312,11 +315,7 @@ function lobbyHtml(d){
     actions = '<div class="dr-wait">Connecting…</div>';
   } else {
     actions = `<div class="dr-wait">${drawn ? 'Waiting for the commissioner to start the draft.' : 'Waiting for the commissioner to run the lottery.'}</div>
-      <form class="dr-signin" onsubmit="draftSignIn(event)">
-        <input id="dr-pw" type="password" placeholder="Commissioner password" autocomplete="off" aria-label="Commissioner password">
-        <button class="dr-btn" type="submit">Sign in</button>
-        ${draftStore.authFailed ? '<span class="dr-err">Wrong password</span>' : ''}
-      </form>`;
+      <div class="dr-actions dr-actions-sub">${commSignInHtml()}</div>`;
   }
 
   return `
@@ -808,10 +807,14 @@ function queueHtml(d){
 
 // ---- Commissioner bar + modals ----
 
+// The password is only ever entered on the Commissioner page (js/admin.js);
+// once it's saved there, this room signs in with it (resumeCommissioner).
+function commSignInHtml(){
+  return `<button class="dr-btn" onclick="switchView('admin')">Commissioner sign-in</button>`;
+}
+
 function commBarHtml(d){
-  if(!draftStore.commissioner){
-    return `<button class="dr-btn" onclick="draftOpenSignIn()">Commissioner sign-in</button>`;
-  }
+  if(!draftStore.commissioner) return commSignInHtml();
   const anyPicks = Object.keys(d.s.picks).length > 0;
   const live = d.s.phase === 'draft';
   const mock = isMockRoom(draftStore.room);
@@ -883,17 +886,6 @@ function modalBody(d){
       <div class="dr-trade-preview">${preview}</div>
       <div class="dr-modal-btns"><button class="dr-btn dr-btn-gold"${valid ? '' : ' disabled'} onclick="draftTradeSubmit()">Swap picks</button><button class="dr-btn" onclick="draftCloseModal()">Cancel</button></div>`;
   }
-  if(ui.modal === 'signin'){
-    if(draftStore.commissioner) return null;
-    return `<h3>Commissioner sign-in</h3>
-      <p>Pause, undo, trade, change picks and pick for whoever is on the clock.</p>
-      <form class="dr-signin" onsubmit="draftSignIn(event)">
-        <input id="dr-pw" type="password" placeholder="Commissioner password" autocomplete="off" aria-label="Commissioner password">
-        <button class="dr-btn dr-btn-gold" type="submit">Sign in</button>
-        ${draftStore.authFailed ? '<span class="dr-err">Wrong password</span>' : ''}
-      </form>
-      <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Cancel</button></div>`;
-  }
   if(ui.modal === 'settings'){
     if(!draftStore.commissioner) return null;
     const mock = isMockRoom(draftStore.room);
@@ -911,14 +903,18 @@ function modalBody(d){
   return null;
 }
 
+// The app's shared .modal-overlay sheet: centered on desktop, a bottom
+// sheet on phones (slides up, swipe down to dismiss). Closing leaves the
+// body in place so it slides out with the sheet.
 function renderModal(d){
-  const el = document.getElementById('draft-modal');
-  if(!el) return;
+  const overlay = document.getElementById('draft-modal');
+  const sheet = document.getElementById('draft-modal-content');
+  if(!overlay || !sheet) return;
   const body = d && ui.modal ? modalBody(d) : null;
-  if(!body){ el.hidden = true; el.innerHTML = ''; regionHtml.delete('draft-modal'); if(ui.modal && d) ui.modal = null; return; }
-  el.hidden = false;
-  const html = `<div class="dr-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">${body}</div>`;
-  if(regionHtml.get('draft-modal') !== html){ el.innerHTML = html; regionHtml.set('draft-modal', html); }
+  if(!body){ closeSheetOverlay(overlay); if(ui.modal && d) ui.modal = null; return; }
+  if(regionHtml.get('draft-modal') !== body){ sheet.innerHTML = body; regionHtml.set('draft-modal', body); }
+  enableSheetSwipeToDismiss(sheet, window.draftCloseModal);
+  openSheetOverlay(overlay);
 }
 
 // ---- Phone shell ----
@@ -1298,13 +1294,6 @@ window.draftLoadPool = async () => {
   const result = await run({ type: 'setPool', teams: buildDraftPool() }, null);
   if(result.ok) toast('Team pool loaded.');
 };
-window.draftSignIn = async event => {
-  event.preventDefault();
-  const input = document.getElementById('dr-pw');
-  if(!input || !input.value) return;
-  await signInCommissioner(input.value);
-  scheduleRender();
-};
 
 // ---- Commissioner actions ----
 
@@ -1345,11 +1334,6 @@ window.draftDownload = async () => {
 
 window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
 window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
-window.draftOpenSignIn = () => {
-  ui.modal = 'signin';
-  scheduleRender();
-  setTimeout(() => document.getElementById('dr-pw')?.focus(), 50);
-};
 window.draftOpenSettings = () => { ui.modal = 'settings'; scheduleRender(); };
 window.draftDoReset = async () => {
   const result = await run({ type: 'reset' }, null);
@@ -1508,6 +1492,9 @@ export function setDraftActive(on){
     scheduleRender();
   } else {
     hideTip();
+    // The sheet lives outside #view-draft, so it doesn't hide with it.
+    ui.modal = null; ui.trade = null; ui.editSlot = null;
+    renderModal(null);
     clearInterval(clockTimer);
     clearInterval(ui.revealTimer);
     closeDraftConnection();

@@ -214,6 +214,7 @@ function buildGame(league, event){
     // "9:15 PM EDT" scheduled — no per-sport formatting needed here.
     detail: event.detail || '',
     date: event.date ? new Date(event.date) : null,
+    timeTbd: !!event.timeTbd,
     postponed: event.statusName === 'STATUS_POSTPONED',
     tag: seasonTagFor(event)
   };
@@ -271,6 +272,7 @@ function railHtml(game){
   if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail.replace(/\s+-\s+/, '<br>')}</div></div>`;
   if(game.state === 'final') return `<div class="tg-rail"><div class="tg-rail-top">${game.detail.replace('Final', 'F')}</div></div>`;
   if(game.postponed) return `<div class="tg-rail"><div class="tg-rail-top">PPD</div></div>`;
+  if(game.timeTbd) return `<div class="tg-rail"><div class="tg-rail-top pre">TBD</div></div>`;
   const t = timeLabel(game.date);
   return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
 }

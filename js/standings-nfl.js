@@ -34,9 +34,9 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName, retryPending } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -106,7 +106,7 @@ export function loadEspnNflStandingsCache(){
 
 export function fetchEspnNflStandingsCached(){
   if(espnNflStandingsCache.loading) return espnNflStandingsPromise;
-  if(espnNflStandingsIsFresh()) return Promise.resolve();
+  if(espnNflStandingsIsFresh() || retryPending(espnNflStandingsCache)) return Promise.resolve();
 
   espnNflStandingsCache.loading = true;
   espnNflStandingsPromise = (async () => {
@@ -117,12 +117,13 @@ export function fetchEspnNflStandingsCached(){
       espnNflStandingsCache.error = false;
       espnNflStandingsCache.fetchedAt = Date.now();
       saveEspnNflStandingsCache();
-    } else if(!espnNflStandingsCache.rows){
+    } else {
+      espnNflStandingsCache.failedAt = Date.now();
       // Same "don't blank out a good cache on a transient miss" rule as
       // cfbRecordsCache in js/standings-cfb.js.
-      espnNflStandingsCache.error = true;
+      if(!espnNflStandingsCache.rows) espnNflStandingsCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     renderAllNflCardRecords();
 
     // If an NFL team's modal happens to be open already (its stats cell
@@ -217,7 +218,7 @@ export function loadEspnNflDivisionCache(){
 
 export function fetchEspnNflDivisionStandingsCached(){
   if(espnNflDivisionCache.loading) return espnNflDivisionPromise;
-  if(espnNflDivisionIsFresh()) return Promise.resolve();
+  if(espnNflDivisionIsFresh() || retryPending(espnNflDivisionCache)) return Promise.resolve();
 
   espnNflDivisionCache.loading = true;
   espnNflDivisionPromise = (async () => {
@@ -228,12 +229,13 @@ export function fetchEspnNflDivisionStandingsCached(){
       espnNflDivisionCache.error = false;
       espnNflDivisionCache.fetchedAt = Date.now();
       saveEspnNflDivisionCache();
-    } else if(!espnNflDivisionCache.divisions){
+    } else {
+      espnNflDivisionCache.failedAt = Date.now();
       // Same "don't blank out a good cache on a transient miss" rule as
       // the flat cache above.
-      espnNflDivisionCache.error = true;
+      if(!espnNflDivisionCache.divisions) espnNflDivisionCache.error = true;
     }
-    renderStandings();
+    standingsDataChanged();
     // The team modal's Division stat cell (js/live-data.js's
     // renderStats) reads this same cache, and can easily open before
     // this heavier fetch resolves (it's only triggered on-demand, not

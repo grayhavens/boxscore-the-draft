@@ -31,7 +31,7 @@
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation, draftOwnerName } from './utils.js';
+import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation, draftOwnerName, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withSeasonQuery } from './season.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
@@ -55,7 +55,7 @@ import {
   espnMlbStandingsCache, espnMlbDivisionCache, mlbConferences,
   computeMlbConferenceStandings, computeMlbDivisionStandings
 } from './standings-mlb.js';
-import { renderStandings } from './board.js';
+import { renderStandings, standingsDataChanged } from './board.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -252,7 +252,7 @@ async function fetchLeagueFacts(leagueKey){
   if(cache.data !== null) return;
   if(data && typeof data === 'object'){
     cache.data = data;
-    renderStandings();
+    standingsDataChanged();
     renderAdminPage();
   } else {
     cache.error = true;
@@ -313,7 +313,7 @@ async function fetchLeagueAdjustments(leagueKey){
   if(cache.data !== null) return;
   if(data && typeof data === 'object'){
     cache.data = data;
-    renderStandings();
+    standingsDataChanged();
     renderAdminPage();
   } else {
     cache.error = true;
@@ -392,10 +392,7 @@ export function leagueSeasonUnderway(leagueKey){
   const underway = isSeasonUnderway(leagueKey);
   if(underway === null && !phasePrimed[leagueKey]){
     phasePrimed[leagueKey] = true;
-    fetchSeasonPhaseCached(leagueKey).then(() => {
-      renderStandings();
-      if(window.renderOverallStandings) window.renderOverallStandings();
-    });
+    fetchSeasonPhaseCached(leagueKey).then(standingsDataChanged);
   }
   return underway;
 }
@@ -553,7 +550,7 @@ export function trackerSectionHtml(teamKey){
   const adjItemHtml = adj ? `
     <div class="tracker-item readonly achieved">
       <div class="tracker-check">${CHECK_ICON_SVG}</div>
-      <div class="tracker-label">${adj.note || 'Manual adjustment'}<span class="pts-tag locked">Locked</span></div>
+      <div class="tracker-label">${escapeHtml(adj.note || 'Manual adjustment')}<span class="pts-tag locked">Locked</span></div>
       <div class="tracker-value ${adj.pts >= 0 ? 'pos' : 'neg'}">${adj.pts >= 0 ? '+' : ''}${adj.pts} pt${Math.abs(adj.pts) === 1 ? '' : 's'}</div>
     </div>
   ` : '';

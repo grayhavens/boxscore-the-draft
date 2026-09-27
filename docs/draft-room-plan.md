@@ -108,7 +108,10 @@ light theme works.
 
 - Commissioner bar (every screen size, live and mock rooms, signed in): Pause/Resume, Undo pick, Trade,
   Clock (Bots & clock in a mock room, mid-draft too), Download board, Reset (confirm modal). Off the lobby,
-  a live-room visitor who isn't signed in sees a "Commissioner sign-in" button there instead.
+  a live-room visitor who isn't signed in sees a "Commissioner sign-in" button there instead. That button
+  (and the lobby's) opens the Settings → Commissioner page (`js/admin.js`), the only place the password is
+  typed; the room signs in with the password saved there, and that page's Draft section shows the live
+  room's status (`GET /draft/status`, which also carries `ordered` and `poolSize`).
   "Pick for {name}" on the on-the-clock card turns the pool's Draft buttons into a proxy pick for whoever is
   on the clock (caps checked against them); clicking any filled board cell opens "Change this pick"
   (remove and pick for the owner, or remove and let them re-pick; either way it becomes a make-up pick).
@@ -240,7 +243,7 @@ draft?" should start here.
   change a pick or pick for someone.
 - ~~Season switcher~~ — built: Settings -> League -> Draft Class (only shown once a second class exists),
   plus a banner while an older class is on screen. A saved choice expires when a newer class ships.
-- **Confirm every finished league is locked** on the Manage Scoring page before the new class ships, since
+- **Confirm every finished league is locked** on the Commissioner page's Scoring section before the new class ships, since
   only leagues locked while their class was still the newest keep their saved final standings.
 
 **Also needed (flagged in earlier phases)**

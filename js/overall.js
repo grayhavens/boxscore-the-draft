@@ -20,7 +20,7 @@
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 import { currentProfileId } from './identity.js';
@@ -45,7 +45,7 @@ const OB_LEAGUE_CHART_COLOR = {
 
 // League full names for the detail view's card titles — LEAGUE_SCORING's
 // own `full` is a scoring-table heading ("Premier League Scoring", used
-// on the Manage Scoring page), not a display name, so this view keeps
+// on the Commissioner page), not a display name, so this view keeps
 // its own short list rather than borrowing that string.
 const OB_LEAGUE_FULL_NAME = {
   epl: 'Premier League', cfb: 'College Football', nfl: 'NFL', mcbb: 'College Basketball',
@@ -573,6 +573,10 @@ function obListHtml(rows){
     ${me ? obHeroHtml(rows, me) : ''}
     <div class="ob-seg">${seg}</div>
     ${obSegment === 'activity' ? activityPanelHtml() : obTableHtml(rows)}
+    <button type="button" class="modal-cta secondary ob-scoring-btn" onclick="switchView('scoring')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+      How scoring works
+    </button>
   `;
 }
 
@@ -772,7 +776,7 @@ function obCardHtml(x, scale){
     .map(a => `
       <div class="ob-rule" ${a.teamKey ? `onclick="openTeamModal('${a.teamKey}')"` : ''}>
         <div class="ob-rule-main">
-          <div class="ob-rule-label">${a.label}</div>
+          <div class="ob-rule-label">${escapeHtml(a.label)}</div>
           <div class="ob-rule-meta">
             <span>${a.teamName}</span>
             ${a.provisional ? '<span class="pts-tag live">Live</span>' : '<span class="pts-tag locked">Locked</span>'}

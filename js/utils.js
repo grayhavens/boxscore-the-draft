@@ -37,6 +37,24 @@ export async function fetchJSON(url){
   }
 }
 
+// A cached fetch (every standings/rankings cache in js/standings-*.js)
+// whose last attempt failed waits this long before trying again. Those
+// caches repaint when a fetch settles, and a repaint asks every stale
+// cache to refresh — so without this, a stale cache plus a failing
+// network (a phone offline, ESPN down) retried back-to-back forever and
+// froze the page.
+const FAILED_FETCH_RETRY_MS = 60 * 1000;
+
+export function retryPending(cache){
+  return !!cache.failedAt && (Date.now() - cache.failedAt) < FAILED_FETCH_RETRY_MS;
+}
+
+// For any text that didn't come from this repo (chat, the shared activity
+// feed, admin notes, upstream names) before it goes into innerHTML.
+export function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ---- Admin password (scoring adjustments gate) ----
 // Cached client-side once verified against the worker's /admin/verify
 // route (see js/admin.js) — this is a "very basic" shared-secret gate
@@ -463,7 +481,10 @@ const TEAM_NAME_ALIASES = {
   // matching to the Nets. (Dallas' "Mavs" was the other mismatch, since
   // fixed by using ESPN's own full nickname, "Mavericks", as this app's
   // own name instead of aliasing around it.)
-  'blazers': 'trail blazers'
+  'blazers': 'trail blazers',
+  // NFL: same story for the short "Bucs" — the Scores tab's exact
+  // nickname match missed ESPN's "Buccaneers" (confirmed live 2026-09-27).
+  'bucs': 'buccaneers'
 };
 
 export function normalizeTeamName(name){

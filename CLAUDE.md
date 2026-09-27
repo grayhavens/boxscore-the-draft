@@ -147,7 +147,9 @@ in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (
 snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`. The rules and state
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
-sends actions and renders what comes back. Commissioner actions need the admin password. See
+sends actions and renders what comes back. Commissioner actions need the admin password, which is only
+entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
+room signs its socket in with the password saved there. See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
 Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only

@@ -71,7 +71,7 @@ import { initDraftLive } from './draft-live.js';
 import { ACTIVE_SEASON_ID } from './season.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
-import { renderAdminPage } from './admin.js';
+import { showAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
@@ -80,11 +80,11 @@ import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
 // Bump this on every deploy that changes what's on screen. It's shown
-// in the corner of the app (see #build-tag in index.html) so you can
+// at the bottom of the Settings page (js/identity.js) so you can
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-const APP_VERSION = '2026.09.26-1';
+export const APP_VERSION = '2026.09.26-2';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -167,8 +167,7 @@ export function setDraftTeam(id){
   // bookmarkable/shareable role stays legible.
   updateUrlParam('team', id === currentProfileId ? null : id);
   renderBoard();
-  const standingsView = document.getElementById('view-standings');
-  if(standingsView && standingsView.classList.contains('active')) renderStandings();
+  renderStandings();
   paintIdentityChrome(id);
   paintChatBadges();
 }
@@ -406,9 +405,29 @@ export function setStandingsFilter(key){
 }
 window.setStandingsFilter = setStandingsFilter;
 
+function isViewActive(view){
+  const el = document.getElementById('view-' + view);
+  return !!el && el.classList.contains('active');
+}
+
+// Every standings/rankings cache calls this when one of its fetches
+// settles. Boot settles ~15 of them at once, so this batches them into
+// one repaint per frame, and only repaints the views that read those
+// tables and are actually open (showView renders a view fresh on entry).
+let standingsRepaintQueued = false;
+export function standingsDataChanged(){
+  if(standingsRepaintQueued) return;
+  standingsRepaintQueued = true;
+  requestAnimationFrame(() => {
+    standingsRepaintQueued = false;
+    renderStandings();
+    if(isViewActive('overall')) renderOverallStandings();
+  });
+}
+
 export function renderStandings(){
   const container = document.getElementById('standings-content');
-  if(!container) return;
+  if(!container || !isViewActive('standings')) return;
 
   const chipsHtml = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
@@ -648,7 +667,7 @@ function showView(view){
   if(view === 'standings') renderStandings();
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
-  if(view === 'admin') renderAdminPage();
+  if(view === 'admin') showAdminPage();
   if(view === 'scoring') renderScoringPage();
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
 }
@@ -663,7 +682,7 @@ let settingsOriginScrollY = 0;
 // What Settings' back button says: the page it returns to.
 const SETTINGS_BACK_LABELS = {
   'board': 'Home', 'live-now': 'Scores', 'chat': 'Chat', 'standings': 'Standings',
-  'overall': 'Points', 'draft': 'Draft', 'admin': 'Manage Scoring', 'scoring': 'Scoring'
+  'overall': 'Points', 'draft': 'Draft', 'admin': 'Commissioner', 'scoring': 'Scoring'
 };
 
 export function openSettings(){
@@ -691,7 +710,7 @@ export function closeSettings(){
 }
 window.closeSettings = closeSettings;
 
-// Back from a page Settings opened (Manage Scoring): pops to Settings
+// Back from a page Settings opened (Commissioner): pops to Settings
 // without touching its origin, so Settings' own back still returns to
 // the tab the gear was tapped on.
 export function backToSettings(){
@@ -713,9 +732,6 @@ function paintTabPill(view){
 }
 
 // ---- Boot ----
-
-const buildTagEl = document.getElementById('build-tag');
-if(buildTagEl) buildTagEl.textContent = APP_VERSION;
 
 // A draft class that isn't the newest reads its finished leagues' final
 // standings from their season-lock snapshot instead of ESPN (see
@@ -758,43 +774,55 @@ enableNavMotion();
 maybeShowWelcome();
 startActivity();
 
-// renderBoard() already repaints row-status pills and CFB/EPL/NFL
-// record chips from whatever's cached (possibly from a previous
-// browser session), so nothing sits blank waiting for its turn in the
-// staggered refresh below. Still need to kick off the actual records
-// fetches here, regardless of whether the Standings tab (the only
-// other place that calls these) has been opened yet, so the board's
-// records aren't stuck waiting on that.
-fetchCfbRecords();
-fetchEspnCfbRecordsCached();
-fetchEplStandingsTable();
-fetchEspnNflStandingsCached();
-fetchEspnNbaStandingsCached();
-fetchEspnNhlStandingsCached();
-fetchEspnMlbStandingsCached();
-fetchEspnWnbaStandingsCached();
+// Every standings/rankings/season-phase cache, kicked off regardless of
+// which tab is open. Each call is a no-op while its cache is fresh (or
+// just failed), so this is cheap to repeat: at boot, whenever the app
+// comes back to the foreground, and every STANDINGS_REFRESH_MS while it
+// stays open — otherwise a long-open app kept whatever tables it booted
+// with until someone happened to open the Standings tab.
+const STANDINGS_REFRESH_MS = 15 * 60 * 1000;
+function refreshStandingsData(){
+  // renderBoard() already repaints row-status pills and CFB/EPL/NFL
+  // record chips from whatever's cached (possibly from a previous
+  // browser session), so nothing sits blank waiting for its turn in the
+  // staggered refresh below. Still need to kick off the actual records
+  // fetches here, regardless of whether the Standings tab (the only
+  // other place that calls these) has been opened yet, so the board's
+  // records aren't stuck waiting on that.
+  fetchCfbRecords();
+  fetchEspnCfbRecordsCached();
+  fetchEplStandingsTable();
+  fetchEspnNflStandingsCached();
+  fetchEspnNbaStandingsCached();
+  fetchEspnNhlStandingsCached();
+  fetchEspnMlbStandingsCached();
+  fetchEspnWnbaStandingsCached();
 
-// NFL/NBA/NHL/MLB's division tables used to be fetched lazily (only
-// once the Standings tab's Divisions view or a team modal in that
-// league was opened) — now that LEAGUE_SCORING's Division title/Last
-// place rules read them too (js/league-facts.js's rankAutoTables),
-// those rules would sit "Pending" on the admin page and undercount
-// every drafter's points until something happened to trigger one of
-// those lazy paths. Fetched eagerly here for the same reason the flat
-// standings above already are.
-fetchEspnNflDivisionStandingsCached();
-fetchEspnNbaDivisionStandingsCached();
-fetchEspnNhlDivisionStandingsCached();
-fetchEspnMlbDivisionStandingsCached();
-fetchEspnCbbRankingsCached();
-fetchEspnCbbStandingsCached();
+  // NFL/NBA/NHL/MLB's division tables used to be fetched lazily (only
+  // once the Standings tab's Divisions view or a team modal in that
+  // league was opened) — now that LEAGUE_SCORING's Division title/Last
+  // place rules read them too (js/league-facts.js's rankAutoTables),
+  // those rules would sit "Pending" on the admin page and undercount
+  // every drafter's points until something happened to trigger one of
+  // those lazy paths. Fetched eagerly here for the same reason the flat
+  // standings above already are.
+  fetchEspnNflDivisionStandingsCached();
+  fetchEspnNbaDivisionStandingsCached();
+  fetchEspnNhlDivisionStandingsCached();
+  fetchEspnMlbDivisionStandingsCached();
+  fetchEspnCbbRankingsCached();
+  fetchEspnCbbStandingsCached();
 
-// Season phase (js/season-phase.js) backs both the team modal's season
-// badge and, via checkSeasonLocks just below, whether a league's
-// regular-season rankAuto rules should already be frozen — eager here
-// for the same "don't wait on some other tab being opened first" reason
-// as the standings caches above.
-SEASON_PHASE_LEAGUES.forEach(fetchSeasonPhaseCached);
+  // Season phase (js/season-phase.js) backs both the team modal's season
+  // badge and, via checkSeasonLocks just below, whether a league's
+  // regular-season rankAuto rules should already be frozen — eager here
+  // for the same "don't wait on some other tab being opened first" reason
+  // as the standings caches above.
+  SEASON_PHASE_LEAGUES.forEach(fetchSeasonPhaseCached);
+}
+refreshStandingsData();
+setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsData(); }, STANDINGS_REFRESH_MS);
+
 // One-time-per-league check: has each league's regular season actually
 // ended, and if so, lock in its rankAuto rules (js/season-lock.js) —
 // already-locked leagues return immediately, so this is cheap on every
@@ -809,18 +837,26 @@ checkSeasonLocks();
 // exact same liveDataCache rather than its own fetch loop. Cheap to
 // just re-run its render whenever it's the active view: it's a sweep
 // over already-cached data, not a fetch.
-function isLiveNowActive(){
-  const el = document.getElementById('view-live-now');
-  return !!el && el.classList.contains('active');
-}
-
+//
 // Both loops sit out while the app is hidden (a backgrounded desktop tab
 // would otherwise keep fetching all day); coming back runs a sweep at once.
-async function backgroundRefreshAndPaint(){
-  if(document.visibilityState === 'hidden') return;
-  await backgroundRefreshTick();
-  if(isLiveNowActive()) renderLiveNow();
+// A tick still waiting on a slow network is left to finish rather than
+// stacking another one on top of it every interval.
+function paintingLoop(tick){
+  let running = false;
+  return async () => {
+    if(running || document.visibilityState === 'hidden') return;
+    running = true;
+    try {
+      await tick();
+      if(isViewActive('live-now')) renderLiveNow();
+    } finally {
+      running = false;
+    }
+  };
 }
+
+const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick);
 backgroundRefreshAndPaint();
 setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 
@@ -828,15 +864,13 @@ setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 // slower per-team rotation — see liveScoreboardSweepTick's own header
 // comment in js/live-data.js for why this is a separate, faster loop
 // instead of just shortening the rotation above.
-async function liveSweepAndPaint(){
-  if(document.visibilityState === 'hidden') return;
-  await liveScoreboardSweepTick();
-  if(isLiveNowActive()) renderLiveNow();
-}
+const liveSweepAndPaint = paintingLoop(liveScoreboardSweepTick);
 liveSweepAndPaint();
 setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') liveSweepAndPaint();
+  if(document.visibilityState !== 'visible') return;
+  liveSweepAndPaint();
+  refreshStandingsData();
 });
 
 if('serviceWorker' in navigator){

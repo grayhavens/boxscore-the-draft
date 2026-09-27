@@ -38,7 +38,7 @@
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { chatWorkerBase } from './api.js';
-import { ordinal } from './utils.js';
+import { ordinal, fetchJSON, escapeHtml } from './utils.js';
 import { isLeagueLocked, leagueLocksSettled, getLockedRuleTeams } from './season-lock.js';
 import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
 import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES, wasSeasonUnderwayAt } from './season-phase.js';
@@ -129,14 +129,9 @@ export function markActivitySeen(quiet){
 
 // ---- Fetch / store ----
 
-async function fetchState(){
-  try {
-    const res = await fetch(`${chatWorkerBase()}/activity`, { cache: 'no-store' });
-    if(!res.ok) return null;
-    return await res.json();
-  } catch (e){
-    return null;
-  }
+// The worker answers this GET with Cache-Control: no-store.
+function fetchState(){
+  return fetchJSON(`${chatWorkerBase()}/activity`);
 }
 
 export async function loadActivity(){
@@ -543,12 +538,14 @@ function sameDay(a, b){
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
 
+// Events come back from the shared worker store, so only ids this app
+// already knows make it into the inline handler.
 function eventAction(e){
   if(e.type === 'rank' || e.type === 'bonus' || e.type === 'lock'){
     const id = e.type === 'lock' && mineEvent(e) ? currentDraftTeamId : e.drafterId;
-    return id ? `obOpenSheet('${id}')` : '';
+    return DRAFT_TEAMS.some(d => d.id === id) ? `obOpenSheet('${id}')` : '';
   }
-  return e.teamKey ? `openTeamModal('${e.teamKey}')` : '';
+  return TEAM_META[e.teamKey] ? `openTeamModal('${e.teamKey}')` : '';
 }
 
 function mineEvent(e){
@@ -566,14 +563,14 @@ function rowHtml(e, mine){
     : `<span class="act-time">${timeText(e.ts)}</span>`;
   const detail = mine
     ? (othersLine(e) ? `<span class="act-sub">${othersLine(e)}</span>` : '')
-    : `${e.sub ? `<span class="act-sub">${e.sub}</span>` : ''}<span class="act-chips">${chipsHtml(e)}</span>`;
+    : `${e.sub ? `<span class="act-sub">${escapeHtml(e.sub)}</span>` : ''}<span class="act-chips">${chipsHtml(e)}</span>`;
   return `
     <button type="button" class="act-row ${e.type === 'lock' ? 'lock' : ''}" onclick="${eventAction(e)}">
       ${tileHtml(e)}
       <span class="act-body">
         ${kindTagHtml(e)}
-        <span class="act-title">${e.title}</span>
-        ${mine && e.sub && e.type === 'lock' ? `<span class="act-sub">${e.sub}</span>` : ''}
+        <span class="act-title">${escapeHtml(e.title)}</span>
+        ${mine && e.sub && e.type === 'lock' ? `<span class="act-sub">${escapeHtml(e.sub)}</span>` : ''}
         ${detail}
       </span>
       <span class="act-right">${right}</span>
@@ -648,7 +645,7 @@ export function activityRecentHtml(drafterId){
       <div class="act-row compact">
         ${tileHtml(e)}
         <span class="act-body">
-          <span class="act-title">${e.title}</span>
+          <span class="act-title">${escapeHtml(e.title)}</span>
           <span class="act-time">${timeText(e.ts)}${e.type === 'lock' ? ' &middot; locked in' : ''}</span>
         </span>
         <span class="act-right"><span class="act-delta ${d.cls}">${d.html}</span></span>
@@ -672,7 +669,7 @@ export function renderActivityHomeLink(){
   if(unseen){
     const d = myDelta(latest);
     title = `${unseen} point change${unseen === 1 ? '' : 's'} since you last looked`;
-    sub = `${latest.title}${d ? ` &middot; <span class="act-delta-inline ${d.cls}">${d.html}</span>` : ''}`;
+    sub = `${escapeHtml(latest.title)}${d ? ` &middot; <span class="act-delta-inline ${d.cls}">${d.html}</span>` : ''}`;
   } else {
     const me = obRankedRows().find(r => r.id === currentDraftTeamId);
     const total = me && (me.total < 0 ? '&minus;' + Math.abs(me.total) : me.total);
@@ -698,7 +695,6 @@ export function refreshActivityUi(){
   if(view && view.classList.contains('active') && window.renderOverallStandings) window.renderOverallStandings();
 }
 
-window.activityOpenDrafter = id => obOpenSheet(id);
 
 // ---- Boot ----
 
