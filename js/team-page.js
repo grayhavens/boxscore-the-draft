@@ -35,7 +35,7 @@ import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from '.
 import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
-  FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle,
+  FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle, isBundleStale,
   renderStats, renderNext, seasonStatus
 } from './live-data.js';
 import { findEspnEplRow } from './standings-epl.js';
@@ -479,8 +479,11 @@ export function backFromFullScreen(){
 }
 window.backFromFullScreen = backFromFullScreen;
 
+// A cached bundle renders straight away, but it can be a localStorage
+// restore from before the team's latest game — refetch it once it's
+// stale instead of waiting on the background rotation.
 function ensureBundle(teamKey){
-  if(liveDataCache[teamKey]) return;
+  if(liveDataCache[teamKey] && !isBundleStale(liveDataCache[teamKey])) return;
   fetchTeamBundle(teamKey).then(bundle => {
     if(!bundle || state.teamKey !== teamKey) return;
     // Mid-transition the page's pieces are being animated; replacing
@@ -636,7 +639,7 @@ function resultRowHtml(teamKey, evt){
 function upcomingRowHtml(evt){
   const d = new Date(evt.date);
   const day = d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const time = evt.timeTbd ? 'TBD' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   // Same "venue · Sep 12" convention resultRowHtml uses for a played
   // game — the day-of-week label on the right (WED) told you nothing
   // about which Wednesday, so the actual date belongs on the meta line

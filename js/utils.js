@@ -481,7 +481,10 @@ const TEAM_NAME_ALIASES = {
   // matching to the Nets. (Dallas' "Mavs" was the other mismatch, since
   // fixed by using ESPN's own full nickname, "Mavericks", as this app's
   // own name instead of aliasing around it.)
-  'blazers': 'trail blazers'
+  'blazers': 'trail blazers',
+  // NFL: same story for the short "Bucs" — the Scores tab's exact
+  // nickname match missed ESPN's "Buccaneers" (confirmed live 2026-09-27).
+  'bucs': 'buccaneers'
 };
 
 export function normalizeTeamName(name){

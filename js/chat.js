@@ -182,7 +182,7 @@ function mergeMessages(incoming, snapshot){
   }
   if(open) markSeen();
   paintBadges();
-  if(open) renderList(incoming.some(m => m.from === currentProfileId));
+  if(open) renderList('follow', incoming.some(m => m.from === currentProfileId));
 }
 
 function applyReactions(messageId, reactions){
@@ -191,7 +191,7 @@ function applyReactions(messageId, reactions){
   if(Object.keys(reactions).length) m.reactions = reactions;
   else delete m.reactions;
   saveCachedMessages();
-  if(open) renderList(false);
+  if(open) renderList('follow');
 }
 
 // Ping loop: keeps the connection warm through idle-timeouts and
@@ -311,7 +311,44 @@ function pickerHtml(m, mine){
   return `<div class="chat-react-bar ${mine ? 'mine' : ''}">${buttons}</div>`;
 }
 
-function renderList(forceScroll){
+// The list's rows as [key, html] pairs, in order. Keys are stable per
+// message (and per day divider), so renderList can tell which rows are
+// unchanged and leave them alone.
+function listRows(){
+  const rows = [];
+  let prev = null;
+  messages.forEach(m => {
+    const mine = m.from === currentProfileId;
+    const newDay = !prev || new Date(prev.ts).toDateString() !== new Date(m.ts).toDateString();
+    if(newDay) rows.push([`day-${m.id}`, `<div class="chat-day">${esc(dayLabel(m.ts))}</div>`]);
+    const startsGroup = newDay || prev.from !== m.from || m.ts - prev.ts > GROUP_GAP_MS;
+    if(startsGroup){
+      rows.push([`meta-${m.id}`, `<div class="chat-meta ${mine ? 'mine' : ''}">${mine ? '' : `<span class="chat-name">${esc(drafterName(m.from))}</span>`}<span class="chat-time">${esc(timeLabel(m.ts))}</span></div>`]);
+    }
+    if(m.gif) rows.push([`gif-${m.id}`, gifBubbleHtml(m, mine)]);
+    // A GIF's text is an optional caption (the picker never sends one, but
+    // the worker accepts one) — shown under it rather than silently dropped.
+    if(m.text) rows.push([`text-${m.id}`, `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`]);
+    if(pickerId === m.id) rows.push([`picker-${m.id}`, pickerHtml(m, mine)]);
+    const reactions = reactionsHtml(m, mine);
+    if(reactions) rows.push([`react-${m.id}`, reactions]);
+    prev = m;
+  });
+  return rows;
+}
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Patches the list in place rather than replacing its innerHTML: a row
+// whose markup hasn't changed keeps its DOM node. Rebuilding everything
+// on each message or reaction restarted every GIF in the conversation
+// from its first frame (and could flash one while it re-decoded), and
+// left nothing for new messages to animate in from.
+//
+// `scroll`: 'instant' jumps to the bottom (opening the tab), 'follow'
+// glides there if you were already near it or sent the message yourself
+// (forceFollow), and anything else keeps your place.
+function renderList(scroll, forceFollow = false){
   const el = listEl();
   if(!el) return;
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_TO_BOTTOM_PX;
@@ -321,27 +358,41 @@ function renderList(forceScroll){
     return;
   }
 
-  let html = '';
-  let prev = null;
-  messages.forEach(m => {
-    const mine = m.from === currentProfileId;
-    const newDay = !prev || new Date(prev.ts).toDateString() !== new Date(m.ts).toDateString();
-    if(newDay) html += `<div class="chat-day">${esc(dayLabel(m.ts))}</div>`;
-    const startsGroup = newDay || prev.from !== m.from || m.ts - prev.ts > GROUP_GAP_MS;
-    if(startsGroup){
-      html += `<div class="chat-meta ${mine ? 'mine' : ''}">${mine ? '' : `<span class="chat-name">${esc(drafterName(m.from))}</span>`}<span class="chat-time">${esc(timeLabel(m.ts))}</span></div>`;
-    }
-    if(m.gif) html += gifBubbleHtml(m, mine);
-    // A GIF's text is an optional caption (the picker never sends one, but
-    // the worker accepts one) — shown under it rather than silently dropped.
-    if(m.text) html += `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`;
-    if(pickerId === m.id) html += pickerHtml(m, mine);
-    html += reactionsHtml(m, mine);
-    prev = m;
-  });
-  el.innerHTML = html;
+  const existing = new Map();
+  [...el.children].forEach(node => { if(node.dataset.key) existing.set(node.dataset.key, node); });
+  // Only a list that was already showing rows animates what's new — not
+  // the first paint, or opening the tab onto history.
+  const animateNew = existing.size > 0 && scroll !== 'instant' && !prefersReducedMotion();
+  const tpl = document.createElement('template');
 
-  if(forceScroll || nearBottom) el.scrollTop = el.scrollHeight;
+  const wanted = listRows().map(([key, html]) => {
+    const old = existing.get(key);
+    if(old && old._html === html) return old;
+    tpl.innerHTML = html;
+    const node = tpl.content.firstElementChild;
+    node.dataset.key = key;
+    node._html = html;
+    if(animateNew && ((!old && !key.startsWith('day-')) || key.startsWith('picker-'))){
+      node.classList.add('chat-in');
+      node.addEventListener('animationend', () => node.classList.remove('chat-in'), { once: true });
+    }
+    return node;
+  });
+  // Drop what's gone (deleted, aged out of the kept window, a row that
+  // was re-rendered, the "No messages yet" placeholder), then lay the
+  // wanted rows in order, moving only the ones out of place.
+  const keep = new Set(wanted);
+  [...el.children].forEach(node => { if(!keep.has(node)) node.remove(); });
+  let cursor = el.firstElementChild;
+  wanted.forEach(node => {
+    if(node === cursor) cursor = cursor.nextElementSibling;
+    else el.insertBefore(node, cursor);
+  });
+
+  if(scroll === 'instant') el.scrollTop = el.scrollHeight;
+  else if(scroll === 'follow' && (forceFollow || nearBottom)){
+    el.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }
 }
 
 function toggleReaction(messageId, emoji){
@@ -354,7 +405,7 @@ function toggleReaction(messageId, emoji){
   // (the room broadcasts to the sender too) — nothing to apply here.
   if(pickerId !== null){
     pickerId = null;
-    renderList(false);
+    renderList('follow');
   }
 }
 
@@ -373,7 +424,7 @@ function onListClick(event){
   const next = message && Number(message.dataset.msg) !== pickerId ? Number(message.dataset.msg) : null;
   if(next === pickerId) return;
   pickerId = next;
-  renderList(false);
+  renderList('follow');
 }
 
 // With the keyboard down the chat screen is laid out by CSS alone (top
@@ -476,7 +527,7 @@ export function setChatActive(active){
     setStatus(status);
     markSeen();
     paintBadges();
-    renderList(true);
+    renderList('instant');
     syncViewport();
     if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
     if(!gifsReady) setUpGifs();

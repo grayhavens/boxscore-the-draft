@@ -62,6 +62,21 @@ function espnLogoUrl(team){
 // specifically (location/name are both fine: "Alabama"/"Crimson
 // Tide"), so this rebuilds it from the parts rather than trusting the
 // joined field outright.
+// An event's { date, timeTbd }. A game whose kickoff isn't set yet
+// (timeValid: false — every CFB game more than a week or so out, WNBA
+// "if necessary" playoff games) is dated at a placeholder midnight
+// Eastern, which renders as 11 PM the night before anywhere west of
+// that (confirmed live 2026-09-27: Oklahoma State's Sat 10/10 game at
+// UCF read "Fri, Oct 9, 11:00 PM CDT"). Moved to midday so the day is
+// right in every US zone, and flagged so the time reads "TBD".
+function espnEventWhen(event, comp){
+  const tbd = (comp && comp.timeValid === false) || event.timeValid === false;
+  if(!event.date || !tbd) return { date: event.date || null, timeTbd: false };
+  const d = new Date(event.date);
+  if(isNaN(d.getTime())) return { date: event.date, timeTbd: false };
+  return { date: new Date(d.getTime() + 12 * 60 * 60 * 1000).toISOString(), timeTbd: true };
+}
+
 function espnTeamName(team){
   if(!team) return '';
   return team.displayName || `${team.location || ''} ${team.name || ''}`.trim() || team.location || '';
@@ -797,7 +812,7 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
     const broadcast = comp.broadcasts && comp.broadcasts[0];
     return {
       id: event.id,
-      date: event.date,
+      ...espnEventWhen(event, comp),
       completed: !!(statusType && statusType.completed),
       statusDetail: statusType ? statusType.shortDetail : null,
       isHome: self.homeAway === 'home',
@@ -814,8 +829,16 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
     fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule`),
     fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule?fixture=true`)
   ]);
+  // During a preseason both calls above return only preseason games
+  // (confirmed live 2026-09-27: every NHL team had its 4 preseason games,
+  // all final, and no next game at all), so the regular season has to be
+  // asked for explicitly or "next match" stays empty until opening night.
+  const isPreseason = [a, b].some(d => d && d.requestedSeason && Number(d.requestedSeason.type) === 1);
+  const regular = isPreseason
+    ? await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule?seasontype=2`)
+    : null;
   const byId = new Map();
-  [...((a && a.events) || []), ...((b && b.events) || [])].forEach(event => {
+  [...((a && a.events) || []), ...((b && b.events) || []), ...((regular && regular.events) || [])].forEach(event => {
     const normalized = normalize(event);
     if(normalized) byId.set(normalized.id, normalized);
   });
@@ -849,14 +872,22 @@ const NEWS_MAX_TEAM_TAGS = 3; // a roundup story tags every team in the league; 
 const NEWS_ARTICLE_LIMIT = 8;
 
 export async function fetchEspnTeamNews(sportLeaguePath, espnTeamId){
-  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/news?team=${espnTeamId}`);
+  // ESPN's default page is only 6 articles, and league-wide roundups
+  // (NBA Rank, SP+ rankings, …) can fill all 6 — confirmed live
+  // 2026-09-27: No. 1 Texas had 0 of 6 left after filtering, but 23 of
+  // 50 real Texas stories (last night's recap included) with a limit.
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/news?team=${espnTeamId}&limit=50`);
   const articles = data && Array.isArray(data.articles) ? data.articles : null;
   if(!articles) return null;
 
   return articles
     .filter(a => {
-      const teamCats = (a.categories || []).filter(c => c.type === 'team');
-      return teamCats.length > 0 && teamCats.length <= NEWS_MAX_TEAM_TAGS && teamCats.some(c => String(c.teamId) === String(espnTeamId));
+      // Counted by distinct teamId: college feeds tag each school twice
+      // (the team and the university, same id — confirmed live
+      // 2026-09-27), so a plain two-team game recap carries 4 tags and
+      // was being dropped as a roundup.
+      const teamIds = new Set((a.categories || []).filter(c => c.type === 'team' && c.teamId != null).map(c => String(c.teamId)));
+      return teamIds.size > 0 && teamIds.size <= NEWS_MAX_TEAM_TAGS && teamIds.has(String(espnTeamId));
     })
     .slice(0, NEWS_ARTICLE_LIMIT)
     .map(a => ({
@@ -1108,7 +1139,7 @@ export async function fetchEspnScoreboard(sportLeaguePath, dates){
     }));
     return {
       id: event.id,
-      date: event.date || null,
+      ...espnEventWhen(event, comp),
       state: statusType ? statusType.state : null,
       detail: statusType ? statusType.shortDetail : null,
       completed: !!(statusType && statusType.completed),
