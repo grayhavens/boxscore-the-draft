@@ -132,7 +132,7 @@ export function renderSettingsPage(backLabel = 'Back'){
     ${sectionHtml('League', `
       <div class="set-tiles">
         <button type="button" class="set-tile" onclick="openDraftPicker()"><span class="set-row-title">Draft &rsaquo;</span><span class="set-tile-sub">Mock or live</span></button>
-        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Scoring &rsaquo;</span><span class="set-tile-sub">Admin password</span></button>
+        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Commissioner &rsaquo;</span><span class="set-tile-sub">Draft &amp; scoring</span></button>
       </div>
       ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
