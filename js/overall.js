@@ -573,6 +573,10 @@ function obListHtml(rows){
     ${me ? obHeroHtml(rows, me) : ''}
     <div class="ob-seg">${seg}</div>
     ${obSegment === 'activity' ? activityPanelHtml() : obTableHtml(rows)}
+    <button type="button" class="modal-cta secondary ob-scoring-btn" onclick="switchView('scoring')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+      How scoring works
+    </button>
   `;
 }
 
