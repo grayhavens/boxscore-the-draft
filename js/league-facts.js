@@ -576,7 +576,7 @@ export function trackerSectionHtml(teamKey){
   return trackerHeadHtml(teamKey, totalHtml, expanded) + bodyHtml;
 }
 
-// `#tracker-section` now only ever lives on the Team Page's Stats tab
+// `#tracker-section` now only ever lives on the Team Page's Overview tab
 // (js/team-page.js) — the team modal dropped it when trimmed down to a
 // peek. This used to also check the modal's own activeTeam dataset
 // before repainting, back when the modal was this element's only
