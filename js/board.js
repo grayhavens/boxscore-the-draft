@@ -191,10 +191,6 @@ export function setBoardFilter(key){
 }
 window.setBoardFilter = setBoardFilter;
 
-// Hardcoded on purpose: the header tally is the size of the draft, not a
-// count of whatever's on the page (which now includes favorites).
-const DRAFT_TEAM_COUNT = 21;
-
 export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
@@ -260,10 +256,6 @@ export function renderBoard(){
   }).join('');
 
   document.querySelectorAll('[data-group-name]').forEach(el => { el.textContent = ACTIVE_GROUP.name; });
-  // A group that hasn't drafted yet (js/seasons/index.js preDraftSeasons) has no teams to count.
-  document.getElementById('team-tally').textContent = ACTIVE_SEASON.preDraft
-    ? `${LEAGUES.length} leagues · draft not held yet`
-    : `${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
 
   // The team rows above were just rebuilt from scratch, so every
   // row-status pill and CFB/EPL record chip starts blank again —
