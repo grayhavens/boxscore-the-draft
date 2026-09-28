@@ -95,7 +95,7 @@ const GUIDE = [
   },
   {
     id: 'chat', icon: 'chat', tour: true, title: 'Chat',
-    lead: 'A group chat for the league, the big button in the middle of the tab bar.',
+    lead: `A group chat for ${ACTIVE_GROUP.name}, the big button in the middle of the tab bar.`,
     points: [
       'Tap a message to react to it.',
       'Use the GIF button to send a GIF.',
@@ -104,15 +104,15 @@ const GUIDE = [
     go: ['Go to Chat', "switchView('chat')"]
   },
   {
-    id: 'draft', icon: 'draft', title: 'The draft',
-    lead: 'The snake draft happens right in the app. Find it under Settings, then Draft.',
+    id: 'draft', icon: 'draft', title: 'Draft room',
+    lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft.`,
     points: [
       'Mock Draft is always open: practice against bots whenever you like.',
       'While the real draft is live, a banner on every page takes you back to it.',
       'Download the board as a spreadsheet once it’s done.'
     ],
     pre: {
-      lead: 'Your league drafts right here in the app. Find it under Settings, then Draft.',
+      lead: `${ACTIVE_GROUP.name} drafts right here in Boxscore. Find it under Settings, then Draft.`,
       points: [
         'Try Mock Draft any time to practice against bots and learn how it works.',
         'On draft day, a banner on every page takes you into the live room.',
@@ -211,7 +211,7 @@ function paintTour(){
   el.dataset.step = 'tour';
   el.innerHTML = `
     <div class="welcome-head guide-card">
-      <div class="welcome-eyebrow">${i === 0 ? `Welcome to ${ACTIVE_GROUP.name}` : `${i + 1} of ${cards.length}`}</div>
+      <div class="welcome-eyebrow">${i === 0 ? 'Welcome to Boxscore' : `${i + 1} of ${cards.length}`}</div>
       ${tourCardBody(cards[i])}
     </div>
     <div class="guide-dots" aria-hidden="true">${cards.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
@@ -298,8 +298,8 @@ export function renderGuidePage(){
       <div class="page-header">
         <div class="page-header-top"><h1>How Boxscore works</h1></div>
         <div class="page-sub">${pre
-          ? `Everything in ${ACTIVE_GROUP.name}. Your board and the leaderboard fill in after your first draft.`
-          : `Everything in ${ACTIVE_GROUP.name}, and where to find it.`}</div>
+          ? `Everything Boxscore does for ${ACTIVE_GROUP.name}. Your board and the leaderboard fill in after ${ACTIVE_GROUP.name}’s first draft.`
+          : `Everything Boxscore does for ${ACTIVE_GROUP.name}, and where to find it.`}</div>
       </div>
       <div class="ob-back-row">
         <button type="button" class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>

@@ -438,8 +438,8 @@ function renderWelcomeNames(){
   el.innerHTML = `
     <div class="welcome-head">
       <div class="welcome-eyebrow">Welcome to</div>
-      <div class="welcome-title">${ACTIVE_GROUP.name}</div>
-      <div class="welcome-sub">Every drafted team, every league, scored live. First things first &mdash; who are you?</div>
+      <div class="welcome-title">Boxscore</div>
+      <div class="welcome-sub">Every team drafted in ${ACTIVE_GROUP.name}, followed and scored live. First things first &mdash; who are you?</div>
     </div>
     <div class="welcome-names">
       ${DRAFT_TEAMS.map(d => `
