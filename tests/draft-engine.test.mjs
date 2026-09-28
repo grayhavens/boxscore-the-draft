@@ -7,6 +7,7 @@ import {
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
   autoPickTeam, isMockRoom
 } from '../js/draft-rules.js';
+import { buildDraftPool } from '../js/draft-pool.js';
 
 const D = ['a', 'b', 'c', 'd'];
 const CAPS = { epl: 1, nfl: 1 };          // 2 rounds x 4 drafters = 8 picks
@@ -411,4 +412,10 @@ test('a room saved before bots existed gets bot defaults on its next setConfig',
   const r = ok(s, { type: 'setConfig', bots: ['a'] }, COMM);
   assert.deepEqual(r.config.bots, ['a']);
   assert.equal(r.config.botSeconds, 3);
+});
+
+// A team added to js/draft-ranks.js needs a DRAFT_RANK_ESPN entry (or a TEAM_META one).
+test('every ranked pool team has a crest', () => {
+  const missingCrest = buildDraftPool().filter(t => t.rank && !t.badgeUrl);
+  assert.deepEqual(missingCrest.map(t => `${t.league}:${t.name}`), []);
 });

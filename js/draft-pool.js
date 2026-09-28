@@ -7,9 +7,9 @@
    1. The newest season's TEAM_META (The Draft's, for every group) — real names, badges and the ids
       live data hangs off (espnTeamId). Owners are stripped and each team
       appears once per league.
-   2. js/draft-ranks.js — the consensus ordering (and a few teams
-      TEAM_META has never held, which get a plain color tile until
-      their ids are resolved; see docs/draft-room-plan.md).
+   2. js/draft-ranks.js — the consensus ordering, and ESPN ids for the
+      teams in it that TEAM_META has never held (DRAFT_RANK_ESPN), which
+      give those teams their crest.
    Teams in TEAM_META but not in the ranking (e.g. the 30 CFB/CBB teams
    people actually drafted last year) go after the ranked ones.
 
@@ -18,7 +18,7 @@
    entry by league + name, so keep `name` exactly as TEAM_META has it.
    ============================================================ */
 import { TEAM_CATALOG_SEASON } from './seasons/index.js';
-import { DRAFT_RANKS } from './draft-ranks.js';
+import { DRAFT_RANKS, DRAFT_RANK_ESPN } from './draft-ranks.js';
 import { DEFAULT_CAPS, slugify } from './draft-rules.js';
 
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -28,6 +28,14 @@ const NAME_ALIASES = {
   epl: { mancity: 'manchestercity', manunited: 'manchesterunited', tottenham: 'tottenhamhotspur', nottinghamforest: 'nottingham', bournemouth: 'afcbournemouth' },
   mcbb: { michiganstate: 'michstate' }
 };
+
+// The id and crest for a ranked team TEAM_META doesn't hold.
+function espnFallback(league, name){
+  const hit = (DRAFT_RANK_ESPN[league] || {})[name];
+  if(!hit) return null;
+  if(Array.isArray(hit)) return { espnTeamId: hit[0], badgeUrl: `https://a.espncdn.com/i/teamlogos/${league}/500/${hit[1]}.png` };
+  return { espnTeamId: hit, badgeUrl: `https://a.espncdn.com/i/teamlogos/ncaa/500/${hit}.png` };
+}
 
 function poolId(league, name){
   return `${league}_${slugify(name).replace(/-/g, '_')}`.slice(0, 60);
@@ -70,6 +78,7 @@ export function buildDraftPool(leagueKeys = Object.keys(DEFAULT_CAPS)){
       const team = { id: poolId(league, name), name, league, rank, abbr: meta ? meta.badgeText : entry.abbr, color: meta ? meta.accent : entry.color };
       if(meta && meta.espnTeamId) team.espnTeamId = String(meta.espnTeamId);
       if(meta && meta.badgeUrl && meta.badgeUrl.startsWith('https://')) team.badgeUrl = meta.badgeUrl;
+      if(!meta) Object.assign(team, espnFallback(league, entry.name));
       pool.push(team);
     });
     byName.forEach((meta, key) => {

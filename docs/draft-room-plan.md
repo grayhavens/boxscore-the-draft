@@ -153,10 +153,9 @@ light theme works.
   derives its years from the active class.
 - Verified: a full 210-pick rehearsal room exported through the real ESPN endpoints into a class that loads
   in the app (212 entries, 21 per drafter, live records matched by name, no console errors).
-- Still to do before draft day: the pool's design-only teams (Cardinals, Browns, Flames, Blackhawks, the
-  WNBA expansion clubs, college schools outside last year's 30) show color tiles during the draft because
-  their ESPN ids are only resolved at export; harmless, but could be pre-resolved. EPL promotion/relegation
-  and WNBA expansion still need a manual look at `js/draft-ranks.js`.
+- The pool's design-only teams (Cardinals, Browns, Flames, Blackhawks, the WNBA clubs outside last year's
+  10, college schools outside last year's 30) carry pre-resolved ESPN ids and crests (`DRAFT_RANK_ESPN` in
+  `js/draft-ranks.js`). EPL promotion/relegation and WNBA expansion still need a manual look before each draft.
 
 ### As built (Phase G)
 
@@ -224,13 +223,10 @@ draft?" should start here.
 
 **Non-critical, noted at the end of Phase F (the owner plans to handle these)**
 
-1. **Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.** Teams that weren't in
-   the previous season's `TEAM_META` show plain color tiles in the draft room instead of crests, because
-   their ESPN ids are only looked up at export time (`tools/export-draft.mjs`). Today that is: NFL
-   Cardinals and Browns, NHL Flames and Blackhawks, the WNBA clubs outside the previous 10 (Storm, Sun,
-   Sparks, Fire, Tempo, ...), and any college school beyond last year's 30 in `js/draft-ranks.js`. The
-   export still resolves them correctly, so this is cosmetic. A fix would resolve them once (ESPN's team
-   lists) and feed `espnTeamId`/`badgeUrl` into `js/draft-pool.js`.
+1. ~~**Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.**~~ Done (September
+   2026): `DRAFT_RANK_ESPN` in `js/draft-ranks.js` gives every ranked team missing from the newest
+   `TEAM_META` its ESPN id and crest. A team added to the ranking later needs an entry there too, or it is a
+   color tile again until export.
 2. **Verify the ranked team lists against the real field.** `js/draft-ranks.js` comes from the design
    handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
    the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
