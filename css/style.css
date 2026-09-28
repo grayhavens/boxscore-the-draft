@@ -1471,13 +1471,6 @@ body{
 .welcome-step-text{ font-size: var(--fs-15); line-height: 1.5; padding-top: 1px; }
 .welcome-step-text b{ font-weight: 700; }
 
-.welcome-step-alt{
-  display: block;
-  margin-top: 4px;
-  font-size: var(--fs-12);
-  color: var(--text-mute);
-}
-
 .welcome-inline-icon{
   width: 16px;
   height: 16px;
@@ -5310,6 +5303,7 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 .guide-card-icon{ width: 48px; height: 48px; margin: 14px 0 12px; }
 .guide-card-icon svg{ width: 24px; height: 24px; }
 .guide-card .welcome-title{ margin-top: 0; }
+.guide-card .welcome-eyebrow + .welcome-title{ margin-top: 10px; }
 
 .guide-points{
   list-style: none;
@@ -5338,7 +5332,6 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 }
 
 .guide-alert-rows{ display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.guide-alert-row{ margin-top: 14px; }
 .guide-card .welcome-note{ margin: 10px 0 0; }
 
 .guide-dots{ display: flex; justify-content: center; gap: 6px; padding: 8px 0 14px; }
@@ -5360,7 +5353,7 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 #welcome-content[data-step="tour"]{
   display: flex;
   flex-direction: column;
-  height: min(600px, 85vh);
+  height: min(380px, 85vh);
 }
 #welcome-content[data-step="tour"] .guide-card{ flex: 1 0 auto; }
 .guide-foot{
@@ -5371,8 +5364,8 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 }
 @media (max-width: 700px){
   #welcome-content[data-step="tour"]{
-    height: min(600px, 80vh);
-    height: min(600px, 80dvh, calc(100dvh - env(safe-area-inset-top) - 88px));
+    height: min(380px, 80vh);
+    height: min(380px, 80dvh, calc(100dvh - env(safe-area-inset-top) - 88px));
   }
 }
 #welcome-content[data-step="tour"] .welcome-skip{ margin: 4px 0 14px; }
@@ -5404,3 +5397,30 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   font-weight: 700;
   cursor: pointer;
 }
+
+/* ============================================================
+   Landing page (landing.html, js/landing.js): the platform's front door
+   at boxscore.space. No tab bar, so body drops the nav padding; the
+   group links reuse Settings' rows.
+   ============================================================ */
+body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)); }
+.landing-main{
+  max-width: 420px;
+  margin: 0 auto;
+  padding-top: 8vh;
+  display: flex;
+  flex-direction: column;
+}
+.landing-logo{ width: 56px; height: 56px; border-radius: 16px; }
+.landing-title{
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-30);
+  letter-spacing: -0.8px;
+  margin: 18px 0 0;
+}
+.landing-sub{ margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-sub); }
+.landing-label{ margin-top: 36px; }
+.landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.landing-group{ text-decoration: none; color: inherit; }
+.landing-foot{ margin: 18px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-mute); }

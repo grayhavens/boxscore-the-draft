@@ -17,9 +17,10 @@
    both at once (via chooseProfile -> window.setDraftTeam).
 
    Also owns the first-run welcome: a device with no saved profile
-   gets a modal (pick your name, then how to add the site to the Home
-   Screen, or the feature tour from js/guide.js) instead of silently
-   defaulting to the first drafter. See maybeShowWelcome below.
+   gets a modal (how to add the site to the Home Screen when it's a
+   phone browser, then pick your name, then the feature tour from
+   js/guide.js) instead of silently defaulting to the first drafter.
+   See maybeShowWelcome below.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
@@ -376,14 +377,12 @@ const MENU_ICON_SVG = '<svg class="welcome-inline-icon" viewBox="0 0 24 24" fill
 
 const INSTALL_STEPS = {
   ios: [
-    `Tap the menu ${MENU_ICON_SVG} at the left of Safari&rsquo;s address bar, then tap <b>Share</b> ${SHARE_ICON_SVG} at the top of the list.<span class="welcome-step-alt">On older iPhones, Share is the ${SHARE_ICON_SVG} button in the bottom bar instead.</span>`,
-    'Scroll down and tap <b>Add to Home Screen</b>.',
-    'Tap <b>Add</b>. Boxscore now lives on your Home Screen.'
+    `Tap <b>Share</b> ${SHARE_ICON_SVG} in Safari (on newer iPhones it&rsquo;s under the ${MENU_ICON_SVG} menu).`,
+    'Tap <b>Add to Home Screen</b>, then <b>Add</b>.'
   ],
   android: [
     'Tap the <b>&#8942;</b> menu in Chrome.',
-    'Tap <b>Install app</b> (or <b>Add to Home screen</b>).',
-    'Tap <b>Install</b>. Boxscore now lives on your Home Screen.'
+    'Tap <b>Install app</b>, then <b>Install</b>.'
   ]
 };
 
@@ -407,28 +406,28 @@ window.closeWelcome = closeWelcome;
 
 // The name-picking step can't be dismissed (it's the whole point of the
 // welcome); the install step and the tour can, by tapping outside them.
+// A first-run install step dismissed that way moves on to the names.
 export function dismissWelcomeOverlay(){
   const step = welcomeEl().dataset.step;
   if(step === 'install') skipInstall();
   else if(step === 'tour') closeWelcome();
 }
 
-// The feature tour (js/guide.js), right after the name pick on a device
-// that's already the Home Screen app (or has no install step at all).
+// The feature tour (js/guide.js), right after the name pick.
 function showTour(){
   startTour(welcomeEl(), { drafter: currentProfileId, onDone: closeWelcome });
 }
 
-// Set while the install step follows a first-run name pick (not the
-// Settings row): "Not now" means they're staying in the browser, so the
-// tour follows. "Done" means they added it, and the Home Screen app will
-// run the welcome (and the tour) itself on its first open.
-let tourAfterInstall = false;
+// Set while the install step opens a first-run welcome (not the Settings
+// row). It comes before the name pick because the iPhone Home Screen app
+// keeps its own storage and would ask for the name again; "Continue in
+// browser" means they're staying, so the names (and then the tour) follow.
+let namesAfterInstall = false;
 
 export function skipInstall(){
-  if(tourAfterInstall){
-    tourAfterInstall = false;
-    showTour();
+  if(namesAfterInstall){
+    namesAfterInstall = false;
+    renderWelcomeNames();
   } else {
     closeWelcome();
   }
@@ -457,7 +456,7 @@ function renderWelcomeNames(){
   el.scrollTop = 0;
 }
 
-function renderWelcomeInstall(platform, greetName){
+function renderWelcomeInstall(platform, firstRun){
   const el = welcomeEl();
   el.dataset.step = 'install';
   const steps = INSTALL_STEPS[platform].map((html, i) => `
@@ -466,21 +465,18 @@ function renderWelcomeInstall(platform, greetName){
   const installBtn = platform === 'android' && deferredInstallPrompt
     ? '<button class="modal-cta" onclick="runInstallPrompt()">Install now</button>'
     : '';
-  const iosNote = platform === 'ios'
-    ? '<div class="welcome-note">Heads up: the Home Screen app keeps its own memory, so it will ask who you are once more the first time you open it.</div>'
-    : '';
   el.innerHTML = `
     <div class="welcome-head">
-      ${greetName ? `<div class="welcome-eyebrow">You&rsquo;re in, ${greetName}</div>` : ''}
+      ${firstRun ? '<div class="welcome-eyebrow">Welcome to Boxscore</div>' : ''}
       <div class="welcome-title">Add it to your Home Screen</div>
-      <div class="welcome-sub">It opens full-screen like a real app &mdash; the best way to follow live games.</div>
+      <div class="welcome-sub">It opens full screen like a real app, and it&rsquo;s where alerts work.</div>
     </div>
     ${installBtn}
     <ol class="welcome-steps">${steps}</ol>
-    ${iosNote}
     <div class="welcome-actions">
-      <button class="modal-cta" onclick="closeWelcome()">Done</button>
-      <button class="welcome-skip" onclick="skipInstall()">Not now</button>
+      ${firstRun
+        ? '<button class="welcome-skip" onclick="skipInstall()">Continue in browser</button>'
+        : '<button class="modal-cta" onclick="closeWelcome()">Done</button>'}
     </div>
   `;
   el.scrollTop = 0;
@@ -490,7 +486,7 @@ export function runInstallPrompt(){
   if(!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
   deferredInstallPrompt = null;
-  closeWelcome();
+  skipInstall();
 }
 window.runInstallPrompt = runInstallPrompt;
 
@@ -504,14 +500,7 @@ export function chooseWelcomeProfile(id){
   let peek = null;
   try { peek = new URLSearchParams(window.location.search).get('team'); } catch (e){}
   window.setDraftTeam(peek && DRAFT_TEAMS.some(d => d.id === peek) ? peek : id);
-
-  const platform = installPlatform();
-  if(platform){
-    tourAfterInstall = true;
-    renderWelcomeInstall(platform, DRAFT_TEAMS.find(d => d.id === id).name);
-  } else {
-    showTour();
-  }
+  showTour();
 }
 window.chooseWelcomeProfile = chooseWelcomeProfile;
 
@@ -519,7 +508,13 @@ window.chooseWelcomeProfile = chooseWelcomeProfile;
 // rendered behind it.
 export function maybeShowWelcome(){
   if(!needsWelcome()) return;
-  renderWelcomeNames();
+  const platform = installPlatform();
+  if(platform){
+    namesAfterInstall = true;
+    renderWelcomeInstall(platform, true);
+  } else {
+    renderWelcomeNames();
+  }
   openWelcomeOverlay();
 }
 
@@ -527,8 +522,8 @@ export function maybeShowWelcome(){
 export function openInstallGuide(){
   const platform = installPlatform();
   if(!platform) return;
-  tourAfterInstall = false;
-  renderWelcomeInstall(platform, null);
+  namesAfterInstall = false;
+  renderWelcomeInstall(platform, false);
   openWelcomeOverlay();
 }
 window.openInstallGuide = openInstallGuide;

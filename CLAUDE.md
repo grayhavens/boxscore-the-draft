@@ -57,7 +57,9 @@ or changing a team/league means editing this file; nothing else hardcodes team/l
 **Groups (friend-group leagues):** one deployment hosts several fully separate 10-drafter groups, each on
 its own subdomain `<id>.boxscore.space` (The Draft is `thedraft`). `js/groups.js` is the registry (drafters,
 display name) and is shared with the worker; `js/group.js` resolves the active group from the hostname
-(`?group=<id>` also works on localhost and Pages previews only). Code says "group" because "league" already
+(`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
+platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
+lists every group in `GROUPS` with a link to its subdomain. Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
@@ -188,8 +190,9 @@ worker without that route just means no banner.
 
 **Feature guide** (`js/guide.js`): one `GUIDE` list feeds both the first-run tour (cards in the welcome
 sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How Boxscore
-works (`#view-guide`, `?view=guide`). In Safari on a phone the welcome shows the Add to Home Screen steps instead
-and the tour only follows "Not now", since the Home Screen app runs the welcome again on its first open. **When a
+works (`#view-guide`, `?view=guide`). In a phone browser the welcome opens on the two Add to Home Screen steps,
+and the name pick and tour only follow "Continue in browser", since the Home Screen app runs the welcome again on its
+first open. Tour cards show just each entry's `lead`. **When a
 feature ships or changes, update its `GUIDE` entry** (`tour: true` adds it to the tour; `pre` is the text shown
 before a group's first draft).
 

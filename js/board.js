@@ -87,7 +87,7 @@ import { navigate, enableNavMotion } from './motion.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-export const APP_VERSION = '2026.09.28-2';
+export const APP_VERSION = '2026.09.28-3';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
