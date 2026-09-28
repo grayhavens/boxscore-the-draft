@@ -77,6 +77,7 @@ import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
 import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
+import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
@@ -881,5 +882,18 @@ document.addEventListener('visibilitychange', () => {
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
+    syncPushDevice(currentProfileId);
+  });
+  // Tapping an alert while the app is already open (sw.js): go straight
+  // to the view it's about instead of reloading the page.
+  navigator.serviceWorker.addEventListener('message', event => {
+    if(!event.data || event.data.type !== 'bx-open-alert') return;
+    let target;
+    try { target = new URL(event.data.url, location.href); } catch (e){ return; }
+    const view = target.searchParams.get('view');
+    const room = target.searchParams.get('room');
+    const currentRoom = new URLSearchParams(location.search).get('room');
+    if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
+    else location.href = target.href;
   });
 }

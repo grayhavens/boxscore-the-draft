@@ -16,6 +16,7 @@ There is no build/lint/test tooling in this repo — there's nothing to run befo
 change beyond loading the page.
 
 **Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs`
+(`node --test tests/*.test.mjs` runs every pure-logic test, including `tests/web-push.test.mjs`)
 (pure logic, no dependencies).
 **Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
 failures against a running `wrangler dev`; `--preflight` is the draft-morning smoke test. The commissioner's
@@ -137,6 +138,18 @@ on the message) since they change after it's sent, so the `history` frame always
 of every retained message's reactions — a reconnect (`?after=<lastId>`) fetches no old messages and
 would otherwise never see a reaction added to one. **Deploy the worker before the static site:** an
 old worker silently ignores `react` frames, so the buttons would do nothing.
+
+**Push alerts** (`js/push.js`, `worker/web-push.js`, the `push`/`notificationclick` handlers in `sw.js`):
+Settings → Alerts lets each device opt into "My draft pick" (you went on the clock in a real, non-mock
+draft room) and "Chat messages" (skipped for anyone with the app on screen: `js/chat.js` sends a
+`presence` frame the chat room tracks per socket). Standard Web Push with VAPID and aes128gcm written
+on WebCrypto, no dependencies; subscriptions live in `LEAGUE_FACTS` KV per drafter (`push:<drafter>`,
+`push@<group>:<drafter>` for other groups). Needs the worker secrets `VAPID_PUBLIC_KEY` /
+`VAPID_PRIVATE_KEY` (`node tools/vapid-keys.mjs` makes a pair; never rotate it casually, since that
+drops every device's registration). Without them `/push/config` answers null and the section stays
+hidden. iPhones only get web push in the Home Screen app, so Safari shows an "Add to Home Screen
+first" row instead. The chat unread count also goes on the Home Screen icon (`navigator.setAppBadge`).
+**Deploy the worker before the static site.**
 
 **Chat GIFs** (`js/gifs.js`, `js/gif-picker.js`): a GIF button in the chat composer opens a picker
 backed by KLIPY (Tenor's API shut down 2026-06-30). **This is the one upstream that deliberately

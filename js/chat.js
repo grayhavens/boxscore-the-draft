@@ -21,6 +21,7 @@ import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 import { escapeHtml as esc } from './utils.js';
+import { clearAlerts } from './push.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -48,6 +49,7 @@ let reconnectDelay = 1000;
 let reconnectTimer = null;
 let lastHeard = 0;
 let open = false;
+let sentPresence = null;
 let pickerId = null;         // id of the message whose reaction picker is showing, if any
 
 function loadCachedMessages(){
@@ -109,7 +111,9 @@ function connect(){
     if(socket !== ws) return;
     reconnectDelay = 1000;
     lastHeard = Date.now();
+    sentPresence = null;
     setStatus('open');
+    sendPresence();
   });
   ws.addEventListener('message', event => {
     if(socket !== ws) return;
@@ -213,8 +217,21 @@ setInterval(() => {
 }, PING_INTERVAL_MS);
 
 document.addEventListener('visibilitychange', () => {
+  sendPresence();
   if(document.visibilityState === 'visible' && (!socket || socket.readyState !== WebSocket.OPEN)) reconnectNow();
 });
+
+// Tells the room who this is and whether the app is on screen, so the
+// worker doesn't push a message alert to someone already looking at the
+// app (see pushMessage in worker/chat-room.js). Only sent when it changes.
+function sendPresence(){
+  if(!socket || socket.readyState !== WebSocket.OPEN) return;
+  const visible = document.visibilityState === 'visible';
+  const key = `${currentProfileId}|${visible}`;
+  if(key === sentPresence) return;
+  sentPresence = key;
+  try { socket.send(JSON.stringify({ type: 'presence', from: currentProfileId, visible })); } catch (e){}
+}
 window.addEventListener('online', reconnectNow);
 
 // ---- Unread badge ----
@@ -226,11 +243,16 @@ function unreadCount(){
   return messages.filter(m => m.id > seenId && m.from !== currentProfileId).length;
 }
 
-// Tab bar Chat button badge (see index.html). Called from
-// js/board.js too, whenever the active profile changes, since "unread"
-// excludes your own messages.
+// Tab bar Chat button badge (see index.html), mirrored onto the Home
+// Screen icon where the platform supports it. Called from js/board.js
+// too, whenever the active profile changes, since "unread" excludes your
+// own messages (and presence names the drafter, so it's re-sent then).
 export function paintBadges(){
+  sendPresence();
   const n = getSettings().chatBadge ? unreadCount() : 0;
+  if('setAppBadge' in navigator){
+    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }
   document.querySelectorAll('.chat-badge').forEach(el => {
     el.textContent = n > 9 ? '9+' : String(n);
     el.classList.toggle('show', n > 0);
@@ -241,6 +263,7 @@ export function paintBadges(){
 }
 
 function markSeen(){
+  clearAlerts('chat');
   const id = lastId();
   if(seenId !== null && id <= seenId) return;
   seenId = id;
