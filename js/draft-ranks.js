@@ -5,7 +5,8 @@
    real ids, logos and live-data ids come from the active season's
    TEAM_META (js/draft-pool.js matches the two by name), and any team
    listed here but absent from TEAM_META (e.g. an expansion club) is
-   added with just this name/abbr/color. Refresh the EPL and WNBA lists
+   added with this name/abbr/color plus its DRAFT_RANK_ESPN id and crest.
+   Refresh the EPL and WNBA lists
    before each draft (promotion/relegation, expansion) and re-check the
    order — it is a starting point, not gospel.
    ============================================================ */
@@ -18,4 +19,30 @@ export const DRAFT_RANKS = {
   wnba: "NYL,Liberty,6ECEB2;MIN,Lynx,266092;LVA,Aces,1A1A1A;IND,Fever,002D62;PHX,Mercury,CB6015;ATL,Dream,C8102E;GSV,Valkyries,3F2A56;SEA,Storm,2C5234;CHI,Sky,418FDE;CON,Sun,F05023;DAL,Wings,002B5C;LAS,Sparks,552583;WAS,Mystics,C8102E;POR,Fire,D03A2F;TOR,Tempo,6E1E2F",
   cfb: "OSU,Ohio State,BB0000;ORE,Oregon,154733;UGA,Georgia,BA0C2F;TEX,Texas,BF5700;PSU,Penn State,041E42;ND,Notre Dame,0C2340;BAMA,Alabama,9E1B32;LSU,LSU,461D7C;MICH,Michigan,00274C;CLEM,Clemson,F56600;TAMU,Texas A&M,500000;MIA,Miami,F47321;OU,Oklahoma,841617;TENN,Tennessee,FF8200;OLE,Ole Miss,CE1126;IND,Indiana,990000;SMU,SMU,0033A0;BYU,BYU,002E5D;FSU,Florida State,782F40;USC,USC,990000;ASU,Arizona State,8C1D40;ILL,Illinois,E84A27;AUB,Auburn,0C2340;FLA,Florida,0021A5;UTAH,Utah,CC0000;MIZ,Missouri,F1B82D;ISU,Iowa State,C8102E;IOWA,Iowa,FFCD00;KSU,Kansas State,512888;LOU,Louisville,AD0000;BSU,Boise State,0033A0;TTU,Texas Tech,CC0000;VT,Virginia Tech,630031;WIS,Wisconsin,C5050C;NEB,Nebraska,E41C38;SCAR,South Carolina,73000A;UK,Kentucky,0033A0;ARIZ,Arizona,AB0520;WASH,Washington,4B2E83;TCU,TCU,4D1979",
   mcbb: "DUKE,Duke,003087;HOU,Houston,C8102E;AUB,Auburn,0C2340;FLA,Florida,0021A5;UK,Kentucky,0033A0;CONN,UConn,000E2F;PUR,Purdue,1A1A1A;KU,Kansas,0051BA;TENN,Tennessee,FF8200;ALA,Alabama,9E1B32;MSU,Michigan State,18453B;ARIZ,Arizona,AB0520;GONZ,Gonzaga,002967;UNC,North Carolina,7BAFD4;SJU,St. John's,BA0C2F;TTU,Texas Tech,CC0000;ISU,Iowa State,C8102E;BAY,Baylor,154734;UCLA,UCLA,2D68C4;MARQ,Marquette,003366;ILL,Illinois,E84A27;CREI,Creighton,005CA9;BYU,BYU,002E5D;LOU,Louisville,AD0000;MICH,Michigan,00274C;WIS,Wisconsin,C5050C;ORE,Oregon,154733;USU,Utah State,0F2439;SMC,Saint Mary's,D80024;TAMU,Texas A&M,500000;ARK,Arkansas,9D2235;VILL,Villanova,00205B;OSU,Ohio State,BB0000;IND,Indiana,990000;UVA,Virginia,232D4B;MIZ,Missouri,F1B82D;MEM,Memphis,003087;SDSU,San Diego State,A6192E;CIN,Cincinnati,E00122;XAV,Xavier,0C2340"
+};
+
+/* ESPN ids for the ranked teams the newest season's TEAM_META doesn't
+   hold, so they show a crest in the draft room instead of a color tile,
+   and the export (tools/export-draft.mjs) takes the id as given. Keyed
+   by the name used above. Pro teams: [espnTeamId, ESPN logo code];
+   college teams: the id alone (their logo is filed under it). A team
+   that later joins TEAM_META takes its id from there and can be
+   dropped here; one added to the ranking with no entry here, or in
+   TEAM_META, gets a color tile until export resolves it. */
+export const DRAFT_RANK_ESPN = {
+  nfl: { 'Cardinals': ['22', 'ari'], 'Browns': ['5', 'cle'] },
+  nhl: { 'Flames': ['3', 'cgy'], 'Blackhawks': ['4', 'chi'] },
+  wnba: { 'Storm': ['14', 'sea'], 'Sun': ['18', 'con'], 'Sparks': ['6', 'la'], 'Fire': ['132052', 'por'], 'Tempo': ['131935', 'tor'] },
+  cfb: {
+    'Alabama': '333', 'Michigan': '130', 'Clemson': '228', 'Tennessee': '2633', 'Florida State': '52',
+    'Arizona State': '9', 'Illinois': '356', 'Auburn': '2', 'Florida': '57', 'Utah': '254',
+    'Missouri': '142', 'Iowa State': '66', 'Iowa': '2294', 'Kansas State': '2306', 'Virginia Tech': '259',
+    'Wisconsin': '275', 'Nebraska': '158', 'South Carolina': '2579', 'Kentucky': '96', 'TCU': '2628'
+  },
+  mcbb: {
+    'Auburn': '2', 'Baylor': '239', 'UCLA': '26', 'Marquette': '269', 'Creighton': '156',
+    'BYU': '252', 'Wisconsin': '275', 'Oregon': '2483', 'Texas A&M': '245', 'Villanova': '222',
+    'Ohio State': '194', 'Indiana': '84', 'Missouri': '142', 'Memphis': '235', 'San Diego State': '21',
+    'Cincinnati': '2132', 'Xavier': '2752'
+  }
 };
