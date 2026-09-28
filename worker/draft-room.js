@@ -60,6 +60,11 @@
      `now` is the server's clock; clients use it to correct their own
      before rendering the countdown from the state's clock timestamps.
 
+   Push: in a real (non-mock) room, whoever goes on the clock gets a
+   "You're on the clock" alert on their phone (worker/web-push.js), so
+   nobody has to sit watching the room between picks. Mock rooms never
+   push: a rehearsal would otherwise buzz every drafter in the group.
+
    GET .../result returns the finished board as JSON — what
    tools/export-draft.mjs turns into the next season's data file.
    GET .../status is a few bytes of "is it live, whose pick" for the
@@ -69,7 +74,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
-import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { GROUPS, LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { pushToDrafters } from './web-push.js';
 
 const MAX_QUEUE = 100;
 const MAX_TEAM_ID_LENGTH = 60;
@@ -281,6 +287,31 @@ export class DraftRoom extends DurableObject {
     }
     this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
     await this.armAutoPick();
+    await this.pushOnTheClock(before);
+  }
+
+  // A new drafter (or the same one again, at the snake's turn) is on the
+  // clock: tell them, with the pick that was just made for context.
+  // Pausing, resuming and queue edits don't move the clock, so they don't alert.
+  async pushOnTheClock(before){
+    if(isMockRoom(this.room)) return;
+    const was = onTheClock(before);
+    const now = onTheClock(this.state);
+    if(!now || (was && was.slot === now.slot && was.owner === now.owner)) return;
+    const group = this.group || LEGACY_GROUP_ID;
+    const nameOf = id => (GROUPS[group].drafters.find(d => d.id === id) || { name: id }).name;
+    const n = this.state.config.drafters.length;
+    const parts = [`Round ${Math.floor(now.slot / n) + 1}, pick ${(now.slot % n) + 1}.`];
+    const last = was && this.state.picks[was.slot];
+    const lastTeam = last && teamById(this.state.pool, last.team);
+    if(lastTeam) parts.push(`${nameOf(last.by)} took ${lastTeam.name}.`);
+    await pushToDrafters(this.env, group, [now.owner], 'draft', {
+      kind: 'draft',
+      title: "You're on the clock",
+      body: parts.join(' '),
+      url: this.room === 'main' ? './?view=draft' : `./?view=draft&room=${this.room}`,
+      tag: 'draft-clock'
+    }, { ttl: 10 * 60, urgency: 'high', topic: 'draft-clock' });
   }
 
   // ---- Mock-room auto-pick ----

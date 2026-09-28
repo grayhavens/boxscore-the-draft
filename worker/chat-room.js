@@ -29,6 +29,10 @@
                        { type: 'react', from, messageId, emoji } — toggles
                        that drafter's reaction on a message (send it again
                        to take it back); emoji must be in REACTION_EMOJI
+                       { type: 'presence', from, visible } — which drafter
+                       this socket is and whether the app is on screen, so
+                       a new message isn't pushed (worker/web-push.js) to
+                       someone already looking at it
                        'ping' (bare string; answered with 'pong' by the
                        runtime's auto-response, without waking the room)
      server -> client  { type: 'history', messages: [...], reactions: {...} }
@@ -50,15 +54,22 @@
      retained message's reactions, keyed by message id.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
+import { GROUPS, LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
+import { pushToDrafters } from './web-push.js';
 
 // Each group (js/groups.js) has its own room (the worker picks it by
 // ?group=), and only that group's drafters can post in it. The group rides
 // on each socket's attachment, read from the URL it connected with.
-function socketDrafterIds(ws){
+function socketGroup(ws){
   const attachment = ws.deserializeAttachment() || {};
-  return drafterIdsFor(isKnownGroup(attachment.group) ? attachment.group : LEGACY_GROUP_ID);
+  return isKnownGroup(attachment.group) ? attachment.group : LEGACY_GROUP_ID;
 }
+
+function socketDrafterIds(ws){
+  return drafterIdsFor(socketGroup(ws));
+}
+
+const PUSH_PREVIEW_LENGTH = 140;
 
 const MAX_TEXT_LENGTH = 1000;
 const HISTORY_ON_FRESH_CONNECT = 100;
@@ -222,6 +233,7 @@ export class ChatRoom extends DurableObject {
     }
     if(!msg) return;
     if(msg.type === 'react') return this.handleReact(ws, msg);
+    if(msg.type === 'presence') return this.handlePresence(ws, msg);
     if(msg.type !== 'send') return;
 
     const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, MAX_TEXT_LENGTH) : '';
@@ -243,6 +255,41 @@ export class ChatRoom extends DurableObject {
     const message = { id, from: msg.from, text, ts: now };
     if(gif) message.gif = gif;
     this.broadcast({ type: 'message', message });
+    // Awaited after the broadcast, so everyone connected already has the
+    // message; it just keeps the room awake until the pushes are out.
+    await this.pushMessage(socketGroup(ws), message);
+  }
+
+  // Presence is per socket (a drafter can have the app open on two
+  // devices) and lives on the socket's attachment, so it survives
+  // hibernation and disappears with the socket.
+  handlePresence(ws, msg){
+    if(!socketDrafterIds(ws).includes(msg.from)) return;
+    const attachment = ws.deserializeAttachment() || { sent: [] };
+    ws.serializeAttachment({ ...attachment, who: msg.from, visible: !!msg.visible });
+  }
+
+  // Alerts everyone in the group but the sender and anyone with the app
+  // on screen right now. The phone collapses a run of these into one
+  // notification (see sw.js), and the Topic does the same for a phone
+  // that's offline.
+  pushMessage(group, message){
+    const watching = new Set();
+    for(const socket of this.ctx.getWebSockets()){
+      const a = socket.deserializeAttachment() || {};
+      if(a.visible && a.who) watching.add(a.who);
+    }
+    const recipients = drafterIdsFor(group).filter(id => id !== message.from && !watching.has(id));
+    const sender = GROUPS[group].drafters.find(d => d.id === message.from);
+    const text = message.text.length > PUSH_PREVIEW_LENGTH ? `${message.text.slice(0, PUSH_PREVIEW_LENGTH - 1)}…` : message.text;
+    return pushToDrafters(this.env, group, recipients, 'chat', {
+      kind: 'chat',
+      title: sender ? sender.name : 'Chat',
+      body: text || 'Sent a GIF',
+      url: './?view=chat',
+      tag: 'chat',
+      id: message.id
+    }, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'chat' });
   }
 
   async webSocketClose(ws, code){

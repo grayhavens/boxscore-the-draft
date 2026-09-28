@@ -120,6 +120,14 @@
       .mp4s by the browser itself, straight from Brightcove — see
       js/nhl-clips.js for why that part isn't proxied or cached.
 
+   9. WEB PUSH — "you're on the clock" and chat alerts on a drafter's
+      phone while the app is closed (worker/web-push.js has the protocol
+      and storage notes). /push/config hands out the VAPID public key,
+      /push/device registers or forgets one device for one drafter, and
+      /push/test sends that device a sample alert. The chat and draft
+      Durable Objects send the real ones. Same no-auth tier as favorites,
+      plus an Origin check.
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -148,6 +156,8 @@
      npx wrangler secret put ADMIN_PASSWORD
      npx wrangler secret put ADMIN_PASSWORD_<GROUP>   (one per extra group, see js/groups.js)
      npx wrangler secret put KLIPY_APP_KEY   (chat GIFs; unset = GIFs hidden)
+     npx wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
+       (push alerts; `node tools/vapid-keys.mjs` makes the pair; unset = alerts hidden)
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
@@ -160,6 +170,7 @@ export { ChatRoom } from './chat-room.js';
 export { DraftRoom } from './draft-room.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -217,7 +228,7 @@ function isAllowedOrigin(origin){
 function corsHeaders(origin){
   return {
     'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Password',
     'Vary': 'Origin'
   };
@@ -830,6 +841,58 @@ function handleGifConfig(request, env, headers){
   return json({ appKey: env.KLIPY_APP_KEY || null }, 200, { ...headers, 'Cache-Control': 'no-store' });
 }
 
+// ---- Web push (see worker/web-push.js) ----
+
+// The VAPID public key a browser subscribes with; null means push isn't
+// set up on this worker and the Settings toggle stays hidden.
+function handlePushConfig(request, env, headers){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  return json({ publicKey: pushEnabled(env) ? env.VAPID_PUBLIC_KEY : null }, 200, { ...headers, 'Cache-Control': 'no-store' });
+}
+
+async function readPushBody(request, group){
+  let body;
+  try { body = await request.json(); } catch (e){ return null; }
+  if(!body || typeof body !== 'object' || !drafterIdsFor(group).includes(body.drafter)) return null;
+  return body;
+}
+
+// PUT { drafter, subscription, prefs: { chat, draft } } registers (or
+// updates) this device; DELETE { drafter, endpoint } forgets it.
+async function handlePushDevice(request, env, group, headers){
+  if(!pushEnabled(env)) return new Response('Push not configured', { status: 404, headers });
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')) return new Response('Forbidden', { status: 403, headers });
+  if(request.method !== 'PUT' && request.method !== 'DELETE') return new Response('Method not allowed', { status: 405, headers });
+  const body = await readPushBody(request, group);
+  if(!body) return new Response('Bad request', { status: 400, headers });
+
+  if(request.method === 'DELETE'){
+    if(typeof body.endpoint !== 'string') return new Response('Bad request', { status: 400, headers });
+    await removeDevice(env, group, body.drafter, body.endpoint);
+    return json({ ok: true }, 200, headers);
+  }
+  const sub = parseSubscription(body.subscription);
+  if(!sub) return new Response('Bad subscription', { status: 400, headers });
+  await saveDevice(env, group, body.drafter, sub, parsePrefs(body.prefs));
+  return json({ ok: true }, 200, headers);
+}
+
+// POST { drafter, endpoint }: a sample alert to that one registered
+// device, so a drafter can check alerts work without waiting for a real one.
+async function handlePushTest(request, env, group, headers){
+  if(!pushEnabled(env)) return new Response('Push not configured', { status: 404, headers });
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')) return new Response('Forbidden', { status: 403, headers });
+  if(request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers });
+  const body = await readPushBody(request, group);
+  if(!body) return new Response('Bad request', { status: 400, headers });
+  const device = (await loadDevices(env, group, body.drafter)).find(d => d.endpoint === body.endpoint);
+  if(!device) return new Response('Not registered', { status: 404, headers });
+  const status = await sendPush(env, device, {
+    kind: 'test', title: 'Boxscore', body: 'Alerts are on for this device.', url: './?view=settings', tag: 'test'
+  }, { ttl: 60 });
+  if(status === 404 || status === 410) await removeDevice(env, group, body.drafter, body.endpoint);
+  return json({ ok: status >= 200 && status < 300, status }, 200, headers);
+}
 
 // ---- Activity feed (rule-change log) ----
 //
@@ -952,6 +1015,7 @@ async function route(request, env, ctx){
   const group = requestGroup(url);
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
+    url.pathname === '/push/device' || url.pathname === '/push/test' ||
     /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
@@ -971,6 +1035,12 @@ async function route(request, env, ctx){
   if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, group, headers, ctx);
 
   if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
+
+  if(url.pathname === '/push/config') return handlePushConfig(request, env, headers);
+
+  if(url.pathname === '/push/device') return handlePushDevice(request, env, group, headers);
+
+  if(url.pathname === '/push/test') return handlePushTest(request, env, group, headers);
 
   if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
 

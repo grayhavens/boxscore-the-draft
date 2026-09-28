@@ -6,7 +6,7 @@
    cache only when there's no connectivity — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v17';
+const CACHE_NAME = 'boxscore-v18';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -62,6 +62,7 @@ const SHELL_FILES = [
   './js/scoring-page.js',
   './js/season-lock.js',
   './js/season-phase.js',
+  './js/push.js',
   './js/settings.js',
   './js/standings-cbb.js',
   './js/team-page.js',
@@ -105,4 +106,58 @@ self.addEventListener('fetch', (event) => {
       return res;
     }).catch(() => caches.match(key).then((cached) => cached || caches.match('./index.html')))
   );
+});
+
+/* ---- Push alerts (worker/web-push.js sends them, js/push.js opts in) ----
+   Payload: { kind: 'chat' | 'draft' | 'test', title, body, url, tag }.
+   Every push must show a notification (iOS revokes a subscription that
+   stays silent), so there's no "skip it" path here; the worker already
+   leaves out whoever is looking at the app. */
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e){}
+  event.waitUntil(showAlert(data));
+});
+
+async function showAlert(data){
+  let title = data.title || 'Boxscore';
+  let body = data.body || '';
+  let count = 1;
+  // A run of chat messages stacks into one notification ("3 new
+  // messages", the latest one shown) instead of one per message.
+  if(data.kind === 'chat'){
+    const shown = await self.registration.getNotifications({ tag: 'chat' });
+    const prev = shown[shown.length - 1];
+    if(prev && prev.data && prev.data.count){
+      count = prev.data.count + 1;
+      body = `${title}: ${body}`;
+      title = `${count} new messages`;
+    }
+    if(self.navigator.setAppBadge) self.navigator.setAppBadge(count).catch(() => {});
+  }
+  return self.registration.showNotification(title, {
+    body,
+    tag: data.tag || undefined,
+    renotify: !!data.tag,
+    icon: './icons/icon-192.png',
+    data: { url: data.url || './', kind: data.kind || '', count }
+  });
+}
+
+// Tapping an alert: bring an open Boxscore window to the front and tell
+// it where to go (js/board.js), or open a new one there.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = windows.find(c => new URL(c.url).origin === self.location.origin);
+    if(client){
+      await client.focus();
+      client.postMessage({ type: 'bx-open-alert', url });
+      return;
+    }
+    await self.clients.openWindow(url);
+  })());
 });

@@ -29,6 +29,7 @@ import { SEASON_IDS } from './seasons/index.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
 import { APP_VERSION } from './board.js';
+import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -135,6 +136,7 @@ export function renderSettingsPage(backLabel = 'Back'){
       </button>`).join('')}</div>`)}
     ${sectionHtml('Open app to', `<div class="set-chips">${LANDING_OPTIONS.map(([v, label]) => `
       <button type="button" class="set-chip ${v === s.landing ? 'on' : ''}" data-landing-opt="${v}" aria-pressed="${v === s.landing}" onclick="setSetting('landing', '${v}')">${label}</button>`).join('')}</div>`)}
+    <div id="set-alerts"></div>
     ${sectionHtml('Chat', switchRowHtml('chatBadge', 'Unread badge', 'Message count on the Chat tab', s.chatBadge, "setSetting('chatBadge', !getSettingsValue('chatBadge'))"))}
     ${sectionHtml('League', `
       <div class="set-tiles">
@@ -147,7 +149,66 @@ export function renderSettingsPage(backLabel = 'Back'){
     <div class="set-foot">Saved on this device only</div>
     <div class="set-foot set-version">Version ${APP_VERSION}</div>
   `;
+  loadPushConfig().then(paintAlertsSection);
 }
+
+/* ---- Alerts (push notifications, js/push.js) ----
+   Filled in once the worker's push config has loaded, and left empty
+   when push is off (no keys on the worker, or a browser without it). */
+
+let alertsNote = '';
+let alertsBusy = false;
+
+function alertsInfoRow(title, sub, onclick){
+  return onclick
+    ? `<button type="button" class="set-row" onclick="${onclick}"><span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span><span class="set-chev">&rsaquo;</span></button>`
+    : `<div class="set-row"><span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span></div>`;
+}
+
+function paintAlertsSection(){
+  const el = document.getElementById('set-alerts');
+  if(!el) return;
+  const availability = pushAvailability();
+  let body = '';
+  if(availability === 'install'){
+    body = alertsInfoRow('Add to Home Screen first', 'iPhone only sends alerts to Boxscore opened from your Home Screen', 'openInstallGuide()');
+  } else if(availability === 'blocked'){
+    body = alertsInfoRow('Notifications are blocked', 'Allow them for Boxscore in your device or browser settings');
+  } else if(availability === 'ready'){
+    const prefs = pushPrefs();
+    body = PUSH_KINDS.map(([kind, title, sub]) => switchRowHtml(`push-${kind}`, title, sub, prefs[kind], `togglePushPref('${kind}')`)).join('');
+    if(Object.values(prefs).some(Boolean)){
+      body += alertsInfoRow('Send a test alert', 'Check this device gets them', 'sendTestAlert()');
+    }
+  }
+  if(body && alertsNote) body += `<div class="set-foot">${alertsNote}</div>`;
+  el.innerHTML = body ? sectionHtml('Alerts', body) : '';
+}
+
+window.togglePushPref = async kind => {
+  if(alertsBusy) return;
+  alertsBusy = true;
+  alertsNote = '';
+  try {
+    await setPushPref(currentProfileId, kind, !pushPrefs()[kind]);
+  } catch (e){
+    alertsNote = e.message === 'permission' ? 'Alerts need notification permission.' : 'Couldn\u2019t reach Boxscore. Try again in a moment.';
+  }
+  alertsBusy = false;
+  paintAlertsSection();
+};
+
+window.sendTestAlert = async () => {
+  alertsNote = 'Sending\u2026';
+  paintAlertsSection();
+  try {
+    await sendTestPush(currentProfileId);
+    alertsNote = 'Sent. It should show up in a few seconds.';
+  } catch (e){
+    alertsNote = 'The test didn\u2019t go through. Turn alerts off and on, then try again.';
+  }
+  paintAlertsSection();
+};
 
 function setSwitch(key, on){
   const row = settingsEl()?.querySelector(`[data-switch="${key}"]`);
@@ -259,6 +320,7 @@ export function chooseProfile(id){
   // header/peek banner — see setDraftTeam in js/board.js.
   window.setDraftTeam(id);
   paintSettingsPage();
+  syncPushDevice(id);
 }
 window.chooseProfile = chooseProfile;
 
