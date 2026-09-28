@@ -45,17 +45,19 @@ export const GROUPS = {
   },
   // Season Ticket, the second group (seasonticket.boxscore.space). Its id
   // is its subdomain and part of every one of its storage keys, so it must
-  // not change once people use it. The drafters are placeholders until the
-  // real 10 are known — swap them in before its first draft.
+  // not change once people use it. Drafter ids get saved with every chat
+  // message, pick and favorite, so settle each one before Season Ticket's
+  // first chat or draft. Josh B and Drew are maybes, and the last five are
+  // open spots until those people are found.
   seasonticket: {
     id: 'seasonticket',
     name: 'Season Ticket',
     drafters: [
-      { id:'drafterone', name:'Drafter 1' },
-      { id:'draftertwo', name:'Drafter 2' },
-      { id:'drafterthree', name:'Drafter 3' },
-      { id:'drafterfour', name:'Drafter 4' },
-      { id:'drafterfive', name:'Drafter 5' },
+      { id:'kevin', name:'Kevin' },
+      { id:'josh', name:'Josh' },        // commissioner
+      { id:'joshb', name:'Josh B' },     // maybe
+      { id:'farron', name:'Farron' },
+      { id:'drew', name:'Drew' },        // maybe
       { id:'draftersix', name:'Drafter 6' },
       { id:'drafterseven', name:'Drafter 7' },
       { id:'draftereight', name:'Drafter 8' },
