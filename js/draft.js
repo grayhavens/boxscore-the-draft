@@ -261,7 +261,10 @@ function statusPill(d){
     const year = Number(LATEST_SEASON_ID) + 1;
     const rounds = d ? d.rounds : 21;
     // Mock rooms (Settings → Draft → Mock Draft) aren't any season's draft.
-    if(/^mock(-|$)/.test(draftStore.room)) sub.innerHTML = `Snake · ${rounds} rounds · Mock Draft`;
+    const mock = isMockRoom(draftStore.room);
+    const title = document.getElementById('draft-title');
+    if(title) title.textContent = mock ? 'Mock Draft' : 'Draft';
+    if(mock) sub.innerHTML = `Practice · Snake · ${rounds} rounds`;
     else {
       const room = draftStore.room === 'main' ? '' : ` · room ${esc(draftStore.room)}`;
       sub.innerHTML = `${year} season · Snake · ${rounds} rounds${room}`;
@@ -320,8 +323,6 @@ function lobbyHtml(d){
 
   return `
     <div class="dr-lobby">
-      <div class="dr-eyebrow">${mock ? 'MOCK DRAFT LOBBY' : 'PRE-DRAFT LOBBY'}</div>
-      <h2 class="dr-lobby-title">${mock ? 'Mock Draft' : `The ${Number(LATEST_SEASON_ID) + 1} Draft`}</h2>
       <p class="dr-lobby-copy">${mock
         ? 'Practice snake draft, nothing counts. Anyone here can set it up and run it. Bots pick on their own, and anyone whose clock runs out is auto-picked from their queue, or the best team left.'
         : "Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. Order is set by random lottery."}</p>

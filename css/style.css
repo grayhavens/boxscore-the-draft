@@ -4127,19 +4127,22 @@ html.chat-kb .tab-bar{ display: none; }
 .set-theme.on .set-theme-label{ color: var(--text); }
 
 .set-chips{ display: flex; flex-wrap: wrap; gap: 8px; }
+/* Same look as .filter-chip / .filter-chip.active (Home, Standings), so a
+   selected choice reads the same everywhere in the app. */
 .set-chip{
   font-family: var(--font-ui);
-  font-size: 14px;
-  font-weight: 700;
-  padding: 9px 15px;
-  border-radius: 999px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
   background: var(--surface);
-  color: var(--text);
-  border: 1px solid transparent;
+  color: var(--text-sub);
+  border: 1px solid var(--hairline-strong);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
 }
-.set-chip.on{ background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+.set-chip.on{ background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
 
 .set-row{
   display: flex;
@@ -4161,32 +4164,14 @@ html.chat-kb .tab-bar{ display: none; }
 .set-row-sub{ font-size: 13px; color: var(--text-sub); }
 .set-chev{ color: var(--text-mute); font-size: var(--fs-20); }
 
-.set-tiles{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.set-tile{
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px;
-  border: none;
-  border-radius: var(--r-md);
-  background: var(--surface);
-  color: var(--text);
-  font-family: var(--font-ui);
-  text-align: left;
-  cursor: pointer;
-}
-.set-tile-sub{ font-size: 12px; color: var(--text-sub); }
 
 .set-foot{ font-size: 12px; color: var(--text-mute); text-align: center; }
 .set-version{ margin-top: -14px; font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.2px; opacity: 0.6; }
 
-/* Light theme: labels one step darker for contrast, chips get an edge
-   against the pale page. */
+/* Light theme: labels one step darker for contrast. */
 html[data-theme="light"] .set-label{ color: var(--text-sub); }
-html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 @media (prefers-color-scheme: light){
   html[data-theme="auto"] .set-label{ color: var(--text-sub); }
-  html[data-theme="auto"] .set-chip:not(.on){ border-color: var(--hairline); }
 }
 
 .switch{
@@ -4630,10 +4615,9 @@ html[data-theme="light"] .set-chip:not(.on){ border-color: var(--hairline); }
 .dr-btn-gold{ background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 
 /* Lobby */
-.dr-lobby{ max-width: 720px; margin: 0 auto; padding: 40px 20px 60px; display: flex; flex-direction: column; gap: 22px; }
+.dr-lobby{ max-width: 720px; margin: 0 auto; padding: 20px 20px 60px; display: flex; flex-direction: column; gap: 22px; }
 .dr-eyebrow{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.08em; color: var(--text-mute); display: flex; align-items: center; gap: 8px; }
-.dr-lobby .dr-eyebrow, .dr-eyebrow.gold{ color: var(--accent); }
-.dr-lobby-title{ font-family: 'Space Grotesk', sans-serif; font-size: 40px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; margin: 0; }
+.dr-eyebrow.gold{ color: var(--accent); }
 .dr-lobby-copy{ margin: 0; max-width: 560px; font-size: var(--fs-15); line-height: 1.5; color: var(--text-sub); }
 .dr-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); overflow: hidden; }
 .dr-card-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 14px 18px; border-bottom: 1px solid var(--hairline); }
@@ -5369,6 +5353,28 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 
 .guide-actions{ display: flex; gap: 8px; padding-bottom: 0; }
 .guide-actions .modal-cta{ flex: 1; width: auto; margin: 0; }
+/* One height for every card, so the sheet doesn't jump as you page
+   through, with the dots and buttons pinned to its bottom edge. A card
+   too tall for a short phone scrolls under them (the sheet stays the
+   scroller, which is what its swipe-to-dismiss watches). */
+#welcome-content[data-step="tour"]{
+  display: flex;
+  flex-direction: column;
+  height: min(600px, 85vh);
+}
+#welcome-content[data-step="tour"] .guide-card{ flex: 1 0 auto; }
+.guide-foot{
+  flex: none;
+  position: sticky;
+  bottom: 0;
+  background: var(--sheet);
+}
+@media (max-width: 700px){
+  #welcome-content[data-step="tour"]{
+    height: min(600px, 80vh);
+    height: min(600px, 80dvh, calc(100dvh - env(safe-area-inset-top) - 88px));
+  }
+}
 #welcome-content[data-step="tour"] .welcome-skip{ margin: 4px 0 14px; }
 #welcome-content[data-step="tour"] .guide-actions:last-child{ padding-bottom: 22px; }
 

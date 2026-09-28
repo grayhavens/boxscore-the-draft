@@ -71,7 +71,7 @@ const GUIDE = [
     id: 'standings', icon: 'standings', title: 'Standings',
     lead: 'The real tables for all 8 leagues, with every team tagged by who drafted it.',
     points: [
-      'Switch between League (the real table) and Person (each drafter’s teams together).',
+      'Switch between League (the real table) and Drafted (each drafter’s teams together).',
       'MLB and WNBA show last season until their next one starts. Those results don’t count yet.'
     ],
     go: ['Go to Standings', "switchView('standings')"]
@@ -95,7 +95,7 @@ const GUIDE = [
   },
   {
     id: 'chat', icon: 'chat', tour: true, title: 'Chat',
-    lead: `A group chat for ${ACTIVE_GROUP.name}, the big button in the middle of the tab bar.`,
+    lead: `A group chat for ${ACTIVE_GROUP.name}, the button in the middle of the tab bar.`,
     points: [
       'Tap a message to react to it.',
       'Use the GIF button to send a GIF.',
@@ -211,15 +211,17 @@ function paintTour(){
   el.dataset.step = 'tour';
   el.innerHTML = `
     <div class="welcome-head guide-card">
-      <div class="welcome-eyebrow">${i === 0 ? 'Welcome to Boxscore' : `${i + 1} of ${cards.length}`}</div>
+      <div class="welcome-eyebrow">${i + 1} of ${cards.length}</div>
       ${tourCardBody(cards[i])}
     </div>
-    <div class="guide-dots" aria-hidden="true">${cards.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
-    <div class="welcome-actions guide-actions">
-      ${i > 0 ? `<button type="button" class="modal-cta secondary" onclick="guideTourStep(-1)">Back</button>` : ''}
-      <button type="button" class="modal-cta" onclick="${last ? 'guideTourDone()' : 'guideTourStep(1)'}">${last ? 'Done' : 'Next'}</button>
+    <div class="guide-foot">
+      <div class="guide-dots" aria-hidden="true">${cards.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="welcome-actions guide-actions">
+        ${i > 0 ? `<button type="button" class="modal-cta secondary" onclick="guideTourStep(-1)">Back</button>` : ''}
+        <button type="button" class="modal-cta" onclick="${last ? 'guideTourDone()' : 'guideTourStep(1)'}">${last ? 'Done' : 'Next'}</button>
+      </div>
+      ${last ? '' : '<button type="button" class="welcome-skip" onclick="guideTourDone()">Skip the tour</button>'}
     </div>
-    ${last ? '' : '<button type="button" class="welcome-skip" onclick="guideTourDone()">Skip the tour</button>'}
   `;
   el.scrollTop = 0;
 }
