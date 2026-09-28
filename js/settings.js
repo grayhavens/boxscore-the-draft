@@ -13,7 +13,7 @@ const KEY = 'teamDashboardSettings';
 const DEFAULTS = { theme: 'dark', landing: 'board', chatBadge: true };
 
 export const THEME_OPTIONS = [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Auto']];
-export const LANDING_OPTIONS = [['board', 'Teams'], ['live-now', 'Scores'], ['standings', 'Standings'], ['overall', 'Points']];
+export const LANDING_OPTIONS = [['board', 'Home'], ['live-now', 'Scores'], ['standings', 'Standings'], ['overall', 'Points']];
 
 const THEME_COLOR = { dark: '#0A0B0D', light: '#F4F3EF' };
 

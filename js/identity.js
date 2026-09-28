@@ -144,10 +144,14 @@ export function renderSettingsPage(backLabel = 'Back'){
     <div id="set-alerts"></div>
     ${sectionHtml('Chat', switchRowHtml('chatBadge', 'Unread badge', 'Message count on the Chat tab', s.chatBadge, "setSetting('chatBadge', !getSettingsValue('chatBadge'))"))}
     ${sectionHtml('League', `
-      <div class="set-tiles">
-        <button type="button" class="set-tile" onclick="openDraftPicker()"><span class="set-row-title">Draft &rsaquo;</span><span class="set-tile-sub">Mock or live</span></button>
-        <button type="button" class="set-tile" onclick="switchView('admin')"><span class="set-row-title">Commissioner &rsaquo;</span><span class="set-tile-sub">Draft &amp; scoring</span></button>
-      </div>
+      <button type="button" class="set-row" onclick="openDraftPicker()">
+        <span class="set-row-text"><span class="set-row-title">Draft</span><span class="set-row-sub">Mock or live</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>
+      <button type="button" class="set-row" onclick="switchView('admin')">
+        <span class="set-row-text"><span class="set-row-title">Commissioner</span><span class="set-row-sub">Draft &amp; scoring</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>
       ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
       <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
