@@ -2,19 +2,18 @@
    Feature guide: what the app can do, in two places that read from the
    one GUIDE list below.
 
-   - The tour: a few swipeable cards in the first-run welcome sheet
-     (js/identity.js), shown right after a new device picks its name.
-     In Safari on a phone the welcome shows the Add to Home Screen steps
-     instead, and the tour only follows if they tap "Not now"; the Home
-     Screen app asks for the name again on its first open (its own
-     storage), and that's where the tour runs. Its last card turns on
-     alerts, since the Home Screen app is the only place iPhone allows
-     them.
+   - The tour: a few swipeable one-line cards in the first-run welcome
+     sheet (js/identity.js), shown right after a new device picks its
+     name. In a phone browser the welcome opens on the Add to Home Screen
+     steps, and the name pick and tour only follow "Continue in browser";
+     otherwise they run in the Home Screen app on its first open. Its
+     last card turns on alerts where the device can get them.
    - The guide page (#view-guide, Settings -> How Boxscore works): every
      entry, each with a button that jumps to it. Reopenable any time.
 
    Adding a feature: add one entry to GUIDE. `tour: true` puts it in the
-   tour too (keep that to five or so). `pre` is the text used instead
+   tour too (keep that to four or so); the tour shows only its `lead`,
+   the guide page adds the `points`. `pre` is the text used instead
    while this group hasn't held its first draft (ACTIVE_SEASON.preDraft),
    when Home, Standings and Points are still empty.
    ============================================================ */
@@ -164,36 +163,25 @@ let tour = null; // { el, cards, i, drafter, onDone, note }
 export async function startTour(el, { drafter, onDone }){
   await Promise.race([loadPushConfig(), new Promise(r => setTimeout(r, 1500))]);
   const cards = entries({ tourOnly: true });
-  const push = pushAvailability();
-  if(push === 'ready' || push === 'install') cards.push({ id: 'alerts-card', push });
-  cards.push({ id: 'end' });
+  // Only where alerts can be turned on right here: in a phone browser
+  // they'd need the Home Screen app, which the welcome just offered.
+  if(pushAvailability() === 'ready') cards.push({ id: 'alerts-card' });
   tour = { el, cards, i: 0, drafter, onDone, note: '' };
   enableSwipe(el);
   paintTour();
 }
 
 function tourCardBody(card){
-  if(card.id === 'end'){
-    return `
-      <div class="guide-card-icon">${ICONS.gear}</div>
-      <div class="welcome-title">That’s the tour</div>
-      <div class="welcome-sub">Everything else, from the draft to scoring rules, is in <b>Settings</b>, under <b>How Boxscore works</b>. It’s the gear at the top of every page.</div>`;
-  }
+  // Kept compact (no big icon, no row subtitles, the Settings pointer in
+  // its sentence) so it fits the same sheet height as the one-line cards.
   if(card.id === 'alerts-card'){
-    const head = `
-      <div class="guide-card-icon">${ICONS.bell}</div>
-      <div class="welcome-title">Turn on alerts</div>`;
-    if(card.push === 'install'){
-      return `${head}
-        <div class="welcome-sub">iPhone only sends alerts to the app on your Home Screen. Add it there, open it, and you can turn them on in Settings.</div>
-        <button type="button" class="set-row guide-alert-row" onclick="guideTourInstall()"><span class="set-row-text"><span class="set-row-title">How to add it</span></span><span class="set-chev">&rsaquo;</span></button>`;
-    }
     const prefs = pushPrefs();
-    return `${head}
-      <div class="welcome-sub">Get a heads-up on this device even when the app is closed. You can change these any time in Settings.</div>
-      <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title, sub]) => `
+    return `
+      <div class="welcome-title">Turn on alerts</div>
+      <div class="welcome-sub">Know when you’re on the clock or someone posts. Change these, and find more help, in <b>Settings</b>.</div>
+      <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title]) => `
         <button type="button" class="set-row" role="switch" aria-checked="${prefs[kind]}" onclick="guideTogglePush('${kind}')">
-          <span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span>
+          <span class="set-row-text"><span class="set-row-title">${title}</span></span>
           <span class="switch ${prefs[kind] ? 'on' : ''}" aria-hidden="true"></span>
         </button>`).join('')}</div>
       ${tour.note ? `<div class="welcome-note">${tour.note}</div>` : ''}`;
@@ -201,8 +189,7 @@ function tourCardBody(card){
   return `
     <div class="guide-card-icon">${ICONS[card.icon]}</div>
     <div class="welcome-title">${card.title}</div>
-    <div class="welcome-sub">${card.lead}</div>
-    ${pointsHtml(card.points)}`;
+    <div class="welcome-sub">${card.lead}</div>`;
 }
 
 function paintTour(){
@@ -213,6 +200,7 @@ function paintTour(){
     <div class="welcome-head guide-card">
       <div class="welcome-eyebrow">${i + 1} of ${cards.length}</div>
       ${tourCardBody(cards[i])}
+      ${last && cards[i].id !== 'alerts-card' ? '<div class="welcome-note">More any time in <b>Settings</b> (the gear up top), under <b>How Boxscore works</b>.</div>' : ''}
     </div>
     <div class="guide-foot">
       <div class="guide-dots" aria-hidden="true">${cards.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
@@ -240,11 +228,6 @@ window.guideTourDone = () => {
   const { onDone } = tour;
   tour = null;
   onDone();
-};
-
-window.guideTourInstall = () => {
-  tour = null;
-  window.openInstallGuide();
 };
 
 // Same as Settings' Alerts switches (js/identity.js togglePushPref):

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0B0D">
+<meta name="description" content="Boxscore: fantasy drafts across 8 real leagues, followed and scored live.">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Boxscore</title>
+<!-- The platform's front door (boxscore.space), where index.html sends
+     the bare domain. No manifest or service worker: each group's
+     subdomain is what gets installed, never this page. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="landing">
+<main class="landing-main">
+  <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
+  <h1 class="landing-title">Boxscore</h1>
+  <p class="landing-sub">Fantasy drafts across 8 real leagues, followed and scored live.</p>
+  <div class="set-label landing-label">Groups</div>
+  <nav class="landing-groups" id="landing-groups" aria-label="Groups"></nav>
+  <p class="landing-foot">Each group is its own app. Open yours, then add it to your Home Screen.</p>
+</main>
+<script type="module" src="js/landing.js"></script>
+</body>
+</html>

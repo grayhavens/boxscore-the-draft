@@ -95,6 +95,20 @@ export function allowsGroupOverride(hostname){
     (typeof hostname === 'string' && hostname.endsWith('.boxscorethedraft.pages.dev'));
 }
 
+// The platform's own address, the bare domain (and www): it's no group's
+// app, so index.html sends it to the Boxscore landing page (landing.html,
+// js/landing.js), which lists every group.
+export function isPlatformHost(hostname){
+  return hostname === GROUP_DOMAIN || hostname === `www.${GROUP_DOMAIN}`;
+}
+
+// Where a group's app lives, for the landing page's links: its subdomain,
+// or on dev and preview hosts this same host with ?group=.
+export function groupAppUrl(groupId, hostname){
+  if(allowsGroupOverride(hostname)) return `index.html?group=${groupId}`;
+  return `https://${groupId}.${GROUP_DOMAIN}/`;
+}
+
 // Pure so it can be unit-tested (tests/groups.test.mjs).
 export function chooseGroupId({ hostname, fromUrl }){
   const fromHost = groupIdFromHost(hostname);
