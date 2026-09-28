@@ -43,13 +43,13 @@ export const GROUPS = {
       { id:'donny', name:'Donny' }
     ]
   },
-  // Placeholder for the second league until it has a real name and
-  // drafters. Its id is its subdomain (league2.boxscore.space), so rename
-  // the key, id and name together — before anyone uses it, since the id
-  // is part of every one of its storage keys.
-  league2: {
-    id: 'league2',
-    name: 'League 2',
+  // Season Ticket, the second group (seasonticket.boxscore.space). Its id
+  // is its subdomain and part of every one of its storage keys, so it must
+  // not change once people use it. The drafters are placeholders until the
+  // real 10 are known — swap them in before its first draft.
+  seasonticket: {
+    id: 'seasonticket',
+    name: 'Season Ticket',
     drafters: [
       { id:'drafterone', name:'Drafter 1' },
       { id:'draftertwo', name:'Drafter 2' },
@@ -103,7 +103,7 @@ export function chooseGroupId({ hostname, fromUrl }){
 
 // The worker secret holding a group's commissioner password. The Draft
 // keeps the original ADMIN_PASSWORD; every other group has its own, e.g.
-// ADMIN_PASSWORD_LEAGUE2 (`npx wrangler secret put ADMIN_PASSWORD_LEAGUE2`).
+// ADMIN_PASSWORD_SEASONTICKET (`npx wrangler secret put ADMIN_PASSWORD_SEASONTICKET`).
 export function adminSecretName(groupId){
   return groupId === LEGACY_GROUP_ID ? 'ADMIN_PASSWORD' : `ADMIN_PASSWORD_${groupId.toUpperCase()}`;
 }

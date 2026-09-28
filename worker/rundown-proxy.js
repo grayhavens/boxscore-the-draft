@@ -618,7 +618,7 @@ async function handleNflverseDepthChart(request, env, headers, ctx){
 // migration. Anything that isn't a plain 4-digit year is rejected
 // rather than folded into a key, keeping the keyspace bounded.
 // Groups work the same way: The Draft keeps the bare prefix, any other
-// group gets `<prefix>@<group>` (e.g. facts@league2:epl).
+// group gets `<prefix>@<group>` (e.g. facts@seasonticket:epl).
 const LEGACY_SEASON = '2026';
 function kvGroupPrefix(prefix, group){
   return group === LEGACY_GROUP_ID ? prefix : `${prefix}@${group}`;
