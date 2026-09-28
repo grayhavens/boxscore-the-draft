@@ -186,6 +186,13 @@ into the room (`js/draft-live.js`: top of `.board` and under the Chat header). O
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.
 
+**Feature guide** (`js/guide.js`): one `GUIDE` list feeds both the first-run tour (cards in the welcome
+sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How Boxscore
+works (`#view-guide`, `?view=guide`). In Safari on a phone the welcome shows the Add to Home Screen steps instead
+and the tour only follows "Not now", since the Home Screen app runs the welcome again on its first open. **When a
+feature ships or changes, update its `GUIDE` entry** (`tour: true` adds it to the tour; `pre` is the text shown
+before a group's first draft).
+
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in
 a league's Results modal credits every drafter who owns an involved team automatically, stored in

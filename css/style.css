@@ -5308,3 +5308,93 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   100%{ box-shadow: 0 0 0 0 rgba(217,180,91,0), inset 0 0 0 999px rgba(217,180,91,0); }
 }
 @media (prefers-reduced-motion: reduce){ .tg-score .odo-strip{ transition: none; } .tg-card.just-scored{ animation: none; } }
+
+/* ---- Feature guide (js/guide.js): the tour's cards inside the welcome
+   sheet, and the How Boxscore works page. Reuses the welcome and
+   Settings pieces; only the icon badge, bullets, dots and entry cards
+   are new. ---- */
+.guide-card-icon,
+.guide-entry-icon{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+.guide-card-icon{ width: 48px; height: 48px; margin: 14px 0 12px; }
+.guide-card-icon svg{ width: 24px; height: 24px; }
+.guide-card .welcome-title{ margin-top: 0; }
+
+.guide-points{
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.guide-points li{
+  position: relative;
+  padding-left: 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.guide-points li::before{
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.guide-alert-rows{ display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.guide-alert-row{ margin-top: 14px; }
+.guide-card .welcome-note{ margin: 10px 0 0; }
+
+.guide-dots{ display: flex; justify-content: center; gap: 6px; padding: 8px 0 14px; }
+.guide-dots span{
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(var(--ink-rgb), 0.18);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.guide-dots span.on{ width: 18px; background: var(--accent); }
+
+.guide-actions{ display: flex; gap: 8px; padding-bottom: 0; }
+.guide-actions .modal-cta{ flex: 1; width: auto; margin: 0; }
+#welcome-content[data-step="tour"] .welcome-skip{ margin: 4px 0 14px; }
+#welcome-content[data-step="tour"] .guide-actions:last-child{ padding-bottom: 22px; }
+
+.guide-page{ gap: 14px; }
+.guide-page .set-head{ margin-bottom: 10px; }
+.guide-entry{
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  scroll-margin-top: 80px;
+}
+.guide-entry-head{ display: flex; align-items: center; gap: 12px; }
+.guide-entry-icon{ flex: none; width: 36px; height: 36px; }
+.guide-entry-icon svg{ width: 19px; height: 19px; }
+.guide-entry-title{ font-size: 17px; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+.guide-entry-lead{ margin: 10px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-sub); }
+.guide-go{
+  margin-top: 12px;
+  padding: 8px 0;
+  min-height: 40px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}

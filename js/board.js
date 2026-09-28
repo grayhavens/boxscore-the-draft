@@ -76,6 +76,7 @@ import { showAdminPage } from './admin.js';
 import { renderScoringPage } from './scoring-page.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
+import { renderGuidePage } from './guide.js';
 import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
 import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
@@ -86,7 +87,7 @@ import { navigate, enableNavMotion } from './motion.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-export const APP_VERSION = '2026.09.26-2';
+export const APP_VERSION = '2026.09.28-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -124,7 +125,7 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring' || explicitView === 'settings')
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring' || explicitView === 'settings' || explicitView === 'guide')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   // No view in the URL: fall back to the "Open to" setting (js/settings.js).
@@ -676,6 +677,7 @@ function showView(view){
   if(view === 'admin') showAdminPage();
   if(view === 'scoring') renderScoringPage();
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
+  if(view === 'guide') renderGuidePage();
 }
 
 // ---- Settings page ----
@@ -726,6 +728,16 @@ export function backToSettings(){
   });
 }
 window.backToSettings = backToSettings;
+
+// Settings -> How Boxscore works (js/guide.js). Pushed like the team
+// page; its back button is backToSettings.
+export function openGuide(){
+  navigate('push', () => {
+    showView('guide');
+    window.scrollTo(0, 0);
+  });
+}
+window.openGuide = openGuide;
 
 // The gold pill behind the active tab (.tab-pill) springs to its slot
 // via a CSS transition on --tab-i; off the five tabs it fades out.
