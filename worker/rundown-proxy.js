@@ -178,8 +178,10 @@ const ALLOWED_ORIGINS = [
 
 // Cloudflare Pages also serves every branch/preview deploy from its own
 // throwaway subdomain (e.g. https://<hash>.boxscorethedraft.pages.dev) —
-// match those too so preview deployments aren't broken by CORS.
-const ALLOWED_ORIGIN_SUFFIX = '.boxscorethedraft.pages.dev';
+// match those too so preview deployments aren't broken by CORS. Each
+// friend-group league gets its own subdomain of boxscore.space (e.g.
+// https://thedraft.boxscore.space), all served by the same Pages project.
+const ALLOWED_ORIGIN_SUFFIXES = ['.boxscorethedraft.pages.dev', '.boxscore.space'];
 
 // League keys that are allowed to have a facts blob — mirrors the
 // leagueKey values in js/data.js. Keeping an allowlist here (rather
@@ -193,7 +195,7 @@ const KNOWN_DRAFT_TEAM_IDS = ['josh', 'isaac', 'drew', 'douglas', 'collin', 'eri
 
 function isAllowedOrigin(origin){
   return ALLOWED_ORIGINS.includes(origin) ||
-    (origin.startsWith('https://') && origin.endsWith(ALLOWED_ORIGIN_SUFFIX));
+    (origin.startsWith('https://') && ALLOWED_ORIGIN_SUFFIXES.some(suffix => origin.endsWith(suffix)));
 }
 
 function corsHeaders(origin){
