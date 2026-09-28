@@ -48,7 +48,7 @@
 import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
-import { scopedKey, withSeasonQuery, ACTIVE_SEASON_ID } from './season.js';
+import { scopedKey, withScopeQuery, ACTIVE_SEASON_ID } from './season.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import { snapshotLeagueCaches, freezeLeagueCaches } from './frozen-cache.js';
 import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -103,7 +103,7 @@ function ensureLockLoaded(leagueKey){
     return Promise.resolve();
   }
   lockPromises[leagueKey] = (async () => {
-    const data = await fetchJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`));
+    const data = await fetchJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`));
     // A lock cleared by unlockLeague moments after this GET started
     // (another tab, most likely) is an acceptable rare race here, not
     // one this app needs to handle — same tolerance every other
@@ -184,7 +184,7 @@ function persistLock(leagueKey, lock){
   cache.data = lock;
   saveLocalLock(leagueKey, lock);
   if(DASHBOARD_WORKER_BASE){
-    putAuthedJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`), loadAdminPassword(), lock)
+    putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`), loadAdminPassword(), lock)
       .then(({ ok }) => { if(!ok) console.warn('[Season Lock]', leagueKey, 'failed to sync to shared store'); });
   }
   renderStandings();

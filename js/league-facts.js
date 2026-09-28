@@ -33,7 +33,7 @@
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation, draftOwnerName, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
-import { scopedKey, withSeasonQuery } from './season.js';
+import { scopedKey, withScopeQuery } from './season.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
 import { espnWnbaStandingsCache } from './standings-wnba.js';
 import { findFlatTeamKey } from './standings-flat.js';
@@ -245,7 +245,7 @@ async function fetchLeagueFacts(leagueKey){
   const cache = factsCacheFor(leagueKey);
   if(cache.data !== null || cache.loading || !DASHBOARD_WORKER_BASE) return;
   cache.loading = true;
-  const data = await fetchJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`));
+  const data = await fetchJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`));
   cache.loading = false;
   // If a mark was made locally while this was in flight, cache.data is
   // no longer null — don't clobber that edit with the (now stale) GET.
@@ -269,7 +269,7 @@ async function fetchLeagueFacts(leagueKey){
 function persistLeagueFacts(leagueKey, facts){
   saveLocalLeagueFacts(leagueKey, facts);
   if(!DASHBOARD_WORKER_BASE) return;
-  putAuthedJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), loadAdminPassword(), facts)
+  putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), loadAdminPassword(), facts)
     .then(({ ok }) => { if(!ok) console.warn('[League Facts]', leagueKey, 'failed to sync to shared store'); });
 }
 
@@ -308,7 +308,7 @@ async function fetchLeagueAdjustments(leagueKey){
   const cache = adjustmentsCacheFor(leagueKey);
   if(cache.data !== null || cache.loading || !DASHBOARD_WORKER_BASE) return;
   cache.loading = true;
-  const data = await fetchJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`));
+  const data = await fetchJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`));
   cache.loading = false;
   if(cache.data !== null) return;
   if(data && typeof data === 'object'){
@@ -323,7 +323,7 @@ async function fetchLeagueAdjustments(leagueKey){
 function persistLeagueAdjustments(leagueKey, adjustments){
   saveLocalLeagueAdjustments(leagueKey, adjustments);
   if(!DASHBOARD_WORKER_BASE) return;
-  putAuthedJSON(withSeasonQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), loadAdminPassword(), adjustments)
+  putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), loadAdminPassword(), adjustments)
     .then(({ ok }) => { if(!ok) console.warn('[League Adjustments]', leagueKey, 'failed to sync to shared store'); });
 }
 

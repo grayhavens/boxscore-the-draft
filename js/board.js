@@ -68,7 +68,8 @@ import { isLeagueFrozen } from './frozen-cache.js';
 import { setDraftActive } from './draft.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
-import { ACTIVE_SEASON_ID } from './season.js';
+import { ACTIVE_SEASON_ID, ACTIVE_SEASON } from './season.js';
+import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { showAdminPage } from './admin.js';
@@ -256,7 +257,11 @@ export function renderBoard(){
     `;
   }).join('');
 
-  document.getElementById('team-tally').textContent = `${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
+  document.querySelectorAll('[data-group-name]').forEach(el => { el.textContent = ACTIVE_GROUP.name; });
+  // A group that hasn't drafted yet (js/seasons/index.js preDraftSeasons) has no teams to count.
+  document.getElementById('team-tally').textContent = ACTIVE_SEASON.preDraft
+    ? `${LEAGUES.length} leagues · draft not held yet`
+    : `${LEAGUES.length} leagues · ${DRAFT_TEAM_COUNT} teams`;
 
   // The team rows above were just rebuilt from scratch, so every
   // row-status pill and CFB/EPL record chip starts blank again —

@@ -15,6 +15,7 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
+import { withGroupQuery } from './group.js';
 import { currentProfileId } from './identity.js';
 import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
@@ -36,7 +37,7 @@ const STICK_TO_BOTTOM_PX = 120;
 const REACTION_EMOJI = ['👍', '👎', '😂', '😮', '😢', '🔥', '😎'];
 
 function chatSocketUrl(after){
-  return `${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`;
+  return withGroupQuery(`${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`);
 }
 
 let messages = loadCachedMessages();

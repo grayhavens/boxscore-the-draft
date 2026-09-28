@@ -15,6 +15,7 @@
    everyone to the newest and they can switch back if they want.
    ============================================================ */
 import { SEASONS, SEASON_IDS, LATEST_SEASON_ID, LEGACY_SEASON_ID } from './seasons/index.js';
+import { withGroupQuery } from './group.js';
 
 const SEASON_STORAGE_KEY = 'teamDashboardSeason';
 
@@ -53,10 +54,12 @@ export function scopedKey(key){
   return ACTIVE_SEASON_ID === LEGACY_SEASON_ID ? key : `${key}@${ACTIVE_SEASON_ID}`;
 }
 
-// Same idea for worker routes: the worker reads ?season= and folds it
-// into its KV key, and treats an absent param as the legacy class.
-export function withSeasonQuery(url){
-  return ACTIVE_SEASON_ID === LEGACY_SEASON_ID ? url : `${url}?season=${ACTIVE_SEASON_ID}`;
+// Same idea for worker routes: the worker reads ?season= and ?group= and
+// folds them into its KV key, and treats an absent param as the legacy
+// class / group (The Draft). localStorage needs no group part — each
+// group is its own origin (js/groups.js).
+export function withScopeQuery(url){
+  return withGroupQuery(ACTIVE_SEASON_ID === LEGACY_SEASON_ID ? url : `${url}?season=${ACTIVE_SEASON_ID}`);
 }
 
 // Switches class and reloads (see the header for why). Choosing the newest

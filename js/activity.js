@@ -38,6 +38,7 @@
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { chatWorkerBase } from './api.js';
+import { withGroupQuery } from './group.js';
 import { ordinal, fetchJSON, escapeHtml } from './utils.js';
 import { isLeagueLocked, leagueLocksSettled, getLockedRuleTeams } from './season-lock.js';
 import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
@@ -131,7 +132,7 @@ export function markActivitySeen(quiet){
 
 // The worker answers this GET with Cache-Control: no-store.
 function fetchState(){
-  return fetchJSON(`${chatWorkerBase()}/activity`);
+  return fetchJSON(withGroupQuery(`${chatWorkerBase()}/activity`));
 }
 
 export async function loadActivity(){
@@ -443,7 +444,7 @@ export async function runActivityDetection(force){
     if(comparable && !snapshot.locked) snapshot.locked = prev.locked || null;
 
     const events = comparable ? diffSnapshots(prev, snapshot, Date.now()) : [];
-    const res = await fetch(`${chatWorkerBase()}/activity`, {
+    const res = await fetch(withGroupQuery(`${chatWorkerBase()}/activity`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ base: prev ? prev.dataAt : null, snapshot, events })
