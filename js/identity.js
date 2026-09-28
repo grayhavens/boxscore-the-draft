@@ -17,9 +17,9 @@
    both at once (via chooseProfile -> window.setDraftTeam).
 
    Also owns the first-run welcome: a device with no saved profile
-   gets a two-step modal (pick your name, then how to add the site to
-   the Home Screen) instead of silently defaulting to the first
-   drafter. See maybeShowWelcome below.
+   gets a modal (pick your name, then how to add the site to the Home
+   Screen, or the feature tour from js/guide.js) instead of silently
+   defaulting to the first drafter. See maybeShowWelcome below.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
@@ -30,6 +30,7 @@ import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
 import { APP_VERSION } from './board.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
+import { startTour, endTour } from './guide.js';
 
 const PROFILE_KEY = 'teamDashboardProfileId';
 
@@ -124,11 +125,15 @@ export function renderSettingsPage(backLabel = 'Back'){
       <span class="set-identity-text"><span class="set-identity-name" id="set-name">${me.name}</span><span class="set-row-sub">Drafting on this device</span></span>
       <span class="set-identity-switch">Switch</span>
     </button>
-    ${installPlatform() ? sectionHtml('App', `
+    ${sectionHtml('App', `
+      <button type="button" class="set-row" onclick="openGuide()">
+        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">Every feature and where to find it</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>${installPlatform() ? `
       <button type="button" class="set-row" onclick="openInstallGuide()">
         <span class="set-row-text"><span class="set-row-title">Add to Home Screen</span><span class="set-row-sub">Open Boxscore like an app</span></span>
         <span class="set-chev">&rsaquo;</span>
-      </button>`) : ''}
+      </button>` : ''}`)}
     ${sectionHtml('Appearance', `<div class="set-themes">${THEME_OPTIONS.map(([v, label]) => `
       <button type="button" class="set-theme ${v === s.theme ? 'on' : ''}" data-theme-opt="${v}" aria-pressed="${v === s.theme}" onclick="setSetting('theme', '${v}')">
         <span class="set-swatch" style="background:${THEME_SWATCH[v]}"></span>
@@ -389,6 +394,7 @@ function openWelcomeOverlay(){
 
 export function closeWelcome(){
   const overlay = document.getElementById('welcome-overlay');
+  endTour();
   if(!isSheetOpen(overlay)) return;
   unlockBodyScroll();
   closeSheetOverlay(overlay);
@@ -396,10 +402,34 @@ export function closeWelcome(){
 window.closeWelcome = closeWelcome;
 
 // The name-picking step can't be dismissed (it's the whole point of the
-// welcome); the install step can, by tapping outside it.
+// welcome); the install step and the tour can, by tapping outside them.
 export function dismissWelcomeOverlay(){
-  if(welcomeEl().dataset.step === 'install') closeWelcome();
+  const step = welcomeEl().dataset.step;
+  if(step === 'install') skipInstall();
+  else if(step === 'tour') closeWelcome();
 }
+
+// The feature tour (js/guide.js), right after the name pick on a device
+// that's already the Home Screen app (or has no install step at all).
+function showTour(){
+  startTour(welcomeEl(), { drafter: currentProfileId, onDone: closeWelcome });
+}
+
+// Set while the install step follows a first-run name pick (not the
+// Settings row): "Not now" means they're staying in the browser, so the
+// tour follows. "Done" means they added it, and the Home Screen app will
+// run the welcome (and the tour) itself on its first open.
+let tourAfterInstall = false;
+
+export function skipInstall(){
+  if(tourAfterInstall){
+    tourAfterInstall = false;
+    showTour();
+  } else {
+    closeWelcome();
+  }
+}
+window.skipInstall = skipInstall;
 window.dismissWelcomeOverlay = dismissWelcomeOverlay;
 
 function renderWelcomeNames(){
@@ -408,8 +438,8 @@ function renderWelcomeNames(){
   el.innerHTML = `
     <div class="welcome-head">
       <div class="welcome-eyebrow">Welcome to</div>
-      <div class="welcome-title">${ACTIVE_GROUP.name}</div>
-      <div class="welcome-sub">Every drafted team, every league, scored live. First things first &mdash; who are you?</div>
+      <div class="welcome-title">Boxscore</div>
+      <div class="welcome-sub">Every team drafted in ${ACTIVE_GROUP.name}, followed and scored live. First things first &mdash; who are you?</div>
     </div>
     <div class="welcome-names">
       ${DRAFT_TEAMS.map(d => `
@@ -446,7 +476,7 @@ function renderWelcomeInstall(platform, greetName){
     ${iosNote}
     <div class="welcome-actions">
       <button class="modal-cta" onclick="closeWelcome()">Done</button>
-      <button class="welcome-skip" onclick="closeWelcome()">Not now</button>
+      <button class="welcome-skip" onclick="skipInstall()">Not now</button>
     </div>
   `;
   el.scrollTop = 0;
@@ -473,9 +503,10 @@ export function chooseWelcomeProfile(id){
 
   const platform = installPlatform();
   if(platform){
+    tourAfterInstall = true;
     renderWelcomeInstall(platform, DRAFT_TEAMS.find(d => d.id === id).name);
   } else {
-    closeWelcome();
+    showTour();
   }
 }
 window.chooseWelcomeProfile = chooseWelcomeProfile;
@@ -492,6 +523,7 @@ export function maybeShowWelcome(){
 export function openInstallGuide(){
   const platform = installPlatform();
   if(!platform) return;
+  tourAfterInstall = false;
   renderWelcomeInstall(platform, null);
   openWelcomeOverlay();
 }
