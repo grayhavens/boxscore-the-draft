@@ -26,6 +26,7 @@
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
+import { withGroupQuery } from './group.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
@@ -74,7 +75,7 @@ async function loadDraftStatus(){
   if(draftStatusLoading) return;
   draftStatusLoading = true;
   // fetchJSON resolves null on any failure (offline, timeout, non-2xx).
-  const data = await fetchJSON(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`);
+  const data = await fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`));
   if(data) draftStatus = data;
   draftStatusError = !data;
   draftStatusLoading = false;
@@ -92,7 +93,7 @@ export async function verifyAdminPassword(password){
   verifying = true;
   errorMsg = '';
   renderAdminPage();
-  const { ok, status } = await fetchAuthedJSON(`${DASHBOARD_WORKER_BASE}/admin/verify`, password);
+  const { ok, status } = await fetchAuthedJSON(withGroupQuery(`${DASHBOARD_WORKER_BASE}/admin/verify`), password);
   verifying = false;
   if(ok){
     saveAdminPassword(password);

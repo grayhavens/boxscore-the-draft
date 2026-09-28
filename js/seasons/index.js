@@ -7,17 +7,56 @@
    Add a class by creating js/seasons/<year>.js (exporting TEAM_META,
    LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES — the draft
    export script generates it) and adding it below, oldest first.
+
+   Classes belong to a group (friend-group league, js/groups.js). The
+   map right below is The Draft's; tools/export-draft.mjs appends to it.
+   The exports at the bottom are the ACTIVE group's classes, so every
+   importer keeps reading SEASONS / LATEST_SEASON_ID without knowing
+   which group it is.
    ============================================================ */
 import * as s2026 from './2026.js';
+import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
 
-export const SEASONS = {
+const THE_DRAFT_SEASONS = {
   '2026': { id: '2026', label: '2026 Draft', ...s2026 }
 };
+
+// Every other group's classes, by group id. A group with none yet (it
+// hasn't held its first draft) gets a pre-draft class instead: the same
+// league tabs and scoring as The Draft's newest class, with no teams.
+const OTHER_GROUP_SEASONS = {};
+
+const THE_DRAFT_LATEST = Object.values(THE_DRAFT_SEASONS).pop();
+
+function preDraftSeasons(){
+  const base = THE_DRAFT_LATEST;
+  return {
+    [base.id]: {
+      id: base.id,
+      label: base.label,
+      preDraft: true,
+      TEAM_META: {},
+      LEAGUES: base.LEAGUES.map(l => ({ ...l, teams: [] })),
+      LEAGUE_SCORING: base.LEAGUE_SCORING,
+      PRIOR_SEASON_DISPLAY_LEAGUES: base.PRIOR_SEASON_DISPLAY_LEAGUES
+    }
+  };
+}
+
+export const SEASONS = IS_LEGACY_GROUP
+  ? THE_DRAFT_SEASONS
+  : (OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID] || preDraftSeasons());
 
 export const SEASON_IDS = Object.keys(SEASONS);
 export const LATEST_SEASON_ID = SEASON_IDS[SEASON_IDS.length - 1];
 
+// Team metadata (names, badges, the ids live data hangs off) is the same
+// whoever drafted a team, so the draft pool (js/draft-pool.js) always
+// builds from The Draft's newest class — a new group's first draft has no
+// TEAM_META of its own to build from.
+export const TEAM_CATALOG_SEASON = THE_DRAFT_LATEST;
+
 // The class that predates seasons: its storage keys (localStorage and
 // worker KV) were never namespaced, and stay that way so nothing had to
-// be migrated. See js/season.js's scopedKey/withSeasonQuery.
+// be migrated. See js/season.js's scopedKey/withScopeQuery.
 export const LEGACY_SEASON_ID = '2026';

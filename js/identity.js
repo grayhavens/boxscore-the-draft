@@ -22,6 +22,7 @@
    drafter. See maybeShowWelcome below.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
+import { ACTIVE_GROUP } from './group.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
 import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, CHEVRON_LEFT_SVG } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
@@ -345,7 +346,7 @@ function renderWelcomeNames(){
   el.innerHTML = `
     <div class="welcome-head">
       <div class="welcome-eyebrow">Welcome to</div>
-      <div class="welcome-title">The Draft</div>
+      <div class="welcome-title">${ACTIVE_GROUP.name}</div>
       <div class="welcome-sub">Every drafted team, every league, scored live. First things first &mdash; who are you?</div>
     </div>
     <div class="welcome-names">

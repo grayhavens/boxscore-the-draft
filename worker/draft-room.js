@@ -21,8 +21,11 @@
      the clock — a bot (config.bots) after config.botSeconds, anyone
      else once config.clockSeconds runs out — and picks from their queue,
      else the best-ranked team that fits (autoPickTeam).
-   The room learns its own name from the WebSocket URL on first connect
-   (kv 'room'); a Durable Object isn't told the name it was created by.
+   The room learns its own name and group (js/groups.js) from the
+   WebSocket URL on first connect (kv 'room' / 'group'); a Durable Object
+   isn't told the name it was created by. The group picks the default
+   drafters of a brand-new room (the commissioner can change them from the
+   lobby, setConfig) and which commissioner password it accepts.
 
    Trust model: the same no-auth tier as chat and favorites for
    drafters — an action's `from` is whichever drafter the client says it
@@ -66,10 +69,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
-// Mirrors KNOWN_DRAFT_TEAM_IDS in rundown-proxy.js / DRAFT_TEAMS in
-// js/data.js. Only the default for a brand-new room: the commissioner can
-// change the roster of drafters from the lobby (setConfig).
-const DRAFTER_IDS = ['josh', 'isaac', 'drew', 'douglas', 'collin', 'erichylok', 'patrick', 'peter', 'ericprister', 'donny'];
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 
 const MAX_QUEUE = 100;
 const MAX_TEAM_ID_LENGTH = 60;
@@ -113,7 +113,9 @@ export class DraftRoom extends DurableObject {
     // wake; concurrent events are held until it's loaded.
     ctx.blockConcurrencyWhile(async () => {
       const row = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
-      this.state = row ? JSON.parse(row.v) : createState(DRAFTER_IDS);
+      const group = this.sql.exec("SELECT v FROM kv WHERE k = 'group'").toArray()[0];
+      this.group = group ? group.v : null;
+      this.state = row ? JSON.parse(row.v) : createState(drafterIdsFor(this.group || LEGACY_GROUP_ID));
       const room = this.sql.exec("SELECT v FROM kv WHERE k = 'room'").toArray()[0];
       this.room = room ? room.v : null;
     });
@@ -124,6 +126,17 @@ export class DraftRoom extends DurableObject {
       if(this.room === null){
         this.room = new URL(request.url).searchParams.get('room') || 'main';
         this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('room', ?)", this.room);
+      }
+      if(this.group === null){
+        // A room made before groups existed never saw ?group=, and is The
+        // Draft's; the worker has already rejected an unknown group.
+        const group = new URL(request.url).searchParams.get('group');
+        this.group = isKnownGroup(group) ? group : LEGACY_GROUP_ID;
+        this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('group', ?)", this.group);
+        // Nothing saved yet: start from this group's drafters, not the
+        // default the constructor had to guess.
+        const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
+        if(!saved) this.state = createState(drafterIdsFor(this.group));
       }
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
@@ -220,7 +233,8 @@ export class DraftRoom extends DurableObject {
       this.send(ws, { type: 'error', reason: 'rate' });
       return;
     }
-    const ok = !!this.env.ADMIN_PASSWORD && safeEqual(msg.password, this.env.ADMIN_PASSWORD);
+    const password = this.env[adminSecretName(this.group || LEGACY_GROUP_ID)];
+    const ok = !!password && safeEqual(msg.password, password);
     if(ok){
       attachment.commissioner = true;
     } else {

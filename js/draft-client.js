@@ -18,6 +18,7 @@
    clock still counts down correctly.
    ============================================================ */
 import { chatWorkerBase } from './api.js';
+import { withGroupQuery } from './group.js';
 import { loadAdminPassword } from './utils.js';
 import { currentProfileId } from './identity.js';
 
@@ -68,7 +69,7 @@ const pending = new Map();       // action id -> { resolve, timer }
 let wantsCommissioner = false;   // re-authenticate on every reconnect
 
 function socketUrl(){
-  return `${chatWorkerBase().replace(/^http/, 'ws')}/draft/ws?room=${draftStore.room}`;
+  return withGroupQuery(`${chatWorkerBase().replace(/^http/, 'ws')}/draft/ws?room=${draftStore.room}`);
 }
 
 function setStatus(status){

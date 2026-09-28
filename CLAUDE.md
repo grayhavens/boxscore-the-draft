@@ -47,11 +47,22 @@ After deploying, `DASHBOARD_WORKER_BASE` in `js/api.js` must point at the printe
 
 ## Architecture
 
-**Single source of truth for content:** `js/data.js` holds `DRAFT_TEAMS` (the 10 people),
+**Single source of truth for content:** `js/data.js` holds `DRAFT_TEAMS` (the active group's 10 people, from `js/groups.js`),
 `TEAM_META` (every team's display info, league, owner, and the IDs used to pull live data),
 `LEAGUES` (which teams appear under each league tab and in what order), `LEAGUE_SCORING` (each
 league's point rules), and `PRIOR_SEASON_DISPLAY_LEAGUES` (`['mlb', 'wnba']` — see below). Adding
 or changing a team/league means editing this file; nothing else hardcodes team/league data.
+
+**Groups (friend-group leagues):** one deployment hosts several fully separate 10-drafter groups, each on
+its own subdomain `<id>.boxscore.space` (The Draft is `thedraft`). `js/groups.js` is the registry (drafters,
+display name) and is shared with the worker; `js/group.js` resolves the active group from the hostname
+(`?group=<id>` also works on localhost and Pages previews only). Code says "group" because "league" already
+means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
+chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
+`?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
+original un-namespaced keys. localStorage isn't namespaced by group because each subdomain is its own
+origin. A group with no draft class yet gets an empty pre-draft class (`js/seasons/index.js`). The ESPN
+data and proxy edge cache are shared by every group.
 
 **Three views, one page:** `#view-board` (Teams), `#view-standings`, `#view-overall` — toggled by
 `switchView` in `js/board.js`, mirrored into the URL query string (`updateUrlParam` in

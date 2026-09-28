@@ -4,7 +4,7 @@
    js/draft-engine.js).
 
    Sources, in order of trust:
-   1. The newest season's TEAM_META — real names, badges and the ids
+   1. The newest season's TEAM_META (The Draft's, for every group) — real names, badges and the ids
       live data hangs off (espnTeamId). Owners are stripped and each team
       appears once per league.
    2. js/draft-ranks.js — the consensus ordering, and ESPN ids for the
@@ -17,7 +17,7 @@
    is exported against: the export matches a pick back to its TEAM_META
    entry by league + name, so keep `name` exactly as TEAM_META has it.
    ============================================================ */
-import { SEASONS, LATEST_SEASON_ID } from './seasons/index.js';
+import { TEAM_CATALOG_SEASON } from './seasons/index.js';
 import { DRAFT_RANKS, DRAFT_RANK_ESPN } from './draft-ranks.js';
 import { DEFAULT_CAPS, slugify } from './draft-rules.js';
 
@@ -52,8 +52,9 @@ function parseRanks(str){
 function metaByLeague(){
   const out = {};
   // The newest class, not whichever one this device is viewing: the draft is
-  // for the season after it, whatever the Settings class switch says.
-  Object.values(SEASONS[LATEST_SEASON_ID].TEAM_META).forEach(m => {
+  // for the season after it, whatever the Settings class switch says. The
+  // Draft's, whichever group is drafting — see TEAM_CATALOG_SEASON.
+  Object.values(TEAM_CATALOG_SEASON.TEAM_META).forEach(m => {
     if(m.favoriteOnly) return;
     const byName = out[m.leagueKey] || (out[m.leagueKey] = new Map());
     if(!byName.has(norm(m.name))) byName.set(norm(m.name), m);

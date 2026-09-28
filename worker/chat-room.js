@@ -50,10 +50,15 @@
      retained message's reactions, keyed by message id.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
 
-// Mirrors KNOWN_DRAFT_TEAM_IDS in rundown-proxy.js / DRAFT_TEAMS in
-// js/data.js — bounds who can post to real drafters.
-const DRAFTER_IDS = ['josh', 'isaac', 'drew', 'douglas', 'collin', 'erichylok', 'patrick', 'peter', 'ericprister', 'donny'];
+// Each group (js/groups.js) has its own room (the worker picks it by
+// ?group=), and only that group's drafters can post in it. The group rides
+// on each socket's attachment, read from the URL it connected with.
+function socketDrafterIds(ws){
+  const attachment = ws.deserializeAttachment() || {};
+  return drafterIdsFor(isKnownGroup(attachment.group) ? attachment.group : LEGACY_GROUP_ID);
+}
 
 const MAX_TEXT_LENGTH = 1000;
 const HISTORY_ON_FRESH_CONNECT = 100;
@@ -129,7 +134,8 @@ export class ChatRoom extends DurableObject {
     const after = parseInt(new URL(request.url).searchParams.get('after'), 10);
     const { 0: client, 1: server } = new WebSocketPair();
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ sent: [] });
+    const group = new URL(request.url).searchParams.get('group') || LEGACY_GROUP_ID;
+    server.serializeAttachment({ sent: [], group });
     server.send(JSON.stringify({ type: 'history', messages: this.messagesAfter(after), reactions: this.reactionSnapshot() }));
 
     return new Response(null, { status: 101, webSocket: client });
@@ -180,7 +186,7 @@ export class ChatRoom extends DurableObject {
       return false;
     }
     recent.push(now);
-    ws.serializeAttachment({ sent: recent });
+    ws.serializeAttachment({ ...attachment, sent: recent });
     return true;
   }
 
@@ -193,7 +199,7 @@ export class ChatRoom extends DurableObject {
 
   handleReact(ws, msg){
     const exists = Number.isInteger(msg.messageId) && this.sql.exec('SELECT 1 FROM messages WHERE id = ?', msg.messageId).toArray().length > 0;
-    if(!DRAFTER_IDS.includes(msg.from) || !REACTION_EMOJI.includes(msg.emoji) || !exists){
+    if(!socketDrafterIds(ws).includes(msg.from) || !REACTION_EMOJI.includes(msg.emoji) || !exists){
       ws.send(JSON.stringify({ type: 'error', reason: 'invalid' }));
       return;
     }
@@ -222,7 +228,7 @@ export class ChatRoom extends DurableObject {
     // A GIF field that's present but malformed is rejected outright, not
     // quietly downgraded to a text-only message.
     const gif = msg.gif === undefined ? null : parseGif(msg.gif);
-    if(!DRAFTER_IDS.includes(msg.from) || (msg.gif !== undefined && !gif) || (!text && !gif)){
+    if(!socketDrafterIds(ws).includes(msg.from) || (msg.gif !== undefined && !gif) || (!text && !gif)){
       ws.send(JSON.stringify({ type: 'error', reason: 'invalid' }));
       return;
     }

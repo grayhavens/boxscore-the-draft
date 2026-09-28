@@ -120,6 +120,15 @@
       .mp4s by the browser itself, straight from Brightcove — see
       js/nhl-clips.js for why that part isn't proxied or cached.
 
+   GROUPS — every friend-group league (js/groups.js, "The Draft" and the
+   ones after it, each on its own <id>.boxscore.space subdomain) shares
+   this one worker. Group-owned state — League Facts/adjustments/locks,
+   favorites, the activity feed, the chat room, draft rooms and the
+   commissioner password — is keyed by the ?group= param the client adds
+   (js/group.js). The Draft predates groups, so an absent param means The
+   Draft and its keys stay exactly as they always were. Everything else
+   here (the proxies and their edge cache) is shared by all groups.
+
    EDGE CACHING — every proxied GET is cached in Workers' shared edge
    cache (caches.default), keyed on the upstream URL alone, with a TTL
    matched to how fast that data actually changes (see CACHE_TTL_SECONDS
@@ -137,6 +146,7 @@
      npx wrangler secret put THERUNDOWN_API_KEY
      npx wrangler secret put SPORTSDB_API_KEY
      npx wrangler secret put ADMIN_PASSWORD
+     npx wrangler secret put ADMIN_PASSWORD_<GROUP>   (one per extra group, see js/groups.js)
      npx wrangler secret put KLIPY_APP_KEY   (chat GIFs; unset = GIFs hidden)
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
@@ -148,6 +158,8 @@
 // Wrangler needs the Durable Object class exported from the entry module.
 export { ChatRoom } from './chat-room.js';
 export { DraftRoom } from './draft-room.js';
+
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -188,10 +200,14 @@ const ALLOWED_ORIGIN_SUFFIXES = ['.boxscorethedraft.pages.dev', '.boxscore.space
 // than accepting any string) keeps the KV keyspace bounded.
 const KNOWN_LEAGUES = ['epl', 'nfl', 'nba', 'nhl', 'mlb', 'wnba', 'cfb', 'mcbb'];
 
-// Drafter ids allowed to have a favorites blob — mirrors DRAFT_TEAMS in
-// js/data.js. Same purpose as KNOWN_LEAGUES above: bounds the KV
-// keyspace to real values instead of accepting any string.
-const KNOWN_DRAFT_TEAM_IDS = ['josh', 'isaac', 'drew', 'douglas', 'collin', 'erichylok', 'patrick', 'peter', 'ericprister', 'donny'];
+// A request's group (js/groups.js): ?group=, absent meaning The Draft.
+// null for an unknown group, which every group-owned route rejects rather
+// than folding into a key, keeping the keyspace bounded.
+function requestGroup(url){
+  const group = url.searchParams.get('group');
+  if(group === null) return LEGACY_GROUP_ID;
+  return isKnownGroup(group) ? group : null;
+}
 
 function isAllowedOrigin(origin){
   return ALLOWED_ORIGINS.includes(origin) ||
@@ -220,9 +236,11 @@ function json(data, status, headers){
 // per-user auth. env.ADMIN_PASSWORD is unset in any environment that
 // hasn't run `wrangler secret put ADMIN_PASSWORD` yet; treat that as
 // "nothing can authorize" rather than silently allowing every write.
-function isAuthorized(request, env){
+// Each group has its own password secret (adminSecretName in js/groups.js).
+function isAuthorized(request, env, group){
   const supplied = request.headers.get('X-Admin-Password');
-  return !!env.ADMIN_PASSWORD && supplied === env.ADMIN_PASSWORD;
+  const password = env[adminSecretName(group)];
+  return !!password && supplied === password;
 }
 
 /* ---- Adding a new league or upstream endpoint: keep this scalable ----
@@ -599,22 +617,28 @@ async function handleNflverseDepthChart(request, env, headers, ctx){
 // 2026 param must map to exactly the key that was always used — no
 // migration. Anything that isn't a plain 4-digit year is rejected
 // rather than folded into a key, keeping the keyspace bounded.
+// Groups work the same way: The Draft keeps the bare prefix, any other
+// group gets `<prefix>@<group>` (e.g. facts@seasonticket:epl).
 const LEGACY_SEASON = '2026';
-function kvSeasonKey(url, prefix, id){
+function kvGroupPrefix(prefix, group){
+  return group === LEGACY_GROUP_ID ? prefix : `${prefix}@${group}`;
+}
+function kvSeasonKey(url, group, prefix, id){
   const season = url.searchParams.get('season');
-  if(season === null || season === LEGACY_SEASON) return `${prefix}:${id}`;
+  const base = kvGroupPrefix(prefix, group);
+  if(season === null || season === LEGACY_SEASON) return `${base}:${id}`;
   if(!/^\d{4}$/.test(season)) return null;
-  return `${prefix}:${season}:${id}`;
+  return `${base}:${season}:${id}`;
 }
 
 // Shared by handleLeagueFacts and handleAdjustments — both are "one JSON
 // object per league, in the LEAGUE_FACTS KV namespace, GET public / PUT
 // password-gated", just under a different key prefix and PUT body shape.
-async function handleKvBlob(request, url, env, leagueKey, headers, kvKeyPrefix, validateBody){
+async function handleKvBlob(request, url, env, group, leagueKey, headers, kvKeyPrefix, validateBody){
   if(!KNOWN_LEAGUES.includes(leagueKey)){
     return new Response('Not found', { status: 404, headers });
   }
-  const kvKey = kvSeasonKey(url, kvKeyPrefix, leagueKey);
+  const kvKey = kvSeasonKey(url, group, kvKeyPrefix, leagueKey);
   if(!kvKey) return new Response('Bad season', { status: 400, headers });
 
   if(request.method === 'GET'){
@@ -623,7 +647,7 @@ async function handleKvBlob(request, url, env, leagueKey, headers, kvKeyPrefix, 
   }
 
   if(request.method === 'PUT'){
-    if(!isAuthorized(request, env)){
+    if(!isAuthorized(request, env, group)){
       return new Response('Unauthorized', { status: 401, headers });
     }
     let body;
@@ -646,16 +670,16 @@ async function handleKvBlob(request, url, env, leagueKey, headers, kvKeyPrefix, 
 // knows each rule's exclusive/rankAuto behavior) computes the full
 // object and PUTs it wholesale — this just stores whatever it's given,
 // so keep the validation limited to "is this the shape we expect".
-function handleLeagueFacts(request, url, env, leagueKey, headers){
-  return handleKvBlob(request, url, env, leagueKey, headers, 'facts', () => true);
+function handleLeagueFacts(request, url, env, group, leagueKey, headers){
+  return handleKvBlob(request, url, env, group, leagueKey, headers, 'facts', () => true);
 }
 
 // Expected shape: { [teamKey]: { pts: number, note: string } } — a flat
 // manual point delta per team for whatever a rule can't express, plus a
 // short note so a future viewer knows why. Same wholesale-PUT contract
 // as facts above.
-function handleAdjustments(request, url, env, leagueKey, headers){
-  return handleKvBlob(request, url, env, leagueKey, headers, 'adjustments', body =>
+function handleAdjustments(request, url, env, group, leagueKey, headers){
+  return handleKvBlob(request, url, env, group, leagueKey, headers, 'adjustments', body =>
     Object.values(body).every(v => v && typeof v === 'object' && typeof v.pts === 'number')
   );
 }
@@ -673,8 +697,8 @@ function handleAdjustments(request, url, env, leagueKey, headers){
 // unlockLeague's own "clear the lock" request (js/season-lock.js) —
 // the safety valve for an accidental Force Lock, same admin-gated write
 // as everything else here.
-function handleSeasonLock(request, url, env, leagueKey, headers){
-  return handleKvBlob(request, url, env, leagueKey, headers, 'lock', body =>
+function handleSeasonLock(request, url, env, group, leagueKey, headers){
+  return handleKvBlob(request, url, env, group, leagueKey, headers, 'lock', body =>
     Object.keys(body).length === 0 ||
     (typeof body.lockedAt === 'string' && body.rules && typeof body.rules === 'object' && !Array.isArray(body.rules))
   );
@@ -686,11 +710,11 @@ function handleSeasonLock(request, url, env, leagueKey, headers){
 // (js/data.js's TEAM_META keys); the client computes the full list and
 // PUTs it wholesale, so validation here is just "is this the shape we
 // expect", same discipline as every other KV write in this file.
-async function handleFavorites(request, url, env, draftTeamId, headers){
-  if(!KNOWN_DRAFT_TEAM_IDS.includes(draftTeamId)){
+async function handleFavorites(request, url, env, group, draftTeamId, headers){
+  if(!drafterIdsFor(group).includes(draftTeamId)){
     return new Response('Not found', { status: 404, headers });
   }
-  const kvKey = kvSeasonKey(url, 'favorites', draftTeamId);
+  const kvKey = kvSeasonKey(url, group, 'favorites', draftTeamId);
   if(!kvKey) return new Response('Bad season', { status: 400, headers });
 
   if(request.method === 'GET'){
@@ -717,15 +741,17 @@ async function handleFavorites(request, url, env, draftTeamId, headers){
 
 // WebSocket upgrades aren't subject to CORS, so a browser will happily
 // open one from any origin — check Origin ourselves, same allowlist as
-// every other route here. Every drafter connects to the same room.
-function handleChatSocket(request, env){
+// every other route here. Every drafter in a group connects to the same
+// room; The Draft's is the original "main".
+function handleChatSocket(request, env, group){
   if(request.headers.get('Upgrade') !== 'websocket'){
     return new Response('Expected a WebSocket upgrade', { status: 426 });
   }
   if(!isAllowedOrigin(request.headers.get('Origin') || '')){
     return new Response('Forbidden', { status: 403 });
   }
-  return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName('main')).fetch(request);
+  const name = group === LEGACY_GROUP_ID ? 'main' : `group:${group}`;
+  return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(name)).fetch(request);
 }
 
 // The live draft room (worker/draft-room.js, js/draft*.js). One Durable
@@ -733,28 +759,33 @@ function handleChatSocket(request, env){
 // can spin up throwaway rooms (?room=mock-1) to rehearse. Rooms are
 // created on first use, so the name is restricted to a small safe
 // alphabet rather than trusted. Origin-checked like the chat socket.
-function draftRoomStub(url, env){
+// Rooms belong to a group: The Draft's keep their bare names, any other
+// group's are `<group>/<room>` so two groups' "main" never meet. The
+// object itself only ever sees the bare room name plus ?group= (it reads
+// both off the socket URL), so isMockRoom etc. work unchanged.
+function draftRoomStub(url, env, group){
   const room = url.searchParams.get('room') || 'main';
   if(!/^[a-z0-9-]{1,32}$/.test(room)) return null;
-  return env.DRAFT_ROOM.get(env.DRAFT_ROOM.idFromName(room));
+  const name = group === LEGACY_GROUP_ID ? room : `${group}/${room}`;
+  return env.DRAFT_ROOM.get(env.DRAFT_ROOM.idFromName(name));
 }
 
-function handleDraftSocket(request, url, env){
+function handleDraftSocket(request, url, env, group){
   if(request.headers.get('Upgrade') !== 'websocket'){
     return new Response('Expected a WebSocket upgrade', { status: 426 });
   }
   if(!isAllowedOrigin(request.headers.get('Origin') || '')){
     return new Response('Forbidden', { status: 403 });
   }
-  const stub = draftRoomStub(url, env);
+  const stub = draftRoomStub(url, env, group);
   return stub ? stub.fetch(request) : new Response('Bad room', { status: 400 });
 }
 
 // Public read, like league facts: the finished board as JSON, for the
 // export script that turns it into the next season's data file.
-async function handleDraftResult(request, url, env, headers){
+async function handleDraftResult(request, url, env, group, headers){
   if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-  const stub = draftRoomStub(url, env);
+  const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
   const upstream = await stub.fetch(new Request(new URL('/result', url), { method: 'GET' }));
   return new Response(upstream.body, { status: upstream.status, headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -763,9 +794,9 @@ async function handleDraftResult(request, url, env, headers){
 // Every open tab polls this (js/draft-live.js), so a short edge cache
 // collapses them into one Durable Object call per few seconds.
 const DRAFT_STATUS_TTL_SECONDS = 5;
-async function handleDraftStatus(request, url, env, headers, ctx){
+async function handleDraftStatus(request, url, env, group, headers, ctx){
   if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-  const stub = draftRoomStub(url, env);
+  const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
   const cache = caches.default;
   const cacheKey = new Request(url.toString(), { method: 'GET' });
@@ -814,7 +845,10 @@ function handleGifConfig(request, env, headers){
 // same change; here the second gets a 409 and simply re-reads. Same
 // no-auth trust tier as favorites (an Origin check only, no admin
 // password) — the worst a caller can do is add a bogus feed line.
-const ACTIVITY_KEY = 'activity:state';
+// One blob per group: The Draft's is the original key.
+function activityKey(group){
+  return `${kvGroupPrefix('activity', group)}:state`;
+}
 const ACTIVITY_MAX_EVENTS = 150;
 const ACTIVITY_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 const ACTIVITY_EVENT_TYPES = ['rule', 'bonus', 'rank', 'lock'];
@@ -823,17 +857,17 @@ function cleanStr(v, max){
   return typeof v === 'string' ? v.slice(0, max) : '';
 }
 
-function cleanActivityEvent(e){
+function cleanActivityEvent(e, drafterIds){
   if(!e || typeof e !== 'object') return null;
   if(!ACTIVITY_EVENT_TYPES.includes(e.type)) return null;
   if(typeof e.ts !== 'number' || !isFinite(e.ts)) return null;
   const id = cleanStr(e.id, 80);
   if(!id) return null;
   const deltas = (Array.isArray(e.deltas) ? e.deltas : []).slice(0, 10)
-    .filter(d => d && KNOWN_DRAFT_TEAM_IDS.includes(d.id) && Number.isInteger(d.pts))
+    .filter(d => d && drafterIds.includes(d.id) && Number.isInteger(d.pts))
     .map(d => ({ id: d.id, pts: d.pts, prov: !!d.prov }));
   const moves = (Array.isArray(e.moves) ? e.moves : []).slice(0, 10)
-    .filter(m => m && KNOWN_DRAFT_TEAM_IDS.includes(m.id) && Number.isInteger(m.from) && Number.isInteger(m.to))
+    .filter(m => m && drafterIds.includes(m.id) && Number.isInteger(m.from) && Number.isInteger(m.to))
     .map(m => ({ id: m.id, from: m.from, to: m.to }));
   return {
     id, type: e.type, ts: e.ts,
@@ -841,14 +875,16 @@ function cleanActivityEvent(e){
     title: cleanStr(e.title, 140), sub: cleanStr(e.sub, 140),
     // Rendered into an inline onclick by every client, so only key-shaped values.
     teamKey: /^[a-z0-9_-]{1,60}$/i.test(e.teamKey || '') ? e.teamKey : '',
-    drafterId: KNOWN_DRAFT_TEAM_IDS.includes(e.drafterId) ? e.drafterId : '',
+    drafterId: drafterIds.includes(e.drafterId) ? e.drafterId : '',
     deltas, moves
   };
 }
 
-async function handleActivity(request, env, headers){
+async function handleActivity(request, env, group, headers){
+  const key = activityKey(group);
+  const drafterIds = drafterIdsFor(group);
   if(request.method === 'GET'){
-    const stored = await env.LEAGUE_FACTS.get(ACTIVITY_KEY, 'json');
+    const stored = await env.LEAGUE_FACTS.get(key, 'json');
     return json(stored || { snapshot: null, events: [] }, 200, { ...headers, 'Cache-Control': 'no-store' });
   }
 
@@ -866,9 +902,9 @@ async function handleActivity(request, env, headers){
     if(!snap || typeof snap !== 'object' || typeof snap.dataAt !== 'number' || JSON.stringify(snap).length > 60000){
       return new Response('Invalid snapshot', { status: 400, headers });
     }
-    const incoming = (Array.isArray(body.events) ? body.events : []).slice(0, 40).map(cleanActivityEvent).filter(Boolean);
+    const incoming = (Array.isArray(body.events) ? body.events : []).slice(0, 40).map(e => cleanActivityEvent(e, drafterIds)).filter(Boolean);
 
-    const stored = (await env.LEAGUE_FACTS.get(ACTIVITY_KEY, 'json')) || { snapshot: null, events: [] };
+    const stored = (await env.LEAGUE_FACTS.get(key, 'json')) || { snapshot: null, events: [] };
     const storedAt = stored.snapshot ? stored.snapshot.dataAt : null;
     const base = typeof body.base === 'number' ? body.base : null;
     if(base !== storedAt || (storedAt !== null && snap.dataAt <= storedAt)){
@@ -882,7 +918,7 @@ async function handleActivity(request, env, headers){
       .sort((a, b) => b.ts - a.ts)
       .slice(0, ACTIVITY_MAX_EVENTS);
     const next = { snapshot: snap, events };
-    await env.LEAGUE_FACTS.put(ACTIVITY_KEY, JSON.stringify(next));
+    await env.LEAGUE_FACTS.put(key, JSON.stringify(next));
     return json(next, 200, headers);
   }
 
@@ -912,36 +948,43 @@ async function route(request, env, ctx){
     return new Response(null, { headers });
   }
 
+  // Everything down to the proxies below is group-owned state.
+  const group = requestGroup(url);
+  const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' ||
+    url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
+    /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+  if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
+
   if(url.pathname === '/admin/verify'){
     if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-    return isAuthorized(request, env)
+    return isAuthorized(request, env, group)
       ? json({ ok: true }, 200, headers)
       : new Response('Unauthorized', { status: 401, headers });
   }
 
-  if(url.pathname === '/chat/ws') return handleChatSocket(request, env);
+  if(url.pathname === '/chat/ws') return handleChatSocket(request, env, group);
 
-  if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env);
+  if(url.pathname === '/draft/ws') return handleDraftSocket(request, url, env, group);
 
-  if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, headers);
+  if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, group, headers);
 
-  if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, headers, ctx);
+  if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, group, headers, ctx);
 
   if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 
-  if(url.pathname === '/activity') return handleActivity(request, env, headers);
+  if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
-  if(factsMatch) return handleLeagueFacts(request, url, env, factsMatch[1], headers);
+  if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);
 
   const adjustmentsMatch = url.pathname.match(/^\/adjustments\/([a-z]+)$/);
-  if(adjustmentsMatch) return handleAdjustments(request, url, env, adjustmentsMatch[1], headers);
+  if(adjustmentsMatch) return handleAdjustments(request, url, env, group, adjustmentsMatch[1], headers);
 
   const lockMatch = url.pathname.match(/^\/lock\/([a-z]+)$/);
-  if(lockMatch) return handleSeasonLock(request, url, env, lockMatch[1], headers);
+  if(lockMatch) return handleSeasonLock(request, url, env, group, lockMatch[1], headers);
 
   const favoritesMatch = url.pathname.match(/^\/favorites\/([a-z]+)$/);
-  if(favoritesMatch) return handleFavorites(request, url, env, favoritesMatch[1], headers);
+  if(favoritesMatch) return handleFavorites(request, url, env, group, favoritesMatch[1], headers);
 
   if(url.pathname.startsWith('/sportsdb/')) return handleSportsDb(request, url, env, headers, ctx);
 

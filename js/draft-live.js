@@ -18,6 +18,7 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { chatWorkerBase } from './api.js';
+import { withGroupQuery } from './group.js';
 import { currentProfileId } from './identity.js';
 import { onTheClock } from './draft-engine.js';
 import { totalPicks } from './draft-rules.js';
@@ -86,7 +87,7 @@ async function poll(){
   if(document.visibilityState !== 'visible') return;   // resumes on visibilitychange
   if(draftStore.status !== 'open'){
     try {
-      const res = await fetch(`${chatWorkerBase()}/draft/status?room=${encodeURIComponent(draftStore.room)}`, { cache: 'no-store' });
+      const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${encodeURIComponent(draftStore.room)}`), { cache: 'no-store' });
       // A worker without this route (404) means there's no live draft to show.
       if(res.ok) status = await res.json();
       else if(res.status === 404) status = null;

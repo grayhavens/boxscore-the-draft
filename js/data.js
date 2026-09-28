@@ -8,20 +8,11 @@
    know which class it is.
    ============================================================ */
 import { ACTIVE_SEASON } from './season.js';
+import { ACTIVE_GROUP } from './group.js';
 
-// The 10 people in the fantasy draft. Every team in TEAM_META
-// belongs to exactly one of these via its draftTeamId field.
-export const DRAFT_TEAMS = [
-  { id:'josh', name:'Josh' },
-  { id:'isaac', name:'Isaac' },
-  { id:'drew', name:'Drew' },
-  { id:'douglas', name:'Douglas' },
-  { id:'collin', name:'Collin' },
-  { id:'erichylok', name:'Eric H' },
-  { id:'patrick', name:'Patrick' },
-  { id:'peter', name:'Peter' },
-  { id:'ericprister', name:'Eric P' },
-  { id:'donny', name:'Donny' }
-];
+// The 10 people in this group's fantasy draft (js/groups.js — each
+// group/league has its own). Every team in TEAM_META belongs to exactly
+// one of these via its draftTeamId field.
+export const DRAFT_TEAMS = ACTIVE_GROUP.drafters;
 
 export const { TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } = ACTIVE_SEASON;
