@@ -12,9 +12,17 @@
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   var seen = false;
   try{ seen = sessionStorage.getItem('bx-splash') === '1'; sessionStorage.setItem('bx-splash', '1'); }catch(e){}
-  if(seen || reduce || !root.animate){ root.remove(); return; }
+  // Opened from the landing page's group link, which already flew the logo
+  // to the center and built the mark there (js/landing.js). A handoff always
+  // plays, even in a tab that saw the splash: otherwise the landing's mark
+  // would vanish with nothing to take over. It starts at authored FROM ms,
+  // after the build, and <html>.splash-handoff (set in index.html's <head>)
+  // made the first paint the built mark.
+  var handoff = /(^|[#&])splash=handoff\b/.test(location.hash);
+  if(handoff) try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+  if((seen && !handoff) || reduce || !root.animate){ root.remove(); return; }
 
-  var SPEED = 0.75, S = 1 / SPEED, T = 3100;
+  var SPEED = 0.75, S = 1 / SPEED, T = 3100, FROM = handoff ? 1040 : 0;
   var EO = 'cubic-bezier(0.22,1,0.36,1)', EI = 'cubic-bezier(0.55,0,1,0.45)', IO = 'cubic-bezier(0.65,0,0.35,1)';
   var logo = root.querySelector('.ls-logo'), stage = root.querySelector('.ls-stage'), bg = root.querySelector('.ls-bg'),
       tl = root.querySelector('.ls-tl'), tlInk = tl.firstElementChild, br = root.querySelector('.ls-br'), brInk = br.firstElementChild,
@@ -34,6 +42,8 @@
   //   soon as the page underneath exists, rather than at the moment it
   //   starts — a timer that fires late then can't stall the logo mid-air.
   var t0 = document.timeline ? document.timeline.currentTime : null;
+  // Shift the clock so authored time FROM is now.
+  if(t0 != null) t0 -= FROM * S;
 
   // frames: [ms, {css}, easingIntoNext?] on the authored 3.1s timeline; `from` is where
   // this animation's own keyframes begin (it's scheduled to start at that authored time).
@@ -47,10 +57,11 @@
     var kf = frames.map(function(f){ var k = {}; for(var p in f[1]) k[p] = f[1][p]; k.offset = (f[0] - from) / span; k.easing = f[2] || EO; return k; });
     var a = el.animate(kf, { duration: span * S, fill: 'both' });
     if(t0 != null) a.startTime = t0 + from * S;
+    else if(FROM) a.currentTime = (FROM - from) * S;
     anims.push(a);
     return a;
   }
-  function at(ms, fn){ timers.push(setTimeout(fn, ms * S)); }
+  function at(ms, fn){ timers.push(setTimeout(fn, Math.max(0, ms - FROM) * S)); }
   function M(x, y, r, s, o){ return { transform: 'translate(' + x + 'px,' + y + 'px) rotate(' + r + 'deg) scale(' + s + ')', opacity: o == null ? 1 : o }; }
   function T2(x, y){ return { transform: 'translate(' + x + '%,' + y + '%)' }; }
 
@@ -58,15 +69,17 @@
   // bracket is a clip window sliding in from its corner while the ink
   // inside slides the opposite way by the same amount, so the ink holds
   // still and is revealed corner-first (same look as the old clip-path).
-  seq(sq, [[0, { transform: 'scale(0)' }], [120, { transform: 'scale(0)' }], [420, { transform: 'scale(0.34)' }, IO],
+  if(!handoff) seq(sq, [[0, { transform: 'scale(0)' }], [120, { transform: 'scale(0)' }], [420, { transform: 'scale(0.34)' }, IO],
     [600, { transform: 'scale(0.26)' }, IO], [780, { transform: 'scale(0.34)' }, IO], [1020, { transform: 'scale(1.14)' }, IO],
     [1180, { transform: 'scale(1)' }], [T, { transform: 'scale(1)' }]]);
   function wipe(win, ink, d, a, b){
     seq(win, [[0, T2(-d, -d)], [a, T2(-d, -d)], [b, T2(0, 0)], [T, T2(0, 0)]]);
     seq(ink, [[0, T2(d, d)], [a, T2(d, d)], [b, T2(0, 0)], [T, T2(0, 0)]]);
   }
-  wipe(tl, tlInk, 100, 960, 1340);
-  wipe(br, brInk, -100, 1060, 1440);
+  if(!handoff){
+    wipe(tl, tlInk, 100, 960, 1340);
+    wipe(br, brInk, -100, 1060, 1440);
+  }
 
   // 2. Wordmark rises in, holds through the turn, lifts out before the flight.
   letters.forEach(function(l, j){

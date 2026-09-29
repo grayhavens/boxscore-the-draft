@@ -8,6 +8,8 @@
      landing page instead of booting a group's app (isPlatformHost in js/groups.js). -->
 <script>if(/^(www\.)?boxscore\.space$/.test(location.hostname))location.replace("landing.html")</script>
 <script>try{var s=JSON.parse(localStorage.getItem("teamDashboardSettings")||"{}");if(s.theme==="light"||s.theme==="auto")document.documentElement.dataset.theme=s.theme}catch(e){}</script>
+<!-- Opened from the landing page mid-animation: the splash's first paint is the built mark (js/launch-splash.js). -->
+<script>if(/(^|[#&])splash=handoff\b/.test(location.hash))document.documentElement.classList.add("splash-handoff")</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

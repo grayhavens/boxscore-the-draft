@@ -5190,21 +5190,21 @@ html[data-theme="light"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
 @media (prefers-color-scheme: light){
   html[data-theme="auto"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
 }
-#launch-splash .ls-bg{ position: absolute; inset: 0; background: var(--ls-bg); }
-#launch-splash .ls-stage{ position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
-#launch-splash .ls-logo{ position: absolute; inset: 0; transform: translateY(-26px); transform-origin: 50% 50%; }
+#launch-splash .ls-bg, #landing-handoff .ls-bg{ position: absolute; inset: 0; background: var(--ls-bg); }
+#launch-splash .ls-stage, #landing-handoff .ls-stage{ position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; }
+#launch-splash .ls-logo, #landing-handoff .ls-logo{ position: absolute; inset: 0; transform: translateY(-26px); transform-origin: 50% 50%; }
 /* Brackets: a clip window (.ls-tl/.ls-br) around the ink (<i>), slid in
    opposite directions by the splash script to draw each from its corner.
    Starting offsets here match its first frame so nothing shows early. */
-#launch-splash .ls-tl,
-#launch-splash .ls-br{ position: absolute; width: 45px; height: 45px; overflow: hidden; }
-#launch-splash .ls-tl > i,
-#launch-splash .ls-br > i{ position: absolute; inset: 0; box-sizing: border-box; }
-#launch-splash .ls-tl{ left: 43px; top: 43px; transform: translate(-100%, -100%); }
-#launch-splash .ls-tl > i{ border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; transform: translate(100%, 100%); }
-#launch-splash .ls-br{ left: 112px; top: 112px; transform: translate(100%, 100%); }
-#launch-splash .ls-br > i{ border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; transform: translate(-100%, -100%); }
-#launch-splash .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); transform: scale(0); }
+#launch-splash .ls-tl, #landing-handoff .ls-tl,
+#launch-splash .ls-br, #landing-handoff .ls-br{ position: absolute; width: 45px; height: 45px; overflow: hidden; }
+#launch-splash .ls-tl > i, #landing-handoff .ls-tl > i,
+#launch-splash .ls-br > i, #landing-handoff .ls-br > i{ position: absolute; inset: 0; box-sizing: border-box; }
+#launch-splash .ls-tl, #landing-handoff .ls-tl{ left: 43px; top: 43px; transform: translate(-100%, -100%); }
+#launch-splash .ls-tl > i, #landing-handoff .ls-tl > i{ border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; transform: translate(100%, 100%); }
+#launch-splash .ls-br, #landing-handoff .ls-br{ left: 112px; top: 112px; transform: translate(100%, 100%); }
+#launch-splash .ls-br > i, #landing-handoff .ls-br > i{ border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; transform: translate(-100%, -100%); }
+#launch-splash .ls-sq, #landing-handoff .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); transform: scale(0); }
 #launch-splash .ls-word{
   position: absolute; left: 50%; top: 152px; transform: translateX(-50%);
   display: flex; font-family: 'Space Grotesk', sans-serif; font-size: 30px; font-weight: 700;
@@ -5213,6 +5213,15 @@ html[data-theme="light"] #launch-splash{ --ls-bg: #F4F3EF; --ls-ink: #0B0C0F; }
 #launch-splash .ls-word > span{ display: block; overflow: hidden; padding: 2px 0 4px; }
 #launch-splash .ls-word > span > span{ display: block; transform: translateY(110%); }
 @media (prefers-reduced-motion: reduce){ #launch-splash{ display: none; } }
+/* Opened from the landing page (#splash=handoff, set on <html> by an inline
+   <head> script in index.html): the landing already built the mark, so the
+   splash's first paint shows it built and js/launch-splash.js starts at
+   authored 1040ms. The landing's copy (#landing-handoff) only ever shows it built. */
+html.splash-handoff #launch-splash .ls-sq, #landing-handoff .ls-sq{ transform: scale(1); }
+html.splash-handoff #launch-splash .ls-tl, html.splash-handoff #launch-splash .ls-br,
+html.splash-handoff #launch-splash .ls-tl > i, html.splash-handoff #launch-splash .ls-br > i,
+#landing-handoff .ls-tl, #landing-handoff .ls-br,
+#landing-handoff .ls-tl > i, #landing-handoff .ls-br > i{ transform: none; }
 
 /* Light header logo (inverse of the app icon), so the header and the splash
    mark match the theme. `content` on an <img> swaps its source, so
@@ -5423,7 +5432,210 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-label{ margin-top: 36px; }
 .landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .landing-group{ text-decoration: none; color: inherit; }
+.landing-foot[hidden]{ display: none; }
+/* A group still filling its roster (js/landing.js): claim form, no app link. */
+.landing-recruit{ padding: 16px 14px 14px; border-radius: var(--r-md); background: var(--surface); }
+.landing-recruit-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.landing-recruit-name{ font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.landing-recruit-count{ font-size: 13px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.landing-claim-done{ margin: 10px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-sub); }
+.landing-claim-done strong{ color: var(--text); }
+.landing-claim-form{ display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.landing-claim-form[hidden]{ display: none; }
+.landing-claim-lead{ margin: 0 0 4px; font-size: 13px; line-height: 1.45; color: var(--text-sub); }
+.landing-claim-form input{
+  width: 100%; padding: 12px 14px;
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 16px; /* 16px keeps iOS from zooming in on focus */
+}
+.landing-claim-form .modal-cta{ margin-top: 4px; }
+.landing-claim-form .modal-cta:disabled{ opacity: 0.6; }
+.landing-claim-msg{ margin: 0; font-size: 13px; color: var(--text-sub); }
+.landing-claim-msg:empty{ display: none; }
 .landing-foot{ margin: 18px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-mute); }
+
+/* Group-open handoff (js/landing.js): the launch splash's mark, already
+   built, over the splash ground. Dark on purpose: a group app with no
+   Appearance setting opens dark, and this frame must match its splash. */
+#landing-handoff{
+  --ls-bg: #0A0B0D; --ls-ink: #F3F2EF; --ls-sq: #DC7D00;
+  position: fixed; inset: 0; z-index: 100; pointer-events: none;
+}
+#landing-handoff[hidden]{ display: none; }
+#landing-handoff .ls-bg{ opacity: 0; }
+
+/* "How it works" explainer (js/landing-explainer.js). Four stacked scenes
+   in a fixed-height stage; the caption keeps a min-height so the card
+   never changes size between steps. */
+.hiw{
+  margin-top: 10px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  overflow: hidden;
+}
+.hiw-stage{ position: relative; height: 262px; margin: 16px 16px 0; }
+.hiw-scene{
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; transform: translateX(14px);
+  transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+  pointer-events: none;
+}
+.hiw-scene.on{ opacity: 1; transform: translateX(0); }
+.hiw-scene.past{ transform: translateX(-14px); }
+.hiw-head{ display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hiw-mini{
+  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
+  text-transform: uppercase; color: var(--text-mute);
+}
+.hiw .num, .hiw-slots, .hiw-cap, .hiw-finish-total, .hiw-rule-pts, .hiw-proj, .hiw-rank, .hiw-total{
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* 1 · Draft */
+.hiw-draft{ gap: 10px; }
+.hiw-slots{ font-size: 13px; color: var(--text-sub); }
+.hiw-grid{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hiw-tile{ display: flex; flex-direction: column; gap: 9px; padding: 11px 9px 10px; border-radius: 12px; background: var(--surface-2); }
+.hiw-tile-top{ display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.hiw-lg{
+  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
+  text-transform: uppercase; color: var(--text-sub); transition: color 200ms ease;
+}
+.hiw-tile.full .hiw-lg{ color: var(--text); }
+.hiw-cap{ font-size: 11px; color: var(--text-mute); }
+.hiw-pips{ display: flex; gap: 4px; }
+.hiw-pip{ position: relative; flex: 1; height: 30px; border-radius: 7px; border: 1.5px dashed var(--hairline-strong); }
+.hiw-pip > i{
+  position: absolute; inset: -1.5px; border-radius: 7px; background: var(--pip, transparent);
+  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.12); /* keeps a white team color visible on light tiles */
+  opacity: 0; transform: scale(0.5);
+  transition: opacity 220ms ease, transform 380ms var(--ease-spring);
+}
+.hiw-pip.on > i{ opacity: 1; transform: scale(1); }
+.hiw-strip{
+  margin-top: auto; display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px; border-radius: 14px; border: 1px solid var(--hairline); background: var(--surface-2);
+}
+.hiw-round{
+  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
+  text-transform: uppercase; color: var(--accent); white-space: nowrap;
+}
+.hiw-last{ flex: 1; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hiw-dir{ font-size: 12px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+
+/* 2 · Finish */
+.hiw-finish{ gap: 10px; }
+.hiw-team{ display: flex; align-items: center; gap: 12px; }
+.hiw-badge{
+  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px;
+  border: 1px solid rgba(var(--ink-rgb), 0.14); background: #0076B6; color: #B0B7BC;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px;
+}
+.hiw-team-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hiw-team-name{ font-weight: 700; font-size: 15px; line-height: 1.15; }
+.hiw-team-sub{ font-size: 12px; font-weight: 500; color: var(--text-sub); }
+.hiw-team-pts{ display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.hiw-finish-total{ font-size: 24px; line-height: 1; color: var(--text-mute); transition: color 200ms ease; }
+.hiw-finish-total.on{ color: var(--provisional); }
+.hiw-rules{ display: flex; flex-direction: column; border-top: 1px solid var(--hairline); }
+.hiw-rule{
+  display: flex; align-items: center; gap: 10px; min-height: 38px;
+  padding: 0 10px; margin: 2px -10px 0; border-radius: 10px;
+  transition: background 260ms ease;
+}
+.hiw-rule-label{ flex: 1; font-size: 13px; font-weight: 600; color: var(--text-sub); transition: color 260ms ease; }
+.hiw-rule-pts{ width: 28px; text-align: right; font-size: 15px; color: var(--text-mute); transition: color 260ms ease; }
+.hiw-rule.neg .hiw-rule-pts{ color: var(--loss); }
+.hiw-rule .pts-tag{ opacity: 0; transform: translateX(6px); transition: opacity 260ms ease, transform 320ms var(--ease-out); }
+.hiw-rule.lit{ background: color-mix(in srgb, var(--provisional) 10%, transparent); }
+.hiw-rule.lit .hiw-rule-label{ color: var(--text); }
+.hiw-rule.lit .hiw-rule-pts{ color: var(--provisional); }
+.hiw-rule.lit .pts-tag{ opacity: 1; transform: none; }
+
+/* 3 · Live → Locked */
+.hiw-lock .pts-tag{ transition: color 260ms ease, background 260ms ease, box-shadow 260ms ease; }
+.hiw-proj{ font-size: 46px; line-height: 1; letter-spacing: -0.02em; margin-top: 10px; }
+.hiw-lock-bar{ margin-top: 16px; }
+.hiw-lock-bar > span{ width: 0; transition: width 520ms var(--ease-out), background 300ms ease; }
+.hiw-lock.locked .hiw-lock-bar .lk,
+.hiw-lock.locked .hiw-legend .split-swatch.lk{ background: var(--accent-fill); }
+.hiw-legend{ display: flex; gap: 16px; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--text-sub); }
+.hiw-legend > span{ display: flex; align-items: center; gap: 6px; }
+.hiw-legend b{ color: var(--text); font-variant-numeric: tabular-nums; }
+.hiw-legend .split-swatch{ transition: background 300ms ease; }
+.hiw-season{
+  margin-top: auto; padding: 12px 13px 13px; border-radius: 14px;
+  background: var(--surface-2); border: 1px solid var(--hairline);
+}
+.hiw-season-labels{
+  display: flex; justify-content: space-between;
+  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
+  text-transform: uppercase; color: var(--text-mute);
+}
+.hiw-track{ --season: 0%; --season-fill: var(--provisional); position: relative; height: 2px; border-radius: 2px; background: rgba(var(--ink-rgb), 0.08); margin: 12px 0 4px; }
+.hiw-lock.locked .hiw-track{ --season-fill: var(--accent-fill); }
+.hiw-track-fill{ position: absolute; left: 0; top: 0; bottom: 0; width: var(--season); border-radius: 2px; background: var(--season-fill); }
+.hiw-track-dot{
+  position: absolute; top: -4px; left: var(--season); width: 10px; height: 10px; margin-left: -5px;
+  border-radius: 50%; background: var(--season-fill); box-shadow: 0 0 0 3px var(--surface-2);
+}
+.hiw-season-note{ font-size: 12px; font-weight: 600; color: var(--text-sub); margin-top: 10px; }
+
+/* 4 · Leaderboard */
+.hiw-board-head{ height: 30px; }
+.hiw-bonus{
+  padding: 5px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity 260ms ease, transform 420ms var(--ease-out);
+}
+.hiw-bonus.on{ opacity: 1; transform: none; }
+.hiw-ladder{ position: relative; flex: 1; margin-top: 10px; }
+.hiw-lrow{
+  position: absolute; left: 0; right: 0; height: 48px;
+  display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 34px; align-items: center; gap: 10px;
+  padding: 0 12px; border-radius: 12px; background: var(--surface-2);
+  transition: top 560ms var(--ease-out);
+}
+.hiw-lrow.me{ background: var(--lb-accent-wash); box-shadow: inset 0 0 0 1px var(--lb-accent-wash-border); }
+.hiw-rank{ font-size: 13px; color: var(--lb-rank-mid); }
+.hiw-lrow.first .hiw-rank{ color: var(--accent); }
+.hiw-name{ font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hiw-lrow .split-bar > span{ transition: width 520ms var(--ease-out); }
+.hiw-lrow .split-bar .lk{ background: var(--lb-rank-mid); }
+.hiw-lrow.me .split-bar .lk{ background: var(--accent-fill); }
+.hiw-total{ text-align: right; font-size: 17px; color: var(--lb-ink-3); }
+.hiw-lrow.first .hiw-total{ color: var(--lb-ink-strong); }
+
+/* Caption + controls */
+.hiw-caption{ padding: 18px 20px 0; min-height: 156px; }
+.hiw-title{
+  font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px;
+  letter-spacing: -0.01em; line-height: 1.2; margin: 6px 0 0; text-wrap: pretty;
+}
+.hiw-body{ font-size: 13px; line-height: 1.5; color: var(--text-sub); margin: 6px 0 0; text-wrap: pretty; }
+.hiw-controls{ display: flex; align-items: center; gap: 6px; padding: 6px 12px 10px 20px; }
+.hiw-seg{
+  flex: 1; height: 44px; display: flex; align-items: center;
+  background: none; border: 0; padding: 0; cursor: pointer;
+}
+.hiw-seg > span{ position: relative; display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(var(--ink-rgb), 0.10); overflow: hidden; }
+.hiw-seg > span > i{ position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 0%); border-radius: 2px; background: var(--accent-fill); }
+.hiw-play{
+  flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  background: none; border: 0; border-radius: 999px; color: var(--text-sub); cursor: pointer;
+  transition: background var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+}
+.hiw-play:hover{ background: rgba(var(--ink-rgb), 0.06); color: var(--text); }
+.hiw-play .i-play, .hiw.paused .hiw-play .i-pause{ display: none; }
+.hiw.paused .hiw-play .i-play{ display: block; }
+/* Reduced motion: no autoplay (so no play button), no tweens. */
+.hiw.still .hiw-play{ display: none; }
+.hiw.still *{ transition: none !important; }
 
 /* System admin page (admin.html, js/system-admin.js): the landing page's
    column, Settings' sections and rows. */

@@ -59,7 +59,10 @@ its own subdomain `<id>.boxscore.space` (The Draft is `thedraft`). `js/groups.js
 display name) and is shared with the worker; `js/group.js` resolves the active group from the hostname
 (`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
-lists every group in `GROUPS` with a link to its subdomain. Code says "group" because "league" already
+lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
+A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
+stores the request in KV, rate-limited per IP, and alerts `PLATFORM_OWNER`'s devices. The admin page lists and dismisses
+claims. Filling a spot is still an edit to `js/groups.js` (set the name, drop `open`, keep the id). **Deploy the worker first.** Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
@@ -237,6 +240,10 @@ page pushes in and pops back out, both on same-document View Transitions (`navig
 team page's open/back functions therefore apply their DOM change asynchronously, inside the transition. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in
 `<body>`. Everything falls back to the old instant switch without View Transitions or with reduced motion.
+Opening a group from the landing page flies the landing logo to the center (`js/landing.js`, `#landing-handoff`)
+and navigates with `#splash=handoff`; the group's splash then starts mid-timeline from that built mark (an inline
+`<head>` script in `index.html` sets `html.splash-handoff` so the first paint already matches). The landing's "How
+it works" card is `js/landing-explainer.js`.
 
 **PWA shell:** `manifest.json` + `sw.js` (network-first with a cached-shell fallback, so the app
 still opens offline) exist because this runs installed on iOS. `index.html`'s `.safe-area-top` fixed

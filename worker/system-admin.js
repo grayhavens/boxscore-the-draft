@@ -21,6 +21,8 @@
                                    alert to one drafter's devices, or with
                                    drafter null an announcement to the
                                    whole group
+     POST /api/admin/claims/dismiss { group, id } -> drop one spot claim
+                                   (worker/claims.js); /status lists them
 
    The room and key naming lives in rundown-proxy.js, which passes it in
    as `deps` rather than this module importing the entry point.
@@ -72,15 +74,17 @@ async function stubJson(stub, path){
 
 async function groupStatus(env, id, deps){
   const group = GROUPS[id];
-  const [draft, chat, activity, drafters] = await Promise.all([
+  const [draft, chat, activity, claims, drafters] = await Promise.all([
     stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, id), '/status'),
     stubJson(deps.chatRoomStub(env, id), '/summary'),
     env.LEAGUE_FACTS.get(deps.activityKey(id), 'json'),
+    deps.loadClaims(env, id),
     Promise.all(group.drafters.map(async d => {
       const devices = await loadDevices(env, id, d.id);
       return {
         id: d.id,
         name: d.name,
+        open: !!d.open,
         devices: devices.length,
         chat: devices.filter(x => x.prefs && x.prefs.chat).length,
         draft: devices.filter(x => x.prefs && x.prefs.draft).length,
@@ -96,6 +100,7 @@ async function groupStatus(env, id, deps){
     draft,
     chat,
     activity: { events: events.length, lastTs: events.length ? events[0].ts : null },
+    claims,
     drafters
   };
 }
@@ -133,6 +138,12 @@ async function handleCommissioner(request, env){
   return json({ token: await makeCommissionerToken(password, body.group, expiresAt), expiresAt });
 }
 
+async function handleDismissClaim(request, env, deps){
+  const body = await readBody(request);
+  if(!body || typeof body.id !== 'string') return json({ error: 'bad_request' }, 400);
+  return json({ ok: await deps.dismissClaim(env, body.group, body.id) });
+}
+
 async function handlePush(request, env){
   if(!pushEnabled(env)) return json({ error: 'push_off' }, 409);
   const body = await readBody(request);
@@ -163,14 +174,16 @@ export async function handleSystemAdmin(request, url, env, deps){
   let response;
   if(route === '/status' && request.method === 'GET'){
     response = await handleStatus(env, deps, identity);
-  } else if(request.method === 'POST' && (route === '/commissioner' || route === '/push')){
+  } else if(request.method === 'POST' && (route === '/commissioner' || route === '/push' || route === '/claims/dismiss')){
     // The Access cookie rides along on any request to this origin, so a
     // write must come from the admin page itself, not another site.
     const origin = request.headers.get('Origin');
     if(origin !== url.origin && !(isDevBypass(url, env) && origin === DEV_ORIGIN)){
       response = json({ error: 'forbidden' }, 403);
     } else {
-      response = route === '/commissioner' ? await handleCommissioner(request, env) : await handlePush(request, env);
+      response = route === '/commissioner' ? await handleCommissioner(request, env)
+        : route === '/push' ? await handlePush(request, env)
+        : await handleDismissClaim(request, env, deps);
     }
   } else {
     response = json({ error: 'not_found' }, 404);

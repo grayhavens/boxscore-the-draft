@@ -47,27 +47,38 @@ export const GROUPS = {
   // is its subdomain and part of every one of its storage keys, so it must
   // not change once people use it. Drafter ids get saved with every chat
   // message, pick and favorite, so settle each one before Season Ticket's
-  // first chat or draft. Josh B and Drew are maybes, and the last five are
-  // open spots until those people are found.
+  // first chat or draft. Josh is the only sure spot; the other nine are
+  // open until people claim them: `open: true` puts a "Claim a spot" button
+  // on the landing page (js/landing.js, worker/claims.js). To fill one, set
+  // its name and drop `open`; keep its id.
   seasonticket: {
     id: 'seasonticket',
     name: 'Season Ticket',
     drafters: [
-      { id:'kevin', name:'Kevin' },
       { id:'josh', name:'Josh' },        // commissioner
-      { id:'joshb', name:'Josh B' },     // maybe
-      { id:'farron', name:'Farron' },
-      { id:'drew', name:'Drew' },        // maybe
-      { id:'draftersix', name:'Drafter 6' },
-      { id:'drafterseven', name:'Drafter 7' },
-      { id:'draftereight', name:'Drafter 8' },
-      { id:'drafternine', name:'Drafter 9' },
-      { id:'drafterten', name:'Drafter 10' }
+      { id:'draftertwo', name:'Drafter 2', open: true },
+      { id:'drafterthree', name:'Drafter 3', open: true },
+      { id:'drafterfour', name:'Drafter 4', open: true },
+      { id:'drafterfive', name:'Drafter 5', open: true },
+      { id:'draftersix', name:'Drafter 6', open: true },
+      { id:'drafterseven', name:'Drafter 7', open: true },
+      { id:'draftereight', name:'Drafter 8', open: true },
+      { id:'drafternine', name:'Drafter 9', open: true },
+      { id:'drafterten', name:'Drafter 10', open: true }
     ]
   }
 };
 
 export const GROUP_IDS = Object.keys(GROUPS);
+
+// The platform owner's own drafter slot: where claim alerts from the
+// landing page go (worker/claims.js), to every device that has alerts on.
+export const PLATFORM_OWNER = { group: LEGACY_GROUP_ID, drafter: 'josh' };
+
+// Roster spots nobody has taken yet (`open: true` above).
+export function openSpots(groupId){
+  return isKnownGroup(groupId) ? GROUPS[groupId].drafters.filter(d => d.open) : [];
+}
 
 export function isKnownGroup(id){
   return typeof id === 'string' && Object.prototype.hasOwnProperty.call(GROUPS, id);

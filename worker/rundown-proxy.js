@@ -136,6 +136,10 @@
       (worker/commissioner-token.js), which every commissioner check
       here and in the draft room accepts alongside the group's password.
 
+   11. SPOT CLAIMS — /claim takes a request for one of a group's open
+      roster spots from the landing page and alerts the platform owner.
+      See worker/claims.js.
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -183,6 +187,7 @@ import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '.
 import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
+import { handleClaim, loadClaims, dismissClaim } from './claims.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -208,6 +213,8 @@ function currentNflverseSeason(){
 // http.server` load this worker too.
 const ALLOWED_ORIGINS = [
   'https://boxscorethedraft.pages.dev',
+  'https://boxscore.space',       // the landing page (spot claims)
+  'https://www.boxscore.space',
   'http://localhost:8934'
 ];
 
@@ -1025,7 +1032,7 @@ async function route(request, env, ctx){
   // The system admin API has its own auth (Cloudflare Access) and no CORS
   // in production — see worker/system-admin.js.
   if(url.pathname.startsWith('/api/admin/')){
-    return handleSystemAdmin(request, url, env, { draftRoomStub, chatRoomStub, activityKey });
+    return handleSystemAdmin(request, url, env, { draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim });
   }
 
   const origin = request.headers.get('Origin') || '';
@@ -1039,7 +1046,7 @@ async function route(request, env, ctx){
   const group = requestGroup(url);
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
-    url.pathname === '/push/device' || url.pathname === '/push/test' ||
+    url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' ||
     /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
@@ -1067,6 +1074,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/push/test') return handlePushTest(request, env, group, headers);
 
   if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
+
+  if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json });
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
   if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);

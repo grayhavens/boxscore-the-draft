@@ -21,10 +21,25 @@
   <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
   <h1 class="landing-title">Boxscore</h1>
   <p class="landing-sub">Fantasy drafts across 8 real leagues, followed and scored live.</p>
-  <div class="set-label landing-label">Groups</div>
+  <div class="set-label landing-label">How it works</div>
+  <section class="hiw" id="hiw" aria-label="How it works"></section>
+  <div class="set-label landing-label" id="landing-groups-label">Groups</div>
   <nav class="landing-groups" id="landing-groups" aria-label="Groups"></nav>
-  <p class="landing-foot">Each group is its own app. Open yours, then add it to your Home Screen.</p>
+  <p class="landing-foot" id="landing-foot">Each group is its own app. Open yours, then add it to your Home Screen.</p>
 </main>
+<!-- Opening a group: the logo above flies to the center and becomes the
+     launch splash's built mark (same geometry as index.html #launch-splash),
+     then the group's own splash picks up from that frame. See js/landing.js. -->
+<div id="landing-handoff" aria-hidden="true" hidden>
+  <div class="ls-bg"></div>
+  <div class="ls-stage">
+    <div class="ls-logo">
+      <div class="ls-tl"><i></i></div>
+      <div class="ls-br"><i></i></div>
+      <div class="ls-sq"></div>
+    </div>
+  </div>
+</div>
 <script type="module" src="js/landing.js"></script>
 </body>
 </html>
