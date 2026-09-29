@@ -37,8 +37,10 @@ function filterChipsHtml(){
   return `<div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>`;
 }
 
-function leagueRulesHtml(league){
-  const data = LEAGUE_SCORING[league.key];
+// One league's rule list plus its bonus. Also the draft room's Scoring
+// sheet (js/draft.js), so the two never disagree.
+export function scoringRulesHtml(key){
+  const data = LEAGUE_SCORING[key];
   if(!data) return '';
 
   const rulesHtml = data.rules.map(r => `
@@ -60,12 +62,17 @@ function leagueRulesHtml(league){
     </div>
   ` : '';
 
+  return `<div class="scoring-list">${rulesHtml}</div>${bonusHtml}`;
+}
+
+function leagueRulesHtml(league){
+  const data = LEAGUE_SCORING[league.key];
+  if(!data) return '';
   return `
     <div class="scoring-page-accent" style="background:${data.accent};"></div>
     <h2 class="scoring-page-title">${LEAGUE_FULL_LABELS[league.key] || data.name}</h2>
     <div class="scoring-page-sub">Draft scoring rules</div>
-    <div class="scoring-list">${rulesHtml}</div>
-    ${bonusHtml}
+    ${scoringRulesHtml(league.key)}
   `;
 }
 

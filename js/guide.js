@@ -124,12 +124,14 @@ const GUIDE = [
       'Mock Draft is always open: practice against bots whenever you like.',
       'Once the commissioner sets the next draft’s time, Home counts down to it.',
       'While the real draft is live, a banner on every page takes you back to it.',
+      'Tap Scoring under the room’s title to check what each league’s teams are worth.',
       'Download the board as a spreadsheet once it’s done.'
     ],
     pre: {
       lead: `${ACTIVE_GROUP.name} drafts right here in Boxscore. The Mock Draft and the live draft are both on Home.`,
       points: [
         'Try Mock Draft any time to practice against bots and learn how it works.',
+        'Tap Scoring under the room’s title to check what each league’s teams are worth.',
         'Home shows when the live draft starts, once the commissioner sets the time.',
         'On draft day, a banner on every page takes you into the live room.',
         'Turn on draft alerts so your phone tells you when you’re on the clock.'
