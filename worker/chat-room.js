@@ -54,7 +54,8 @@
      retained message's reactions, keyed by message id.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { GROUPS, LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
+import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
 
 // Each group (js/groups.js) has its own room (the worker picks it by
@@ -294,15 +295,16 @@ export class ChatRoom extends DurableObject {
   // on screen right now. The phone collapses a run of these into one
   // notification (see sw.js), and the Topic does the same for a phone
   // that's offline.
-  pushMessage(group, message){
+  async pushMessage(group, message){
     const watching = new Set();
     for(const socket of this.ctx.getWebSockets()){
       const a = socket.deserializeAttachment() || {};
       if(a.visible && a.who) watching.add(a.who);
     }
     const recipients = drafterIdsFor(group).filter(id => id !== message.from && !watching.has(id));
-    const sender = GROUPS[group].drafters.find(d => d.id === message.from);
     const text = message.text.length > PUSH_PREVIEW_LENGTH ? `${message.text.slice(0, PUSH_PREVIEW_LENGTH - 1)}…` : message.text;
+    // Confirmed spots (worker/roster.js) carry their real name, not the placeholder.
+    const sender = (await effectiveDrafters(this.env, group)).find(d => d.id === message.from);
     return pushToDrafters(this.env, group, recipients, 'chat', {
       kind: 'chat',
       title: sender ? sender.name : 'Chat',

@@ -74,7 +74,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
-import { GROUPS, LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 
@@ -292,7 +293,8 @@ export class DraftRoom extends DurableObject {
     const now = onTheClock(this.state);
     if(!now || (was && was.slot === now.slot && was.owner === now.owner)) return;
     const group = this.group || LEGACY_GROUP_ID;
-    const nameOf = id => (GROUPS[group].drafters.find(d => d.id === id) || { name: id }).name;
+    const roster = await effectiveDrafters(this.env, group); // confirmed spots' real names (worker/roster.js)
+    const nameOf = id => (roster.find(d => d.id === id) || { name: id }).name;
     const n = this.state.config.drafters.length;
     const parts = [`Round ${Math.floor(now.slot / n) + 1}, pick ${(now.slot % n) + 1}.`];
     const last = was && this.state.picks[was.slot];

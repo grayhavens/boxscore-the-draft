@@ -48,9 +48,12 @@ export const GROUPS = {
   // not change once people use it. Drafter ids get saved with every chat
   // message, pick and favorite, so settle each one before Season Ticket's
   // first chat or draft. Josh is the only sure spot; the other nine are
-  // open until people claim them: `open: true` puts a "Claim a spot" button
-  // on the landing page (js/landing.js, worker/claims.js). To fill one, set
-  // its name and drop `open`; keep its id.
+  // open until people claim them: `open: true` puts a claim form on the
+  // landing page (js/landing.js, worker/claims.js). Confirming a claim on
+  // the admin page fills the next open spot without a deploy (the
+  // `roster@<group>` KV record, worker/roster.js), keeping that spot's id;
+  // applyRoster below is how both the worker and the app read it. Setting
+  // a name here and dropping `open` still works too, and wins.
   seasonticket: {
     id: 'seasonticket',
     name: 'Season Ticket',
@@ -71,9 +74,23 @@ export const GROUPS = {
 
 export const GROUP_IDS = Object.keys(GROUPS);
 
-// Roster spots nobody has taken yet (`open: true` above).
+// Roster spots nobody has taken yet (`open: true` above). In the browser,
+// js/roster.js has already applied confirmed spots (see applyRoster) by
+// the time anything calls this; the worker uses worker/roster.js instead.
 export function openSpots(groupId){
   return isKnownGroup(groupId) ? GROUPS[groupId].drafters.filter(d => d.open) : [];
+}
+
+// A group's drafters with confirmed spots applied. `assigned` is the
+// roster@<group> record, { <drafterId>: { name, ... } }; it only ever
+// fills a spot this file marks open, keeping the spot's id, so everything
+// keyed by drafter id (chat, picks, favorites) is untouched. Pure, and
+// returns new objects: the worker shares module state across requests.
+export function applyRoster(drafters, assigned){
+  return drafters.map(d => {
+    const a = d.open && assigned && assigned[d.id];
+    return a ? { id: d.id, name: a.name } : d;
+  });
 }
 
 export function isKnownGroup(id){

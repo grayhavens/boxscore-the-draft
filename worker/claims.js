@@ -1,11 +1,11 @@
 /* ============================================================
    SPOT CLAIMS (/claim): someone on the landing page (js/landing.js) asks
    for one of a group's open roster spots (`open: true` in js/groups.js).
-   Nothing about the roster changes here — a claim is a request: it's kept
-   in KV and shows at the top of the admin page (worker/system-admin.js
-   lists and dismisses them). No push alert: alerts belong to a group, and
-   a claim is platform business. Filling the spot is still an edit to
-   js/groups.js.
+   A claim is a request: it's kept in KV and shows at the top of the admin
+   page (worker/system-admin.js), which can dismiss it or confirm it.
+   Confirming (confirmClaim, bottom of this file) fills the next open spot
+   (worker/roster.js). No push alert: alerts belong to a group, and a claim
+   is platform business.
 
    Public and unauthenticated, so it's bounded every way it can be: our
    origins only, a group must have an open spot, a few claims per IP per
@@ -14,7 +14,8 @@
    KV: claims@<group> -> [{ id, name, email, at }], newest first
        claimrate:<ip>  -> count, expiring after an hour
    ============================================================ */
-import { openSpots } from '../js/groups.js';
+import { GROUPS, applyRoster } from '../js/groups.js';
+import { effectiveDrafters, loadAssigned, saveAssigned } from './roster.js';
 
 export const MAX_PENDING_CLAIMS = 25;
 export const CLAIMS_PER_IP_PER_HOUR = 3;
@@ -70,7 +71,7 @@ async function overRateLimit(env, request){
 export async function handleClaim(request, env, group, headers, { isAllowedOrigin, json }){
   if(request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers });
   if(!isAllowedOrigin(request.headers.get('Origin') || '')) return new Response('Forbidden', { status: 403, headers });
-  const open = openSpots(group).length;
+  const open = (await effectiveDrafters(env, group)).filter(d => d.open).length;
   if(!open) return json({ error: 'full' }, 409, headers);
 
   let parsed;
@@ -86,4 +87,35 @@ export async function handleClaim(request, env, group, headers, { isAllowedOrigi
   await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify([entry, ...claims]));
 
   return json({ ok: true }, 200, headers);
+}
+
+// The admin's edited name: one line, trimmed, capped like a claim's.
+export function cleanName(name){
+  return typeof name === 'string'
+    ? name.replace(/[\s\u0000-\u001F\u007F]+/g, ' ').trim().slice(0, CLAIM_LIMITS.name)
+    : '';
+}
+
+// Confirming a claim (admin page): its person gets the next open spot
+// (worker/roster.js) under `rawName`, and the claim is dropped.
+// { drafter, name } or { error }: 'name' (blank), 'taken' (another drafter
+// already has that name, which would make the name pickers ambiguous),
+// 'claim' (already confirmed or dismissed), 'full' (no open spot left).
+export async function confirmClaim(env, group, claimId, rawName){
+  const name = cleanName(rawName);
+  if(!name) return { error: 'name' };
+  const [claims, assigned] = await Promise.all([loadClaims(env, group), loadAssigned(env, group)]);
+  const claim = claims.find(c => c.id === claimId);
+  if(!claim) return { error: 'claim' };
+  const drafters = applyRoster(GROUPS[group].drafters, assigned);
+  if(drafters.some(d => !d.open && d.name.toLowerCase() === name.toLowerCase())) return { error: 'taken' };
+  const spot = drafters.find(d => d.open);
+  if(!spot) return { error: 'full' };
+
+  assigned[spot.id] = { name, email: claim.email || claim.contact || '', at: Date.now() };
+  await saveAssigned(env, group, assigned);
+  const rest = claims.filter(c => c.id !== claimId);
+  if(rest.length) await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify(rest));
+  else await env.LEAGUE_FACTS.delete(claimsKey(group));
+  return { drafter: spot.id, name };
 }

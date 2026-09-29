@@ -11,8 +11,10 @@
      group app takes from the URL fragment, see js/admin.js), who has
      alerts on with a test button each, and an announcement to the group.
    - Spot claims from the landing page (worker/claims.js), at the top:
-     newest first, each with a Dismiss once you've added the person to
-     js/groups.js. There's no push alert for them, so this is where they show.
+     newest first. Confirm (with the name editable) puts the person in the
+     group's next open spot, no deploy (worker/roster.js); Dismiss drops the
+     claim; confirmed people can be undone. There's no push alert for
+     claims, so this is where they show.
 
    Locally it talks to `wrangler dev` started with ADMIN_DEV_BYPASS=1 (the
    admin-worker config in .claude/launch.json); on any other host it sends
@@ -34,6 +36,7 @@ let version = null;      // APP_VERSION from js/board.js
 let espn = null;         // { ok, ms }
 let notes = {};          // group id -> last action's result line
 let busy = false;
+let confirming = null;   // { group, id, name }: the claim whose name is open for editing
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -109,24 +112,52 @@ function chatLine(c, group){
 
 // Spot claims from the landing page (worker/claims.js), first on the page
 // since they're what needs acting on: every recruiting group's claims,
-// newest first, each with a tap-to-email address and a Dismiss.
+// newest first. Confirm opens the name for editing, then Lock in gives the
+// person the next open spot (worker/roster.js), and the app shows them
+// under that name from then on. Confirmed people are listed after, each
+// with an Undo that frees the spot again.
+function claimRow(g, c, nextSpot){
+  const email = c.email || c.contact || '';
+  const mail = email ? `<a href="mailto:${esc(email)}">${esc(email)}</a> · ` : '';
+  if(confirming && confirming.group === g.id && confirming.id === c.id){
+    return `
+      <div class="set-row sysadmin-confirm">
+        <label class="sysadmin-confirm-label" for="confirm-name">Name in ${esc(g.name)}</label>
+        <input id="confirm-name" type="text" maxlength="40" value="${esc(confirming.name ?? c.name)}" autocomplete="off" oninput="sysadminConfirmName(this.value)">
+        <span class="set-row-sub">${mail}takes ${esc(nextSpot ? nextSpot.name : 'the next open spot')}’s spot</span>
+        <span class="sysadmin-confirm-actions">
+          <button type="button" class="sysadmin-btn solid" onclick="sysadminLockIn('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Lock in</button>
+          <button type="button" class="sysadmin-btn" onclick="sysadminConfirmClaim(null)" ${busy ? 'disabled' : ''}>Cancel</button>
+        </span>
+      </div>`;
+  }
+  return row(
+    esc(c.name),
+    `${mail}${ago(c.at)}`,
+    `<span class="sysadmin-btns">
+      <button type="button" class="sysadmin-btn solid" onclick="sysadminConfirmClaim('${g.id}', '${esc(c.id)}')" ${busy || !nextSpot ? 'disabled' : ''}>Confirm</button>
+      <button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>
+    </span>`
+  );
+}
+
 function claimsSection(){
-  const groups = status.groups.filter(g => g.drafters.some(d => d.open) || g.claims.length);
+  const groups = status.groups.filter(g => g.drafters.some(d => d.open) || g.claims.length || g.confirmed.length);
   if(!groups.length) return '';
   const total = groups.reduce((n, g) => n + g.claims.length, 0);
   const body = groups.map(g => {
     const open = g.drafters.filter(d => d.open).length;
-    const rows = g.claims.map(c => {
-      const email = c.email || c.contact || '';
-      return row(
-        esc(c.name),
-        `${email ? `<a href="mailto:${esc(email)}">${esc(email)}</a> · ` : ''}${ago(c.at)}`,
-        `<button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>`
-      );
-    }).join('');
+    const nextSpot = g.drafters.find(d => d.open);
+    const rows = g.claims.map(c => claimRow(g, c, nextSpot)).join('');
+    const confirmed = g.confirmed.map(c => row(
+      esc(c.name),
+      `${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a> · ` : ''}was ${esc(c.spot)}${c.at ? ` · ${ago(c.at)}` : ''}`,
+      `<button type="button" class="sysadmin-btn" onclick="sysadminRelease('${g.id}', '${esc(c.drafter)}')" ${busy ? 'disabled' : ''}>Undo</button>`
+    )).join('');
     return `
       <div class="sysadmin-claims-group">${esc(g.name)} <span>${open} of ${g.drafters.length} spots open</span></div>
-      ${rows || row('No claims yet', 'People claim a spot on the landing page.')}
+      ${rows || row('No claims waiting', open ? 'People claim a spot on the landing page.' : 'Every spot is filled.')}
+      ${confirmed ? `<div class="set-label sysadmin-sublabel">Confirmed</div>${confirmed}` : ''}
       ${notes[`claims:${g.id}`] ? `<div class="sysadmin-note">${esc(notes[`claims:${g.id}`])}</div>` : ''}`;
   }).join('');
   return section(`Spot claims${total ? ` <span class="sysadmin-count">${total}</span>` : ''}`, body);
@@ -225,6 +256,50 @@ window.sysadminDismissClaim = (groupId, id) => {
     if(!ok) return 'Couldn’t dismiss that claim.';
     group.claims = group.claims.filter(c => c.id !== id);
     return `Dismissed ${claim.name}.`;
+  });
+};
+
+window.sysadminConfirmClaim = (groupId, id) => {
+  confirming = groupId ? { group: groupId, id, name: null } : null;
+  render();
+  const input = document.getElementById('confirm-name');
+  if(input){ input.focus(); input.select(); }
+};
+
+// Kept as it's typed, so a re-render (busy, an error) doesn't lose the edit.
+window.sysadminConfirmName = value => { if(confirming) confirming.name = value; };
+
+const CONFIRM_ERRORS = {
+  name: 'Add a name first.',
+  taken: 'Someone in the group already has that name. Try a last initial.',
+  claim: 'That claim is gone. It was already confirmed or dismissed.',
+  full: 'There’s no open spot left.'
+};
+
+window.sysadminLockIn = (groupId, id) => {
+  const input = document.getElementById('confirm-name');
+  const name = input ? input.value.trim() : '';
+  const group = status.groups.find(g => g.id === groupId);
+  if(!name){ notes[`claims:${groupId}`] = CONFIRM_ERRORS.name; render(); return; }
+  if(!confirm(`Add ${name} to ${group.name}? They’ll show up in the app under this name.`)) return;
+  act(`claims:${groupId}`, async () => {
+    const { ok, data } = await api('/claims/confirm', { group: groupId, id, name });
+    if(!ok) return CONFIRM_ERRORS[data.error] || `Couldn’t confirm (${data.error || 'error'}).`;
+    confirming = null;
+    load();
+    return `${data.name} is in ${group.name}.`;
+  });
+};
+
+window.sysadminRelease = (groupId, drafter) => {
+  const group = status.groups.find(g => g.id === groupId);
+  const person = group.confirmed.find(c => c.drafter === drafter);
+  if(!person || !confirm(`Take ${person.name} out of ${group.name}? Their spot goes back to open as ${person.spot}.`)) return;
+  act(`claims:${groupId}`, async () => {
+    const { ok, data } = await api('/roster/release', { group: groupId, drafter });
+    if(!ok || !data.ok) return 'Couldn’t undo that spot.';
+    load();
+    return `${person.name}’s spot is open again.`;
   });
 };
 
