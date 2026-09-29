@@ -3,7 +3,7 @@
    fetch, formatting, modal scroll-lock, team-name matching, and
    the small badge/icon markup every view reuses.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS, PRE_DRAFT } from './data.js';
+import { LEAGUES, leagueOf, TEAM_META, DRAFT_TEAMS, PRE_DRAFT } from './data.js';
 
 // Every fetch helper below used to have no timeout at all — a request
 // that never resolves (a network filter silently dropping traffic to a
@@ -552,7 +552,7 @@ export function normalizeSchoolName(s){
 
 export function findCfbTeamKeyByLocation(location){
   const wanted = normalizeSchoolName(CFB_ESPN_LOCATION_OVERRIDES[location] || location);
-  const teams = LEAGUES.find(l => l.key === 'cfb').teams;
+  const teams = leagueOf('cfb').teams;
   return teams.find(teamKey => normalizeSchoolName(TEAM_META[teamKey].name) === wanted) || null;
 }
 

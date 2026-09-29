@@ -21,3 +21,10 @@ export const { TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES 
 // every team is on the board but nobody owns one yet, so nothing shows
 // a drafter — no owner labels, no Drafted standings or Scores scope.
 export const PRE_DRAFT = !!ACTIVE_SEASON.preDraft;
+
+// A league of the active class, or an empty one when this group doesn't
+// draft it (groupCaps in js/groups.js), so each league's standings
+// module can run for a league the group left out.
+export function leagueOf(key){
+  return LEAGUES.find(l => l.key === key) || { key, teams: [] };
+}

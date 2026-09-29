@@ -16,6 +16,7 @@
    ============================================================ */
 import * as s2026 from './2026.js';
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
+import { groupCaps } from '../groups.js';
 
 const THE_DRAFT_SEASONS = {
   '2026': { id: '2026', label: '2026 Draft', ...s2026 }
@@ -39,11 +40,16 @@ function catalogKey(key, meta){
   return `${meta.leagueKey}_${team}`;
 }
 
+// Only the sports this group drafts (groupCaps in js/groups.js; every
+// one of The Draft's when it doesn't say).
 function preDraftSeasons(){
   const base = THE_DRAFT_LATEST;
+  const caps = groupCaps(ACTIVE_GROUP_ID);
+  const drafts = league => !caps || caps[league] > 0;
   const TEAM_META = {};
   const rekey = {};
   Object.entries(base.TEAM_META).forEach(([key, meta]) => {
+    if(!drafts(meta.leagueKey)) return;
     const { draftTeamId, ...rest } = meta;
     rekey[key] = catalogKey(key, meta);
     TEAM_META[rekey[key]] = { ...rest, favoriteOnly: true };
@@ -54,7 +60,7 @@ function preDraftSeasons(){
       label: base.label,
       preDraft: true,
       TEAM_META,
-      LEAGUES: base.LEAGUES.map(l => ({ ...l, teams: l.teams.map(k => rekey[k]) })),
+      LEAGUES: base.LEAGUES.filter(l => drafts(l.key)).map(l => ({ ...l, teams: l.teams.map(k => rekey[k]) })),
       LEAGUE_SCORING: base.LEAGUE_SCORING,
       PRIOR_SEASON_DISPLAY_LEAGUES: base.PRIOR_SEASON_DISPLAY_LEAGUES
     }

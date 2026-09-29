@@ -33,7 +33,7 @@
    specifically so the cheap flat data everything else needs doesn't pay
    for the expensive division fetch every time.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -70,7 +70,7 @@ export function renderNflCardRecord(teamKey){
 }
 
 export function renderAllNflCardRecords(){
-  LEAGUES.find(l => l.key === 'nfl').teams.forEach(renderNflCardRecord);
+  leagueOf('nfl').teams.forEach(renderNflCardRecord);
 }
 
 // ---- Conference standings (ESPN-sourced — see the file header comment) ----
@@ -155,7 +155,7 @@ const NFL_ESPN_ABBR_OVERRIDES = {
 // direction this function already provides.
 export function findNflTeamKeyByEspnAbbr(abbr){
   const wanted = NFL_ESPN_ABBR_OVERRIDES[abbr] || abbr;
-  const teams = LEAGUES.find(l => l.key === 'nfl').teams;
+  const teams = leagueOf('nfl').teams;
   return teams.find(teamKey => TEAM_META[teamKey].badgeText === wanted) || null;
 }
 
@@ -418,7 +418,7 @@ export function nflStandingsToggleHtml(){
 // computeCfbDrafterCombined in js/standings-cfb.js) — only where the
 // win/loss numbers come from differs.
 export function computeNflDrafterCombined(){
-  const league = LEAGUES.find(l => l.key === 'nfl');
+  const league = leagueOf('nfl');
   // Excludes any favoriteOnly team (see its definition in js/data.js) —
   // a personal add-on outside the real draft must never move a
   // drafter's combined record/bonus standing, only their own board.
