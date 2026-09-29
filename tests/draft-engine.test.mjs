@@ -431,3 +431,19 @@ test('syncCaps applies a group\'s caps in the lobby only', () => {
   assert.deepEqual(s.config.caps, CAPS, 'input untouched');
   assert.equal(syncCaps(live(), { nfl: 2 }), null, 'fixed once the draft starts');
 });
+
+test('the golfer pool: ranked, headshots, and accepted by the room', () => {
+  const golfers = buildDraftPool(['pga']);
+  assert.ok(golfers.length >= 30, 'enough golfers for 10 drafters x 3');
+  assert.deepEqual(golfers.map(g => g.rank), golfers.map((g, i) => i + 1));
+  golfers.forEach(g => {
+    assert.equal(g.league, 'pga');
+    assert.match(g.espnAthleteId, /^\d+$/);
+    assert.match(g.badgeUrl, /^https:\/\/a\.espncdn\.com\/i\/headshots\/golf\/players\/full\/\d+\.png$/);
+  });
+  assert.equal(new Set(golfers.map(g => g.id)).size, golfers.length, 'unique ids');
+  const s = ok(createState(D, { caps: { pga: 3 } }), { type: 'setPool', teams: golfers }, COMM);
+  assert.equal(s.pool.length, golfers.length);
+  assert.equal(s.pool[0].espnAthleteId, golfers[0].espnAthleteId, 'the athlete id survives cleanTeam');
+  assert.ok(buildDraftPool(['nfl', 'pga']).some(t => t.league === 'nfl'), 'mixes with team leagues');
+});

@@ -35,6 +35,7 @@ import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached }
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, reducedMotion, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
+import { golfCardsForDay, golfCardMatchesScope, golfCardHtml } from './golf-view.js';
 
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
@@ -229,6 +230,7 @@ function buildGame(league, event){
 // Drafted+Favorites combo shows a game if it has either.
 function gameMatchesScope(game){
   if(scopeIsAll()) return true;
+  if(game.kind === 'golf') return golfCardMatchesScope(game, scopeFilter);
   return [game.away, game.home].some(s => (scopeFilter.mine && s.isMine) || (scopeFilter.fav && s.isFav));
 }
 
@@ -250,6 +252,8 @@ function isOnSelectedDay(game, offset){
 
 async function collectDay(offset){
   const leagues = LEAGUES.filter(l => FLAT_SCHEDULE_LEAGUES[l.key]);
+  // Golf has tournaments, not games: its own cards (js/golf-view.js).
+  const golfPromise = golfCardsForDay(dateForOffset(offset)).catch(() => []);
   const boards = await Promise.all(leagues.map(l => fetchDayScoreboard(FLAT_SCHEDULE_LEAGUES[l.key].sportPath, offset)));
   const byLeague = {};
   leagues.forEach((league, i) => {
@@ -258,6 +262,8 @@ async function collectDay(offset){
     const games = board.events.map(e => buildGame(league, e)).filter(Boolean).filter(g => isOnSelectedDay(g, offset));
     if(games.length) byLeague[league.key] = games;
   });
+  const golf = await golfPromise;
+  if(golf.length) byLeague.pga = golf;
   return byLeague;
 }
 
@@ -373,7 +379,7 @@ function sectionHtml(label, games){
   return `
     <div class="tg-section">
       <div class="tg-section-head"><span class="tg-section-label">${label}</span><span class="tg-section-rule"></span></div>
-      ${games.map(gameHtml).join('')}
+      ${games.map(g => (g.kind === 'golf' ? golfCardHtml(g) : gameHtml(g))).join('')}
     </div>
   `;
 }

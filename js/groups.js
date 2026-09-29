@@ -58,9 +58,9 @@ export const GROUPS = {
     id: 'seasonticket',
     name: 'Season Ticket',
     // Which sports this group drafts, and how many picks each: see
-    // groupCaps below. Same as The Draft for now; PGA Tour golfers
-    // (pga: 3) join once the golfer pool exists (docs/golf-plan.md).
-    caps: { epl: 2, nfl: 3, nba: 3, nhl: 3, mlb: 3, wnba: 1, cfb: 3, mcbb: 3 },
+    // groupCaps below. The Draft's eight leagues plus 3 PGA Tour golfers
+    // (js/golfers.js, docs/golf-plan.md).
+    caps: { epl: 2, nfl: 3, nba: 3, nhl: 3, mlb: 3, wnba: 1, cfb: 3, mcbb: 3, pga: 3 },
     drafters: [
       { id:'josh', name:'Josh' },        // commissioner
       { id:'draftertwo', name:'Drafter 2', open: true },

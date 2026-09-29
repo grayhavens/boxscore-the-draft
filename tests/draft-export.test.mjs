@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn } from '../tools/draft-export-lib.mjs';
+import { buildDraftPool } from '../js/draft-pool.js';
 
 const DRAFTERS = ['a', 'b'];
 const CAPS = { nfl: 1, cfb: 1, mcbb: 1 };          // 3 rounds x 2 drafters = 6 picks
@@ -212,4 +213,38 @@ test('updateRegistry adds the new season once and keeps the map valid', () => {
   assert.equal(updateRegistry(once, 2027), once);                      // idempotent
   const twice = updateRegistry(once, 2028);
   assert.match(twice, /\.\.\.s2027 \},\n  '2028'/);
+});
+
+test('golfer picks export as PGA Tour entries in a new league tab', async () => {
+  const [g1, g2] = buildDraftPool(['pga']);
+  const result = {
+    phase: 'done', complete: true, order: ['a', 'b'],
+    config: { drafters: DRAFTERS, caps: { nfl: 1, pga: 1 } },
+    picks: [
+      pick(0, 'a', T('nfl_lions', 'nfl', 'Lions')),
+      pick(1, 'b', g1),
+      pick(2, 'b', T('nfl_cardinals', 'nfl', 'Cardinals')),
+      pick(3, 'a', g2)
+    ]
+  };
+  const built = await buildSeason({ result, prev, year: 2026, drafterIds: DRAFTERS, espn: async league => {
+    assert.notEqual(league, 'pga', 'golfers are never looked up on ESPN team lists');
+    return ESPN[league] || [];
+  } });
+  assert.deepEqual(built.problems, []);
+  const pga = built.leagues.find(l => l.key === 'pga');
+  assert.equal(pga.label, 'PGA Tour');
+  assert.equal(pga.season, "'27 Season");
+  assert.equal(built.leagues[built.leagues.length - 1], pga, 'a new league goes last');
+  assert.ok(built.priorSeasonLeagues.includes('pga'));
+  const entry = built.meta[pga.teams[0]];
+  assert.equal(entry.leagueKey, 'pga');
+  assert.equal(entry.kind, 'golfer');
+  assert.equal(entry.name, g1.name);
+  assert.equal(entry.draftTeamId, 'b');
+  assert.equal(entry.espnAthleteId, g1.espnAthleteId);
+  assert.equal(entry.badgeUrl, g1.badgeUrl);
+  assert.equal(built.generated.length, 1, 'only the Cardinals came from ESPN');
+  const src = renderSeasonModule({ built, year: 2026, prevYear: 2025, roomLabel: 'test', generatedOn: 'today' });
+  assert.match(src, /kind:'golfer'/);
 });

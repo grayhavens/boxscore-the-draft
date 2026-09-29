@@ -19,6 +19,7 @@ import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisio
 import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
 import { favoriteStarHtml } from './favorites.js';
+import { openGolfer } from './golf-view.js';
 import { getSeasonPhaseLabel } from './season-phase.js';
 
 // Every league whose Most Recent Result/Next Match comes from ESPN's
@@ -1141,6 +1142,8 @@ async function openLiveTeam(teamKey){
 export function openTeamModal(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return;
+  // Golfers get their own sheet (js/golf-view.js).
+  if(meta.kind === 'golfer'){ openGolfer(meta.espnAthleteId); return; }
 
   openSheetOverlay(document.getElementById('modal-overlay'));
   lockBodyScroll();
