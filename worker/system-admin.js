@@ -40,6 +40,7 @@ import { GROUPS, GROUP_IDS, isKnownGroup, adminSecretName } from '../js/groups.j
 import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
 import { loadDevices, pushEnabled, pushToDrafters } from './web-push.js';
+import { claimAlertEnabled } from './claims.js';
 import { loadWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
@@ -142,7 +143,8 @@ async function handleStatus(env, deps, identity){
         gifs: !!env.KLIPY_APP_KEY,
         rundown: !!env.THERUNDOWN_API_KEY,
         sportsdb: !!env.SPORTSDB_API_KEY,
-        email: welcomeEnabled(env)
+        email: welcomeEnabled(env),
+        claimAlerts: claimAlertEnabled(env)
       }
     },
     groups: await Promise.all(GROUP_IDS.map(id => groupStatus(env, id, deps)))
