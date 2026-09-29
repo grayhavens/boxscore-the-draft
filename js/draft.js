@@ -31,8 +31,8 @@
    Board / My team tabs — instead of the three-column layout; the bar
    scrolls sideways there. See docs/draft-room-plan.md.
    ============================================================ */
-import { DRAFT_TEAMS, LEAGUE_SCORING } from './data.js';
-import { scoringRulesHtml } from './scoring-page.js';
+import { DRAFT_TEAMS } from './data.js';
+import { openScoringSheet } from './scoring-sheet.js';
 import { NEXT_DRAFT_YEAR, NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
@@ -140,8 +140,7 @@ const ui = {
   pendingSelect: null,    // write-in just added: filter/search to it once the pool frame arrives
   proxySlot: null,        // commissioner is drafting for whoever owns this slot
   proxyArm: false,        // enter proxy mode for whatever slot is on the clock once the next state lands
-  modal: null,            // null | 'edit' | 'trade' | 'reset' | 'settings' | 'scoring'
-  scoringLeague: null,    // league the Scoring sheet shows
+  modal: null,            // null | 'edit' | 'trade' | 'reset' | 'settings'
   editSlot: null,
   trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
   mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
@@ -266,7 +265,7 @@ function statusPill(d){
     const title = document.getElementById('draft-title');
     if(title) title.textContent = mock ? 'Mock Draft' : 'Draft';
     const room = mock || draftStore.room === 'main' ? '' : ` · room ${esc(draftStore.room)}`;
-    // The scoring rules, one tap away without leaving the room (the sheet below).
+    // The scoring rules, one tap away without leaving the room (js/scoring-sheet.js).
     const html = `${mock ? 'Practice' : `${NEXT_DRAFT_LABEL} season`} · Snake · ${rounds} rounds${room}`
       + ' · <button type="button" class="draft-sub-link" onclick="draftOpenScoring()">Scoring</button>';
     // Only on change: this runs every render, and a rebuilt button can eat a tap.
@@ -861,22 +860,7 @@ function slotOptions(d, drafterId, selected){
   return unpickedSlotsOf(d, drafterId).map(slot => `<option value="${slot}"${slot === selected ? ' selected' : ''}>${pickLabel(slot, d.n)}</option>`).join('');
 }
 
-// Every league's scoring rules (js/scoring-page.js), one at a time behind
-// the room's own league tabs. Opens on the league the Available list is
-// filtered to, so it answers "what is this league worth?" mid-pick.
-function scoringModalHtml(){
-  const keys = Object.keys(LEAGUE_UI).filter(k => LEAGUE_SCORING[k]);
-  const key = keys.includes(ui.scoringLeague) ? ui.scoringLeague : keys[0];
-  const tabs = keys.map(k =>
-    `<button class="dr-ltab${k === key ? ' on' : ''}" onclick="draftScoringLeague('${k}')" aria-pressed="${k === key}">${leagueUi(k).label}</button>`).join('');
-  return `<h3>Scoring</h3>
-    <div class="dr-ltabs dr-score-tabs">${tabs}</div>
-    <div class="dr-score-rules">${scoringRulesHtml(key)}</div>
-    <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Done</button></div>`;
-}
-
 function modalBody(d){
-  if(ui.modal === 'scoring') return scoringModalHtml();
   if(ui.modal === 'edit'){
     const pick = d.s.picks[ui.editSlot];
     const team = pick && teamById(d.s.pool, pick.team);
@@ -1074,7 +1058,7 @@ function render(){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
     renderCommBar(null);
-    renderModal(ui.modal === 'scoring' ? d : null);
+    renderModal(null);
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
@@ -1353,12 +1337,8 @@ window.draftDownload = async () => {
 window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
 window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
 window.draftOpenSettings = () => { ui.modal = 'settings'; scheduleRender(); };
-window.draftOpenScoring = () => {
-  ui.scoringLeague = ui.filter !== 'all' ? ui.filter : ui.scoringLeague;
-  ui.modal = 'scoring';
-  scheduleRender();
-};
-window.draftScoringLeague = key => { ui.scoringLeague = key; scheduleRender(); };
+// The shared Scoring sheet (js/scoring-sheet.js), on the league being browsed.
+window.draftOpenScoring = () => openScoringSheet(ui.filter !== 'all' ? ui.filter : undefined);
 window.draftDoReset = async () => {
   const result = await run({ type: 'reset' }, null);
   if(result.ok){ ui.proxySlot = null; window.draftCloseModal(); }

@@ -74,7 +74,7 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { showAdminPage } from './admin.js';
-import { renderScoringPage } from './scoring-page.js';
+import { openScoringSheet } from './scoring-sheet.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
 import { renderGuidePage } from './guide.js';
@@ -126,7 +126,14 @@ function applyUrlState(){
     return;
   }
 
-  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'scoring' || explicitView === 'settings' || explicitView === 'guide')
+  // ?view=scoring was a page; the rules are a sheet over Points now.
+  if(explicitView === 'scoring'){
+    switchView('overall');
+    openScoringSheet();
+    return;
+  }
+
+  const view = (explicitView === 'board' || explicitView === 'live-now' || explicitView === 'standings' || explicitView === 'overall' || explicitView === 'chat' || explicitView === 'draft' || explicitView === 'admin' || explicitView === 'settings' || explicitView === 'guide')
     ? explicitView
     : (hasLeague ? 'standings' : (hasData ? 'overall' : null));
   // No view in the URL: fall back to the "Open to" setting (js/settings.js).
@@ -725,7 +732,6 @@ function showView(view){
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
   if(view === 'admin') showAdminPage();
-  if(view === 'scoring') renderScoringPage();
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
   if(view === 'guide') renderGuidePage();
 }
@@ -740,7 +746,7 @@ let settingsOriginScrollY = 0;
 // What Settings' back button says: the page it returns to.
 const SETTINGS_BACK_LABELS = {
   'board': 'Home', 'live-now': 'Scores', 'chat': 'Chat', 'standings': 'Standings',
-  'overall': 'Points', 'draft': 'Draft', 'admin': 'Commissioner', 'scoring': 'Scoring'
+  'overall': 'Points', 'draft': 'Draft', 'admin': 'Commissioner'
 };
 
 export function openSettings(){

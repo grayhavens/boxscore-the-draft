@@ -2197,30 +2197,6 @@ body{
 .scoring-value.pos{ color: var(--win); }
 .scoring-value.neg{ color: var(--loss); }
 
-/* ---- Scoring page (js/scoring-page.js) ----
-   The filter-chip-selected league's rules, reusing openLeagueModal's own
-   content shape (accent bar, heading, .scoring-list) without the modal
-   chrome around it — see that function in js/board.js, which still
-   backs the Standings tab's per-league popup unchanged. */
-.scoring-page-accent{
-  height: 6px;
-  width: 100%;
-  border-radius: 6px;
-  margin-bottom: 16px;
-}
-.scoring-page-title{
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: var(--fs-20);
-  letter-spacing: -0.3px;
-}
-.scoring-page-sub{
-  font-size: var(--fs-11);
-  color: var(--text-sub);
-  font-weight: 500;
-  margin: 3px 0 18px;
-}
-
 /* ---- Season tracker (achievement checklist, in team modal) ----
    The head (title + "Earned so far" summary + chevron) stays visible
    whether the body (the checklist itself) is collapsed or not — only
@@ -3613,7 +3589,7 @@ body{
   border-color: var(--hairline-strong);
   color: var(--text);
 }
-/* Points tab: the way into the Scoring page, under the table. */
+/* Points tab: the way into the Scoring sheet, under the table. */
 .ob-scoring-btn{
   display: flex;
   align-items: center;
@@ -4954,11 +4930,11 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-modal h3{ margin: 0; font-size: var(--fs-20); font-weight: 700; }
 .dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }
 .dr-modal-team{ display: flex; align-items: center; gap: 12px; }
-/* Scoring sheet (js/draft.js scoringModalHtml): the room's league tabs, run
-   edge to edge of the sheet, over the Scoring page's rule list. */
-.dr-score-tabs{ margin: 0 -22px; padding: 0 14px; }
-@media (max-width: 700px){ .dr-score-tabs{ margin: 0 -20px; padding: 0 12px; } }
-.dr-score-rules{ min-height: 300px; }
+/* Scoring sheet (js/scoring-sheet.js): the room's league tabs, run edge to
+   edge of the sheet, over the rule list. */
+.sc-tabs{ margin: 0 -22px; padding: 0 14px; }
+@media (max-width: 700px){ .sc-tabs{ margin: 0 -20px; padding: 0 12px; } }
+.sc-rules{ min-height: 300px; }
 /* "Scoring" at the end of the room's subtitle line: a plain accent link. */
 .draft-sub-link{
   padding: 0; border: 0; background: none; cursor: pointer;

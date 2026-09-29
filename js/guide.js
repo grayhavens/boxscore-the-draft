@@ -105,7 +105,7 @@ const GUIDE = [
     id: 'scoring', icon: 'points', title: 'Scoring rules',
     lead: 'Every league’s point values in one place, one league at a time.',
     points: ['Also reachable from the Scoring chip on the Points tab.'],
-    go: ['See the rules', "switchView('scoring')"]
+    go: ['See the rules', 'openScoringSheet()']
   },
   {
     id: 'chat', icon: 'chat', tour: true, title: 'Chat',
