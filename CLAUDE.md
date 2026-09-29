@@ -61,7 +61,8 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
 A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form with name and email, both required, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
-stores the request in KV, rate-limited per IP, with no push alert. The admin page lists claims at the top: **Confirm**
+stores the request in KV, rate-limited per IP, with no push alert; instead it emails the platform admin (worker secret
+`CLAIM_ALERT_EMAIL`, sent through Resend) who claimed and a link to `boxscore.space/admin?group=<id>`, which opens on that group. The admin page lists claims at the top: **Confirm**
 (name editable first) gives the person the group's next open spot with no deploy, under that spot's id, in the
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`

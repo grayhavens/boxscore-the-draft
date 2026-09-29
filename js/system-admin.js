@@ -16,8 +16,8 @@
    - The picked group's spot claims from the landing page
      (worker/claims.js), above the rest of it: newest first. Confirm (with the name editable) puts the person in the
      group's next open spot, no deploy (worker/roster.js); Dismiss drops the
-     claim; confirmed people can be undone. There's no push alert for
-     claims, so this is where they show.
+     claim; confirmed people can be undone. A new claim is also emailed to
+     CLAIM_ALERT_EMAIL, linking here with ?group=, which opens on that group.
    - Welcome email, for a group that takes claims or has emails: an
      editable subject and body sent to everyone with an email (a claim's,
      or one added here for a spot named in js/groups.js) from
@@ -53,6 +53,14 @@ let welcomeDrafts = {};  // group id -> { subject, body } as edited, kept across
 let previewing = null;   // group id whose welcome email preview is open
 const SELECTED_KEY = 'sysadmin-group';
 try { selected = localStorage.getItem(SELECTED_KEY); } catch (e){}
+// ?group=<id> (the link in a claim alert email) opens on that group, then
+// comes off the URL so a reload goes back to the remembered one.
+const linkedGroup = new URLSearchParams(window.location.search).get('group');
+if(linkedGroup){
+  selected = linkedGroup;
+  try { localStorage.setItem(SELECTED_KEY, linkedGroup); } catch (e){}
+  history.replaceState(null, '', window.location.pathname + window.location.hash);
+}
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -323,6 +331,7 @@ function render(){
         ${row('Alerts', 'VAPID keys', pill(s.push))}
         ${row('Chat GIFs', 'KLIPY_APP_KEY', pill(s.gifs))}
         ${row('Email', 'RESEND_API_KEY', pill(s.email))}
+        ${row('Claim alerts', 'CLAIM_ALERT_EMAIL', pill(s.claimAlerts))}
         ${row('TheRundown', 'THERUNDOWN_API_KEY', pill(s.rundown))}
         ${row('TheSportsDB', 'SPORTSDB_API_KEY', pill(s.sportsdb))}
         <button type="button" class="sysadmin-btn sysadmin-refresh" onclick="sysadminRefresh()">Refresh</button>`)}

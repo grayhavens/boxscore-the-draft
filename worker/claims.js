@@ -5,7 +5,9 @@
    page (worker/system-admin.js), which can dismiss it or confirm it.
    Confirming (confirmClaim, bottom of this file) fills the next open spot
    (worker/roster.js). No push alert: alerts belong to a group, and a claim
-   is platform business.
+   is platform business. Instead the platform admin gets an email
+   (sendClaimAlert) with who it was and a link to the admin page, when the
+   CLAIM_ALERT_EMAIL and RESEND_API_KEY worker secrets are set.
 
    Public and unauthenticated, so it's bounded every way it can be: our
    origins only, a group must have an open spot, a few claims per IP per
@@ -14,8 +16,11 @@
    KV: claims@<group> -> [{ id, name, email, at }], newest first
        claimrate:<ip>  -> count, expiring after an hour
    ============================================================ */
-import { GROUPS, applyRoster } from '../js/groups.js';
+import { GROUPS, GROUP_DOMAIN, applyRoster } from '../js/groups.js';
 import { effectiveDrafters, loadAssigned, saveAssigned } from './roster.js';
+import { WELCOME_FROM } from './welcome-email.js';
+
+const RESEND_SEND = 'https://api.resend.com/emails';
 
 export const MAX_PENDING_CLAIMS = 25;
 export const CLAIMS_PER_IP_PER_HOUR = 3;
@@ -68,7 +73,7 @@ async function overRateLimit(env, request){
   return false;
 }
 
-export async function handleClaim(request, env, group, headers, { isAllowedOrigin, json }){
+export async function handleClaim(request, env, group, headers, { isAllowedOrigin, json, waitUntil }){
   if(request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers });
   if(!isAllowedOrigin(request.headers.get('Origin') || '')) return new Response('Forbidden', { status: 403, headers });
   const open = (await effectiveDrafters(env, group)).filter(d => d.open).length;
@@ -86,7 +91,58 @@ export async function handleClaim(request, env, group, headers, { isAllowedOrigi
   const entry = { id: crypto.randomUUID(), ...claim, at: Date.now() };
   await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify([entry, ...claims]));
 
+  // After the response: the claim is already saved, and a Resend hiccup
+  // shouldn't fail it or slow the landing page down.
+  const alert = sendClaimAlert(env, group, entry, { pending: claims.length + 1, open });
+  if(waitUntil) waitUntil(alert);
+  else await alert;
+
   return json({ ok: true }, 200, headers);
+}
+
+export function claimAlertEnabled(env){
+  return !!(env.RESEND_API_KEY && env.CLAIM_ALERT_EMAIL && EMAIL.test(env.CLAIM_ALERT_EMAIL));
+}
+
+// The admin page opens on this group (js/system-admin.js reads ?group=).
+export function adminLink(group){
+  return `https://${GROUP_DOMAIN}/admin?group=${encodeURIComponent(group)}`;
+}
+
+// The Resend message for a new claim, sent to `to`. Replies go to the
+// person who claimed. Pure so tests/claims.test.mjs can run it.
+export function claimAlertMessage(group, entry, { to, pending, open }){
+  const groupName = GROUPS[group].name;
+  const link = adminLink(group);
+  const waiting = `${pending} claim${pending === 1 ? '' : 's'} waiting · ${open} spot${open === 1 ? '' : 's'} open`;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return {
+    from: WELCOME_FROM,
+    to: [to],
+    reply_to: entry.email,
+    subject: `${entry.name} claimed a spot in ${groupName}`,
+    text: `${entry.name} (${entry.email}) claimed a spot in ${groupName}.\n${waiting}\n\nReview it: ${link}\n`,
+    html: `<p><strong>${esc(entry.name)}</strong> (<a href="mailto:${esc(entry.email)}">${esc(entry.email)}</a>) claimed a spot in ${esc(groupName)}.</p>`
+      + `<p style="color:#666">${esc(waiting)}</p>`
+      + `<p><a href="${esc(link)}">Review it on the admin page</a></p>`
+  };
+}
+
+// Best effort: never throws, and a claim stands whether or not it sends.
+export async function sendClaimAlert(env, group, entry, counts){
+  if(!claimAlertEnabled(env)) return false;
+  try {
+    const res = await fetch(RESEND_SEND, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(claimAlertMessage(group, entry, { to: env.CLAIM_ALERT_EMAIL, ...counts }))
+    });
+    if(!res.ok) console.warn('claim alert failed', res.status);
+    return res.ok;
+  } catch (e){
+    console.warn('claim alert failed', e);
+    return false;
+  }
 }
 
 // The admin's edited name: one line, trimmed, capped like a claim's.

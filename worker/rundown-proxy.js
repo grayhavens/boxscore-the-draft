@@ -174,6 +174,8 @@
        (push alerts; `node tools/vapid-keys.mjs` makes the pair; unset = alerts hidden)
      npx wrangler secret put ACCESS_TEAM_DOMAIN / ACCESS_AUD
        (system admin; from the Cloudflare Access application, see CLAUDE.md)
+     npx wrangler secret put CLAIM_ALERT_EMAIL
+       (where a new spot claim is emailed, via RESEND_API_KEY; unset = no email)
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
@@ -1098,7 +1100,7 @@ async function route(request, env, ctx){
 
   if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
 
-  if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json });
+  if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json, waitUntil: p => ctx.waitUntil(p) });
 
   if(url.pathname === '/roster') return handleRoster(request, env, group, headers, { json });
 

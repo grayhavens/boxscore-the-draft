@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openSpots } from '../js/groups.js';
-import { parseClaim, handleClaim, loadClaims, dismissClaim, claimsKey, MAX_PENDING_CLAIMS, CLAIMS_PER_IP_PER_HOUR } from '../worker/claims.js';
+import { parseClaim, handleClaim, claimAlertMessage, claimAlertEnabled, adminLink, loadClaims, dismissClaim, claimsKey, MAX_PENDING_CLAIMS, CLAIMS_PER_IP_PER_HOUR } from '../worker/claims.js';
 
 function fakeEnv(){
   const store = new Map();
@@ -91,4 +91,42 @@ test('dismissing removes one claim, and the key once the last is gone', async ()
   assert.deepEqual((await loadClaims(env, 'seasonticket')).map(c => c.id), ['b']);
   await dismissClaim(env, 'seasonticket', 'b');
   assert.equal(env.store.has(claimsKey('seasonticket')), false);
+});
+
+test('claim alert email names the person and links to the admin page for that group', () => {
+  const msg = claimAlertMessage('seasonticket', { name: 'Sam <b>', email: 'sam@example.com' }, { to: 'admin@example.com', pending: 2, open: 3 });
+  assert.deepEqual(msg.to, ['admin@example.com']);
+  assert.equal(msg.reply_to, 'sam@example.com');
+  assert.match(msg.subject, /^Sam <b> claimed a spot in /);
+  assert.equal(adminLink('seasonticket'), 'https://boxscore.space/admin?group=seasonticket');
+  assert.ok(msg.text.includes(adminLink('seasonticket')));
+  assert.ok(msg.html.includes('Sam &lt;b&gt;') && !msg.html.includes('Sam <b>'));
+  assert.match(msg.text, /2 claims waiting · 3 spots open/);
+});
+
+test('claim alert sends only with both secrets set, and runs after a saved claim', async () => {
+  assert.equal(claimAlertEnabled({}), false);
+  assert.equal(claimAlertEnabled({ RESEND_API_KEY: 'k' }), false);
+  assert.equal(claimAlertEnabled({ RESEND_API_KEY: 'k', CLAIM_ALERT_EMAIL: 'admin@example.com' }), true);
+
+  const env = { ...fakeEnv(), RESEND_API_KEY: 'k', CLAIM_ALERT_EMAIL: 'admin@example.com' };
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => { sent.push({ url, body: JSON.parse(init.body) }); return new Response('{}'); };
+  try {
+    const pending = [];
+    const res = await handleClaim(claimRequest({ name: 'Sam', email: 'sam@example.com' }), env, 'seasonticket', {}, { ...deps, waitUntil: p => pending.push(p) });
+    assert.equal(res.status, 200);
+    await Promise.all(pending);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].url, 'https://api.resend.com/emails');
+    assert.equal(sent[0].body.subject.startsWith('Sam claimed a spot'), true);
+
+    globalThis.fetch = async () => { throw new Error('down'); };
+    const res2 = await handleClaim(claimRequest({ name: 'Alex', email: 'alex@example.com' }, { ip: '9.9.9.9' }), env, 'seasonticket', {}, deps);
+    assert.equal(res2.status, 200);
+    assert.equal((await loadClaims(env, 'seasonticket')).length, 2);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
