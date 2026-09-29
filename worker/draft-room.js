@@ -76,6 +76,7 @@ import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT
 
 import { GROUPS, LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 import { pushToDrafters } from './web-push.js';
+import { checkCommissionerSecret } from './commissioner-token.js';
 
 const MAX_QUEUE = 100;
 const MAX_TEAM_ID_LENGTH = 60;
@@ -86,14 +87,6 @@ const MAX_AUTH_FAILURES = 5;
 
 function randomUnit(){
   return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-}
-
-// Avoids leaking how many leading characters of the password matched.
-function safeEqual(a, b){
-  if(typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let diff = 0;
-  for(let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
 }
 
 export class DraftRoom extends DurableObject {
@@ -231,7 +224,7 @@ export class DraftRoom extends DurableObject {
     return true;
   }
 
-  handleAuth(ws, attachment, msg){
+  async handleAuth(ws, attachment, msg){
     // Everyone's already commissioner in a mock room, whatever password
     // (a stale saved one, say) comes in.
     if(isMockRoom(this.room)) return this.send(ws, { type: 'authed', ok: true });
@@ -239,8 +232,8 @@ export class DraftRoom extends DurableObject {
       this.send(ws, { type: 'error', reason: 'rate' });
       return;
     }
-    const password = this.env[adminSecretName(this.group || LEGACY_GROUP_ID)];
-    const ok = !!password && safeEqual(msg.password, password);
+    const group = this.group || LEGACY_GROUP_ID;
+    const ok = await checkCommissionerSecret(msg.password, this.env[adminSecretName(group)], group);
     if(ok){
       attachment.commissioner = true;
     } else {

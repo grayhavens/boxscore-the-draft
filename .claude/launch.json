@@ -18,6 +18,15 @@
         "cd worker && npx --yes wrangler dev --port 8787"
       ],
       "port": 8787
+    },
+    {
+      "name": "admin-worker",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd worker && npx --yes wrangler dev --port 8787 --var ADMIN_DEV_BYPASS:1 --var ADMIN_PASSWORD:testpw --var ADMIN_PASSWORD_SEASONTICKET:testpw"
+      ],
+      "port": 8787
     }
   ]
 }

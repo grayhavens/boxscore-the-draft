@@ -2,6 +2,17 @@ name = "team-dashboard-rundown-proxy"
 main = "rundown-proxy.js"
 compatibility_date = "2026-09-01"
 
+# The app calls this worker on its workers.dev address (DASHBOARD_WORKER_BASE
+# in js/api.js). Adding `routes` below turns that off unless it's set here.
+workers_dev = true
+
+# The system admin API (worker/system-admin.js) answers on the platform's
+# own domain, same origin as boxscore.space/admin, so Cloudflare Access
+# guards both. Everything else stays on workers.dev.
+routes = [
+  { pattern = "boxscore.space/api/admin/*", zone_name = "boxscore.space" }
+]
+
 # The actual key is NOT set here — it's stored as a Cloudflare secret
 # so it never touches source control:
 #   npx wrangler secret put THERUNDOWN_API_KEY
