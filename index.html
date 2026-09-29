@@ -266,6 +266,13 @@
   <div class="draft-toast" id="draft-toast" role="status" aria-live="polite"></div>
 </div>
 
+<!-- A draft pool team's sheet (js/draft.js renderTeamSheet): the team
+     modal's layout (plain .modal, not .dr-modal), lifted over the draft
+     view like the room's other sheets. -->
+<div class="modal-overlay dr-modal-back" id="draft-team-sheet" onclick="draftCloseTeam()">
+  <div class="modal" id="draft-team-sheet-content" role="dialog" aria-modal="true" onclick="event.stopPropagation()"></div>
+</div>
+
 <!-- The draft room's modals (js/draft.js renderModal). Out here rather than
      inside #view-draft, whose own stacking context (fixed, z-index 190)
      would keep the sheet under the tab bar. -->

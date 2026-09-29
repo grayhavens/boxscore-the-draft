@@ -40,7 +40,9 @@ import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-grou
 import { onTheClock } from './draft-engine.js';
 import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
-import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss } from './utils.js';
+import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, teamBadgeHtml, skeletonLinesHtml } from './utils.js';
+import { scoutTeam, hasScouting } from './draft-scout.js';
+import { STAR_FILLED_SVG, STAR_OUTLINE_SVG } from './favorites.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
   leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS
@@ -145,6 +147,7 @@ const ui = {
   proxySlot: null,        // commissioner is drafting for whoever owns this slot
   proxyArm: false,        // enter proxy mode for whatever slot is on the clock once the next state lands
   modal: null,            // null | 'edit' | 'trade' | 'reset' | 'settings'
+  teamSheet: null,        // { id, slot } while a team's sheet is open (slot: the pick it came from, if drafted)
   editSlot: null,
   trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
   mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
@@ -469,10 +472,10 @@ function poolRowHtml(d, team){
     const label = inLeague ? (g.div || g.conf) : teamGroupLabel(team);
     parts.push(`<button class="dr-row-group" title="Show only this group" onclick="draftSetScope('${team.league}', '${esc(g.conf)}', '${esc(g.div || '')}')">${esc(label)}</button>`);
   }
-  return `<div class="dr-row${fits ? '' : ' dim'}">
+  return `<div class="dr-row${fits ? '' : ' dim'}" onclick="draftRowOpen(event, '${team.id}')">
     ${tileHtml(team, 'md')}
     <div class="dr-row-main">
-      <div class="dr-row-name">${esc(team.name)}</div>
+      <button type="button" class="dr-row-name dr-open" onclick="draftOpenTeam('${team.id}')">${esc(team.name)}</button>
       <div class="dr-row-meta">${parts.join('<span>·</span>')}</div>
     </div>
     <button class="dr-star${queued ? ' on' : ''}" onclick="draftToggleQueue('${team.id}')" aria-label="${queued ? 'Remove from queue' : 'Add to queue'}" aria-pressed="${queued}">${ICON.star}</button>
@@ -724,8 +727,8 @@ function boardHtml(d){
       if(pick){
         const team = teamById(s.pool, pick.team);
         const lg = team ? leagueUi(team.league) : { label: '', color: '#94969E' };
-        const edit = draftStore.commissioner ? ` onclick="draftEditPick(${slot})" role="button" tabindex="0"` : '';
-        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}${edit ? ' editable' : ''}"${edit}><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
+        const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
+        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}${open ? ' editable' : ''}"${open}><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
       } else if(slot === cur){
         cells.push(`<div class="dr-cell current" data-current="1"><div class="dr-cell-top"><span>${label}</span></div><div class="dr-cell-clock">On the clock</div></div>`);
       } else {
@@ -758,10 +761,11 @@ function rosterPicks(d, who){
 }
 
 // A filled roster slot: just the logo, with the team's name (and the pick
-// it came from) in a tooltip on hover or tap — see the tooltip handlers below.
+// it came from) in a tooltip on hover — see the tooltip handlers below. A
+// tap or click opens the team's sheet.
 function rosterTileHtml(d, team){
   const tip = `${leagueUi(team.league).label} · Pick ${pickLabel(team.slot, d.n)}`;
-  return `<button type="button" class="dr-slot-team" data-tip="${esc(team.name)}" data-tip-sub="${esc(tip)}" aria-label="${esc(team.name)}, ${esc(tip)}">${tileHtml(team, 'sm')}</button>`;
+  return `<button type="button" class="dr-slot-team" data-tip="${esc(team.name)}" data-tip-sub="${esc(tip)}" aria-label="${esc(team.name)}, ${esc(tip)}" onclick="draftOpenTeam('${team.id}', ${team.slot})">${tileHtml(team, 'sm')}</button>`;
 }
 
 function rosterHtml(d){
@@ -803,7 +807,7 @@ function queueHtml(d){
       return `<div class="dr-q${isTop && d.myTurn ? ' top' : ''}${fits ? '' : ' dim'}${ui.queueDrag === t.id ? ' dragging' : ''}" data-id="${t.id}" tabindex="0" draggable="true"
           aria-label="${esc(t.name)}, queue position ${i + 1}. Alt plus arrow keys to move."
           ondragstart="draftQueueDrag(event, '${t.id}')" ondragover="draftQueueOver(event)" ondrop="draftQueueDrop(event, '${t.id}')" ondragend="draftQueueDragEnd()">
-        <div class="dr-q-row"><span class="dr-q-grip" title="Drag to reorder">${ICON.grip}</span><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-main"><span class="dr-q-name">${esc(t.name)}</span>${tag}</span>
+        <div class="dr-q-row" onclick="draftRowOpen(event, '${t.id}')"><span class="dr-q-grip" title="Drag to reorder">${ICON.grip}</span><span class="dr-q-i">${i + 1}</span>${tileHtml(t, 'sm')}<span class="dr-q-main"><button type="button" class="dr-q-name dr-open" onclick="draftOpenTeam('${t.id}')">${esc(t.name)}</button>${tag}</span>
           <span class="dr-q-ctl">${i > 0 ? `<button onclick="draftQueueTop('${t.id}')" title="Move to top" aria-label="Move ${esc(t.name)} to top">${ICON.toTop}</button>` : ''}<button onclick="draftToggleQueue('${t.id}')" aria-label="Remove ${esc(t.name)} from queue">${ICON.close}</button></span></div>
         ${draft}
       </div>`;
@@ -924,6 +928,141 @@ function renderModal(d){
   openSheetOverlay(overlay);
 }
 
+// ---- Team sheet ----
+// Tapping a team anywhere in the room (Available, the queue, the board, a
+// roster slot) opens its scouting sheet: last season, its record so far
+// and title odds (js/draft-scout.js), with Draft and Queue on it. Built
+// from the app's team modal classes (openTeamModal in js/live-data.js) so
+// it reads as the same sheet.
+
+function sheetBadgeHtml(team){
+  return teamBadgeHtml({
+    name: esc(team.name), badgeText: esc(team.abbr), badgeUrl: team.badgeUrl ? esc(team.badgeUrl) : null,
+    badgeStyle: `background:${esc(team.color)}; color:${tileFg(team.color)};`
+  });
+}
+
+function statCellHtml(value, label){
+  return `<div class="stat-cell"><div class="num" style="font-size:14px;">${esc(value)}</div><div class="lbl">${esc(label)}</div></div>`;
+}
+
+// One label/value line, in the Scoring sheet's row style.
+function scoutRowHtml(label, value){
+  return `<div class="scoring-item"><div class="scoring-label">${esc(label)}</div><div class="scoring-value">${esc(value)}</div></div>`;
+}
+
+function scoutStripHtml(sc){
+  if(sc.last === undefined) return '<div class="stat-strip"><div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div></div>';
+  const cells = [];
+  const last = sc.last;
+  if(last && last.absent) cells.push(statCellHtml('—', `${sc.lastLabel} ${sc.recordLabel}`));
+  else if(last){
+    cells.push(statCellHtml(last.record || '—', `${sc.lastLabel} ${last.ongoing ? 'so far' : sc.recordLabel}`));
+    if(last.finish) cells.push(statCellHtml(last.finish.value, `${sc.lastLabel} ${last.ongoing ? 'place' : last.finish.label}`));
+  }
+  if(sc.now) cells.push(statCellHtml(sc.now.record, `${sc.nowLabel} so far`));
+  return cells.length ? `<div class="stat-strip">${cells.join('')}</div>` : '';
+}
+
+function scoutBodyHtml(sc){
+  const parts = [];
+  const last = sc.last;
+  if(last === null){
+    parts.push(`<div class="no-live-note">Couldn't load last season from ESPN. It'll try again shortly.</div>`);
+  } else if(last){
+    const rows = [];
+    if(last.absent) rows.push(scoutRowHtml(last.absent, ''));
+    if(last.points != null) rows.push(scoutRowHtml('Points', String(last.points)));
+    if(last.note) rows.push(scoutRowHtml('Qualified for', last.note));
+    if(last.postLabel && last.post !== null){
+      rows.push(last.post === undefined ? skeletonLinesHtml(1) : scoutRowHtml(last.postLabel, last.post));
+    }
+    if(rows.length) parts.push(`<div class="modal-section-title">${esc(sc.lastLabel)} season</div><div class="scoring-list scout-list">${rows.join('')}</div>`);
+  }
+  if(sc.odds === undefined){
+    parts.push(`<div class="modal-section-title">Odds</div>${skeletonLinesHtml(2)}`);
+  } else if(sc.odds.length){
+    parts.push(`<div class="modal-section-title">Odds · DraftKings</div><div class="scoring-list scout-list">${sc.odds.map(o => scoutRowHtml(o.label, o.odds)).join('')}</div>`);
+  }
+  return parts.join('');
+}
+
+// Draft / Edit pick, or why there's nothing to press.
+function sheetActionsHtml(d, team, pickSlot){
+  const lg = leagueUi(team.league);
+  if(pickSlot != null){
+    const owner = ownerOf(pickSlot, d.s.order, d.s.overrides);
+    const edit = draftStore.commissioner
+      ? `<button class="modal-cta secondary" onclick="draftSheetEditPick(${pickSlot})">Edit pick</button>` : '';
+    return `${edit}<div class="modal-cta-note">Drafted by ${esc(owner === d.me ? 'you' : drafterName(owner))} · Pick ${pickLabel(pickSlot, d.n)}</div>`;
+  }
+  if(d.s.phase !== 'draft') return '';
+  if(!teamFits(d, team)){
+    const whose = d.proxy ? `${drafterName(d.actor)}'s` : 'Your';
+    return `<div class="modal-cta-note">${esc(whose)} ${lg.label} spots are full</div>`;
+  }
+  if(d.canAct){
+    const label = d.proxy ? `Draft ${team.name} for ${drafterName(d.actor)}` : `Draft ${team.name}`;
+    return `<button class="modal-cta" onclick="draftSheetPick('${team.id}')">${esc(label)}</button>`;
+  }
+  return d.s.config.drafters.includes(d.me) ? `<div class="modal-cta-note">You can draft when you're on the clock</div>` : '';
+}
+
+function teamSheetHtml(d){
+  const team = ui.teamSheet && teamById(d.s.pool, ui.teamSheet.id);
+  if(!team) return null;
+  const lg = leagueUi(team.league);
+  const pickSlot = Object.keys(d.s.picks).map(Number).find(k => d.s.picks[k].team === team.id);
+  const taken = pickSlot != null;
+  const queued = draftStore.queue.includes(team.id);
+  const sub = [lg.label];
+  if(team.custom) sub.push('Write-in');
+  else if(team.rank) sub.push(`#${team.rank} ranked`);
+  const group = teamGroupLabel(team);
+  if(group) sub.push(group);
+  const star = taken ? '' : `<button class="favorite-star${queued ? ' active' : ''}" onclick="draftToggleQueue('${team.id}')" aria-label="${queued ? 'Remove from queue' : 'Add to queue'}" aria-pressed="${queued}">${queued ? STAR_FILLED_SVG : STAR_OUTLINE_SVG}</button>`;
+  const sc = hasScouting(team) ? scoutTeam(team, scheduleRender) : null;
+  return `
+    <div class="modal-accent" style="background:${esc(team.color)};"></div>
+    <div class="modal-head">
+      ${sheetBadgeHtml(team)}
+      <div>
+        <h2>${esc(team.name)}</h2>
+        <div class="modal-sub">${esc(sub.join(' · '))}</div>
+      </div>
+      <div class="modal-actions">
+        ${star}
+        <button class="modal-close" onclick="draftCloseTeam()" aria-label="Close">&times;</button>
+      </div>
+    </div>
+    ${sc ? scoutStripHtml(sc) : ''}
+    <div class="modal-body">
+      ${sc ? scoutBodyHtml(sc) : `<div class="no-live-note">No season stats for ${team.custom ? 'write-in teams' : 'this team'}.</div>`}
+      <div class="scout-actions">${sheetActionsHtml(d, team, taken ? pickSlot : null)}</div>
+    </div>`;
+}
+
+function renderTeamSheet(d){
+  const overlay = document.getElementById('draft-team-sheet');
+  const sheet = document.getElementById('draft-team-sheet-content');
+  if(!overlay || !sheet) return;
+  const body = d && ui.teamSheet ? teamSheetHtml(d) : null;
+  if(!body){ closeSheetOverlay(overlay); if(d) ui.teamSheet = null; return; }
+  if(regionHtml.get('draft-team-sheet') !== body){ sheet.innerHTML = body; regionHtml.set('draft-team-sheet', body); }
+  enableSheetSwipeToDismiss(sheet, window.draftCloseTeam);
+  openSheetOverlay(overlay);
+}
+
+window.draftOpenTeam = (id, slot) => { ui.menu = null; ui.teamSheet = { id, slot: slot ?? null }; scheduleRender(); };
+// Row taps open the sheet unless they landed on one of the row's own buttons.
+window.draftRowOpen = (event, id) => {
+  if(event.target.closest('button, a, select, input')) return;
+  window.draftOpenTeam(id);
+};
+window.draftCloseTeam = () => { ui.teamSheet = null; scheduleRender(); };
+window.draftSheetPick = id => { ui.teamSheet = null; window.draftClick(id); scheduleRender(); };
+window.draftSheetEditPick = slot => { ui.teamSheet = null; window.draftEditPick(slot); };
+
 // ---- Phone shell ----
 
 function phoneShellHtml(){
@@ -952,7 +1091,7 @@ function phoneQueueHtml(d){
   const fits = queueTeams(d).filter(t => teamFits(d, t, d.myCounts)).slice(0, 3);
   if(!fits.length) return '';
   return `<div class="dm-from-queue"><div class="dr-eyebrow gold">FROM YOUR QUEUE</div>${fits.map(t => {
-    return `<div class="dm-qrow">${tileHtml(t, 'md')}<div class="dr-row-main"><div class="dr-row-name">${esc(t.name)}</div><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
+    return `<div class="dm-qrow" onclick="draftRowOpen(event, '${t.id}')">${tileHtml(t, 'md')}<div class="dr-row-main"><button type="button" class="dr-row-name dr-open" onclick="draftOpenTeam('${t.id}')">${esc(t.name)}</button><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
       <button class="dr-draft-btn mine" onclick="draftClick('${t.id}')">Draft</button></div>`;
   }).join('')}</div>`;
 }
@@ -970,8 +1109,8 @@ function phoneBoardHtml(d){
     const body = team
       ? `${tileHtml(team, 'sm')}<span class="dm-b-name">${esc(team.name)}</span><span class="dm-b-lg" style="color:${leagueUi(team.league).color}">${leagueUi(team.league).label}</span>`
       : (cur ? '<span class="dm-b-clock">On the clock</span>' : '<span class="dr-dim">—</span>');
-    const edit = team && draftStore.commissioner ? ` onclick="draftEditPick(${slot})" role="button" tabindex="0"` : '';
-    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${edit ? ' editable' : ''}"${edit}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
+    const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
+    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
   }
   return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
 }
@@ -1064,12 +1203,14 @@ function render(){
     root().innerHTML = lobbyHtml(d);
     renderCommBar(null);
     renderModal(null);
+    renderTeamSheet(null);
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
   if(isPhone()) renderPhone(d); else renderLive(d);
   renderCommBar(d);
   renderModal(d);
+  renderTeamSheet(d);
   applyPendingSelect(d);
   if(ui.queueFocus){
     const item = document.querySelector(`.dr-q[data-id="${ui.queueFocus}"]`);
@@ -1231,6 +1372,13 @@ window.draftQueueDragEnd = () => {
 document.addEventListener('keydown', event => {
   if(!active) return;
   if(event.key === 'Escape' && ui.menu){ ui.menu = null; scheduleRender(); return; }
+  if(event.key === 'Escape' && ui.teamSheet){ window.draftCloseTeam(); return; }
+  // Board cells are divs with role="button"; give them a real button's keys.
+  if((event.key === 'Enter' || event.key === ' ') && event.target.matches && event.target.matches('.dr-cell[role="button"], .dm-brow[role="button"]')){
+    event.preventDefault();
+    event.target.click();
+    return;
+  }
   if(!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
   const item = event.target.closest && event.target.closest('.dr-q[data-id]');
   if(!item) return;
@@ -1414,12 +1562,12 @@ window.draftMobileTab = tab => { ui.mobileTab = tab; scheduleRender(); };
 
 // ---- Roster tile tooltip ----
 // One floating tooltip, positioned from the tile, so the roster column's
-// own scrolling can't clip it. Hover shows it on desktop; a tap toggles it
-// (touch has no hover) and it hides itself after a few seconds.
+// own scrolling can't clip it. Hover shows it on desktop; a tap or click
+// opens the team's sheet instead (the tile's own onclick), so it hides.
 
-let tipEl = null, tipFor = null, tipTimer = null, tipSticky = false;
+let tipEl = null, tipFor = null;
 
-function showTip(tile, sticky){
+function showTip(tile){
   if(!tipEl){
     tipEl = document.createElement('div');
     tipEl.className = 'dr-tip';
@@ -1427,7 +1575,6 @@ function showTip(tile, sticky){
     document.body.appendChild(tipEl);
   }
   tipFor = tile;
-  tipSticky = sticky;
   tipEl.innerHTML = `<b>${esc(tile.dataset.tip)}</b><span>${esc(tile.dataset.tipSub || '')}</span>`;
   tipEl.classList.add('show');
   const r = tile.getBoundingClientRect();
@@ -1436,14 +1583,10 @@ function showTip(tile, sticky){
   const above = r.top - h - 8;
   tipEl.style.left = `${left}px`;
   tipEl.style.top = `${above >= 8 ? above : r.bottom + 8}px`;
-  clearTimeout(tipTimer);
-  if(sticky) tipTimer = setTimeout(hideTip, 2500);
 }
 
 function hideTip(){
-  clearTimeout(tipTimer);
   tipFor = null;
-  tipSticky = false;
   if(tipEl) tipEl.classList.remove('show');
 }
 
@@ -1451,19 +1594,13 @@ const tipTile = target => target && target.closest && target.closest('.dr-slot-t
 document.addEventListener('mouseover', e => {
   if(!active) return;
   const tile = tipTile(e.target);
-  if(tile && tile !== tipFor) showTip(tile, false);
+  if(tile && tile !== tipFor) showTip(tile);
   else if(!tile && tipFor) hideTip();
 });
-// A tap also fires a synthetic mouseover just before the click, so the hover
-// has usually opened the tooltip already: the click makes it stick, and only
-// a second tap on a tooltip that's already sticking closes it.
-document.addEventListener('click', e => {
-  if(!active) return;
-  const tile = tipTile(e.target);
-  if(tile && !(tile === tipFor && tipSticky)) showTip(tile, true);
-  else if(tipFor) hideTip();
-});
-document.addEventListener('focusin', e => { const tile = active && tipTile(e.target); if(tile) showTip(tile, false); });
+// A tap also fires a synthetic mouseover just before the click, which would
+// leave the tooltip up over the sheet the click opens.
+document.addEventListener('click', () => { if(active && tipFor) hideTip(); });
+document.addEventListener('focusin', e => { const tile = active && tipTile(e.target); if(tile) showTip(tile); });
 document.addEventListener('focusout', e => { if(tipTile(e.target)) hideTip(); });
 document.addEventListener('scroll', () => { if(tipFor) hideTip(); }, true);
 
@@ -1504,8 +1641,9 @@ export function setDraftActive(on){
   } else {
     hideTip();
     // The sheet lives outside #view-draft, so it doesn't hide with it.
-    ui.modal = null; ui.trade = null; ui.editSlot = null;
+    ui.modal = null; ui.trade = null; ui.editSlot = null; ui.teamSheet = null;
     renderModal(null);
+    renderTeamSheet(null);
     clearInterval(clockTimer);
     clearInterval(ui.revealTimer);
     closeDraftConnection();

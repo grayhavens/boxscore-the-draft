@@ -5035,6 +5035,21 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   .modal.dr-modal::before{ flex: 0 0 auto; margin-bottom: 4px; }
 }
 .dr-modal h3{ margin: 0; font-size: var(--fs-20); font-weight: 700; }
+/* Draft room team sheet (js/draft.js teamSheetHtml): the team modal's own
+   classes, plus these. Team names in the room's lists are buttons that
+   open it, styled as the plain text they replaced. */
+.dr-open{
+  display: block; max-width: 100%; padding: 0; border: 0; background: none;
+  color: inherit; font-family: inherit; line-height: inherit; letter-spacing: inherit;
+  text-align: left; cursor: pointer;
+}
+.dr-open:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.dr-row, .dm-qrow, .dr-q-row{ cursor: pointer; }
+.scout-list{ margin-bottom: 18px; }
+/* Postseason results are words, not numbers: let them wrap. */
+.scout-list .scoring-value{ flex: 0 1 auto; min-width: 0; white-space: normal; font-size: var(--fs-13); }
+.scout-list .skel-lines{ padding: 9px 0; }
+.scout-actions > .modal-cta-note:first-child{ margin-top: 4px; }
 .dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }
 .dr-modal-team{ display: flex; align-items: center; gap: 12px; }
 /* Scoring sheet (js/scoring-sheet.js): the room's league tabs, run edge to
