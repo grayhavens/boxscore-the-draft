@@ -139,6 +139,9 @@ export class ChatRoom extends DurableObject {
 
   async fetch(request){
     if(request.headers.get('Upgrade') !== 'websocket'){
+      if(new URL(request.url).pathname.endsWith('/summary')){
+        return new Response(JSON.stringify(this.summary()), { headers: { 'Content-Type': 'application/json' } });
+      }
       return new Response('Expected a WebSocket upgrade', { status: 426 });
     }
 
@@ -150,6 +153,24 @@ export class ChatRoom extends DurableObject {
     server.send(JSON.stringify({ type: 'history', messages: this.messagesAfter(after), reactions: this.reactionSnapshot() }));
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  // For the system admin page (worker/system-admin.js): how busy the room
+  // is, without opening a socket.
+  summary(){
+    const last = this.sql.exec('SELECT sender, ts FROM messages ORDER BY id DESC LIMIT 1').toArray()[0];
+    const watching = new Set();
+    const sockets = this.ctx.getWebSockets();
+    for(const socket of sockets){
+      const a = socket.deserializeAttachment() || {};
+      if(a.visible && a.who) watching.add(a.who);
+    }
+    return {
+      messages: this.sql.exec('SELECT COUNT(*) AS n FROM messages').one().n,
+      last: last ? { from: last.sender, ts: last.ts } : null,
+      connected: sockets.length,
+      watching: [...watching]
+    };
   }
 
   // A valid `after` resumes from there (a reconnect that only wants what

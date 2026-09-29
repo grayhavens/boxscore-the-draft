@@ -35,6 +35,20 @@ import { LATEST_SEASON_ID } from './seasons/index.js';
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
 
+// The system admin page (boxscore.space/admin, js/system-admin.js) opens
+// this page with a signed commissioner token in the URL fragment, which
+// never reaches a server. It's saved where a typed password would be (the
+// worker accepts either, see worker/commissioner-token.js), then dropped
+// from the address bar.
+(function takeCommissionerToken(){
+  try {
+    const m = window.location.hash.match(/^#commissioner=([\w.-]+)$/);
+    if(!m) return;
+    saveAdminPassword(m[1]);
+    history.replaceState(history.state, '', window.location.pathname + window.location.search);
+  } catch (e){}
+})();
+
 let unlocked = false;
 let verifying = false;
 let errorMsg = '';

@@ -128,6 +128,14 @@
       Durable Objects send the real ones. Same no-auth tier as favorites,
       plus an Origin check.
 
+   10. SYSTEM ADMIN — the platform owner's page at boxscore.space/admin
+      (admin.html) talks to /api/admin/*, which this worker also answers
+      as a route on boxscore.space itself, behind Cloudflare Access. See
+      worker/system-admin.js; the Access check is worker/access-auth.js.
+      It can mint a commissioner token for any group
+      (worker/commissioner-token.js), which every commissioner check
+      here and in the draft room accepts alongside the group's password.
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -158,6 +166,8 @@
      npx wrangler secret put KLIPY_APP_KEY   (chat GIFs; unset = GIFs hidden)
      npx wrangler secret put VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
        (push alerts; `node tools/vapid-keys.mjs` makes the pair; unset = alerts hidden)
+     npx wrangler secret put ACCESS_TEAM_DOMAIN / ACCESS_AUD
+       (system admin; from the Cloudflare Access application, see CLAUDE.md)
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
@@ -171,6 +181,8 @@ export { DraftRoom } from './draft-room.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
+import { checkCommissionerSecret } from './commissioner-token.js';
+import { handleSystemAdmin } from './system-admin.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -247,11 +259,11 @@ function json(data, status, headers){
 // per-user auth. env.ADMIN_PASSWORD is unset in any environment that
 // hasn't run `wrangler secret put ADMIN_PASSWORD` yet; treat that as
 // "nothing can authorize" rather than silently allowing every write.
-// Each group has its own password secret (adminSecretName in js/groups.js).
+// Each group has its own password secret (adminSecretName in js/groups.js),
+// and the system admin page can mint a signed stand-in for it
+// (worker/commissioner-token.js).
 function isAuthorized(request, env, group){
-  const supplied = request.headers.get('X-Admin-Password');
-  const password = env[adminSecretName(group)];
-  return !!password && supplied === password;
+  return checkCommissionerSecret(request.headers.get('X-Admin-Password'), env[adminSecretName(group)], group);
 }
 
 /* ---- Adding a new league or upstream endpoint: keep this scalable ----
@@ -658,7 +670,7 @@ async function handleKvBlob(request, url, env, group, leagueKey, headers, kvKeyP
   }
 
   if(request.method === 'PUT'){
-    if(!isAuthorized(request, env, group)){
+    if(!await isAuthorized(request, env, group)){
       return new Response('Unauthorized', { status: 401, headers });
     }
     let body;
@@ -750,10 +762,16 @@ async function handleFavorites(request, url, env, group, draftTeamId, headers){
   return new Response('Method not allowed', { status: 405, headers });
 }
 
+// Every drafter in a group connects to the same room; The Draft's is the
+// original "main".
+function chatRoomStub(env, group){
+  const name = group === LEGACY_GROUP_ID ? 'main' : `group:${group}`;
+  return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(name));
+}
+
 // WebSocket upgrades aren't subject to CORS, so a browser will happily
 // open one from any origin — check Origin ourselves, same allowlist as
-// every other route here. Every drafter in a group connects to the same
-// room; The Draft's is the original "main".
+// every other route here.
 function handleChatSocket(request, env, group){
   if(request.headers.get('Upgrade') !== 'websocket'){
     return new Response('Expected a WebSocket upgrade', { status: 426 });
@@ -761,8 +779,7 @@ function handleChatSocket(request, env, group){
   if(!isAllowedOrigin(request.headers.get('Origin') || '')){
     return new Response('Forbidden', { status: 403 });
   }
-  const name = group === LEGACY_GROUP_ID ? 'main' : `group:${group}`;
-  return env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(name)).fetch(request);
+  return chatRoomStub(env, group).fetch(request);
 }
 
 // The live draft room (worker/draft-room.js, js/draft*.js). One Durable
@@ -1004,6 +1021,13 @@ export default {
 
 async function route(request, env, ctx){
   const url = new URL(request.url);
+
+  // The system admin API has its own auth (Cloudflare Access) and no CORS
+  // in production — see worker/system-admin.js.
+  if(url.pathname.startsWith('/api/admin/')){
+    return handleSystemAdmin(request, url, env, { draftRoomStub, chatRoomStub, activityKey });
+  }
+
   const origin = request.headers.get('Origin') || '';
   const headers = corsHeaders(origin);
 
@@ -1021,7 +1045,7 @@ async function route(request, env, ctx){
 
   if(url.pathname === '/admin/verify'){
     if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-    return isAuthorized(request, env, group)
+    return await isAuthorized(request, env, group)
       ? json({ ok: true }, 200, headers)
       : new Response('Unauthorized', { status: 401, headers });
   }

@@ -198,27 +198,36 @@ export async function sendPush(env, device, payload, { ttl = 60 * 60, urgency = 
 }
 
 // Sends `payload` to every device of every drafter in `drafterIds` that
-// opted into `kind`, and forgets devices the push service says are gone.
+// opted into `kind` (every registered device when `kind` is null, for the
+// system admin's test alerts and announcements), and forgets devices the
+// push service says are gone. Resolves to counts for the admin page.
 // Never throws: an alert failing must not break a chat send or a pick.
 export async function pushToDrafters(env, group, drafterIds, kind, payload, options){
-  if(!pushEnabled(env) || !drafterIds.length) return;
+  const stats = { devices: 0, sent: 0, failed: 0, removed: 0 };
+  if(!pushEnabled(env) || !drafterIds.length) return stats;
   await Promise.all(drafterIds.map(async drafterId => {
     try {
       const devices = await loadDevices(env, group, drafterId);
       const gone = [];
-      await Promise.all(devices.filter(d => d.prefs && d.prefs[kind]).map(async device => {
+      await Promise.all(devices.filter(d => kind === null || (d.prefs && d.prefs[kind])).map(async device => {
+        stats.devices += 1;
         try {
           const status = await sendPush(env, device, payload, options);
+          if(status >= 200 && status < 300) stats.sent += 1;
+          else stats.failed += 1;
           if(status === 404 || status === 410) gone.push(device.endpoint);
         } catch (e){
+          stats.failed += 1;
           console.error('[push] send failed', e);
         }
       }));
       if(gone.length){
+        stats.removed += gone.length;
         await saveDevices(env, group, drafterId, (await loadDevices(env, group, drafterId)).filter(d => !gone.includes(d.endpoint)));
       }
     } catch (e){
       console.error('[push] drafter failed', drafterId, e);
     }
   }));
+  return stats;
 }

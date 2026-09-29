@@ -196,6 +196,26 @@ first open. Tour cards show just each entry's `lead`. **When a
 feature ships or changes, update its `GUIDE` entry** (`tour: true` adds it to the tour; `pre` is the text shown
 before a group's first draft).
 
+**System admin** (`admin.html`, `js/system-admin.js`, `worker/system-admin.js`): the platform owner's page at
+`boxscore.space/admin`. It shows each group's draft, chat, activity, alert devices and secrets (present or missing, never
+values), sends test alerts and group announcements, and opens any group as commissioner. **Cloudflare Access** does the
+login. It guards `boxscore.space/admin*` and `boxscore.space/api/admin/*`, and the worker answers the latter as a zone
+route (`wrangler.toml`; `workers_dev = true` keeps the app's workers.dev address alive). The worker still checks the
+Access JWT itself (`worker/access-auth.js`), because the same routes are public on workers.dev. "Open as commissioner"
+mints a 12-hour token signed with that group's own password (`worker/commissioner-token.js`). The group app takes it from
+the `#commissioner=` URL fragment (`js/admin.js`) and stores it in place of a typed password, and every commissioner
+check accepts either. Rotating a group's password cancels its tokens. Setup, one time:
+1. Zero Trust → Access → Applications → add a self-hosted app for `boxscore.space` with paths `admin` and `api/admin`,
+   plus a policy allowing only your email.
+2. `npx wrangler secret put ACCESS_TEAM_DOMAIN` (e.g. `<team>.cloudflareaccess.com`) and
+   `npx wrangler secret put ACCESS_AUD` (the app's Application Audience tag).
+3. Deploy the worker (it adds the zone route), then the static site.
+
+Without those secrets the API answers 503. Locally, the `admin-worker` launch config runs `wrangler dev` with
+`ADMIN_DEV_BYPASS=1` (honored only while `ACCESS_AUD` is unset) and test passwords, and `/admin.html` on the preview
+server talks to it. The group app still verifies commissioner sign-in against the deployed worker, so a locally minted
+token only verifies on the local worker.
+
 **League Facts** (`js/league-facts.js`) is how "who won the cup" / "who got relegated" facts get
 shared across every drafter instead of living in one person's `localStorage`: marking a fact once in
 a league's Results modal credits every drafter who owns an involved team automatically, stored in

@@ -5424,3 +5424,42 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .landing-group{ text-decoration: none; color: inherit; }
 .landing-foot{ margin: 18px 0 0; font-size: 13px; line-height: 1.45; color: var(--text-mute); }
+
+/* System admin page (admin.html, js/system-admin.js): the landing page's
+   column, Settings' sections and rows. */
+.sysadmin .landing-sub a{ color: var(--accent); text-decoration: none; }
+.sysadmin-sections{ display: flex; flex-direction: column; gap: 28px; margin-top: 28px; }
+.sysadmin-sublabel{ margin-top: 6px; }
+.sysadmin .set-row{ cursor: default; }
+.sysadmin a.set-row{ cursor: pointer; }
+.sysadmin code{ font-size: 12px; }
+.sysadmin-btn{
+  flex: none;
+  padding: 8px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sysadmin-btn:disabled{ opacity: 0.5; cursor: default; }
+.sysadmin-refresh{ align-self: flex-start; }
+.sysadmin-pill{ flex: none; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.sysadmin-pill.ok{ background: var(--win-soft); color: var(--win); }
+.sysadmin-pill.bad{ background: var(--loss-soft); color: var(--loss); }
+.sysadmin-announce{ display: flex; flex-direction: column; gap: 8px; }
+.sysadmin-announce textarea{
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+.sysadmin-note{ margin-top: 4px; font-size: 13px; line-height: 1.45; color: var(--text-sub); }
