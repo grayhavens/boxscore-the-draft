@@ -10,6 +10,8 @@
      password's presence, "Open as commissioner" (a 12-hour token the
      group app takes from the URL fragment, see js/admin.js), who has
      alerts on with a test button each, and an announcement to the group.
+   - Spot claims from the landing page (worker/claims.js), newest first,
+     each with a Dismiss once you've added the person to js/groups.js.
 
    Locally it talks to `wrangler dev` started with ADMIN_DEV_BYPASS=1 (the
    admin-worker config in .claude/launch.json); on any other host it sends
@@ -104,6 +106,19 @@ function chatLine(c, group){
   return `${c.messages} kept · last from ${esc(who)} ${ago(c.last.ts)} · ${c.connected} connected`;
 }
 
+function claimsHtml(g){
+  const open = g.drafters.filter(d => d.open).length;
+  if(!open && !g.claims.length) return '';
+  const rows = g.claims.map(c => row(
+    esc(c.name),
+    `${c.contact ? `${esc(c.contact)} · ` : ''}${ago(c.at)}`,
+    `<button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>`
+  )).join('');
+  return `
+    <div class="set-label sysadmin-sublabel">Spot claims · ${open} open</div>
+    ${rows || row('No claims yet', 'People can claim a spot from the landing page.')}`;
+}
+
 function groupHtml(g){
   const alertsOn = status.platform.secrets.push;
   // Only drafters with a device get a row (and a Test button); the rest
@@ -134,6 +149,7 @@ function groupHtml(g){
         <textarea id="announce-${g.id}" maxlength="200" rows="2" placeholder="Announcement to everyone in ${esc(g.name)} with alerts on"></textarea>
         <button type="button" class="modal-cta" onclick="sysadminAnnounce('${g.id}')" ${busy ? 'disabled' : ''}>Send announcement</button>
       </div>` : ''}
+    ${claimsHtml(g)}
     ${notes[g.id] ? `<div class="sysadmin-note">${esc(notes[g.id])}</div>` : ''}
   `);
 }
@@ -186,6 +202,18 @@ window.sysadminTest = (groupId, drafter) => act(groupId, async () => {
   const { ok, data } = await api('/push', { group: groupId, drafter, message: '' });
   return ok ? pushResult(data) : `Test failed (${data.error || 'error'}).`;
 });
+
+window.sysadminDismissClaim = (groupId, id) => {
+  const group = status.groups.find(g => g.id === groupId);
+  const claim = group.claims.find(c => c.id === id);
+  if(!claim || !confirm(`Dismiss ${claim.name}’s claim?`)) return;
+  act(groupId, async () => {
+    const { ok } = await api('/claims/dismiss', { group: groupId, id });
+    if(!ok) return 'Couldn’t dismiss that claim.';
+    group.claims = group.claims.filter(c => c.id !== id);
+    return `Dismissed ${claim.name}.`;
+  });
+};
 
 window.sysadminAnnounce = groupId => {
   const input = document.getElementById(`announce-${groupId}`);
