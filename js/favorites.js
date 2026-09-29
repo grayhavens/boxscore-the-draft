@@ -105,8 +105,8 @@ export function isFavorite(teamKey){
 }
 
 const STAR_PATH = 'M12 3.5l2.6 5.4 5.9.7-4.3 4.1 1.1 5.9L12 16.7l-5.3 2.9 1.1-5.9-4.3-4.1 5.9-.7z';
-const STAR_FILLED_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>`;
-const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>`;
+export const STAR_FILLED_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>`;
+export const STAR_OUTLINE_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>`;
 
 // Markup for one team's star toggle — only the team page head
 // (js/live-data.js) gets this; that's the one place a favorite can be

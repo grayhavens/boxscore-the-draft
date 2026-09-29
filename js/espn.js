@@ -1781,3 +1781,94 @@ export async function fetchEspnBasketballSummary(sportLeaguePath, eventId){
     date: comp.date || null
   };
 }
+
+// ---- Draft room scouting (js/draft-scout.js) ----
+
+// One season's standings for any league, by ESPN's own season number
+// (NFL/CFB/MLB/WNBA/EPL: the year it starts; NBA/NHL/CBB: the year it
+// ends). `level=3` nests pro leagues down to divisions; college and the
+// EPL come back one level shallower, so every row is tagged with the
+// smallest group it was listed under plus that group's parent. Checked
+// live 2026-09-29: a season ESPN doesn't have yet either answers with an
+// empty 0-0 table (MLB 2027) or quietly falls back to an older one with
+// no `season` field (WNBA 2027), so anything whose year doesn't match
+// the one asked for is dropped rather than shown as the wrong season.
+// Shape returned: { year, label, startDate, endDate, rows: [{ id, name,
+// displayName, location, abbreviation, group, parent, overall, stats,
+// display, note }] } | null
+export async function fetchEspnSeasonStandings(sportLeaguePath, year){
+  const data = await fetchEspnJSON(`/apis/v2/sports/${sportLeaguePath}/standings?season=${year}&level=3`);
+  if(!data || !data.season || data.season.year !== year) return null;
+  const rows = [];
+  const walk = (node, parent) => {
+    const kids = Array.isArray(node.children) ? node.children : [];
+    if(!kids.length && node.standings){
+      (node.standings.entries || []).forEach(entry => {
+        const stats = {}, display = {};
+        // College football's records (overall, vs. Conf.) only come as
+        // `summary`, with no displayValue (see fetchEspnCfbFullStandings).
+        (entry.stats || []).forEach(s => { stats[s.name] = s.value; display[s.name] = s.displayValue || s.summary; });
+        rows.push({
+          id: String(entry.team.id),
+          name: entry.team.name || '',
+          displayName: entry.team.displayName || '',
+          location: entry.team.location || '',
+          abbreviation: entry.team.abbreviation || '',
+          group: node.name || '',
+          parent: parent || '',
+          overall: display.overall || '',
+          stats,
+          display,
+          note: (entry.note && entry.note.description) || null
+        });
+      });
+    }
+    kids.forEach(k => walk(k, node === data ? null : node.name));
+  };
+  walk(data, null);
+  return { year, label: data.season.displayName || String(year), startDate: data.season.startDate, endDate: data.season.endDate, rows };
+}
+
+// A team's postseason games in one season (bowls and the CFP for college
+// football, conference tournaments/NCAA/NIT for college basketball),
+// oldest first. The headline is ESPN's own round name, e.g. "NFC Wild
+// Card Playoffs", "ALDS - Game 4", "NCAA Men's Basketball Championship -
+// East Region - Elite 8".
+// Shape returned: [{ date, headline, completed, won }] | null
+export async function fetchEspnTeamPostseason(sportLeaguePath, espnTeamId, year){
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule?season=${year}&seasontype=3`);
+  if(!data) return null;
+  return (data.events || []).map(event => {
+    const comp = event.competitions && event.competitions[0];
+    if(!comp) return null;
+    const own = (comp.competitors || []).find(c => String(c.id || (c.team && c.team.id)) === String(espnTeamId));
+    const note = (comp.notes || []).find(n => n.headline);
+    return {
+      date: event.date,
+      headline: note ? note.headline : '',
+      completed: !!(comp.status && comp.status.type && comp.status.type.completed),
+      won: !!(own && own.winner)
+    };
+  }).filter(Boolean).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+// Sportsbook futures (DraftKings, through ESPN's core API — open CORS)
+// for one season: title, conference and division winner markets and a
+// handful of player props, each as a list of { teamId, odds }. The
+// team only comes as a $ref link, so its id is read off that URL.
+// Coverage is uneven (checked 2026-09-29: NFL, CFB, NBA, MLB and CBB
+// have title markets; the EPL, NHL and WNBA had none yet) — an empty
+// list is normal.
+// Shape returned: [{ name, lines: [{ teamId, odds }] }] | null
+export async function fetchEspnFutures(coreLeaguePath, year){
+  const data = await fetchJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/futures?limit=100&lang=en&region=us`);
+  if(!data) return null;
+  return (data.items || []).map(item => {
+    const books = (item.futures && item.futures[0] && item.futures[0].books) || [];
+    const lines = books.map(b => {
+      const m = /\/teams\/(\d+)/.exec((b.team && b.team['$ref']) || '');
+      return m && b.value ? { teamId: m[1], odds: String(b.value) } : null;
+    }).filter(Boolean);
+    return { name: item.name || '', lines };
+  }).filter(f => f.lines.length);
+}
