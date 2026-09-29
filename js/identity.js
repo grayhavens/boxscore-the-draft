@@ -24,6 +24,7 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
+import { GROUP_DOMAIN } from './groups.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
 import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, CHEVRON_LEFT_SVG } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
@@ -266,7 +267,8 @@ window.toggleSettingsObMode = () => {
 export function openProfileSwitcher(){
   if(!sheetRows()) return;
   setSheetTitle('Who are you?');
-  sheetRows().innerHTML = DRAFT_TEAMS.map(d => `
+  // Open spots (js/groups.js) are nobody yet, so they aren't offered.
+  sheetRows().innerHTML = DRAFT_TEAMS.filter(d => !d.open || d.id === currentProfileId).map(d => `
     <button class="sheet-row ${d.id === currentProfileId ? 'active' : ''}" onclick="chooseProfile('${d.id}')">
       <span>${d.name}</span>
       <span class="sheet-check">${d.id === currentProfileId ? CHECK_ICON_SVG : ''}</span>
@@ -445,13 +447,15 @@ function renderWelcomeNames(){
       <div class="welcome-sub">Every team drafted in ${ACTIVE_GROUP.name}, followed and scored live. First things first &mdash; who are you?</div>
     </div>
     <div class="welcome-names">
-      ${DRAFT_TEAMS.map(d => `
+      ${DRAFT_TEAMS.filter(d => !d.open).map(d => `
         <button class="sheet-row" onclick="chooseWelcomeProfile('${d.id}')">
           <span>${d.name}</span>
           <span class="welcome-chev">&rsaquo;</span>
         </button>
       `).join('')}
     </div>
+    ${DRAFT_TEAMS.some(d => d.open) ? `
+      <p class="welcome-unlisted">Not listed? Claim a spot at <a href="https://${GROUP_DOMAIN}/">${GROUP_DOMAIN}</a>, and your name shows up here once the commissioner confirms it.</p>` : ''}
   `;
   el.scrollTop = 0;
 }

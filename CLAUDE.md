@@ -42,7 +42,7 @@ npx wrangler secret put SPORTSDB_API_KEY
 npx wrangler dev                         # local worker dev server (chat client uses it on localhost, port 8787)
 npx wrangler deploy
 ```
-After deploying, `DASHBOARD_WORKER_BASE` in `js/api.js` must point at the printed `*.workers.dev` URL.
+After deploying, `DASHBOARD_WORKER_BASE` in `js/worker-base.js` must point at the printed `*.workers.dev` URL.
 
 **Static site deploy:** Cloudflare Pages auto-deploys from `main` — no local deploy command.
 
@@ -61,8 +61,12 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
 A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form with name and email, both required, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
-stores the request in KV, rate-limited per IP, and alerts `PLATFORM_OWNER`'s devices. The admin page lists and dismisses
-claims. Filling a spot is still an edit to `js/groups.js` (set the name, drop `open`, keep the id). **Deploy the worker first.** Code says "group" because "league" already
+stores the request in KV, rate-limited per IP, with no push alert. The admin page lists claims at the top: **Confirm**
+(name editable first) gives the person the group's next open spot with no deploy, under that spot's id, in the
+`roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
+worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
+(top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
+/roster`). Name pickers hide still-open spots. Undo frees a spot. **Deploy the worker first.** Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its

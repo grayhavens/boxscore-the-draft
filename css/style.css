@@ -1439,6 +1439,8 @@ body{
 }
 
 .welcome-names{ border-top: 1px solid var(--hairline); }
+.welcome-unlisted{ margin: 0; padding: 14px 22px 18px; font-size: 13px; line-height: 1.45; color: var(--text-sub); border-top: 1px solid var(--hairline); }
+.welcome-unlisted a{ color: var(--accent); text-decoration: none; }
 .welcome-chev{ margin-left: auto; color: var(--text-mute); font-size: var(--fs-20); line-height: 1; }
 
 .welcome-steps{
@@ -5658,6 +5660,17 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
   cursor: pointer;
 }
 .sysadmin-btn:disabled{ opacity: 0.5; cursor: default; }
+.sysadmin-btn.solid{ background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
+.sysadmin-btns{ display: flex; gap: 6px; flex: none; }
+.sysadmin .set-row.sysadmin-confirm{ flex-direction: column; align-items: stretch; gap: 8px; }
+.sysadmin-confirm-label{ font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.sysadmin-confirm input{
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 16px; font-weight: 700;
+}
+.sysadmin-confirm-actions{ display: flex; gap: 8px; }
 .sysadmin-refresh{ align-self: flex-start; }
 .sysadmin-pill{ flex: none; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .sysadmin-pill.ok{ background: var(--win-soft); color: var(--win); }
@@ -5675,3 +5688,11 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
   resize: vertical;
 }
 .sysadmin-note{ margin-top: 4px; font-size: 13px; line-height: 1.45; color: var(--text-sub); }
+.sysadmin-count{
+  display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: var(--accent-fill); color: var(--on-accent); text-align: center; letter-spacing: 0;
+}
+.sysadmin-claims-group{ margin-top: 4px; font-size: 15px; font-weight: 700; }
+.sysadmin-claims-group:first-child{ margin-top: 0; }
+.sysadmin-claims-group span{ margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--text-sub); }
+.sysadmin .set-row-sub a{ color: var(--accent); text-decoration: none; }

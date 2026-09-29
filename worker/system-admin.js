@@ -23,6 +23,10 @@
                                    whole group
      POST /api/admin/claims/dismiss { group, id } -> drop one spot claim
                                    (worker/claims.js); /status lists them
+     POST /api/admin/claims/confirm { group, id, name } -> give the claim's
+                                   person the next open spot under `name`
+     POST /api/admin/roster/release { group, drafter } -> undo a confirmed
+                                   spot (worker/roster.js)
 
    The room and key naming lives in rundown-proxy.js, which passes it in
    as `deps` rather than this module importing the entry point.
@@ -34,6 +38,7 @@ import { loadDevices, pushEnabled, pushToDrafters } from './web-push.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
+const POST_ROUTES = ['/commissioner', '/push', '/claims/dismiss', '/claims/confirm', '/roster/release'];
 
 function json(data, status = 200){
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -74,24 +79,31 @@ async function stubJson(stub, path){
 
 async function groupStatus(env, id, deps){
   const group = GROUPS[id];
-  const [draft, chat, activity, claims, drafters] = await Promise.all([
+  const [draft, chat, activity, claims, assigned, roster] = await Promise.all([
     stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, id), '/status'),
     stubJson(deps.chatRoomStub(env, id), '/summary'),
     env.LEAGUE_FACTS.get(deps.activityKey(id), 'json'),
     deps.loadClaims(env, id),
-    Promise.all(group.drafters.map(async d => {
-      const devices = await loadDevices(env, id, d.id);
-      return {
-        id: d.id,
-        name: d.name,
-        open: !!d.open,
-        devices: devices.length,
-        chat: devices.filter(x => x.prefs && x.prefs.chat).length,
-        draft: devices.filter(x => x.prefs && x.prefs.draft).length,
-        lastRegistered: devices.reduce((m, x) => Math.max(m, x.at || 0), 0) || null
-      };
-    }))
+    deps.loadAssigned(env, id),
+    deps.effectiveDrafters(env, id)
   ]);
+  const drafters = await Promise.all(roster.map(async d => {
+    const devices = await loadDevices(env, id, d.id);
+    return {
+      id: d.id,
+      name: d.name,
+      open: !!d.open,
+      devices: devices.length,
+      chat: devices.filter(x => x.prefs && x.prefs.chat).length,
+      draft: devices.filter(x => x.prefs && x.prefs.draft).length,
+      lastRegistered: devices.reduce((m, x) => Math.max(m, x.at || 0), 0) || null
+    };
+  }));
+  // Confirmed spots, with the placeholder each one filled, for Undo.
+  const confirmed = Object.entries(assigned)
+    .map(([drafter, a]) => ({ drafter, name: a.name, email: a.email || '', at: a.at || null,
+      spot: (group.drafters.find(d => d.id === drafter) || {}).name || drafter }))
+    .sort((a, b) => (b.at || 0) - (a.at || 0));
   const events = activity && Array.isArray(activity.events) ? activity.events : [];
   return {
     id,
@@ -101,6 +113,7 @@ async function groupStatus(env, id, deps){
     chat,
     activity: { events: events.length, lastTs: events.length ? events[0].ts : null },
     claims,
+    confirmed,
     drafters
   };
 }
@@ -136,6 +149,19 @@ async function handleCommissioner(request, env){
   if(!password) return json({ error: 'no_password' }, 409);
   const expiresAt = Date.now() + COMMISSIONER_TOKEN_TTL_MS;
   return json({ token: await makeCommissionerToken(password, body.group, expiresAt), expiresAt });
+}
+
+async function handleConfirmClaim(request, env, deps){
+  const body = await readBody(request);
+  if(!body || typeof body.id !== 'string') return json({ error: 'bad_request' }, 400);
+  const result = await deps.confirmClaim(env, body.group, body.id, body.name);
+  return json(result, result.error ? 409 : 200);
+}
+
+async function handleReleaseSpot(request, env, deps){
+  const body = await readBody(request);
+  if(!body || typeof body.drafter !== 'string') return json({ error: 'bad_request' }, 400);
+  return json({ ok: await deps.releaseSpot(env, body.group, body.drafter) });
 }
 
 async function handleDismissClaim(request, env, deps){
@@ -174,7 +200,7 @@ export async function handleSystemAdmin(request, url, env, deps){
   let response;
   if(route === '/status' && request.method === 'GET'){
     response = await handleStatus(env, deps, identity);
-  } else if(request.method === 'POST' && (route === '/commissioner' || route === '/push' || route === '/claims/dismiss')){
+  } else if(request.method === 'POST' && POST_ROUTES.includes(route)){
     // The Access cookie rides along on any request to this origin, so a
     // write must come from the admin page itself, not another site.
     const origin = request.headers.get('Origin');
@@ -183,6 +209,8 @@ export async function handleSystemAdmin(request, url, env, deps){
     } else {
       response = route === '/commissioner' ? await handleCommissioner(request, env)
         : route === '/push' ? await handlePush(request, env)
+        : route === '/claims/confirm' ? await handleConfirmClaim(request, env, deps)
+        : route === '/roster/release' ? await handleReleaseSpot(request, env, deps)
         : await handleDismissClaim(request, env, deps);
     }
   } else {

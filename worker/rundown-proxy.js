@@ -137,8 +137,9 @@
       here and in the draft room accepts alongside the group's password.
 
    11. SPOT CLAIMS — /claim takes a request for one of a group's open
-      roster spots from the landing page and alerts the platform owner.
-      See worker/claims.js.
+      roster spots from the landing page (worker/claims.js); confirming
+      one on the admin page fills the spot, and /roster serves the
+      confirmed names to the app and landing page (worker/roster.js).
 
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
@@ -175,7 +176,7 @@
      npx wrangler kv namespace create LEAGUE_FACTS
      (paste the printed id into wrangler.toml's kv_namespaces block)
      npx wrangler deploy
-   Then set DASHBOARD_WORKER_BASE in js/api.js to the deployed
+   Then set DASHBOARD_WORKER_BASE in js/worker-base.js to the deployed
    *.workers.dev URL wrangler prints out.
    ============================================================ */
 
@@ -187,7 +188,8 @@ import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '.
 import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
-import { handleClaim, loadClaims, dismissClaim } from './claims.js';
+import { handleClaim, loadClaims, dismissClaim, confirmClaim } from './claims.js';
+import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -1032,7 +1034,9 @@ async function route(request, env, ctx){
   // The system admin API has its own auth (Cloudflare Access) and no CORS
   // in production — see worker/system-admin.js.
   if(url.pathname.startsWith('/api/admin/')){
-    return handleSystemAdmin(request, url, env, { draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim });
+    return handleSystemAdmin(request, url, env, {
+      draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim, confirmClaim, loadAssigned, releaseSpot, effectiveDrafters
+    });
   }
 
   const origin = request.headers.get('Origin') || '';
@@ -1046,7 +1050,7 @@ async function route(request, env, ctx){
   const group = requestGroup(url);
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
-    url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' ||
+    url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
     /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
@@ -1076,6 +1080,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
 
   if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json });
+
+  if(url.pathname === '/roster') return handleRoster(request, env, group, headers, { json });
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
   if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);

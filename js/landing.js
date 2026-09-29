@@ -5,6 +5,8 @@
    ============================================================ */
 import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots } from './groups.js';
 import { initExplainer } from './landing-explainer.js';
+import { loadRoster } from './roster.js';
+import { chatWorkerBase } from './worker-base.js';
 
 const host = window.location.hostname;
 
@@ -19,6 +21,11 @@ const LANDING_GROUPS = ['seasonticket'];
 // and no link into its app, since everyone who lands here then is a
 // prospect, not a member. Once its last open spot is filled
 // (js/groups.js) it's a plain link to its app again.
+// Confirmed spots count as filled (js/roster.js), so the open count and
+// the switch back to a plain link follow the admin page, not just
+// js/groups.js. The explainer above is already running while this waits.
+await Promise.all(LANDING_GROUPS.map(loadRoster));
+
 const groupsEl = document.getElementById('landing-groups');
 const shown = LANDING_GROUPS.map(id => GROUPS[id]);
 groupsEl.innerHTML = shown.map(g => {
@@ -55,12 +62,9 @@ document.getElementById('landing-groups-label').textContent = anyLive ? 'Groups'
 document.getElementById('landing-foot').hidden = !anyLive;
 
 // ---- Claiming an open spot (worker/claims.js) ----
-// A request, not a roster change: it alerts the platform owner, who adds
-// the person to js/groups.js. The worker is `wrangler dev` on localhost,
-// like the chat (chatWorkerBase in js/api.js, not imported here since it
-// pulls in the whole app's data).
-const CLAIM_BASE = ['localhost', '127.0.0.1'].includes(host)
-  ? 'http://localhost:8787' : 'https://team-dashboard-rundown-proxy.boxscore.workers.dev';
+// A request, not a roster change: it shows on the admin page, where
+// confirming it fills a spot. On localhost it goes to `wrangler dev`.
+const CLAIM_BASE = chatWorkerBase();
 const CLAIMED_KEY = 'bx-claimed'; // group ids this browser already claimed in, just to say so
 
 function claimedGroups(){
