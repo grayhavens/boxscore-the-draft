@@ -111,7 +111,7 @@ function claimsHtml(g){
   if(!open && !g.claims.length) return '';
   const rows = g.claims.map(c => row(
     esc(c.name),
-    `${c.contact ? `${esc(c.contact)} · ` : ''}${ago(c.at)}`,
+    `${esc(c.email || c.contact || '')} · ${ago(c.at)}`,
     `<button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>`
   )).join('');
   return `

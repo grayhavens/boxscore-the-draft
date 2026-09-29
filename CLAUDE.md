@@ -60,7 +60,7 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 (`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
-A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
+A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form with name and email, both required, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
 stores the request in KV, rate-limited per IP, and alerts `PLATFORM_OWNER`'s devices. The admin page lists and dismisses
 claims. Filling a spot is still an edit to `js/groups.js` (set the name, drop `open`, keep the id). **Deploy the worker first.** Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the

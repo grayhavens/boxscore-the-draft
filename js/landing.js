@@ -38,9 +38,9 @@ groupsEl.innerHTML = shown.map(g => {
       <span class="landing-recruit-count">${open} of ${g.drafters.length} spots open</span>
     </div>
     <form class="landing-claim-form" novalidate>
-      <p class="landing-claim-lead">Want in? Send your name and the commissioner will reach out before the draft.</p>
+      <p class="landing-claim-lead">Want in? Send your name and email and the commissioner will reach out before the draft.</p>
       <input name="name" type="text" maxlength="40" autocomplete="name" placeholder="Your name" required>
-      <input name="contact" type="text" maxlength="80" autocomplete="email" placeholder="Phone or email (optional)">
+      <input name="email" type="email" maxlength="80" autocomplete="email" inputmode="email" placeholder="Email" required>
       <button type="submit" class="modal-cta">Claim a spot</button>
       <p class="landing-claim-msg" role="status"></p>
     </form>
@@ -77,8 +77,10 @@ groupsEl.querySelectorAll('.landing-recruit').forEach(box => {
   if(claimed.includes(box.dataset.group)) showClaimed(box);
 });
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // same loose check as worker/claims.js
 const CLAIM_ERRORS = {
-  400: 'Add your name first.',
+  name: 'Add your name first.',
+  email: 'Add an email so the commissioner can reach you.',
   409: 'Those spots just filled up.',
   429: 'Too many claims right now. Try again in a bit.'
 };
@@ -90,21 +92,24 @@ groupsEl.addEventListener('submit', async e => {
   const box = form.closest('.landing-recruit'), msg = form.querySelector('.landing-claim-msg');
   const submit = form.querySelector('[type=submit]');
   const name = form.elements.name.value.trim();
-  if(!name){ msg.textContent = CLAIM_ERRORS[400]; form.elements.name.focus(); return; }
+  const email = form.elements.email.value.trim();
+  if(!name){ msg.textContent = CLAIM_ERRORS.name; form.elements.name.focus(); return; }
+  if(!EMAIL.test(email)){ msg.textContent = CLAIM_ERRORS.email; form.elements.email.focus(); return; }
   submit.disabled = true;
   msg.textContent = 'Sending…';
   try {
     const res = await fetch(`${CLAIM_BASE}/claim?group=${encodeURIComponent(box.dataset.group)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, contact: form.elements.contact.value.trim() })
+      body: JSON.stringify({ name, email })
     });
     if(res.ok){
       try { localStorage.setItem(CLAIMED_KEY, JSON.stringify([...new Set([...claimedGroups(), box.dataset.group])])); } catch (err){}
       showClaimed(box);
       return;
     }
-    msg.textContent = CLAIM_ERRORS[res.status] || 'That didn’t go through. Try again.';
+    const code = res.status === 400 ? ((await res.json().catch(() => ({}))).error || 'name') : res.status;
+    msg.textContent = CLAIM_ERRORS[code] || 'That didn’t go through. Try again.';
   } catch (err){
     msg.textContent = 'Couldn’t reach Boxscore. Check your connection and try again.';
   }
