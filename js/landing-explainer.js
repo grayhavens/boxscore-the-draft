@@ -233,7 +233,13 @@ export function initExplainer(root){
     text($('.hiw-body'), cap.body);
   }
 
-  const running = () => !userPaused && visible && !document.hidden;
+  // The launch splash (js/launch-splash.js) is still playing over the page:
+  // hold the first frame so step 1 starts once the page is actually in view,
+  // not behind the intro. The splash removes itself when done or skipped.
+  let intro = !!document.getElementById('launch-splash');
+  if(intro) window.addEventListener('bx-splash-done', () => { intro = false; resume(); }, { once: true });
+
+  const running = () => !userPaused && visible && !document.hidden && !intro;
 
   function tick(t){
     raf = 0;
