@@ -9,7 +9,7 @@
    team each, so this is really just that team's own record reordered
    by win%).
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
@@ -92,7 +92,7 @@ export function fetchEspnWnbaStandingsCached(){
 export function findEspnWnbaRow(meta){
   const rows = espnWnbaStandingsCache.table;
   if(!rows) return null;
-  const teamKey = LEAGUES.find(l => l.key === 'wnba').teams.find(tk => TEAM_META[tk] === meta) || null;
+  const teamKey = leagueOf('wnba').teams.find(tk => TEAM_META[tk] === meta) || null;
   if(!teamKey) return null;
   return rows.find(row => findFlatTeamKey('wnba', row.teamNickname) === teamKey) || null;
 }
@@ -110,7 +110,7 @@ export function renderWnbaCardRecord(teamKey){
 }
 
 export function renderAllWnbaCardRecords(){
-  LEAGUES.find(l => l.key === 'wnba').teams.forEach(renderWnbaCardRecord);
+  leagueOf('wnba').teams.forEach(renderWnbaCardRecord);
 }
 
 export function renderWnbaStandingsRow(row, rank){
@@ -161,7 +161,7 @@ export function setWnbaStandingsMode(mode){
 window.setWnbaStandingsMode = setWnbaStandingsMode;
 
 export function computeWnbaDrafterCombined(){
-  const league = LEAGUES.find(l => l.key === 'wnba');
+  const league = leagueOf('wnba');
   const byDrafter = {};
   DRAFT_TEAMS.forEach(d => {
     byDrafter[d.id] = { id: d.id, name: d.name, wins: 0, losses: 0, found: 0, total: 0, teamNames: [] };

@@ -57,6 +57,10 @@ export const GROUPS = {
   seasonticket: {
     id: 'seasonticket',
     name: 'Season Ticket',
+    // Which sports this group drafts, and how many picks each: see
+    // groupCaps below. Same as The Draft for now; PGA Tour golfers
+    // (pga: 3) join once the golfer pool exists (docs/golf-plan.md).
+    caps: { epl: 2, nfl: 3, nba: 3, nhl: 3, mlb: 3, wnba: 1, cfb: 3, mcbb: 3 },
     drafters: [
       { id:'josh', name:'Josh' },        // commissioner
       { id:'draftertwo', name:'Drafter 2', open: true },
@@ -99,6 +103,18 @@ export function isKnownGroup(id){
 
 export function drafterIdsFor(groupId){
   return GROUPS[groupId].drafters.map(d => d.id);
+}
+
+// The sports a group drafts and the picks each drafter makes in each,
+// by league key ({ epl: 2, nfl: 3, … }; key order is the draft room's
+// display order). null means the draft room's default, DEFAULT_CAPS in
+// js/draft-rules.js — The Draft has no `caps`, so its rooms never
+// change under it. The draft room applies a group's caps to any room
+// still in the lobby (syncCaps in js/draft-engine.js), and a pre-draft
+// group's league tabs are this list (js/seasons/index.js). Once a group
+// has drafted, its class file's LEAGUES decides what it shows.
+export function groupCaps(groupId){
+  return (isKnownGroup(groupId) && GROUPS[groupId].caps) || null;
 }
 
 // <id>.boxscore.space -> id, for a known group only. Anything else

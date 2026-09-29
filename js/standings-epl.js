@@ -8,7 +8,7 @@
    worker's own /sportsdb/table route. No worker proxy needed here
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -131,7 +131,7 @@ export function renderEplCardRecord(teamKey){
 }
 
 export function renderAllEplCardRecords(){
-  LEAGUES.find(l => l.key === 'epl').teams.forEach(renderEplCardRecord);
+  leagueOf('epl').teams.forEach(renderEplCardRecord);
 }
 
 export function renderStandingsRow(leagueKey, row){
@@ -179,7 +179,7 @@ export function setEplStandingsMode(mode){
 window.setEplStandingsMode = setEplStandingsMode;
 
 export function computeEplDrafterCombined(){
-  const league = LEAGUES.find(l => l.key === 'epl');
+  const league = leagueOf('epl');
   // Excludes any favoriteOnly team (see its definition in js/data.js) —
   // a personal add-on outside the real draft must never move a
   // drafter's combined record/bonus standing, only their own board.

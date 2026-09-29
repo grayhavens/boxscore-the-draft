@@ -76,6 +76,19 @@ export function createState(drafters, overrides = {}){
   };
 }
 
+// A group's own sports and pick counts (groupCaps in js/groups.js),
+// applied by the draft room to a room still in the lobby: a new state,
+// or null when nothing changes. Once the draft starts its caps are
+// fixed. Teams from a league the group dropped leave the pool.
+export function syncCaps(prev, caps){
+  if(prev.phase !== 'lobby' || JSON.stringify(prev.config.caps) === JSON.stringify(caps)) return null;
+  const state = structuredClone(prev);
+  state.config.caps = { ...caps };
+  state.pool = state.pool.filter(t => t.league in state.config.caps);
+  state.seq += 1;
+  return state;
+}
+
 // What every connected client gets on each change. The pool is big and
 // only changes in the lobby or on a write-in, so it travels separately.
 export function publicState(state){

@@ -1,7 +1,7 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUPS, LEGACY_GROUP_ID, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl } from '../js/groups.js';
+import { GROUPS, LEGACY_GROUP_ID, groupCaps, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl } from '../js/groups.js';
 
 test('a group subdomain picks that group', () => {
   assert.equal(chooseGroupId({ hostname: 'thedraft.boxscore.space', fromUrl: null }), 'thedraft');
@@ -49,4 +49,17 @@ test('landing page links go to each group’s subdomain, or ?group= on dev hosts
   assert.equal(groupAppUrl('seasonticket', 'boxscore.space'), 'https://seasonticket.boxscore.space/');
   assert.equal(groupAppUrl('seasonticket', 'localhost'), 'index.html?group=seasonticket');
   assert.equal(groupAppUrl('thedraft', 'abc123.boxscorethedraft.pages.dev'), 'index.html?group=thedraft');
+});
+
+test('groupCaps: The Draft uses the draft room default; caps keys are league-shaped', () => {
+  assert.equal(groupCaps('thedraft'), null);
+  assert.equal(groupCaps('nope'), null);
+  Object.keys(GROUPS).forEach(id => {
+    const caps = groupCaps(id);
+    if(!caps) return;
+    Object.entries(caps).forEach(([k, v]) => {
+      assert.match(k, /^[a-z]{2,8}$/, `${id}/${k}`);
+      assert.ok(Number.isInteger(v) && v >= 0 && v <= 10, `${id}/${k}`);
+    });
+  });
 });

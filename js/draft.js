@@ -1293,7 +1293,9 @@ window.draftSetBots = which => {
   run({ type: 'setConfig', bots: which === 'others' ? draftStore.state.config.drafters.filter(id => id !== me) : [] }, null);
 };
 window.draftLoadPool = async () => {
-  const result = await run({ type: 'setPool', teams: buildDraftPool() }, null);
+  // The room's own sports (a group's caps, js/groups.js), not every league.
+  const caps = draftStore.state.config.caps;
+  const result = await run({ type: 'setPool', teams: buildDraftPool(Object.keys(caps).filter(k => caps[k] > 0)) }, null);
   if(result.ok) toast('Team pool loaded.');
 };
 

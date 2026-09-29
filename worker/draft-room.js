@@ -75,10 +75,10 @@
    so a lobby reset doesn't clear it.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
+import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
 
-import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
@@ -89,6 +89,13 @@ const KEEP_EVENTS = 2000;
 const RATE_WINDOW_MS = 10000;
 const RATE_MAX_FRAMES = 30;
 const MAX_AUTH_FAILURES = 5;
+
+// A fresh room's state: the group's drafters, and its own sports and
+// pick counts when js/groups.js gives it some.
+function newRoomState(group){
+  const caps = groupCaps(group);
+  return createState(drafterIdsFor(group), caps ? { caps: { ...caps } } : {});
+}
 
 function randomUnit(){
   return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
@@ -119,7 +126,7 @@ export class DraftRoom extends DurableObject {
       const row = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
       const group = this.sql.exec("SELECT v FROM kv WHERE k = 'group'").toArray()[0];
       this.group = group ? group.v : null;
-      this.state = row ? JSON.parse(row.v) : createState(drafterIdsFor(this.group || LEGACY_GROUP_ID));
+      this.state = row ? JSON.parse(row.v) : newRoomState(this.group || LEGACY_GROUP_ID);
       const room = this.sql.exec("SELECT v FROM kv WHERE k = 'room'").toArray()[0];
       this.room = room ? room.v : null;
       const scheduled = this.sql.exec("SELECT v FROM kv WHERE k = 'scheduledAt'").toArray()[0];
@@ -142,8 +149,9 @@ export class DraftRoom extends DurableObject {
         // Nothing saved yet: start from this group's drafters, not the
         // default the constructor had to guess.
         const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
-        if(!saved) this.state = createState(drafterIdsFor(this.group));
+        if(!saved) this.state = newRoomState(this.group);
       }
+      this.syncGroupCaps();
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
       this.ctx.acceptWebSocket(server);
@@ -224,6 +232,18 @@ export class DraftRoom extends DurableObject {
       order: state.order,
       picks
     };
+  }
+
+  // A group's sports or pick counts changed in js/groups.js since this
+  // room was made: apply them while it's still in the lobby.
+  syncGroupCaps(){
+    const caps = groupCaps(this.group);
+    const next = caps && syncCaps(this.state, caps);
+    if(!next) return;
+    this.state = next;
+    this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
+    this.broadcast({ type: 'pool', pool: this.state.pool });
+    this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
   }
 
   send(ws, payload){

@@ -74,7 +74,11 @@ chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secr
 original un-namespaced keys. localStorage isn't namespaced by group because each subdomain is its own
 origin. A group with no draft class yet gets a pre-draft class (`js/seasons/index.js`): The Draft's teams with the owners
 stripped and every team `favoriteOnly`, so Scores, Standings and team pages work, while `PRE_DRAFT` (`js/data.js`)
-hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). The ESPN
+hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). A group's
+optional `caps` in `js/groups.js` (`groupCaps`) picks its sports and picks per sport: its draft rooms take them while
+in the lobby (`syncCaps`), and its pre-draft class shows only those leagues (standings modules read leagues through
+`leagueOf` in `js/data.js`, so a missing one is empty). The Draft has none and keeps `DEFAULT_CAPS`. PGA Tour golfers
+for Season Ticket are planned in `docs/golf-plan.md`. The ESPN
 data and proxy edge cache are shared by every group.
 
 **Three views, one page:** `#view-board` (Teams), `#view-standings`, `#view-overall` — toggled by

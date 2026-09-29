@@ -38,7 +38,7 @@
    sport-specific: the fetch function, the two conference/league
    labels, and how a record renders/sorts/combines).
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -46,7 +46,7 @@ import { cacheGet, cacheSet } from './frozen-cache.js';
 
 export function findFlatTeamKey(leagueKey, realName){
   const target = normalizeTeamName(realName);
-  const teams = LEAGUES.find(l => l.key === leagueKey).teams;
+  const teams = leagueOf(leagueKey).teams;
   return teams.find(teamKey => normalizeTeamName(TEAM_META[teamKey].name) === target) || null;
 }
 
@@ -124,7 +124,7 @@ export function createFlatStandingsBoard(opts){
   // object, so this resolves meta -> teamKey once up front rather than
   // threading it through every call site.
   function teamKeyFor(meta){
-    return LEAGUES.find(l => l.key === leagueKey).teams.find(tk => TEAM_META[tk] === meta) || null;
+    return leagueOf(leagueKey).teams.find(tk => TEAM_META[tk] === meta) || null;
   }
 
   // Given a drafted team's own meta, find its row in the cache — the
@@ -151,7 +151,7 @@ export function createFlatStandingsBoard(opts){
   }
 
   function renderAllCardRecords(){
-    LEAGUES.find(l => l.key === leagueKey).teams.forEach(renderCardRecord);
+    leagueOf(leagueKey).teams.forEach(renderCardRecord);
   }
 
   function computeConferenceStandings(confAbbr){
@@ -329,7 +329,7 @@ export function createFlatStandingsBoard(opts){
   }
 
   function computeDrafterCombined(){
-    const league = LEAGUES.find(l => l.key === leagueKey);
+    const league = leagueOf(leagueKey);
     // Excludes any favoriteOnly team (see its definition in js/data.js)
     // — a personal add-on outside the real draft must never move a
     // drafter's combined record/bonus standing, only their own board.

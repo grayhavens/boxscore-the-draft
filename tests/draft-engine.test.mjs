@@ -1,7 +1,7 @@
 // Run with: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
+import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
@@ -418,4 +418,16 @@ test('a room saved before bots existed gets bot defaults on its next setConfig',
 test('every ranked pool team has a crest', () => {
   const missingCrest = buildDraftPool().filter(t => t.rank && !t.badgeUrl);
   assert.deepEqual(missingCrest.map(t => `${t.league}:${t.name}`), []);
+});
+
+test('syncCaps applies a group\'s caps in the lobby only', () => {
+  const s = lobby();
+  assert.equal(syncCaps(s, { ...CAPS }), null, 'same caps: no change');
+  const next = syncCaps(s, { nfl: 2 });
+  assert.deepEqual(next.config.caps, { nfl: 2 });
+  assert.ok(next.pool.every(t => t.league === 'nfl'), 'dropped league leaves the pool');
+  assert.deepEqual(next.order, s.order, 'the lottery still stands');
+  assert.equal(next.seq, s.seq + 1);
+  assert.deepEqual(s.config.caps, CAPS, 'input untouched');
+  assert.equal(syncCaps(live(), { nfl: 2 }), null, 'fixed once the draft starts');
 });

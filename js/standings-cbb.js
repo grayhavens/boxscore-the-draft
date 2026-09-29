@@ -40,7 +40,7 @@
    genuinely fails to resolve it on a given refresh, which shouldn't
    happen for any of today's 30 drafted teams.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -174,7 +174,7 @@ export function renderCbbCardRecord(teamKey){
 }
 
 export function renderAllCbbCardRecords(){
-  LEAGUES.find(l => l.key === 'mcbb').teams.forEach(renderCbbCardRecord);
+  leagueOf('mcbb').teams.forEach(renderCbbCardRecord);
 }
 
 // ---- AP Top 25 (ESPN-sourced) ----
@@ -234,7 +234,7 @@ export function fetchEspnCbbRankingsCached(){
 // need as findNflTeamKeyByEspnAbbr in js/standings-nfl.js: rankAuto
 // starts from an ESPN row, not a drafted team's own meta.
 export function findCbbTeamKeyByEspnId(espnTeamId){
-  const teams = LEAGUES.find(l => l.key === 'mcbb').teams;
+  const teams = leagueOf('mcbb').teams;
   return teams.find(teamKey => TEAM_META[teamKey].espnTeamId === espnTeamId) || null;
 }
 
@@ -298,7 +298,7 @@ export function cbbStandingsToggleHtml(){
 // LEAGUE_SCORING.mcbb.bonus ("Best combined win percentage") exactly,
 // same as CFB's computeCfbDrafterCombined.
 export function computeCbbDrafterCombined(){
-  const league = LEAGUES.find(l => l.key === 'mcbb');
+  const league = leagueOf('mcbb');
   // Excludes any favoriteOnly team (see its definition in js/data.js) —
   // a personal add-on outside the real draft must never move a
   // drafter's combined record/bonus standing, only their own board.

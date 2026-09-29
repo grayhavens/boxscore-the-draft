@@ -27,7 +27,7 @@
    given refresh. In normal operation every CFB team, NDSU included,
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { fetchJSON, teamBadgeHtml, abbrFromName, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
@@ -134,7 +134,7 @@ export function renderCfbCardRecord(teamKey){
 }
 
 export function renderAllCfbCardRecords(){
-  LEAGUES.find(l => l.key === 'cfb').teams.forEach(renderCfbCardRecord);
+  leagueOf('cfb').teams.forEach(renderCfbCardRecord);
 }
 
 // ---- AP Top 25 (ESPN-sourced — see the file header comment) ----
@@ -411,7 +411,7 @@ export function cfbStandingsToggleHtml(){
 // whoever's #1 here is also who's currently on track for that bonus.
 // Ties on percentage broken by total wins.
 export function computeCfbDrafterCombined(){
-  const league = LEAGUES.find(l => l.key === 'cfb');
+  const league = leagueOf('cfb');
   // Excludes any favoriteOnly team (see its definition in js/data.js) —
   // a personal add-on outside the real draft must never move a
   // drafter's combined record/bonus standing, only their own board.
