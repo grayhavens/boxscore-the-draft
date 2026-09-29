@@ -5,7 +5,7 @@
    markup in index.html, so the first frame paints before anything else.
    The flight lands on the real header logo (.view.active .app-logo, which
    js/page-header.js injects), measured at flight time so any ?view= deep
-   link works. Change SPEED to retime everything. */
+   link works. landing.html plays it too, landing on its own header logo. Change SPEED to retime everything. */
 (function(){
   var root = document.getElementById('launch-splash');
   if(!root) return;
@@ -109,7 +109,7 @@
     // 4. Flight into the real header logo. The mark's center is the stage's
     // center (rotation and scale don't move it), so the target can be
     // measured before the turn has finished.
-    var img = document.querySelector('.view.active .app-logo');
+    var img = document.querySelector('.view.active .app-logo, .landing-main .app-logo');
     var st = stage.getBoundingClientRect();
     var cx = st.left + st.width / 2, cy = st.top + st.height / 2;
     var dx = 0, dy = -window.innerHeight / 2, s = 0.15;
@@ -130,7 +130,7 @@
 
     // 5. Reveal Home underneath: splash ground fades, the active view's blocks cascade up.
     seq(bg, [[2400, { opacity: 1 }], [2660, { opacity: 0 }], [T, { opacity: 0 }]], 2400);
-    var blocks = [].slice.call(document.querySelectorAll('.view.active > *')).slice(0, 8);
+    var blocks = [].slice.call(document.querySelectorAll('.view.active > *, .landing-main > *')).slice(0, 8);
     blocks.forEach(function(el, j){
       var t = 2460 + j * 55;
       seq(el, [[2400, { opacity: 0, transform: 'translateY(18px)' }], [t, { opacity: 0, transform: 'translateY(18px)' }],

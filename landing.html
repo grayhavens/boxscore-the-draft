@@ -17,10 +17,31 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="landing">
+<!-- Launch splash, once per tab session — the same one index.html plays
+     (js/launch-splash.js), landing on the header logo below. Must stay the
+     first thing in <body>, with its classic script right after it. -->
+<div id="launch-splash" aria-hidden="true">
+  <div class="ls-bg"></div>
+  <div class="ls-stage">
+    <div class="ls-logo">
+      <div class="ls-tl"><i></i></div>
+      <div class="ls-br"><i></i></div>
+      <div class="ls-sq"></div>
+    </div>
+    <div class="ls-word"><span><span>B</span></span><span><span>o</span></span><span><span>x</span></span><span><span>s</span></span><span><span>c</span></span><span><span>o</span></span><span><span>r</span></span><span><span>e</span></span></div>
+  </div>
+</div>
+<script src="js/launch-splash.js"></script>
+<div class="safe-area-top" aria-hidden="true"></div>
 <main class="landing-main">
-  <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
-  <h1 class="landing-title">Boxscore</h1>
-  <p class="landing-sub">Fantasy drafts across 8 real leagues, followed and scored live.</p>
+  <!-- Same header as every view in the app (index.html + js/page-header.js). -->
+  <div class="page-header">
+    <div class="page-header-top">
+      <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
+      <h1>Boxscore</h1>
+    </div>
+    <div class="page-sub">Fantasy drafts across 8 real leagues, followed and scored live.</div>
+  </div>
   <div class="set-label landing-label">How it works</div>
   <section class="hiw" id="hiw" aria-label="How it works"></section>
   <div class="set-label landing-label" id="landing-groups-label">Groups</div>

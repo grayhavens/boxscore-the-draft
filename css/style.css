@@ -5441,20 +5441,10 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-main{
   max-width: 420px;
   margin: 0 auto;
-  padding-top: 8vh;
   display: flex;
   flex-direction: column;
 }
-.landing-logo{ width: 56px; height: 56px; border-radius: 16px; }
-.landing-title{
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: var(--fs-30);
-  letter-spacing: -0.8px;
-  margin: 18px 0 0;
-}
-.landing-sub{ margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-sub); }
-.landing-label{ margin-top: 36px; }
+.landing-label{ margin-top: 22px; }
 .landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .landing-group{ text-decoration: none; color: inherit; }
 .landing-foot[hidden]{ display: none; }
@@ -5664,8 +5654,8 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 
 /* System admin page (admin.html, js/system-admin.js): the landing page's
    column, Settings' sections and rows. */
-.sysadmin .landing-sub a{ color: var(--accent); text-decoration: none; }
-.sysadmin-sections{ display: flex; flex-direction: column; gap: 28px; margin-top: 28px; }
+.sysadmin .page-sub a{ color: var(--accent); text-decoration: none; }
+.sysadmin-sections{ display: flex; flex-direction: column; gap: 28px; margin-top: 14px; }
 .sysadmin-sublabel{ margin-top: 6px; }
 .sysadmin .set-row{ cursor: default; }
 .sysadmin a.set-row{ cursor: pointer; }
