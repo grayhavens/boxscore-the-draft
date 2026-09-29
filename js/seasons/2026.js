@@ -436,7 +436,7 @@ export const LEAGUE_SCORING = {
       { label: 'Missing the playoffs', pts: -3 },
       { label: 'Bottom-three record', pts: -2, rankAuto: { bottom: 3 } }
     ],
-    bonus: { label: 'Best combined win %', pts: 5 }
+    bonus: { label: 'Best win %', pts: 5 }
   },
   cfb: {
     name: 'College FB',
