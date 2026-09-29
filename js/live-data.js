@@ -1630,6 +1630,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
       </div>
     </div>
     <div class="modal-body">
+      <button class="modal-cta gd-share" onclick="shareGameDetailToChat()">${SHARE_TO_CHAT_SVG}Share to chat</button>
       ${mediaHtml}
       ${topPlayHtml}
       ${situationHtml}
@@ -1643,6 +1644,50 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     extras: { ...extras, topPlays, selectedTopPlayIndex: activeIdx, decisions, gameInfo }
   };
 }
+
+const SHARE_TO_CHAT_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.6A8 8 0 1 1 21 12z"/><path d="M9 12h6M12 9v6"/></svg>';
+
+// "Share to chat": posts this game as it stands right now (a snapshot —
+// see worker/chat-game.js for the fields and js/game-card.js for the card)
+// and jumps to the Chat tab, where any comment goes as a normal message.
+// Handed to js/chat.js as an event rather than an import, since chat.js
+// already reaches this file through js/game-card.js.
+function shareGameDetailToChat(){
+  const el = document.getElementById('game-detail-content');
+  const state = gameDetailRenderState;
+  if(!state || !el || !el.dataset.activeEvent) return;
+  const { leagueKey, summary } = state;
+  const gameState = (summary.status && summary.status.state) || 'pre';
+  const side = team => {
+    const teamKey = draftedTeamKeyForSummaryTeam(team, leagueKey);
+    const name = resolveGameDetailSide(team, leagueKey).name || team.abbr || '';
+    const out = {
+      name: name.slice(0, 40),
+      abbr: (team.abbr || abbrFromName(name)).slice(0, 8),
+      score: gameState === 'pre' ? null : team.score
+    };
+    if(teamKey) out.team = teamKey;
+    return out;
+  };
+  const away = summary.teams.find(t => t.homeAway === 'away') || summary.teams[0];
+  const home = summary.teams.find(t => t.homeAway === 'home') || summary.teams[1];
+  const start = summary.date ? Date.parse(summary.date.includes('Z') ? summary.date : `${summary.date}Z`) : NaN;
+  const game = {
+    league: leagueKey,
+    event: String(el.dataset.activeEvent),
+    state: gameState,
+    // Same date-stripped detail the header shows ("3:00 PM EDT", not
+    // "9/18 - 3:00 PM EDT").
+    status: ((summary.status && summary.status.detail) || '').replace(/^\d{1,2}\/\d{1,2}\s*[-–—]\s*/, '').slice(0, 40),
+    away: side(away),
+    home: side(home)
+  };
+  if(Number.isFinite(start)) game.start = start;
+  window.dispatchEvent(new CustomEvent('boxscore:share-game', { detail: game }));
+  closeTeamModal();
+  window.switchView('chat');
+}
+window.shareGameDetailToChat = shareGameDetailToChat;
 
 // EPL's Game Details body (see the isSoccer branch above) — goals and
 // cards split into the two teams' own columns rather than a shared

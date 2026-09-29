@@ -3805,6 +3805,112 @@ html.chat-kb .tab-bar{ display: none; }
   object-fit: cover;
 }
 
+/* ---- Shared games in chat (js/game-card.js) ---- */
+
+/* A game shared from Game Details: a small scoreboard frozen at the moment
+   it was shared, in the same bubble shape as a text message. The live
+   line (.cg-now) is the game now, and only shows once it has moved on. */
+.chat-game{
+  flex: none;
+  align-self: flex-start;
+  width: min(78%, 290px);
+  margin-top: 2px;
+  padding: 9px 12px 10px;
+  border-radius: 16px 16px 16px 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.chat-game.mine{
+  align-self: flex-end;
+  border-radius: 16px 16px 5px 16px;
+  border-color: var(--accent-border);
+}
+.chat-game:not([data-game-event]){ cursor: default; }
+.cg-league{
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: var(--fs-11);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--text-mute);
+  margin-bottom: 4px;
+}
+.cg-side{
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 0;
+}
+.cg-side .badge{
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  font-size: var(--fs-10);
+  border-radius: 8px;
+}
+.cg-name{
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-13);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.cg-owner{
+  display: block;
+  font-size: var(--fs-11);
+  font-weight: 600;
+  color: var(--text-sub);
+}
+.cg-score{
+  font-family: var(--font-display);
+  font-size: var(--fs-17);
+  font-weight: 700;
+}
+.cg-side.lost .cg-name,
+.cg-side.lost .cg-score{ color: var(--text-mute); }
+.cg-foot{
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.cg-status{ color: var(--text-sub); }
+.cg-status.live{ color: var(--live); font-weight: 800; }
+.cg-shared{ color: var(--text-mute); white-space: nowrap; }
+.cg-now{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(var(--ink-rgb),0.05);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.cg-now-label{ color: var(--text-sub); }
+.cg-now-score{ margin-left: auto; text-align: right; }
+.cg-now-score b{ font-weight: 800; }
+
+/* Game Details' way into the above (see shareGameDetailToChat in
+   js/live-data.js). */
+.modal-cta.gd-share{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
 /* ---- Reactions (js/chat.js) ---- */
 
 /* Tap a message to open its picker: iOS only fires click on a plain div
