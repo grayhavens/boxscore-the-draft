@@ -1872,3 +1872,12 @@ export async function fetchEspnFutures(coreLeaguePath, year){
     return { name: item.name || '', lines };
   }).filter(f => f.lines.length);
 }
+
+// When one season's regular season ends (core API season type 2), so a
+// team with no postseason games can be told apart from one whose season
+// is still going: the season's own endDate runs through the playoffs.
+// Shape returned: ISO date string | null
+export async function fetchEspnRegularSeasonEnd(coreLeaguePath, year){
+  const data = await fetchJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/types/2?lang=en&region=us`);
+  return (data && data.endDate) || null;
+}

@@ -23,6 +23,10 @@ failures against a running `wrangler dev`; `--preflight` is the draft-morning sm
 step-by-step is `docs/draft-day-runbook.md`.
 **Draft export:** `node tools/export-draft.mjs --dry-run` turns a finished draft room into the next season's
 `js/seasons/<year>.js` (see the header of that script).
+**Draft outlooks:** `js/draft-outlooks.js` holds the season outlooks on the draft room's team sheet, written by hand
+or in a Claude Code session (no API key). `node tools/outlooks.mjs facts --league nfl` prints each team's ESPN facts;
+`node tools/outlooks.mjs apply <file.json>` merges `{ "<poolId>": "text" }` into the next draft's class. Refresh before
+each draft.
 `node tests/draft-room.integration.mjs` drives a running `npx wrangler dev --var ADMIN_PASSWORD:testpw`
 end to end against the real Durable Object.
 

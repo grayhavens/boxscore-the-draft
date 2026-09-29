@@ -29,6 +29,7 @@ const SHELL_FILES = [
   './js/draft-live.js',
   './js/draft-sheets.js',
   './js/draft-scout.js',
+  './js/draft-outlooks.js',
   './js/xlsx.js',
   './js/season.js',
   './js/season-switcher.js',
