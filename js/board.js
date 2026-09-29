@@ -68,6 +68,7 @@ import { isLeagueFrozen } from './frozen-cache.js';
 import { setDraftActive } from './draft.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
+import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
 import { ACTIVE_SEASON_ID, ACTIVE_SEASON } from './season.js';
 import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
@@ -87,7 +88,7 @@ import { navigate, enableNavMotion } from './motion.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-export const APP_VERSION = '2026.09.28-4';
+export const APP_VERSION = '2026.09.28-7';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -191,16 +192,73 @@ export function setBoardFilter(key){
 }
 window.setBoardFilter = setBoardFilter;
 
+// Before a group's first draft its board has nothing on it, so Home
+// leads with the way into the draft instead. Keyed off preDraft, so it
+// disappears on its own once the draft is exported into a real class.
+// Any group, drafted before or not, also gets it while a live draft the
+// commissioner scheduled is still ahead (js/draft-schedule.js).
+function draftWhenHtml(){
+  const { scheduledAt } = getDraftSchedule();
+  if(!isDraftUpcoming()){
+    return `
+      <div class="draft-when" data-set="false">
+        <div class="draft-when-label">Live draft</div>
+        <div class="draft-when-date">Date to be set</div>
+        <div class="draft-when-time">The commissioner will pick a time</div>
+      </div>`;
+  }
+  return `
+    <div class="draft-when">
+      <div class="draft-when-top">
+        <div class="draft-when-label">Live draft</div>
+        <div class="draft-when-rel">${scheduleRelativeLabel(scheduledAt)}</div>
+      </div>
+      <div class="draft-when-date">${scheduleDateLabel(scheduledAt)}</div>
+      <div class="draft-when-time">${scheduleTimeLabel(scheduledAt)}</div>
+    </div>`;
+}
+
+function renderDraftHome(){
+  const el = document.getElementById('draft-home');
+  if(!el) return;
+  const pre = !!ACTIVE_SEASON.preDraft;
+  el.innerHTML = (pre || isDraftUpcoming()) ? `
+    <section class="draft-home">
+      <div class="draft-home-head">
+        <div class="draft-home-title">Draft</div>
+        ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
+      </div>
+      ${draftWhenHtml()}
+      <button type="button" class="set-row" onclick="goToDraftRoom('mock-1')">
+        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Practice room &middot; picks don&rsquo;t count</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>
+      <button type="button" class="set-row" onclick="goToDraftRoom('main')">
+        <span class="set-row-text"><span class="set-row-title">Live Draft</span><span class="set-row-sub">The real draft lobby</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>
+    </section>` : '';
+}
+onDraftSchedule(renderDraftHome);
+
 export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
+
+  renderDraftHome();
 
   chipsEl.innerHTML = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
     return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
   }).join('');
 
-  const shownLeagues = boardFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === boardFilterKey);
+  let shownLeagues = boardFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === boardFilterKey);
+  // Pre-draft, only leagues a favorite put something in are worth a
+  // section; the rest would be empty headers under the draft card.
+  if(ACTIVE_SEASON.preDraft){
+    shownLeagues = shownLeagues.filter(l => teamsForCurrentDraftTeam(l).length);
+    chipsEl.hidden = !shownLeagues.length && boardFilterKey === 'all';
+  }
 
   leaguesEl.innerHTML = shownLeagues.map(league => {
     const leagueTeams = teamsForCurrentDraftTeam(league);
@@ -777,6 +835,7 @@ loadTeamInfoCache();
 renderBoard();
 paintSeasonBanner();
 initDraftLive();
+initDraftSchedule();
 paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();

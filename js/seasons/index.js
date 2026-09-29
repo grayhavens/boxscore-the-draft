@@ -50,6 +50,15 @@ export const SEASONS = IS_LEGACY_GROUP
 export const SEASON_IDS = Object.keys(SEASONS);
 export const LATEST_SEASON_ID = SEASON_IDS[SEASON_IDS.length - 1];
 
+// The draft that's coming up. A group that hasn't drafted yet is about to
+// hold its pre-draft class's draft (The Draft's newest id, borrowed);
+// everyone else's next draft is the year after their newest class. A
+// class spans two seasons of play, hence "2026/2027".
+export const NEXT_DRAFT_YEAR = SEASONS[LATEST_SEASON_ID].preDraft
+  ? Number(LATEST_SEASON_ID)
+  : Number(LATEST_SEASON_ID) + 1;
+export const NEXT_DRAFT_LABEL = `${NEXT_DRAFT_YEAR}/${NEXT_DRAFT_YEAR + 1}`;
+
 // Team metadata (names, badges, the ids live data hangs off) is the same
 // whoever drafted a team, so the draft pool (js/draft-pool.js) always
 // builds from The Draft's newest class — a new group's first draft has no

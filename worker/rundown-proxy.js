@@ -91,7 +91,8 @@
       /draft/ws?room=<name>, plus a public GET /draft/result?room=<name>
       for the finished board and GET /draft/status?room=<name> (phase and
       whose pick, edge-cached a few seconds) for the "draft is live"
-      banner every other page polls. Drafter actions are no-auth (chat's trust
+      banner every other page polls, which also carries the scheduled
+      start (PUT /draft/schedule, password-gated). Drafter actions are no-auth (chat's trust
       tier); commissioner actions need an `auth` frame with
       ADMIN_PASSWORD. Its rules are the same js/draft-engine.js the
       draft UI imports — that file lives in the static site's js/
@@ -850,6 +851,22 @@ async function handleDraftStatus(request, url, env, group, headers, ctx){
   return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
+// The live draft's scheduled start, set from the Commissioner page
+// (js/admin.js). Same password gate as facts; the room stores it and
+// hands it back on /draft/status. Drops this room's edge-cached status so
+// the change shows on the next poll rather than up to 5s later.
+async function handleDraftSchedule(request, url, env, group, headers){
+  if(request.method !== 'PUT') return new Response('Method not allowed', { status: 405, headers });
+  if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
+  const stub = draftRoomStub(url, env, group);
+  if(!stub) return new Response('Bad room', { status: 400, headers });
+  const upstream = await stub.fetch(new Request(new URL('/schedule', url), { method: 'PUT', body: await request.text() }));
+  const statusUrl = new URL(url);
+  statusUrl.pathname = '/draft/status';
+  await caches.default.delete(new Request(statusUrl.toString(), { method: 'GET' }));
+  return new Response(upstream.body, { status: upstream.status, headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
 // Runtime delivery of the KLIPY app key — see the header comment's KLIPY
 // APP KEY DELIVERY section for why this isn't a proxy. Origin-checked like
 // the chat socket: a browser on one of our own pages always sends Origin
@@ -1064,6 +1081,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/draft/result') return handleDraftResult(request, url, env, group, headers);
 
   if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, group, headers, ctx);
+
+  if(url.pathname === '/draft/schedule') return handleDraftSchedule(request, url, env, group, headers);
 
   if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 

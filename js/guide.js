@@ -48,7 +48,7 @@ const GUIDE = [
       'Tap a drafter on Points to see their board.'
     ],
     pre: {
-      lead: 'Home is your board. It fills in with every team you draft, grouped by league, once the draft is done.',
+      lead: 'Home is your board. Until the draft it shows when the draft starts and the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
       points: [
         'Tap any team for its page: schedule, news, squad and stats.',
         'Star a team on its page to keep it on your board even if someone else drafted it.'
@@ -104,16 +104,18 @@ const GUIDE = [
   },
   {
     id: 'draft', icon: 'draft', title: 'Draft room',
-    lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft.`,
+    lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
     points: [
       'Mock Draft is always open: practice against bots whenever you like.',
+      'Once the commissioner sets the next draft’s time, Home counts down to it.',
       'While the real draft is live, a banner on every page takes you back to it.',
       'Download the board as a spreadsheet once it’s done.'
     ],
     pre: {
-      lead: `${ACTIVE_GROUP.name} drafts right here in Boxscore. Find it under Settings, then Draft.`,
+      lead: `${ACTIVE_GROUP.name} drafts right here in Boxscore. The Mock Draft and the live draft are both on Home.`,
       points: [
         'Try Mock Draft any time to practice against bots and learn how it works.',
+        'Home shows when the live draft starts, once the commissioner sets the time.',
         'On draft day, a banner on every page takes you into the live room.',
         'Turn on draft alerts so your phone tells you when you’re on the clock.'
       ]

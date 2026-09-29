@@ -184,6 +184,13 @@ Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). M
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
+**Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
+(`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time plus Mock Draft / Live Draft buttons, and hides
+the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's
+next draft shows it too. The commissioner sets the time on Commissioner → Draft (`PUT /draft/schedule`,
+password-gated); the live room stores it outside the draft state (a lobby reset keeps it) and returns it as
+`scheduledAt` on `GET /draft/status`. The card goes away once the draft goes live (the banner takes over) or is done,
+and a pre-draft group's card goes away when its draft is exported into a real class. **Deploy the worker first.**
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
 written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft
 is done; the commissioner bar has it any time as a mid-draft backup. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back

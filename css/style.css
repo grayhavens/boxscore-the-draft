@@ -2642,6 +2642,9 @@ body{
 .admin-status-value[data-state="warn"]{ color: var(--accent); }
 .admin-status-value[data-state="live"]{ color: var(--loss); }
 .admin-draft-cta{ width: 100%; margin-top: 14px; }
+.admin-schedule{ display: flex; flex-direction: column; gap: 8px; }
+.admin-schedule .admin-gate-input{ width: 100%; box-sizing: border-box; }
+.admin-schedule-actions{ display: flex; gap: 8px; }
 .admin-status-note{
   margin: 10px 0;
   font-size: var(--fs-12);
@@ -4480,6 +4483,26 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-chip.loss{ color: var(--loss); background: var(--loss-soft); }
 .act-chip.rank{ color: var(--lb-ink-2); background: rgba(var(--ink-rgb),0.06); }
 .act-time{ font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); }
+
+/* Home before a group's first draft: the way into the mock and live rooms */
+#draft-home:empty, .filter-chips[hidden]{ display: none; }
+.draft-home{ display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
+.draft-home .set-row{ border: 1px solid var(--hairline); }
+.draft-home-head{ display: flex; flex-direction: column; gap: 2px; margin: 0 2px 4px; }
+.draft-home-title{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-15); letter-spacing: -0.2px; }
+.draft-home-sub{ font-size: 13px; color: var(--text-sub); }
+.draft-when{
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 14px; border-radius: var(--r-md);
+  border: 1px solid var(--accent-border); background: var(--accent-soft);
+}
+.draft-when[data-set="false"]{ border-color: var(--hairline); background: var(--surface); }
+.draft-when-top{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.draft-when-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--accent); }
+.draft-when[data-set="false"] .draft-when-label{ color: var(--text-mute); }
+.draft-when-rel{ font-size: var(--fs-12); font-weight: 700; color: var(--accent); white-space: nowrap; }
+.draft-when-date{ font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: var(--fs-20); letter-spacing: -0.3px; margin-top: 2px; }
+.draft-when-time{ font-size: 13px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 
 /* Home: one slim link row into Points > Activity */
 #activity-home:empty{ display: none; }
