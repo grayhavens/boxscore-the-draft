@@ -32,6 +32,7 @@
    scrolls sideways there. See docs/draft-room-plan.md.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
+import { openScoringSheet } from './scoring-sheet.js';
 import { NEXT_DRAFT_YEAR, NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
@@ -139,7 +140,7 @@ const ui = {
   pendingSelect: null,    // write-in just added: filter/search to it once the pool frame arrives
   proxySlot: null,        // commissioner is drafting for whoever owns this slot
   proxyArm: false,        // enter proxy mode for whatever slot is on the clock once the next state lands
-  modal: null,            // null | 'edit' | 'trade' | 'reset'
+  modal: null,            // null | 'edit' | 'trade' | 'reset' | 'settings'
   editSlot: null,
   trade: null,            // { aDrafter, aSlot, bDrafter, bSlot } while the trade modal is open
   mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
@@ -263,11 +264,12 @@ function statusPill(d){
     const mock = isMockRoom(draftStore.room);
     const title = document.getElementById('draft-title');
     if(title) title.textContent = mock ? 'Mock Draft' : 'Draft';
-    if(mock) sub.innerHTML = `Practice · Snake · ${rounds} rounds`;
-    else {
-      const room = draftStore.room === 'main' ? '' : ` · room ${esc(draftStore.room)}`;
-      sub.innerHTML = `${NEXT_DRAFT_LABEL} season · Snake · ${rounds} rounds${room}`;
-    }
+    const room = mock || draftStore.room === 'main' ? '' : ` · room ${esc(draftStore.room)}`;
+    // The scoring rules, one tap away without leaving the room (js/scoring-sheet.js).
+    const html = `${mock ? 'Practice' : `${NEXT_DRAFT_LABEL} season`} · Snake · ${rounds} rounds${room}`
+      + ' · <button type="button" class="draft-sub-link" onclick="draftOpenScoring()">Scoring</button>';
+    // Only on change: this runs every render, and a rebuilt button can eat a tap.
+    if(sub.innerHTML !== html) sub.innerHTML = html;
   }
 }
 
@@ -1335,6 +1337,8 @@ window.draftDownload = async () => {
 window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
 window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
 window.draftOpenSettings = () => { ui.modal = 'settings'; scheduleRender(); };
+// The shared Scoring sheet (js/scoring-sheet.js), on the league being browsed.
+window.draftOpenScoring = () => openScoringSheet(ui.filter !== 'all' ? ui.filter : undefined);
 window.draftDoReset = async () => {
   const result = await run({ type: 'reset' }, null);
   if(result.ok){ ui.proxySlot = null; window.draftCloseModal(); }

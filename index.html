@@ -101,17 +101,6 @@
     <div id="overall-content"></div>
   </div>
 
-  <div id="view-scoring" class="view">
-    <div class="page-header">
-      <div class="page-header-top">
-        <h1>Scoring</h1>
-      </div>
-      <div class="page-sub">Point values for every league's draft scoring rules</div>
-    </div>
-    <button class="ob-back" onclick="switchView('overall')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>Points</button>
-    <div id="scoring-content"></div>
-  </div>
-
   <div id="view-admin" class="view">
     <div class="page-header">
       <div class="page-header-top">
@@ -282,6 +271,13 @@
      would keep the sheet under the tab bar. -->
 <div class="modal-overlay dr-modal-back" id="draft-modal" onclick="draftCloseModal()">
   <div class="modal dr-modal" id="draft-modal-content" role="dialog" aria-modal="true" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- Scoring rules sheet (js/scoring-sheet.js): opened from Points, the
+     guide and the draft room, so it takes the draft sheet's z-index to sit
+     over the draft view too. -->
+<div class="modal-overlay dr-modal-back" id="scoring-sheet" onclick="closeScoringSheet()">
+  <div class="modal dr-modal" id="scoring-sheet-content" role="dialog" aria-modal="true" aria-label="Scoring" onclick="event.stopPropagation()"></div>
 </div>
 
 <!-- Shared header chrome (logo + settings) injected into every
