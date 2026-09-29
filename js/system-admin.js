@@ -302,9 +302,13 @@ function pickerHtml(current){
 
 function render(){
   const head = `
-    <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
-    <h1 class="landing-title">Admin</h1>
-    <p class="landing-sub">${status ? `Signed in as ${esc(status.you)} · ` : ''}<a href="./">Boxscore</a>${isLocal ? '' : ' · <a href="/cdn-cgi/access/logout">Sign out</a>'}</p>`;
+    <div class="page-header">
+      <div class="page-header-top">
+        <img class="app-logo" src="icons/logo-header.png" alt="">
+        <h1>Admin</h1>
+      </div>
+      <div class="page-sub">${status ? `Signed in as ${esc(status.you)} · ` : ''}<a href="./">Boxscore</a>${isLocal ? '' : ' · <a href="/cdn-cgi/access/logout">Sign out</a>'}</div>
+    </div>`;
   if(!status){
     root.innerHTML = `${head}<div class="sysadmin-note">${loadError ? esc(loadError) : 'Loading…'}</div>`;
     return;

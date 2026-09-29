@@ -254,7 +254,7 @@ it would read as if the current season counts.
 page pushes in and pops back out, both on same-document View Transitions (`navigate(kind, update)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the
 team page's open/back functions therefore apply their DOM change asynchronously, inside the transition. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in
-`<body>`. Everything falls back to the old instant switch without View Transitions or with reduced motion.
+`<body>`. `landing.html` plays the same splash (once per tab session), landing on its header logo. Everything falls back to the old instant switch without View Transitions or with reduced motion.
 Opening a group from the landing page flies the landing logo to the center (`js/landing.js`, `#landing-handoff`)
 and navigates with `#splash=handoff`; the group's splash then starts mid-timeline from that built mark (an inline
 `<head>` script in `index.html` sets `html.splash-handoff` so the first paint already matches). The landing's "How
