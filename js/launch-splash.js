@@ -156,6 +156,8 @@
     timers.forEach(clearTimeout);
     anims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
     root.remove();
+    // The landing's explainer holds its first frame until this (js/landing-explainer.js).
+    try{ window.dispatchEvent(new Event('bx-splash-done')); }catch(e){}
   }
   at(3700, finish); // safety net if the exit never got built
   // click, not pointerdown: the splash is still the click's target, so the
