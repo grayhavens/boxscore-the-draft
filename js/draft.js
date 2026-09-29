@@ -41,7 +41,8 @@ import { onTheClock } from './draft-engine.js';
 import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
 import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, teamBadgeHtml, skeletonLinesHtml } from './utils.js';
-import { scoutTeam, hasScouting } from './draft-scout.js';
+import { scoutTeam, hasScouting, scoutSummary } from './draft-scout.js';
+import { DRAFT_OUTLOOKS } from './draft-outlooks.js';
 import { STAR_FILLED_SVG, STAR_OUTLINE_SVG } from './favorites.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
@@ -942,13 +943,35 @@ function sheetBadgeHtml(team){
   });
 }
 
+function ordinal(n){
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 function statCellHtml(value, label){
   return `<div class="stat-cell"><div class="num" style="font-size:14px;">${esc(value)}</div><div class="lbl">${esc(label)}</div></div>`;
 }
 
 // One label/value line, in the Scoring sheet's row style.
-function scoutRowHtml(label, value){
-  return `<div class="scoring-item"><div class="scoring-label">${esc(label)}</div><div class="scoring-value">${esc(value)}</div></div>`;
+function scoutRowHtml(label, value, sub){
+  const note = sub ? `<div class="scout-sub">${esc(sub)}</div>` : '';
+  return `<div class="scoring-item"><div class="scoring-label">${esc(label)}${note}</div><div class="scoring-value">${esc(value)}</div></div>`;
+}
+
+// The written outlook for this draft (js/draft-outlooks.js), dated, or
+// else a line built from the numbers.
+function outlookHtml(team, sc){
+  const written = (DRAFT_OUTLOOKS[NEXT_DRAFT_YEAR] || {})[team.id];
+  let title = 'Outlook', text = '';
+  if(written && written.text){
+    text = written.text;
+    const at = written.at ? new Date(`${written.at}T12:00:00`) : null;
+    if(at && !isNaN(at)) title += ` · ${at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  } else if(sc){
+    text = scoutSummary(team, sc);
+  }
+  if(!text) return sc && sc.last === undefined ? `<div class="modal-section-title">Outlook</div>${skeletonLinesHtml(2)}` : '';
+  return `<div class="modal-section-title">${esc(title)}</div><p class="scout-outlook">${esc(text)}</p>`;
 }
 
 function scoutStripHtml(sc){
@@ -982,7 +1005,8 @@ function scoutBodyHtml(sc){
   if(sc.odds === undefined){
     parts.push(`<div class="modal-section-title">Odds</div>${skeletonLinesHtml(2)}`);
   } else if(sc.odds.length){
-    parts.push(`<div class="modal-section-title">Odds · DraftKings</div><div class="scoring-list scout-list">${sc.odds.map(o => scoutRowHtml(o.label, o.odds)).join('')}</div>`);
+    const rows = sc.odds.map(o => scoutRowHtml(o.label, o.odds, o.rank ? `${ordinal(o.rank)} best of ${o.of}` : ''));
+    parts.push(`<div class="modal-section-title">Odds · DraftKings</div><div class="scoring-list scout-list">${rows.join('')}</div>`);
   }
   return parts.join('');
 }
@@ -1037,7 +1061,8 @@ function teamSheetHtml(d){
     </div>
     ${sc ? scoutStripHtml(sc) : ''}
     <div class="modal-body">
-      ${sc ? scoutBodyHtml(sc) : `<div class="no-live-note">No season stats for ${team.custom ? 'write-in teams' : 'this team'}.</div>`}
+      ${outlookHtml(team, sc)}
+      ${sc ? scoutBodyHtml(sc) : `<div class="no-live-note">No season stats for ${team.custom ? 'write-in teams' : team.league === 'pga' ? 'golfers yet' : 'this team'}.</div>`}
       <div class="scout-actions">${sheetActionsHtml(d, team, taken ? pickSlot : null)}</div>
     </div>`;
 }

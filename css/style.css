@@ -5050,6 +5050,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .scout-list .scoring-value{ flex: 0 1 auto; min-width: 0; white-space: normal; font-size: var(--fs-13); }
 .scout-list .skel-lines{ padding: 9px 0; }
 .scout-actions > .modal-cta-note:first-child{ margin-top: 4px; }
+.scout-outlook{ margin: 0 0 18px; font-size: var(--fs-13); line-height: 1.55; color: var(--text); }
+.scout-sub{ margin-top: 2px; font-size: var(--fs-11); font-weight: 500; color: var(--text-mute); }
 .dr-modal p{ margin: 0; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }
 .dr-modal-team{ display: flex; align-items: center; gap: 12px; }
 /* Scoring sheet (js/scoring-sheet.js): the room's league tabs, run edge to

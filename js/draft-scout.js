@@ -20,7 +20,7 @@
    scoutTeam() is synchronous: it returns what's known right now and
    starts whatever is missing, calling onUpdate as each piece lands.
    ============================================================ */
-import { fetchEspnSeasonStandings, fetchEspnTeamPostseason, fetchEspnFutures } from './espn.js';
+import { fetchEspnSeasonStandings, fetchEspnTeamPostseason, fetchEspnFutures, fetchEspnRegularSeasonEnd } from './espn.js';
 import { NEXT_DRAFT_YEAR } from './seasons/index.js';
 import { teamGroup } from './draft-groups.js';
 
@@ -28,14 +28,14 @@ import { teamGroup } from './draft-groups.js';
 // split: how a two-year season is labeled — 'start' if ESPN numbers it
 // by the year it starts (EPL), 'end' if by the year it ends.
 const LEAGUES = {
-  nfl: { site: 'football/nfl', core: 'football/leagues/nfl', offset: 0, title: /super bowl/i, titleLabel: 'Win Super Bowl', post: 'Playoffs', none: 'Missed the playoffs' },
-  cfb: { site: 'football/college-football', core: 'football/leagues/college-football', offset: 0, title: /^NCAA\(F\) - Championship$/i, titleLabel: 'Win national title', college: true, post: 'Postseason', none: 'No bowl game', absent: 'Not in FBS' },
-  epl: { site: 'soccer/eng.1', core: 'soccer/leagues/eng.1', offset: 0, split: 'start', title: /premier league/i, titleLabel: 'Win the league', table: true, absent: 'Not in the Premier League' },
-  nba: { site: 'basketball/nba', core: 'basketball/leagues/nba', offset: 1, split: 'end', title: /^NBA - Winner$/i, titleLabel: 'Win NBA title', post: 'Playoffs', none: 'Missed the playoffs' },
-  nhl: { site: 'hockey/nhl', core: 'hockey/leagues/nhl', offset: 1, split: 'end', title: /stanley cup/i, titleLabel: 'Win Stanley Cup', points: true, post: 'Playoffs', none: 'Missed the playoffs' },
-  mlb: { site: 'baseball/mlb', core: 'baseball/leagues/mlb', offset: 1, title: /world series/i, titleLabel: 'Win World Series', post: 'Playoffs', none: 'Missed the playoffs' },
-  wnba: { site: 'basketball/wnba', core: 'basketball/leagues/wnba', offset: 1, title: /^WNBA.*(winner|champion)/i, titleLabel: 'Win WNBA title', post: 'Playoffs', none: 'Missed the playoffs' },
-  mcbb: { site: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball', offset: 1, split: 'end', title: /^NCAA\(B\) - Winner$/i, titleLabel: 'Win national title', college: true, post: 'Postseason', none: 'No postseason', absent: 'Not in Division I' }
+  nfl: { site: 'football/nfl', core: 'football/leagues/nfl', offset: 0, title: /super bowl/i, titleLabel: 'Win Super Bowl', titlePhrase: 'win the Super Bowl', post: 'Playoffs', none: 'Missed the playoffs' },
+  cfb: { site: 'football/college-football', core: 'football/leagues/college-football', offset: 0, title: /^NCAA\(F\) - Championship$/i, titleLabel: 'Win national title', college: true, post: 'Postseason', none: 'No bowl game', titlePhrase: 'win the national title', absent: 'Not in FBS' },
+  epl: { site: 'soccer/eng.1', core: 'soccer/leagues/eng.1', offset: 0, split: 'start', title: /premier league/i, titleLabel: 'Win the league', titlePhrase: 'win the league', table: true, absent: 'Not in the Premier League' },
+  nba: { site: 'basketball/nba', core: 'basketball/leagues/nba', offset: 1, split: 'end', title: /^NBA - Winner$/i, titleLabel: 'Win NBA title', titlePhrase: 'win the NBA title', post: 'Playoffs', none: 'Missed the playoffs' },
+  nhl: { site: 'hockey/nhl', core: 'hockey/leagues/nhl', offset: 1, split: 'end', title: /stanley cup/i, titleLabel: 'Win Stanley Cup', titlePhrase: 'win the Stanley Cup', points: true, post: 'Playoffs', none: 'Missed the playoffs' },
+  mlb: { site: 'baseball/mlb', core: 'baseball/leagues/mlb', offset: 1, title: /world series/i, titleLabel: 'Win World Series', titlePhrase: 'win the World Series', post: 'Playoffs', none: 'Missed the playoffs' },
+  wnba: { site: 'basketball/wnba', core: 'basketball/leagues/wnba', offset: 1, title: /^WNBA.*(winner|champion)/i, titleLabel: 'Win WNBA title', titlePhrase: 'win the WNBA title', post: 'Playoffs', none: 'Missed the playoffs' },
+  mcbb: { site: 'basketball/mens-college-basketball', core: 'basketball/leagues/mens-college-basketball', offset: 1, split: 'end', title: /^NCAA\(B\) - Winner$/i, titleLabel: 'Win national title', college: true, post: 'Postseason', none: 'No postseason', titlePhrase: 'win the national title', absent: 'Not in Division I' }
 };
 
 // Futures that aren't a team winning its title, conference or division.
@@ -122,6 +122,14 @@ function futures(league, year, onUpdate){
   return cached(`fu:${league}:${year}`,
     () => fetchEspnFutures(cfg.core, year).then(list => list && list.filter(f => !NOT_TEAM_MARKET.test(f.name))),
     () => ODDS_TTL, onUpdate);
+}
+
+// Fixed once the schedule is out, so kept for good. The EPL has no
+// separate regular season (its table is the whole season).
+function regularSeasonEnd(league, year, onUpdate){
+  const cfg = LEAGUES[league];
+  if(cfg.table) return { data: null, loading: false };
+  return cached(`re:${league}:${year}`, () => fetchEspnRegularSeasonEnd(cfg.core, year), () => Infinity, onUpdate);
 }
 
 function postseason(league, teamId, year, seasonDone, onUpdate){
@@ -219,13 +227,25 @@ function postseasonText(league, games, seasonOver){
   return `${last.won ? 'Won' : 'Lost in'} the ${roundName(last.headline)}`;
 }
 
+// American odds -> implied chance: +270 -> 0.27, -125 -> 0.56.
+function impliedChance(odds){
+  const n = Number(String(odds).replace('+', ''));
+  if(!n) return 0;
+  return n > 0 ? 100 / (n + 100) : -n / (-n + 100);
+}
+
 function oddsFor(league, team, espnId, markets){
   const cfg = LEAGUES[league];
   const g = teamGroup(team);
   const out = [];
   const lineIn = f => f.lines.find(l => l.teamId === espnId);
   const title = markets.find(f => cfg.title.test(f.name) && lineIn(f));
-  if(title) out.push({ label: cfg.titleLabel, odds: lineIn(title).odds });
+  if(title){
+    // Where the team sits in that market: 1 = the favorite.
+    const ranked = title.lines.slice().sort((a, b) => impliedChance(b.odds) - impliedChance(a.odds));
+    const rank = ranked.findIndex(l => l.teamId === espnId) + 1;
+    out.push({ label: cfg.titleLabel, odds: lineIn(title).odds, rank, of: ranked.length, title: true });
+  }
   const rest = markets.filter(f => f !== title && !cfg.title.test(f.name) && lineIn(f));
   const conf = rest.find(f => !/division/i.test(f.name));
   if(conf){
@@ -270,18 +290,21 @@ export function scoutTeam(team, onUpdate){
     out.last = { absent: cfg.absent || 'No record' };
   } else {
     // `ongoing`: last season's regular season is still being played (a
-    // draft held well before the one it's for, e.g. a spring mock).
-    const over = finished(lastSt.data.endDate);
+    // draft held well before the one it's for, e.g. a spring mock). Judged
+    // by the regular season's end, not the season's, which runs through
+    // the playoffs: a team that missed them is done while they're played.
+    const regEnd = regularSeasonEnd(team.league, lastYear, onUpdate);
+    const regularOver = regEnd.data ? finished(regEnd.data) : finished(lastSt.data.endDate);
     const finish = finishOf(team.league, lastSt.data, lastRow);
-    out.last = { record: recordOf(team.league, lastRow), finish, ongoing: !over };
+    out.last = { record: recordOf(team.league, lastRow), finish, ongoing: !regularOver };
     if(cfg.table){
       out.last.points = lastRow.points;
       out.last.note = lastRow.note;
     } else if(espnId){
-      const po = postseason(team.league, espnId, lastYear, over, onUpdate);
+      const po = postseason(team.league, espnId, lastYear, finished(lastSt.data.endDate), onUpdate);
       if(po.data && po.data.length) out.last.ongoing = false;
       out.last.postLabel = cfg.post;
-      out.last.post = po.loading ? undefined : (po.data ? postseasonText(team.league, po.data, over) : null);
+      out.last.post = po.loading || regEnd.loading ? undefined : (po.data ? postseasonText(team.league, po.data, regularOver) : null);
     }
   }
 
@@ -298,4 +321,30 @@ export function scoutTeam(team, onUpdate){
   else out.odds = fu.data && espnId ? oddsFor(team.league, team, espnId, fu.data) : [];
 
   return out;
+}
+
+// The sheet's outlook when there's no written one for this draft (see
+// js/draft-outlooks.js): a sentence or two built from the numbers, e.g.
+// "Coming off 11-6 (1st NFC East) in '25, lost in the NFC Wild Card.
+// Books have them 9th of 32 to win the Super Bowl (+1700)." Empty while
+// the numbers are still loading.
+export function scoutSummary(team, sc){
+  if(!sc || sc.last === undefined) return '';
+  const cfg = LEAGUES[team.league];
+  const lc = str => str.charAt(0).toLowerCase() + str.slice(1);
+  const parts = [];
+  const last = sc.last;
+  if(last && last.absent) parts.push(`${last.absent} in ${sc.lastLabel}.`);
+  else if(last && last.record){
+    const detail = [];
+    if(last.finish) detail.push(last.finish.label === 'conf. record' ? `${last.finish.value} in conference` : last.finish.value);
+    if(last.points != null) detail.push(`${last.points} pts`);
+    const record = `${last.record}${detail.length ? ` (${detail.join(', ')})` : ''}`;
+    if(last.ongoing) parts.push(`Sits at ${record} in ${sc.lastLabel} so far.`);
+    else parts.push(`Coming off ${record} in ${sc.lastLabel}${last.post ? `, ${lc(last.post)}` : ''}${last.note ? `, qualifying for the ${last.note}` : ''}.`);
+  }
+  if(sc.now) parts.push(`${sc.now.record} so far in ${sc.nowLabel}.`);
+  const title = (sc.odds || []).find(o => o.title);
+  if(title && title.rank) parts.push(`Books have them ${ordinal(title.rank)} of ${title.of} to ${cfg.titlePhrase} (${title.odds}).`);
+  return parts.join(' ');
 }
