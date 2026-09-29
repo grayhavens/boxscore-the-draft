@@ -17,6 +17,7 @@
 import * as s2026 from './2026.js';
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
 import { groupCaps } from '../groups.js';
+import { pgaCatalog, PGA_SCORING } from './pga.js';
 
 const THE_DRAFT_SEASONS = {
   '2026': { id: '2026', label: '2026 Draft', ...s2026 }
@@ -54,15 +55,28 @@ function preDraftSeasons(){
     rekey[key] = catalogKey(key, meta);
     TEAM_META[rekey[key]] = { ...rest, favoriteOnly: true };
   });
+  const LEAGUES = base.LEAGUES.filter(l => drafts(l.key)).map(l => ({ ...l, teams: l.teams.map(k => rekey[k]) }));
+  let LEAGUE_SCORING = base.LEAGUE_SCORING;
+  let PRIOR_SEASON_DISPLAY_LEAGUES = base.PRIOR_SEASON_DISPLAY_LEAGUES;
+  // Golfers aren't in The Draft's classes: a group with PGA Tour in its
+  // caps gets the golfer pool (js/seasons/pga.js). Golf's season is the
+  // calendar year after the draft, so until then it shows last season.
+  if(caps && caps.pga > 0){
+    const pga = pgaCatalog(`'${String(Number(base.id) + 1).slice(-2)} Season`);
+    Object.assign(TEAM_META, pga.TEAM_META);
+    LEAGUES.push(pga.league);
+    LEAGUE_SCORING = { ...LEAGUE_SCORING, pga: PGA_SCORING };
+    PRIOR_SEASON_DISPLAY_LEAGUES = PRIOR_SEASON_DISPLAY_LEAGUES.concat('pga');
+  }
   return {
     [base.id]: {
       id: base.id,
       label: base.label,
       preDraft: true,
       TEAM_META,
-      LEAGUES: base.LEAGUES.filter(l => drafts(l.key)).map(l => ({ ...l, teams: l.teams.map(k => rekey[k]) })),
-      LEAGUE_SCORING: base.LEAGUE_SCORING,
-      PRIOR_SEASON_DISPLAY_LEAGUES: base.PRIOR_SEASON_DISPLAY_LEAGUES
+      LEAGUES,
+      LEAGUE_SCORING,
+      PRIOR_SEASON_DISPLAY_LEAGUES
     }
   };
 }

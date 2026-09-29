@@ -115,6 +115,8 @@ function setActiveView(viewId){
 // then grows out of that row (expandFromRow below) instead of pushing in.
 export function openTeamPage(teamKey, originView, rowEl){
   if(!TEAM_META[teamKey] || rowMotion) return;
+  // A golfer has no team page: the golfer sheet is the whole thing.
+  if(TEAM_META[teamKey].kind === 'golfer'){ window.openGolfer(TEAM_META[teamKey].espnAthleteId); return; }
   const origin = originView || 'board';
   if(rowEl && origin === 'standings' && canAnimateLive() && rowOnScreen(rowEl)){
     expandFromRow(teamKey, rowEl);

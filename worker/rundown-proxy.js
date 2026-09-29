@@ -193,6 +193,7 @@ import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
+import { handleGolfSeason } from './golf.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -233,7 +234,7 @@ const ALLOWED_ORIGIN_SUFFIXES = ['.boxscorethedraft.pages.dev', '.boxscore.space
 // League keys that are allowed to have a facts blob — mirrors the
 // leagueKey values in js/data.js. Keeping an allowlist here (rather
 // than accepting any string) keeps the KV keyspace bounded.
-const KNOWN_LEAGUES = ['epl', 'nfl', 'nba', 'nhl', 'mlb', 'wnba', 'cfb', 'mcbb'];
+const KNOWN_LEAGUES = ['epl', 'nfl', 'nba', 'nhl', 'mlb', 'wnba', 'cfb', 'mcbb', 'pga'];
 
 // A request's group (js/groups.js): ?group=, absent meaning The Draft.
 // null for an unknown group, which every group-owned route rejects rather
@@ -1123,6 +1124,9 @@ async function route(request, env, ctx){
   if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
 
   if(url.pathname.startsWith('/nhl/score/')) return handleNhlScore(request, url, headers, ctx);
+
+  // PGA Tour season results, condensed (worker/golf.js).
+  if(url.pathname.startsWith('/golf/season/')) return handleGolfSeason(request, url, env, headers, ctx, { cachedUpstreamFetch, json });
 
   if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
 

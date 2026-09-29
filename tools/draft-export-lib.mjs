@@ -35,6 +35,9 @@ export const ESPN_SPORT_PATH = {
   mcbb: 'basketball/mens-college-basketball'
 };
 
+// Tab labels for a league no earlier class had.
+const NEW_LEAGUE_LABELS = { pga: 'PGA Tour' };
+
 const ESPN_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports';
 const COLLEGE = new Set(['cfb', 'mcbb']);
 
@@ -131,6 +134,28 @@ export function entryFromEspn(league, drafter, espn){
   return entry;
 }
 
+// A drafted PGA Tour golfer. Golfers are never looked up on ESPN's team
+// lists: the pool entry already carries the athlete id and headshot
+// (js/draft-pool.js).
+export function entryFromGolfer(drafter, team){
+  const accent = /^#[0-9a-f]{6}$/i.test(team.color || '') ? team.color.toUpperCase() : '#1E5B3F';
+  const entry = {
+    name: team.name,
+    leagueKey: 'pga',
+    draftTeamId: drafter,
+    kind: 'golfer',
+    boardSub: 'PGA Tour',
+    sub: 'PGA Tour',
+    accent,
+    badgeStyle: `background:${accent}; color:${textOn(accent)};`,
+    badgeText: team.abbr || team.name.slice(0, 3).toUpperCase(),
+    sportsdbId: null,
+    espnAthleteId: String(team.espnAthleteId)
+  };
+  if(team.badgeUrl) entry.badgeUrl = team.badgeUrl;
+  return entry;
+}
+
 // The previous season's entry for this team, minus anything owner-specific.
 function fromTemplate(template, drafter){
   const { draftTeamId, favoriteOnly, ...rest } = template;
@@ -142,7 +167,7 @@ function fromTemplate(template, drafter){
 function seasonLabel(league, year){
   const yy = n => String(n).slice(-2);
   if(league === 'nfl' || league === 'cfb') return `'${yy(year)} Season`;
-  if(league === 'mlb' || league === 'wnba') return `'${yy(year + 1)} Season`;
+  if(league === 'mlb' || league === 'wnba' || league === 'pga') return `'${yy(year + 1)} Season`;
   return `'${yy(year)}/'${yy(year + 1)} Season`;
 }
 
@@ -208,7 +233,9 @@ export async function buildSeason({ result, prev, year, drafterIds, espn, overri
     const { league, name } = p.team;
     const template = (p.team.espnTeamId && templatesByEspn.get(`${league}:${p.team.espnTeamId}`)) || templates.get(`${league}:${normalize(name)}`);
     let entry;
-    if(template){
+    if(league === 'pga' && p.team.espnAthleteId){
+      entry = entryFromGolfer(p.drafter, p.team);
+    } else if(template){
       entry = fromTemplate(template, p.drafter);
     } else {
       let hit = null;
@@ -253,8 +280,17 @@ export async function buildSeason({ result, prev, year, drafterIds, espn, overri
     favorites.forEach(([key, m]) => { if(m.leagueKey === l.key){ meta[key] = m; teams.push(key); } });
     return { key: l.key, label: l.label, season: seasonLabel(l.key, year), teams };
   });
+  // A league the draft had but the previous class didn't (PGA Tour, for a
+  // group whose caps add it) goes last. Golf's next season starts in
+  // January, so until then it shows last season's results as not counting.
+  const priorSeasonLeagues = (prev.PRIOR_SEASON_DISPLAY_LEAGUES || []).slice();
+  Object.keys(keysByLeague).forEach(key => {
+    if(leagues.some(l => l.key === key)) return;
+    leagues.push({ key, label: NEW_LEAGUE_LABELS[key] || key.toUpperCase(), season: seasonLabel(key, year), teams: keysByLeague[key].slice() });
+    if(key === 'pga' && !priorSeasonLeagues.includes(key)) priorSeasonLeagues.push(key);
+  });
 
-  return { ok: problems.length === 0, problems, notes, meta, leagues, generated, unresolved, priorSeasonLeagues: prev.PRIOR_SEASON_DISPLAY_LEAGUES || [] };
+  return { ok: problems.length === 0, problems, notes, meta, leagues, generated, unresolved, priorSeasonLeagues };
 }
 
 // ---- Serialization (matches the hand-written style of js/data.js) ----

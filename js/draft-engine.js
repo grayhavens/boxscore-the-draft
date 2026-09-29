@@ -214,6 +214,7 @@ function cleanTeam(t, caps){
   const team = { id: t.id, name: t.name.trim(), league: t.league, abbr, color };
   if(Number.isInteger(t.rank) && t.rank >= 1 && t.rank <= 1000) team.rank = t.rank;
   if(typeof t.espnTeamId === 'string' && /^[0-9a-z-]{1,20}$/i.test(t.espnTeamId)) team.espnTeamId = t.espnTeamId;
+  if(typeof t.espnAthleteId === 'string' && /^\d{1,12}$/.test(t.espnAthleteId)) team.espnAthleteId = t.espnAthleteId;
   if(typeof t.badgeUrl === 'string' && t.badgeUrl.length <= 300 && t.badgeUrl.startsWith('https://')) team.badgeUrl = t.badgeUrl;
   return team;
 }

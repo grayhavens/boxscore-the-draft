@@ -643,7 +643,7 @@ export function teamBadgeHtml(meta){
     // data-fallback-* carries the original colored-monogram look over
     // to the onerror handler, restored only if the hotlinked image
     // actually fails to load.
-    return `<div class="badge badge-crest"><img src="${crestSrc(meta)}" alt="${meta.name}" data-fallback-style="${meta.badgeStyle}" data-fallback-text="${meta.badgeText}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
+    return `<div class="badge badge-crest${meta.kind === 'golfer' ? ' badge-person' : ''}"><img src="${crestSrc(meta)}" alt="${meta.name}" data-fallback-style="${meta.badgeStyle}" data-fallback-text="${meta.badgeText}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
   }
   return `<div class="badge" style="${meta.badgeStyle}">${meta.badgeText}</div>`;
 }

@@ -20,6 +20,12 @@
 import { TEAM_CATALOG_SEASON } from './seasons/index.js';
 import { DRAFT_RANKS, DRAFT_RANK_ESPN } from './draft-ranks.js';
 import { DEFAULT_CAPS, slugify } from './draft-rules.js';
+import { GOLFERS } from './golfers.js';
+import { golferHeadshotUrl } from './golf.js';
+
+// PGA Tour golfers' tile color, behind the headshot (and the initials if
+// it fails to load).
+export const GOLFER_COLOR = '#1E5B3F';
 
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -62,10 +68,27 @@ function metaByLeague(){
   return out;
 }
 
+// The golfer pool (js/golfers.js, already in FedEx order). Golfers have
+// no TEAM_META in any class a pool is built from, so everything comes
+// from that list; a golfer's ESPN athlete id travels as espnAthleteId.
+function golferPool(){
+  return GOLFERS.map((g, i) => ({
+    id: poolId('pga', g.name),
+    name: g.name,
+    league: 'pga',
+    rank: i + 1,
+    abbr: g.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase(),
+    color: GOLFER_COLOR,
+    espnAthleteId: g.id,
+    badgeUrl: golferHeadshotUrl(g.id)
+  }));
+}
+
 export function buildDraftPool(leagueKeys = Object.keys(DEFAULT_CAPS)){
   const metas = metaByLeague();
   const pool = [];
   leagueKeys.forEach(league => {
+    if(league === 'pga'){ pool.push(...golferPool()); return; }
     const byName = metas[league] || new Map();
     const used = new Set();
     let rank = 0;

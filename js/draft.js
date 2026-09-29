@@ -55,7 +55,8 @@ const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
   nba: { label: 'NBA', color: '#B57FC0' }, nhl: { label: 'NHL', color: '#6FBFC6' },
   mlb: { label: 'MLB', color: '#6AC87A' }, wnba: { label: 'WNBA', color: '#A8B36A' },
-  cfb: { label: 'CFB', color: '#C86AA1' }, mcbb: { label: 'CBB', color: '#C58C6A' }
+  cfb: { label: 'CFB', color: '#C86AA1' }, mcbb: { label: 'CBB', color: '#C58C6A' },
+  pga: { label: 'PGA', color: '#6AB7A0' }
 };
 const leagueUi = key => LEAGUE_UI[key] || { label: key.toUpperCase(), color: '#94969E' };
 
@@ -111,10 +112,13 @@ const ERROR_TEXT = {
   nothing_to_undo: 'Nothing to undo.'
 };
 
+// What a league's pool holds: teams, or for the PGA Tour, golfers.
+const poolNoun = league => (league === 'pga' ? 'golfers' : 'teams');
+
 function errorText(result){
   if(result.error === 'pool_short'){
     const d = result.detail || {};
-    return `${leagueUi(d.league).label} pool has ${d.have} teams, needs ${d.need}.`;
+    return `${leagueUi(d.league).label} pool has ${d.have} ${poolNoun(d.league)}, needs ${d.need}.`;
   }
   return ERROR_TEXT[result.error] || 'Something went wrong.';
 }
@@ -230,7 +234,8 @@ function tileHtml(team, size){
   const img = team.badgeUrl
     ? `<img src="${esc(team.badgeUrl)}" alt="" loading="lazy" onerror="this.parentElement.classList.remove('has-crest'); this.remove();">`
     : '';
-  return `<span class="dr-tile dr-tile-${size}${team.badgeUrl ? ' has-crest' : ''}" style="background:${esc(team.color)};color:${tileFg(team.color)}">${text}${img}</span>`;
+  // A golfer's tile is a headshot, cropped to the face rather than fit whole like a crest.
+  return `<span class="dr-tile dr-tile-${size}${team.badgeUrl ? ' has-crest' : ''}${team.espnAthleteId ? ' is-person' : ''}" style="background:${esc(team.color)};color:${tileFg(team.color)}">${text}${img}</span>`;
 }
 
 // ---- Toast ----
@@ -554,7 +559,7 @@ function scopeRowHtml(d, available, filtered){
       parts.push(dropdownHtml('div', !!ui.div, ui.div ? `${ui.div} · ${inDiv(ui.div)}` : 'All divisions', items));
     }
   } else {
-    const hint = league === 'all' && ui.sort === 'rank' ? `Top ${LEAGUE_PREVIEW} per league` : `${filtered.length} teams`;
+    const hint = league === 'all' && ui.sort === 'rank' ? `Top ${LEAGUE_PREVIEW} per league` : `${filtered.length} ${poolNoun(league)}`;
     parts.push(`<span class="dr-scope-hint">${hint}</span>`);
   }
   const sort = SORTS.find(o => o.key === ui.sort);

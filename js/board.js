@@ -60,6 +60,7 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView } from './overall.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -278,6 +279,7 @@ export function renderBoard(){
       const mlbRecordHtml = league.key === 'mlb' ? `<span class="cfb-record" id="mlb-record-${teamKey}"></span>` : '';
       const wnbaRecordHtml = league.key === 'wnba' ? `<span class="cfb-record" id="wnba-record-${teamKey}"></span>` : '';
       const mcbbRecordHtml = league.key === 'mcbb' ? `<span class="cfb-record" id="cfb-record-${teamKey}"></span>` : '';
+      const pgaRecordHtml = league.key === 'pga' ? `<span class="cfb-record" id="pga-record-${teamKey}"></span>` : '';
       // EPL: every team is in the same one league, so the static
       // "Premier League" boardSub text carried no information — swap
       // it for the team's own record + table position instead (see
@@ -292,7 +294,7 @@ export function renderBoard(){
       // favorite rather than something actually drafted here.
       const subHtml = league.key === 'epl'
         ? `<span class="epl-record" id="epl-record-${teamKey}"></span>`
-        : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}${mcbbRecordHtml}`;
+        : `${meta.boardSub}${cfbRecordHtml}${nflRecordHtml}${nbaRecordHtml}${nhlRecordHtml}${mlbRecordHtml}${wnbaRecordHtml}${mcbbRecordHtml}${pgaRecordHtml}`;
       // The star is a read-only favorited-status indicator here — it only
       // appears once a team is favorited, and toggling happens solely on
       // the team page.
@@ -338,6 +340,8 @@ export function renderBoard(){
   renderAllNhlCardRecords();
   renderAllMlbCardRecords();
   renderAllWnbaCardRecords();
+  renderAllPgaCardRecords();
+  loadGolf();
   renderAllCbbCardRecords();
 }
 
@@ -360,7 +364,8 @@ export const LEAGUE_FULL_LABELS = {
 // titles) keeps LEAGUES[].label.
 export const FILTER_CHIP_LABELS = {
   cfb: 'CFB',
-  mcbb: 'CBB'
+  mcbb: 'CBB',
+  pga: 'PGA'
 };
 
 // 2026 -> "26": the draft class's year, as the season labels write it.
@@ -372,7 +377,7 @@ function leagueBlockHtml(league, bodyHtml){
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
-  const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key)
+  const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
     ? `<div class="prior-season-note">Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
@@ -673,6 +678,9 @@ export function renderStandings(){
       computeDivisionStandings: computeMlbDivisionStandings, renderGroupHeader: renderMlbGroupHeader,
       getConferenceSubMode: getMlbConferenceSubMode
     });
+    // PGA Tour: the FedEx Cup table (js/golf-view.js).
+    if(league.key === 'pga') return leagueBlockHtml(league, pgaStandingsBodyHtml());
+
     if(league.key === 'wnba'){
       // Flat league-wide ranking, same shape as EPL's block above — no
       // conference split (see js/standings-wnba.js's header comment for
@@ -941,7 +949,7 @@ setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 // slower per-team rotation — see liveScoreboardSweepTick's own header
 // comment in js/live-data.js for why this is a separate, faster loop
 // instead of just shortening the rotation above.
-const liveSweepAndPaint = paintingLoop(liveScoreboardSweepTick);
+const liveSweepAndPaint = paintingLoop(() => Promise.all([liveScoreboardSweepTick(), refreshGolfLive()]));
 liveSweepAndPaint();
 setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
 document.addEventListener('visibilitychange', () => {
