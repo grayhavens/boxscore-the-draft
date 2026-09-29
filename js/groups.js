@@ -71,10 +71,6 @@ export const GROUPS = {
 
 export const GROUP_IDS = Object.keys(GROUPS);
 
-// The platform owner's own drafter slot: where claim alerts from the
-// landing page go (worker/claims.js), to every device that has alerts on.
-export const PLATFORM_OWNER = { group: LEGACY_GROUP_ID, drafter: 'josh' };
-
 // Roster spots nobody has taken yet (`open: true` above).
 export function openSpots(groupId){
   return isKnownGroup(groupId) ? GROUPS[groupId].drafters.filter(d => d.open) : [];

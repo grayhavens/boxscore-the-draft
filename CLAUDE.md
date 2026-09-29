@@ -61,8 +61,8 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
 A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form with name and email, both required, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
-stores the request in KV, rate-limited per IP, and alerts `PLATFORM_OWNER`'s devices. The admin page lists and dismisses
-claims. Filling a spot is still an edit to `js/groups.js` (set the name, drop `open`, keep the id). **Deploy the worker first.** Code says "group" because "league" already
+stores the request in KV, rate-limited per IP, with no push alert. The admin page lists them at the top, each
+with a Dismiss button. Filling a spot is still an edit to `js/groups.js` (set the name, drop `open`, keep the id). **Deploy the worker first.** Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its

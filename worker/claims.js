@@ -2,9 +2,10 @@
    SPOT CLAIMS (/claim): someone on the landing page (js/landing.js) asks
    for one of a group's open roster spots (`open: true` in js/groups.js).
    Nothing about the roster changes here — a claim is a request: it's kept
-   in KV for the admin page (worker/system-admin.js lists and dismisses
-   them) and alerts the platform owner's devices (PLATFORM_OWNER). Filling
-   the spot is still an edit to js/groups.js.
+   in KV and shows at the top of the admin page (worker/system-admin.js
+   lists and dismisses them). No push alert: alerts belong to a group, and
+   a claim is platform business. Filling the spot is still an edit to
+   js/groups.js.
 
    Public and unauthenticated, so it's bounded every way it can be: our
    origins only, a group must have an open spot, a few claims per IP per
@@ -13,8 +14,7 @@
    KV: claims@<group> -> [{ id, name, email, at }], newest first
        claimrate:<ip>  -> count, expiring after an hour
    ============================================================ */
-import { GROUPS, PLATFORM_OWNER, openSpots } from '../js/groups.js';
-import { pushToDrafters } from './web-push.js';
+import { openSpots } from '../js/groups.js';
 
 export const MAX_PENDING_CLAIMS = 25;
 export const CLAIMS_PER_IP_PER_HOUR = 3;
@@ -22,7 +22,6 @@ export const CLAIM_LIMITS = { name: 40, email: 80 };
 // Deliberately loose: something@something.tld. The point is a way to
 // reach the person, not RFC 5322.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ADMIN_URL = 'https://boxscore.space/admin';
 
 export function claimsKey(group){
   return `claims@${group}`;
@@ -85,15 +84,6 @@ export async function handleClaim(request, env, group, headers, { isAllowedOrigi
 
   const entry = { id: crypto.randomUUID(), ...claim, at: Date.now() };
   await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify([entry, ...claims]));
-
-  const groupName = GROUPS[group].name;
-  await pushToDrafters(env, PLATFORM_OWNER.group, [PLATFORM_OWNER.drafter], null, {
-    kind: 'claim',
-    title: `${groupName}: spot claimed`,
-    body: `${claim.name} (${claim.email}) wants in. ${open} open spot${open === 1 ? '' : 's'}.`,
-    url: ADMIN_URL,
-    tag: `claim-${entry.id}` // one notification per claim, none replacing another
-  }, { ttl: 24 * 60 * 60 });
 
   return json({ ok: true }, 200, headers);
 }

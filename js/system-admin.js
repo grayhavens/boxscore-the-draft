@@ -10,8 +10,9 @@
      password's presence, "Open as commissioner" (a 12-hour token the
      group app takes from the URL fragment, see js/admin.js), who has
      alerts on with a test button each, and an announcement to the group.
-   - Spot claims from the landing page (worker/claims.js), newest first,
-     each with a Dismiss once you've added the person to js/groups.js.
+   - Spot claims from the landing page (worker/claims.js), at the top:
+     newest first, each with a Dismiss once you've added the person to
+     js/groups.js. There's no push alert for them, so this is where they show.
 
    Locally it talks to `wrangler dev` started with ADMIN_DEV_BYPASS=1 (the
    admin-worker config in .claude/launch.json); on any other host it sends
@@ -106,17 +107,29 @@ function chatLine(c, group){
   return `${c.messages} kept · last from ${esc(who)} ${ago(c.last.ts)} · ${c.connected} connected`;
 }
 
-function claimsHtml(g){
-  const open = g.drafters.filter(d => d.open).length;
-  if(!open && !g.claims.length) return '';
-  const rows = g.claims.map(c => row(
-    esc(c.name),
-    `${esc(c.email || c.contact || '')} · ${ago(c.at)}`,
-    `<button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>`
-  )).join('');
-  return `
-    <div class="set-label sysadmin-sublabel">Spot claims · ${open} open</div>
-    ${rows || row('No claims yet', 'People can claim a spot from the landing page.')}`;
+// Spot claims from the landing page (worker/claims.js), first on the page
+// since they're what needs acting on: every recruiting group's claims,
+// newest first, each with a tap-to-email address and a Dismiss.
+function claimsSection(){
+  const groups = status.groups.filter(g => g.drafters.some(d => d.open) || g.claims.length);
+  if(!groups.length) return '';
+  const total = groups.reduce((n, g) => n + g.claims.length, 0);
+  const body = groups.map(g => {
+    const open = g.drafters.filter(d => d.open).length;
+    const rows = g.claims.map(c => {
+      const email = c.email || c.contact || '';
+      return row(
+        esc(c.name),
+        `${email ? `<a href="mailto:${esc(email)}">${esc(email)}</a> · ` : ''}${ago(c.at)}`,
+        `<button type="button" class="sysadmin-btn" onclick="sysadminDismissClaim('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Dismiss</button>`
+      );
+    }).join('');
+    return `
+      <div class="sysadmin-claims-group">${esc(g.name)} <span>${open} of ${g.drafters.length} spots open</span></div>
+      ${rows || row('No claims yet', 'People claim a spot on the landing page.')}
+      ${notes[`claims:${g.id}`] ? `<div class="sysadmin-note">${esc(notes[`claims:${g.id}`])}</div>` : ''}`;
+  }).join('');
+  return section(`Spot claims${total ? ` <span class="sysadmin-count">${total}</span>` : ''}`, body);
 }
 
 function groupHtml(g){
@@ -149,7 +162,6 @@ function groupHtml(g){
         <textarea id="announce-${g.id}" maxlength="200" rows="2" placeholder="Announcement to everyone in ${esc(g.name)} with alerts on"></textarea>
         <button type="button" class="modal-cta" onclick="sysadminAnnounce('${g.id}')" ${busy ? 'disabled' : ''}>Send announcement</button>
       </div>` : ''}
-    ${claimsHtml(g)}
     ${notes[g.id] ? `<div class="sysadmin-note">${esc(notes[g.id])}</div>` : ''}
   `);
 }
@@ -166,6 +178,7 @@ function render(){
   const s = status.platform.secrets;
   root.innerHTML = `${head}
     <div class="sysadmin-sections">
+      ${claimsSection()}
       ${section('Platform', `
         ${row('Version', version ? esc(version) : 'Checking…')}
         ${row('ESPN', espn ? (espn.ok ? `Answering · ${espn.ms} ms` : 'Not answering') : 'Checking…', espn ? pill(espn.ok, 'Up', 'Down') : '')}
@@ -207,7 +220,7 @@ window.sysadminDismissClaim = (groupId, id) => {
   const group = status.groups.find(g => g.id === groupId);
   const claim = group.claims.find(c => c.id === id);
   if(!claim || !confirm(`Dismiss ${claim.name}’s claim?`)) return;
-  act(groupId, async () => {
+  act(`claims:${groupId}`, async () => {
     const { ok } = await api('/claims/dismiss', { group: groupId, id });
     if(!ok) return 'Couldn’t dismiss that claim.';
     group.claims = group.claims.filter(c => c.id !== id);

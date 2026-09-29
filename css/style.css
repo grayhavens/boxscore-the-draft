@@ -5675,3 +5675,11 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
   resize: vertical;
 }
 .sysadmin-note{ margin-top: 4px; font-size: 13px; line-height: 1.45; color: var(--text-sub); }
+.sysadmin-count{
+  display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: var(--accent-fill); color: var(--on-accent); text-align: center; letter-spacing: 0;
+}
+.sysadmin-claims-group{ margin-top: 4px; font-size: 15px; font-weight: 700; }
+.sysadmin-claims-group:first-child{ margin-top: 0; }
+.sysadmin-claims-group span{ margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--text-sub); }
+.sysadmin .set-row-sub a{ color: var(--accent); text-decoration: none; }
