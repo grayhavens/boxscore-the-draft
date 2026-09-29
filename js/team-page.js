@@ -31,7 +31,7 @@
    directly (the same primitive switchView uses) and leaves the tab bar
    alone.
    ============================================================ */
-import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
@@ -522,8 +522,8 @@ function heroHtml(teamKey, meta){
         <div>
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
           <div class="team-hero-meta">
-            <span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
-            <span>&middot;</span>
+            ${PRE_DRAFT ? '' : `<span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
+            <span>&middot;</span>`}
             <span>${league ? league.label : ''}</span>
             ${status ? `<span class="status-pill">${status.label}</span>` : ''}
           </div>

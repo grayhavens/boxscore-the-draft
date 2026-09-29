@@ -3,7 +3,7 @@
    fetch, formatting, modal scroll-lock, team-name matching, and
    the small badge/icon markup every view reuses.
    ============================================================ */
-import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
+import { LEAGUES, TEAM_META, DRAFT_TEAMS, PRE_DRAFT } from './data.js';
 
 // Every fetch helper below used to have no timeout at all — a request
 // that never resolves (a network filter silently dropping traffic to a
@@ -498,6 +498,25 @@ export function normalizeTeamName(name){
 export function draftOwnerName(teamKey){
   const drafter = DRAFT_TEAMS.find(d => d.id === TEAM_META[teamKey]?.draftTeamId);
   return drafter ? drafter.name : '';
+}
+
+// A standings row's owner line: who drafted the team, or "Undrafted".
+// Before the group's first draft nobody owns anything, so no line at all.
+export function standingsOwnerHtml(teamKey){
+  if(PRE_DRAFT) return '';
+  return `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+}
+
+// A Standings league's mode toggle. Its "Drafted" segment is left out
+// before the first draft, and a toggle down to one segment isn't shown.
+export function standingsToggleHtml(segments, active, handlerName){
+  const shown = PRE_DRAFT ? segments.filter(s => s.key !== 'byDrafter') : segments;
+  if(shown.length < 2) return '';
+  return `
+    <div class="standings-toggle">
+      ${segmentedControlHtml(shown, active, handlerName)}
+    </div>
+  `;
 }
 
 export function findDraftedTeamByName(leagueKey, realName){

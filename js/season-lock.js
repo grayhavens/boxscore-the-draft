@@ -45,7 +45,7 @@
    class's real final numbers. The newest class never reads it and keeps
    using live data exactly as before.
    ============================================================ */
-import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON } from './utils.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withScopeQuery, ACTIVE_SEASON_ID } from './season.js';
@@ -294,6 +294,9 @@ function isEplRegularSeasonOver(){
 // re-check) since it's a no-op for anything already locked.
 export async function checkSeasonLocks(){
   if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return; // see lockLeague
+  // Before the first draft nothing scores, and the teams' keys change
+  // when the draft is exported, so there's nothing worth freezing.
+  if(PRE_DRAFT) return;
   const leagueKeys = [...SEASON_PHASE_LEAGUES, 'epl'];
   for(const leagueKey of leagueKeys){
     if(!LEAGUE_SCORING[leagueKey]) continue;

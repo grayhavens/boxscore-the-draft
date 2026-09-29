@@ -41,7 +41,7 @@
    happen for any of today's 30 drafted teams.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName, retryPending } from './utils.js';
+import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -253,7 +253,7 @@ export function renderCbbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+  const ownerHtml = standingsOwnerHtml(teamKey);
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCbbByDrafterRow
   // below).
@@ -291,11 +291,7 @@ export function cbbStandingsToggleHtml(){
     { key: 'ranking', label: 'AP Top 25' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return `
-    <div class="standings-toggle">
-      ${segmentedControlHtml(segments, cbbStandingsMode, 'setCbbStandingsMode')}
-    </div>
-  `;
+  return standingsToggleHtml(segments, cbbStandingsMode, 'setCbbStandingsMode');
 }
 
 // Combined win percentage across each drafter's 3 mcbb teams — matches

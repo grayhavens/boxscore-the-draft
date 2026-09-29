@@ -6,7 +6,7 @@
    window.* entry points for the inline onclick handlers in the
    rendered HTML.
    ============================================================ */
-import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml } from './utils.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
@@ -88,7 +88,7 @@ import { navigate, enableNavMotion } from './motion.js';
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-export const APP_VERSION = '2026.09.28-7';
+export const APP_VERSION = '2026.09.28-8';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -832,6 +832,8 @@ loadEspnCbbRankingsCache();
 loadEspnCbbStandingsCache();
 loadSeasonPhaseCache();
 loadTeamInfoCache();
+// Nothing is broken down by draft team until there's been a draft.
+if(PRE_DRAFT) document.getElementById('standings-sub').textContent = 'Real standings for every league';
 renderBoard();
 paintSeasonBanner();
 initDraftLive();

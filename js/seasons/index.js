@@ -23,20 +23,38 @@ const THE_DRAFT_SEASONS = {
 
 // Every other group's classes, by group id. A group with none yet (it
 // hasn't held its first draft) gets a pre-draft class instead: the same
-// league tabs and scoring as The Draft's newest class, with no teams.
+// league tabs and scoring as The Draft's newest class, and its teams as
+// a catalog with the owners taken off, so Scores, Standings and team
+// pages all work before anyone has drafted. Every team is favoriteOnly
+// (see js/seasons/2026.js): nobody owns it, it's on your Home board only
+// if you star it, and every points path already leaves it out.
 const OTHER_GROUP_SEASONS = {};
 
 const THE_DRAFT_LATEST = Object.values(THE_DRAFT_SEASONS).pop();
 
+// The Draft's keys carry their drafter ("drew_mancity"), which would
+// show up in this group's team page URLs; these are "epl_mancity".
+function catalogKey(key, meta){
+  const team = meta.draftTeamId && key.startsWith(`${meta.draftTeamId}_`) ? key.slice(meta.draftTeamId.length + 1) : key;
+  return `${meta.leagueKey}_${team}`;
+}
+
 function preDraftSeasons(){
   const base = THE_DRAFT_LATEST;
+  const TEAM_META = {};
+  const rekey = {};
+  Object.entries(base.TEAM_META).forEach(([key, meta]) => {
+    const { draftTeamId, ...rest } = meta;
+    rekey[key] = catalogKey(key, meta);
+    TEAM_META[rekey[key]] = { ...rest, favoriteOnly: true };
+  });
   return {
     [base.id]: {
       id: base.id,
       label: base.label,
       preDraft: true,
-      TEAM_META: {},
-      LEAGUES: base.LEAGUES.map(l => ({ ...l, teams: [] })),
+      TEAM_META,
+      LEAGUES: base.LEAGUES.map(l => ({ ...l, teams: l.teams.map(k => rekey[k]) })),
       LEAGUE_SCORING: base.LEAGUE_SCORING,
       PRIOR_SEASON_DISPLAY_LEAGUES: base.PRIOR_SEASON_DISPLAY_LEAGUES
     }

@@ -9,7 +9,7 @@
    either (CORS-open, fetched directly) — same as NFL/CFB.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, segmentedControlHtml, draftOwnerName, retryPending } from './utils.js';
+import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
@@ -147,7 +147,7 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+  const ownerHtml = standingsOwnerHtml(teamKey);
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderEplByDrafterRow
   // below) — the real W-D-L record as the bold line, league points
@@ -244,9 +244,5 @@ export function eplStandingsToggleHtml(){
     { key: 'table', label: 'League' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return `
-    <div class="standings-toggle">
-      ${segmentedControlHtml(segments, eplStandingsMode, 'setEplStandingsMode')}
-    </div>
-  `;
+  return standingsToggleHtml(segments, eplStandingsMode, 'setEplStandingsMode');
 }

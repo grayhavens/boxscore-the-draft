@@ -71,7 +71,9 @@ means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/lo
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
 original un-namespaced keys. localStorage isn't namespaced by group because each subdomain is its own
-origin. A group with no draft class yet gets an empty pre-draft class (`js/seasons/index.js`). The ESPN
+origin. A group with no draft class yet gets a pre-draft class (`js/seasons/index.js`): The Draft's teams with the owners
+stripped and every team `favoriteOnly`, so Scores, Standings and team pages work, while `PRE_DRAFT` (`js/data.js`)
+hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). The ESPN
 data and proxy edge cache are shared by every group.
 
 **Three views, one page:** `#view-board` (Teams), `#view-standings`, `#view-overall` — toggled by

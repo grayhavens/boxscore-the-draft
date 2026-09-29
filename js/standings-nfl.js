@@ -34,7 +34,7 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, draftOwnerName, retryPending } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -336,7 +336,7 @@ export function renderNflStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+  const ownerHtml = standingsOwnerHtml(teamKey);
   const recordLabel = `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderNflByDrafterRow
@@ -389,11 +389,7 @@ export function nflStandingsToggleHtml(){
     { key: 'nfc', label: 'NFC' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  const topRow = `
-    <div class="standings-toggle">
-      ${segmentedControlHtml(topSegments, nflStandingsMode, 'setNflStandingsMode')}
-    </div>
-  `;
+  const topRow = standingsToggleHtml(topSegments, nflStandingsMode, 'setNflStandingsMode');
   if(nflStandingsMode === 'byDrafter') return topRow;
 
   const subSegments = [

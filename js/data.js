@@ -16,3 +16,8 @@ import { ACTIVE_GROUP } from './group.js';
 export const DRAFT_TEAMS = ACTIVE_GROUP.drafters;
 
 export const { TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } = ACTIVE_SEASON;
+
+// True until this group holds its first draft (js/seasons/index.js):
+// every team is on the board but nobody owns one yet, so nothing shows
+// a drafter — no owner labels, no Drafted standings or Scores scope.
+export const PRE_DRAFT = !!ACTIVE_SEASON.preDraft;
