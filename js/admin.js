@@ -10,8 +10,9 @@
    and Log out here signs the room out as well, since it reads the same
    saved password.
 
-   Draft section: status only, read from the worker's GET /draft/status
-   (no socket), plus a way into the room. Setting up the pool and clock,
+   Draft section: status, read from the worker's GET /draft/status
+   (no socket), a way into the room, and the live draft's start time
+   (PUT /draft/schedule), which every drafter's Home counts down to. Setting up the pool and clock,
    the lottery and the start all stay in the lobby, where everyone
    watches the lottery reveal.
 
@@ -24,13 +25,14 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
 import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
-import { LATEST_SEASON_ID } from './seasons/index.js';
+import { NEXT_DRAFT_LABEL } from './seasons/index.js';
+import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
@@ -90,12 +92,53 @@ async function loadDraftStatus(){
   draftStatusLoading = true;
   // fetchJSON resolves null on any failure (offline, timeout, non-2xx).
   const data = await fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`));
-  if(data) draftStatus = data;
+  if(data){
+    draftStatus = data;
+    setKnownDraftStatus(data);
+  }
   draftStatusError = !data;
   draftStatusLoading = false;
   renderAdminPage();
 }
 window.loadAdminDraftStatus = loadDraftStatus;
+
+let scheduleSaving = false;
+let scheduleError = '';
+
+async function saveDraftSchedule(scheduledAt){
+  if(scheduleSaving) return;
+  scheduleSaving = true;
+  scheduleError = '';
+  renderAdminPage();
+  const { ok, status, data } = await putAuthedJSON(
+    withGroupQuery(`${chatWorkerBase()}/draft/schedule?room=${LIVE_DRAFT_ROOM}`),
+    loadAdminPassword(),
+    { scheduledAt }
+  );
+  scheduleSaving = false;
+  if(ok && data){
+    draftStatus = data;
+    setKnownDraftStatus(data);
+  } else {
+    scheduleError = status === 401 ? 'Not signed in as commissioner' : "Couldn't save — try again";
+  }
+  renderAdminPage();
+}
+
+window.saveAdminDraftSchedule = function(){
+  const input = document.getElementById('admin-draft-when');
+  const at = input && input.value ? new Date(input.value).getTime() : NaN;
+  if(!Number.isFinite(at)){
+    scheduleError = 'Pick a date and time first';
+    renderAdminPage();
+    return;
+  }
+  saveDraftSchedule(at);
+};
+
+window.clearAdminDraftSchedule = function(){
+  saveDraftSchedule(null);
+};
 
 function isActive(){
   const view = document.getElementById('view-admin');
@@ -238,7 +281,7 @@ function draftStatusRowHtml(label, value, state){
 }
 
 function draftSectionHtml(){
-  const title = `The ${Number(LATEST_SEASON_ID) + 1} Draft`;
+  const title = `The ${NEXT_DRAFT_LABEL} Draft`;
   const st = draftStatus;
   if(!st){
     const body = draftStatusError
@@ -270,6 +313,12 @@ function draftSectionHtml(){
     rows.push(draftStatusRowHtml('Lottery', st.ordered ? 'Order locked' : 'Not run', st.ordered ? 'ok' : 'warn'));
   }
   rows.push(draftStatusRowHtml('Drafters', `${st.drafters} · ${st.total} picks`));
+  // An older worker has no scheduledAt at all; leave the row out.
+  if('scheduledAt' in st){
+    rows.push(draftStatusRowHtml('Scheduled', st.scheduledAt
+      ? `${scheduleDateLabel(st.scheduledAt)} · ${scheduleTimeLabel(st.scheduledAt)}`
+      : 'Not set', st.scheduledAt ? 'ok' : 'warn'));
+  }
 
   const cta = st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby');
   const note = st.phase === 'lobby'
@@ -282,7 +331,25 @@ function draftSectionHtml(){
       <div class="admin-status">${rows.join('')}</div>
       <button class="admin-gate-btn admin-draft-cta" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
       <div class="admin-status-note">${note}</div>
+      ${'scheduledAt' in st && st.phase !== 'draft' ? scheduleEditorHtml(st.scheduledAt) : ''}
     </div>
+  `;
+}
+
+// The start time everyone's Home counts down to. Entered in this
+// device's time zone; each drafter sees it in their own.
+function scheduleEditorHtml(scheduledAt){
+  return `
+    <div class="modal-section-title" style="margin-top: 18px;">Draft time</div>
+    <div class="admin-schedule">
+      <input type="datetime-local" id="admin-draft-when" class="admin-gate-input" value="${scheduledAt ? toLocalInputValue(scheduledAt) : ''}">
+      <div class="admin-schedule-actions">
+        <button class="admin-adj-save" onclick="saveAdminDraftSchedule()"${scheduleSaving ? ' disabled' : ''}>${scheduleSaving ? 'Saving…' : 'Save'}</button>
+        ${scheduledAt ? `<button class="admin-adj-save" onclick="clearAdminDraftSchedule()"${scheduleSaving ? ' disabled' : ''}>Clear</button>` : ''}
+      </div>
+    </div>
+    ${scheduleError ? `<div class="admin-gate-error">${scheduleError}</div>` : ''}
+    <div class="admin-status-note">Shows on everyone's Home with a countdown until the draft starts. Times are in your time zone; each drafter sees their own.</div>
   `;
 }
 

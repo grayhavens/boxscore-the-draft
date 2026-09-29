@@ -68,7 +68,11 @@
    GET .../result returns the finished board as JSON — what
    tools/export-draft.mjs turns into the next season's data file.
    GET .../status is a few bytes of "is it live, whose pick" for the
-   in-progress banner on the app's other pages (js/draft-live.js).
+   in-progress banner on the app's other pages (js/draft-live.js), plus
+   the scheduled start the commissioner set (PUT .../schedule, already
+   password-checked by the worker), which Home counts down to
+   (js/draft-schedule.js). The schedule is kept outside the draft state,
+   so a lobby reset doesn't clear it.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock } from '../js/draft-engine.js';
@@ -118,6 +122,8 @@ export class DraftRoom extends DurableObject {
       this.state = row ? JSON.parse(row.v) : createState(drafterIdsFor(this.group || LEGACY_GROUP_ID));
       const room = this.sql.exec("SELECT v FROM kv WHERE k = 'room'").toArray()[0];
       this.room = room ? room.v : null;
+      const scheduled = this.sql.exec("SELECT v FROM kv WHERE k = 'scheduledAt'").toArray()[0];
+      this.scheduledAt = scheduled ? Number(scheduled.v) : null;
     });
   }
 
@@ -149,6 +155,9 @@ export class DraftRoom extends DurableObject {
     if(new URL(request.url).pathname.endsWith('/result')){
       return new Response(JSON.stringify(this.result()), { headers: { 'Content-Type': 'application/json' } });
     }
+    if(new URL(request.url).pathname.endsWith('/schedule') && request.method === 'PUT'){
+      return this.setSchedule(request);
+    }
     if(new URL(request.url).pathname.endsWith('/status')){
       return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
     }
@@ -169,8 +178,25 @@ export class DraftRoom extends DurableObject {
       drafters: state.config.drafters.length,
       total: totalPicks(state.config),
       ordered: !!state.order,
-      poolSize: state.pool.length
+      poolSize: state.pool.length,
+      scheduledAt: this.scheduledAt
     };
+  }
+
+  // { scheduledAt: epoch ms } sets the start time, { scheduledAt: null }
+  // clears it. The caller (the worker's /draft/schedule) has already
+  // checked the commissioner password.
+  async setSchedule(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    const at = body ? body.scheduledAt : undefined;
+    if(at !== null && !(Number.isSafeInteger(at) && at > 0)){
+      return new Response('Expected { scheduledAt: epoch ms | null }', { status: 400 });
+    }
+    this.scheduledAt = at;
+    if(at === null) this.sql.exec("DELETE FROM kv WHERE k = 'scheduledAt'");
+    else this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('scheduledAt', ?)", String(at));
+    return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
   }
 
   // The board in the order it was drafted, each pick carrying the full

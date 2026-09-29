@@ -32,7 +32,7 @@
    scrolls sideways there. See docs/draft-room-plan.md.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
-import { LATEST_SEASON_ID } from './seasons/index.js';
+import { NEXT_DRAFT_YEAR, NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
 import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-groups.js';
@@ -258,7 +258,6 @@ function statusPill(d){
   el.innerHTML = label ? `<i style="background:var(--text-mute)"></i>${esc(label)}` : '';
   const sub = document.getElementById('draft-sub');
   if(sub){
-    const year = Number(LATEST_SEASON_ID) + 1;
     const rounds = d ? d.rounds : 21;
     // Mock rooms (Settings → Draft → Mock Draft) aren't any season's draft.
     const mock = isMockRoom(draftStore.room);
@@ -267,7 +266,7 @@ function statusPill(d){
     if(mock) sub.innerHTML = `Practice · Snake · ${rounds} rounds`;
     else {
       const room = draftStore.room === 'main' ? '' : ` · room ${esc(draftStore.room)}`;
-      sub.innerHTML = `${year} season · Snake · ${rounds} rounds${room}`;
+      sub.innerHTML = `${NEXT_DRAFT_LABEL} season · Snake · ${rounds} rounds${room}`;
     }
   }
 }
@@ -1317,7 +1316,7 @@ window.draftDownload = async () => {
   const bytes = draftXlsx(d.s, { drafterName, leagueLabel: k => leagueUi(k).label, groupLabel: teamGroupLabel });
   const made = Object.keys(d.s.picks).length;
   const room = draftStore.room === 'main' ? '' : `-${draftStore.room}`;
-  const name = `boxscore-draft-${Number(LATEST_SEASON_ID) + 1}${room}${d.s.phase === 'done' ? '' : `-after-${made}-picks`}.xlsx`;
+  const name = `boxscore-draft-${NEXT_DRAFT_YEAR}${room}${d.s.phase === 'done' ? '' : `-after-${made}-picks`}.xlsx`;
   const file = new File([bytes], name, { type: XLSX_MIME });
   // On a phone, the share sheet (Save to Files, AirDrop, Messages): a plain
   // download from the installed iOS app opens a preview with nowhere to go.
