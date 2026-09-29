@@ -28,7 +28,7 @@
    resolves through ESPN — see NDSU_ESPN_TEAM_ID below.
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { fetchJSON, teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, draftOwnerName, retryPending } from './utils.js';
+import { fetchJSON, teamBadgeHtml, abbrFromName, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -362,7 +362,7 @@ export function renderCfbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+  const ownerHtml = standingsOwnerHtml(teamKey);
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCfbByDrafterRow
   // below) — the raw W-L record as the bold line, win% called out
@@ -403,11 +403,7 @@ export function cfbStandingsToggleHtml(){
     { key: 'ranking', label: 'AP Top 25' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return `
-    <div class="standings-toggle">
-      ${segmentedControlHtml(segments, cfbStandingsMode, 'setCfbStandingsMode')}
-    </div>
-  `;
+  return standingsToggleHtml(segments, cfbStandingsMode, 'setCfbStandingsMode');
 }
 
 // Combined win percentage across each drafter's 3 CFB teams — matches

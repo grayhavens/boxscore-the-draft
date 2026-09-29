@@ -15,7 +15,7 @@
    tour too (keep that to four or so); the tour shows only its `lead`,
    the guide page adds the `points`. `pre` is the text used instead
    while this group hasn't held its first draft (ACTIVE_SEASON.preDraft),
-   when Home, Standings and Points are still empty.
+   when Home and Points are still empty and nothing shows a drafter.
    ============================================================ */
 import { ACTIVE_GROUP } from './group.js';
 import { ACTIVE_SEASON } from './season.js';
@@ -64,6 +64,14 @@ const GUIDE = [
       'Narrow it to drafted teams or your favorites.',
       'Tap a game for its details and highlights.'
     ],
+    pre: {
+      lead: 'Every game across the 8 leagues for the day, live ones first.',
+      points: [
+        'Use the arrows to look back at results or ahead at the schedule.',
+        'Narrow it to your favorites.',
+        'Tap a game for its details and highlights.'
+      ]
+    },
     go: ['Go to Scores', "switchView('live-now')"]
   },
   {
@@ -73,6 +81,13 @@ const GUIDE = [
       'Switch between League (the real table) and Drafted (each drafter’s teams together).',
       'MLB and WNBA show last season until their next one starts. Those results don’t count yet.'
     ],
+    pre: {
+      lead: 'The real tables for all 8 leagues. Tap any team for its page.',
+      points: [
+        'After the draft, every team gets tagged with who drafted it, and a Drafted view puts each drafter’s teams together.',
+        'MLB and WNBA show last season until their next one starts.'
+      ]
+    },
     go: ['Go to Standings', "switchView('standings')"]
   },
   {
@@ -143,7 +158,7 @@ const GUIDE = [
 ];
 
 // The draft card moves to the front of the tour while there's nothing
-// on Home, Standings or Points yet.
+// on Home or Points yet.
 function entries({ tourOnly = false } = {}){
   const pre = !!ACTIVE_SEASON.preDraft;
   let list = GUIDE.map(g => (pre && g.pre) ? { ...g, ...g.pre } : g);

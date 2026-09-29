@@ -10,7 +10,7 @@
    by win%).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, retryPending } from './utils.js';
+import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
 import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -128,7 +128,7 @@ export function renderWnbaStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = `<div class="team-sub">${teamKey ? DRAFT_TEAMS.find(d => d.id === meta.draftTeamId).name : 'Undrafted'}</div>`;
+  const ownerHtml = standingsOwnerHtml(teamKey);
   // Same two-tier record treatment as the Drafted view's row below —
   // the raw W-L record as the bold line, win% called out underneath.
   const rowPct = winPct(row);
@@ -222,9 +222,5 @@ export function wnbaStandingsToggleHtml(){
     { key: 'table', label: 'League' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return `
-    <div class="standings-toggle">
-      ${segmentedControlHtml(segments, wnbaStandingsMode, 'setWnbaStandingsMode')}
-    </div>
-  `;
+  return standingsToggleHtml(segments, wnbaStandingsMode, 'setWnbaStandingsMode');
 }

@@ -29,7 +29,7 @@
    draftedTeamFor match goes by ESPN team id, not name — see that
    function's own comment for why.
    ============================================================ */
-import { TEAM_META, LEAGUES } from './data.js';
+import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, reducedMotion, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
@@ -131,10 +131,11 @@ function draftedTeamFor(leagueKey, competitor){
 // viewer who favorited it. For everyone else it's just another
 // opponent — its games neither appear on their own nor carry the
 // drafted-team treatment — so a drafter's favorite never shows up
-// outside their own view.
+// outside their own view. Before a group's first draft every team is
+// favoriteOnly (js/seasons/index.js) and every one of them shows.
 function visibleTeamFor(leagueKey, competitor){
   const teamKey = draftedTeamFor(leagueKey, competitor);
-  if(teamKey && TEAM_META[teamKey].favoriteOnly && !isFavorite(teamKey)) return null;
+  if(teamKey && !PRE_DRAFT && TEAM_META[teamKey].favoriteOnly && !isFavorite(teamKey)) return null;
   return teamKey;
 }
 
@@ -143,9 +144,12 @@ function visibleTeamFor(leagueKey, competitor){
 // or the row breaks the pattern next to it. ESPN's `teamName` is the
 // full "Wake Forest Demon Deacons"; its `location` is the school alone.
 // Pro leagues keep the full name — there the nickname is the team.
+// Before the first draft these aren't opponents, just teams The Draft
+// never took, so they match the rest of the list's bare nicknames.
 function opponentDisplayName(leagueKey, competitor){
   const isCollege = leagueKey === 'cfb' || leagueKey === 'mcbb';
-  return (isCollege && competitor.location) || competitor.teamName;
+  if(isCollege) return competitor.location || competitor.teamName;
+  return (PRE_DRAFT && competitor.teamNickname) || competitor.teamName;
 }
 
 // A synthetic "team" for a side nobody drafted. ESPN's scoreboard
@@ -428,8 +432,11 @@ function refreshTodayScopeChrome(){
   if(labelEl) labelEl.textContent = todayScopeChipLabel();
   const rowsEl = document.getElementById('today-scope-sheet-rows');
   if(rowsEl){
-    rowsEl.innerHTML = todayScopeRowHtml('all', 'All teams', 'Every drafted team, every owner', scopeIsAll())
-      + todayScopeRowHtml('mine', 'Drafted Teams', 'Your own drafted roster', scopeFilter.mine)
+    // Nobody has a drafted roster before the first draft, so no Drafted row.
+    rowsEl.innerHTML = (PRE_DRAFT
+      ? todayScopeRowHtml('all', 'All teams', 'Every team', scopeIsAll())
+      : todayScopeRowHtml('all', 'All teams', 'Every drafted team, every owner', scopeIsAll())
+        + todayScopeRowHtml('mine', 'Drafted Teams', 'Your own drafted roster', scopeFilter.mine))
       + todayScopeRowHtml('fav', 'Favorites', 'Teams you’ve starred', scopeFilter.fav);
   }
 }
@@ -499,7 +506,7 @@ const EMPTY_COPY = {
 function emptyHtml(hasGames){
   const [title, sub] = hasGames
     ? EMPTY_COPY[filterKey]
-    : ['Nothing scheduled', 'No drafted team plays on this date. Use the arrows to find the next slate.'];
+    : ['Nothing scheduled', `No ${PRE_DRAFT ? '' : 'drafted '}team plays on this date. Use the arrows to find the next slate.`];
   return `
     <div class="empty-panel">
       <div class="tg-empty-ring"></div>

@@ -39,7 +39,7 @@
    labels, and how a record renders/sorts/combines).
    ============================================================ */
 import { LEAGUES, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, draftOwnerName, retryPending } from './utils.js';
+import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
@@ -307,7 +307,7 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    const ownerHtml = `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
+    const ownerHtml = standingsOwnerHtml(teamKey);
     // Same two-tier record treatment as the Drafted view's row (see
     // .person-record-chip) — combinedLabel works unchanged on a single
     // ESPN row, not just an aggregated per-drafter bucket, since both
@@ -411,11 +411,7 @@ export function createFlatStandingsBoard(opts){
       ...conferences.map(c => ({ key: c.mode, label: c.label })),
       { key: 'byDrafter', label: 'Drafted' }
     ];
-    const topRow = `
-      <div class="standings-toggle">
-        ${segmentedControlHtml(topSegments, mode, setModeGlobalName)}
-      </div>
-    `;
+    const topRow = standingsToggleHtml(topSegments, mode, setModeGlobalName);
     if(!hasDivisions || mode === 'byDrafter') return topRow;
 
     const subSegments = [

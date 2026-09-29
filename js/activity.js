@@ -36,7 +36,7 @@
      (v1 ranked by locked points; diffing it would log fake rank moves);
    - simulated (Fake) points data never runs detection.
    ============================================================ */
-import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
 import { ordinal, fetchJSON, escapeHtml } from './utils.js';
@@ -85,7 +85,11 @@ function countsEvent(e){
   return wasSeasonUnderwayAt(e.league, e.ts) !== false;
 }
 
+// Before the group's first draft nothing scores, so there's no feed:
+// no events shown and none detected (every team is on the standings
+// by then, and would otherwise log lines nobody holds).
 function visibleEvents(){
+  if(PRE_DRAFT) return [];
   return feed.events.filter(countsEvent);
 }
 
@@ -422,7 +426,7 @@ let running = false;
 // Called at boot, whenever the Points tab opens, and when the app comes
 // back to the foreground — it throttles itself.
 export async function runActivityDetection(force){
-  if(running || isObSimulated()) return;
+  if(running || isObSimulated() || PRE_DRAFT) return;
   if(!force && Date.now() - lastRun < DETECT_COOLDOWN_MS) return;
   running = true;
   lastRun = Date.now();
