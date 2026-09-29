@@ -26,6 +26,9 @@
      client -> server  { type: 'send', from: '<drafterId>', text: '...' }
                        or, for a GIF (text may then be empty):
                        { type: 'send', from, gif: { slug, url, w, h } }
+                       or, for a game shared from Game Details (the text
+                       is then written here — see worker/chat-game.js):
+                       { type: 'send', from, game: {...} }
                        { type: 'react', from, messageId, emoji } — toggles
                        that drafter's reaction on a message (send it again
                        to take it back); emoji must be in REACTION_EMOJI
@@ -42,7 +45,7 @@
                                                               a message's
                                                               reactions changed
                        { type: 'error', reason: '...' }       rejected send
-     message = { id, from, text, ts, gif? } — id is the SQLite autoincrement
+     message = { id, from, text, ts, gif?, game? } — id is the SQLite autoincrement
      key, so it's a total order the client can dedupe/resume against
      (connect with ?after=<lastSeenId> to only get what it missed).
      reactions = { '<emoji>': ['<drafterId>', ...] }, and only emoji with
@@ -57,6 +60,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
+import { parseGame, gameText } from './chat-game.js';
 
 // Each group (js/groups.js) has its own room (the worker picks it by
 // ?group=), and only that group's drafters can post in it. The group rides
@@ -133,6 +137,9 @@ export class ChatRoom extends DurableObject {
     // alter an existing table — so add the column once, if it's missing.
     const hasGifColumn = this.sql.exec('PRAGMA table_info(messages)').toArray().some(c => c.name === 'gif');
     if(!hasGifColumn) this.sql.exec('ALTER TABLE messages ADD COLUMN gif TEXT');
+    // Same for `game`, a shared game's snapshot (JSON text, else null).
+    const hasGameColumn = this.sql.exec('PRAGMA table_info(messages)').toArray().some(c => c.name === 'game');
+    if(!hasGameColumn) this.sql.exec('ALTER TABLE messages ADD COLUMN game TEXT');
     // Client keepalive: answered by the runtime itself, so a ping never
     // wakes a hibernating room or counts as compute.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
@@ -178,11 +185,12 @@ export class ChatRoom extends DurableObject {
   // it missed); anything else is a fresh client and gets the latest page.
   messagesAfter(after){
     const rows = Number.isFinite(after) && after >= 0
-      ? this.sql.exec('SELECT id, sender, text, ts, gif FROM messages WHERE id > ? ORDER BY id ASC LIMIT ?', after, MAX_CATCHUP_MESSAGES).toArray()
-      : this.sql.exec('SELECT * FROM (SELECT id, sender, text, ts, gif FROM messages ORDER BY id DESC LIMIT ?) ORDER BY id ASC', HISTORY_ON_FRESH_CONNECT).toArray();
+      ? this.sql.exec('SELECT id, sender, text, ts, gif, game FROM messages WHERE id > ? ORDER BY id ASC LIMIT ?', after, MAX_CATCHUP_MESSAGES).toArray()
+      : this.sql.exec('SELECT * FROM (SELECT id, sender, text, ts, gif, game FROM messages ORDER BY id DESC LIMIT ?) ORDER BY id ASC', HISTORY_ON_FRESH_CONNECT).toArray();
     return rows.map(r => {
       const message = { id: r.id, from: r.sender, text: r.text, ts: r.ts };
       if(r.gif) message.gif = JSON.parse(r.gif);
+      if(r.game) message.game = JSON.parse(r.game);
       return message;
     });
   }
@@ -258,11 +266,15 @@ export class ChatRoom extends DurableObject {
     if(msg.type === 'presence') return this.handlePresence(ws, msg);
     if(msg.type !== 'send') return;
 
-    const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, MAX_TEXT_LENGTH) : '';
-    // A GIF field that's present but malformed is rejected outright, not
-    // quietly downgraded to a text-only message.
+    // A GIF or game field that's present but malformed is rejected
+    // outright, not quietly downgraded to a text-only message.
     const gif = msg.gif === undefined ? null : parseGif(msg.gif);
-    if(!socketDrafterIds(ws).includes(msg.from) || (msg.gif !== undefined && !gif) || (!text && !gif)){
+    const game = msg.game === undefined ? null : parseGame(msg.game);
+    // A game's text is always written here, from the validated snapshot:
+    // it's what older app versions show instead of the card, and the
+    // alert's body.
+    const text = game ? gameText(game) : (typeof msg.text === 'string' ? msg.text.trim().slice(0, MAX_TEXT_LENGTH) : '');
+    if(!socketDrafterIds(ws).includes(msg.from) || (msg.gif !== undefined && !gif) || (msg.game !== undefined && !game) || (gif && game) || (!text && !gif)){
       ws.send(JSON.stringify({ type: 'error', reason: 'invalid' }));
       return;
     }
@@ -270,12 +282,13 @@ export class ChatRoom extends DurableObject {
     if(!this.allowFrom(ws)) return;
 
     const now = Date.now();
-    const { id } = this.sql.exec('INSERT INTO messages (sender, text, ts, gif) VALUES (?, ?, ?, ?) RETURNING id', msg.from, text, now, gif ? JSON.stringify(gif) : null).one();
+    const { id } = this.sql.exec('INSERT INTO messages (sender, text, ts, gif, game) VALUES (?, ?, ?, ?, ?) RETURNING id', msg.from, text, now, gif ? JSON.stringify(gif) : null, game ? JSON.stringify(game) : null).one();
     this.sql.exec('DELETE FROM messages WHERE id <= ?', id - KEEP_MESSAGES);
     this.sql.exec('DELETE FROM reactions WHERE message_id <= ?', id - KEEP_MESSAGES);
 
     const message = { id, from: msg.from, text, ts: now };
     if(gif) message.gif = gif;
+    if(game) message.game = game;
     this.broadcast({ type: 'message', message });
     // Awaited after the broadcast, so everyone connected already has the
     // message; it just keeps the room awake until the pushes are out.

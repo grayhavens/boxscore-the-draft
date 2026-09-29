@@ -151,6 +151,16 @@ of every retained message's reactions — a reconnect (`?after=<lastId>`) fetche
 would otherwise never see a reaction added to one. **Deploy the worker before the static site:** an
 old worker silently ignores `react` frames, so the buttons would do nothing.
 
+**Shared games in chat** (`js/game-card.js`, `worker/chat-game.js`): Game Details' "Share to chat" button posts the
+game right away (no caption step) and jumps to the Chat tab. The message's `game` field is a snapshot of the game
+at that moment (league, ESPN event id, state, status, both sides' team key/name/abbr/score), shown as a frozen card that
+never changes. A small live line under it shows the game now, but only once the score or state has moved on. It
+reads "Final" at the end and then stops. It's looked up from ESPN only while the Chat tab is open, at most once a minute
+per game, and cached on the message (`m.gameNow`). The worker validates the snapshot (`parseGame`) and writes the
+message's text itself (`gameText`), which older app versions show instead of the card and which is the alert body.
+Tapping a card opens its Game Details; long-press (right-click on desktop) opens its reactions. **Deploy the worker
+before the static site:** an old worker rejects a message with no text.
+
 **Push alerts** (`js/push.js`, `worker/web-push.js`, the `push`/`notificationclick` handlers in `sw.js`):
 Settings → Alerts lets each device opt into "My draft pick" (you went on the clock in a real, non-mock
 draft room) and "Chat messages" (skipped for anyone with the app on screen: `js/chat.js` sends a

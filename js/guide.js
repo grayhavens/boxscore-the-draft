@@ -113,6 +113,7 @@ const GUIDE = [
     points: [
       'Tap a message to react to it.',
       'Use the GIF button to send a GIF.',
+      'Share to chat in a game’s box score posts the score as it stands. Its live line catches up once the game moves on.',
       'The Chat tab shows how many messages you haven’t read.'
     ],
     go: ['Go to Chat', "switchView('chat')"]

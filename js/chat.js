@@ -22,6 +22,7 @@ import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 import { escapeHtml as esc } from './utils.js';
 import { clearAlerts } from './push.js';
+import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -32,6 +33,8 @@ const PING_INTERVAL_MS = 20000;
 const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> socket is half-dead, reconnect
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
+const GAME_LINE_TICK_MS = 20000;      // how often open chat checks its shared games (each game is still looked up at most once a minute)
+const LONG_PRESS_MS = 450;
 
 // Mirrors REACTION_EMOJI in worker/chat-room.js (which rejects anything
 // else). Also the order the picker and a message's pills are shown in.
@@ -51,6 +54,7 @@ let lastHeard = 0;
 let open = false;
 let sentPresence = null;
 let pickerId = null;         // id of the message whose reaction picker is showing, if any
+let pendingGame = null;      // a shared game waiting for the socket to (re)connect
 
 function loadCachedMessages(){
   try {
@@ -114,6 +118,10 @@ function connect(){
     sentPresence = null;
     setStatus('open');
     sendPresence();
+    if(pendingGame){
+      ws.send(JSON.stringify({ type: 'send', from: currentProfileId, game: pendingGame }));
+      pendingGame = null;
+    }
   });
   ws.addEventListener('message', event => {
     if(socket !== ws) return;
@@ -169,7 +177,13 @@ function handleFrame(raw){
 // has none.
 function mergeMessages(incoming, snapshot){
   const byId = new Map(messages.map(m => [m.id, m]));
-  incoming.forEach(m => byId.set(m.id, m));
+  incoming.forEach(m => {
+    // A shared game's live line (js/game-card.js) is this device's own
+    // lookup, not part of the message, so it survives a re-sent copy.
+    const old = byId.get(m.id);
+    if(old && old.gameNow && m.game) m.gameNow = old.gameNow;
+    byId.set(m.id, m);
+  });
   messages = [...byId.values()].sort((a, b) => a.id - b.id).slice(-MAX_MESSAGES_KEPT);
   if(snapshot){
     messages.forEach(m => {
@@ -350,9 +364,12 @@ function listRows(){
       rows.push([`meta-${m.id}`, `<div class="chat-meta ${mine ? 'mine' : ''}">${mine ? '' : `<span class="chat-name">${esc(drafterName(m.from))}</span>`}<span class="chat-time">${esc(timeLabel(m.ts))}</span></div>`]);
     }
     if(m.gif) rows.push([`gif-${m.id}`, gifBubbleHtml(m, mine)]);
+    // A shared game's text is only the fallback for app versions without
+    // the card (the worker writes it), so it isn't shown alongside it.
+    if(m.game) rows.push([`game-${m.id}`, gameCardHtml(m, mine, timeLabel(m.ts))]);
     // A GIF's text is an optional caption (the picker never sends one, but
     // the worker accepts one) — shown under it rather than silently dropped.
-    if(m.text) rows.push([`text-${m.id}`, `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`]);
+    if(m.text && !m.game) rows.push([`text-${m.id}`, `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`]);
     if(pickerId === m.id) rows.push([`picker-${m.id}`, pickerHtml(m, mine)]);
     const reactions = reactionsHtml(m, mine);
     if(reactions) rows.push([`react-${m.id}`, reactions]);
@@ -443,6 +460,13 @@ function onListClick(event){
   if(target.closest('.chat-react-bar')) return;
   // Finishing a text selection (long-press, drag) ends in a click too.
   if(window.getSelection().toString()) return;
+  // The long press that just opened a card's picker ends in a click too.
+  if(longPressed){
+    longPressed = false;
+    return;
+  }
+  // A shared game opens its box score; its reactions are a long press.
+  if(openSharedGame(target)) return;
 
   const message = target.closest('[data-msg]');
   const next = message && Number(message.dataset.msg) !== pickerId ? Number(message.dataset.msg) : null;
@@ -450,6 +474,71 @@ function onListClick(event){
   pickerId = next;
   renderList('follow');
 }
+
+// A shared game card's tap opens the box score, so its reaction picker
+// is a long press instead (or a right-click on desktop).
+let longPressed = false;
+function openPickerFor(card){
+  const id = Number(card.dataset.msg);
+  if(pickerId === id) return;
+  pickerId = id;
+  renderList('follow');
+}
+
+function watchLongPress(list){
+  let timer = null;
+  let startX = 0, startY = 0;
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  list.addEventListener('touchstart', event => {
+    const card = event.target.closest && event.target.closest('.chat-game');
+    longPressed = false;
+    if(!card || event.touches.length !== 1) return;
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+    timer = setTimeout(() => {
+      timer = null;
+      longPressed = true;
+      openPickerFor(card);
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+  list.addEventListener('touchmove', event => {
+    if(!timer) return;
+    const t = event.touches[0];
+    if(Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cancel();
+  }, { passive: true });
+  list.addEventListener('touchend', cancel);
+  list.addEventListener('touchcancel', cancel);
+  list.addEventListener('contextmenu', event => {
+    const card = event.target.closest('.chat-game');
+    if(!card) return;
+    event.preventDefault();
+    openPickerFor(card);
+  });
+}
+
+// ---- Shared games ----
+
+let gameLineTimer = null;
+function refreshGames(){
+  refreshGameLines(messages).then(changed => {
+    if(!changed) return;
+    saveCachedMessages();
+    if(open) renderList('follow');
+  });
+}
+
+// Game Details' "Share to chat" (js/live-data.js) posts right away and
+// brings you here. If the socket is down, the share waits for the
+// reconnect rather than being dropped.
+function sendGame(game){
+  if(!socket || socket.readyState !== WebSocket.OPEN){
+    pendingGame = game;
+    reconnectNow();
+    return;
+  }
+  socket.send(JSON.stringify({ type: 'send', from: currentProfileId, game }));
+}
+window.addEventListener('boxscore:share-game', event => sendGame(event.detail));
 
 // With the keyboard down the chat screen is laid out by CSS alone (top
 // of the screen down to the tab bar). While it's up, the screen tracks
@@ -555,7 +644,11 @@ export function setChatActive(active){
     syncViewport();
     if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
     if(!gifsReady) setUpGifs();
+    refreshGames();
+    gameLineTimer = setInterval(refreshGames, GAME_LINE_TICK_MS);
   } else {
+    clearInterval(gameLineTimer);
+    gameLineTimer = null;
     closeGifPicker();
     pickerId = null;
     inputEl().blur();
@@ -648,7 +741,10 @@ export function initChat(){
     screenEl().addEventListener('focusin', syncViewport);
     screenEl().addEventListener('focusout', () => setTimeout(syncViewport, 60));
   }
-  if(listEl()) listEl().addEventListener('click', onListClick);
+  if(listEl()){
+    listEl().addEventListener('click', onListClick);
+    watchLongPress(listEl());
+  }
   setUpGifs();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewport);
