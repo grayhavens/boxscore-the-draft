@@ -27,6 +27,11 @@
                                    person the next open spot under `name`
      POST /api/admin/roster/release { group, drafter } -> undo a confirmed
                                    spot (worker/roster.js)
+     POST /api/admin/welcome       { group, drafters, subject, body, test }
+                                   -> the welcome email to confirmed people
+                                   (worker/welcome-email.js)
+     POST /api/admin/email         { group, drafter, email } -> a named
+                                   spot's email, for the welcome email
 
    The room and key naming lives in rundown-proxy.js, which passes it in
    as `deps` rather than this module importing the entry point.
@@ -35,10 +40,11 @@ import { GROUPS, GROUP_IDS, isKnownGroup, adminSecretName } from '../js/groups.j
 import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
 import { loadDevices, pushEnabled, pushToDrafters } from './web-push.js';
+import { loadWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
-const POST_ROUTES = ['/commissioner', '/push', '/claims/dismiss', '/claims/confirm', '/roster/release'];
+const POST_ROUTES = ['/commissioner', '/push', '/claims/dismiss', '/claims/confirm', '/roster/release', '/welcome', '/email'];
 
 function json(data, status = 200){
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -79,13 +85,15 @@ async function stubJson(stub, path){
 
 async function groupStatus(env, id, deps){
   const group = GROUPS[id];
-  const [draft, chat, activity, claims, assigned, roster] = await Promise.all([
+  const [draft, chat, activity, claims, assigned, roster, welcomed, emails] = await Promise.all([
     stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, id), '/status'),
     stubJson(deps.chatRoomStub(env, id), '/summary'),
     env.LEAGUE_FACTS.get(deps.activityKey(id), 'json'),
     deps.loadClaims(env, id),
     deps.loadAssigned(env, id),
-    deps.effectiveDrafters(env, id)
+    deps.effectiveDrafters(env, id),
+    loadWelcomed(env, id),
+    loadEmails(env, id)
   ]);
   const drafters = await Promise.all(roster.map(async d => {
     const devices = await loadDevices(env, id, d.id);
@@ -114,7 +122,14 @@ async function groupStatus(env, id, deps){
     activity: { events: events.length, lastTs: events.length ? events[0].ts : null },
     claims,
     confirmed,
-    drafters
+    drafters,
+    // The welcome email: who can get it and when each last did, plus the
+    // spots named in js/groups.js, whose email the admin adds.
+    welcome: {
+      contacts: Object.entries(welcomeContacts(id, assigned, emails))
+        .map(([drafter, c]) => ({ drafter, name: c.name, email: c.email, welcomedAt: welcomed[drafter] || null })),
+      named: group.drafters.filter(d => !d.open).map(d => ({ drafter: d.id, name: d.name, email: emails[d.id] || '' }))
+    }
   };
 }
 
@@ -126,7 +141,8 @@ async function handleStatus(env, deps, identity){
         push: pushEnabled(env),
         gifs: !!env.KLIPY_APP_KEY,
         rundown: !!env.THERUNDOWN_API_KEY,
-        sportsdb: !!env.SPORTSDB_API_KEY
+        sportsdb: !!env.SPORTSDB_API_KEY,
+        email: welcomeEnabled(env)
       }
     },
     groups: await Promise.all(GROUP_IDS.map(id => groupStatus(env, id, deps)))
@@ -170,6 +186,21 @@ async function handleDismissClaim(request, env, deps){
   return json({ ok: await deps.dismissClaim(env, body.group, body.id) });
 }
 
+async function handleWelcome(request, env, deps, identity){
+  const body = await readBody(request);
+  if(!body) return json({ error: 'bad_group' }, 400);
+  const [assigned, emails] = await Promise.all([deps.loadAssigned(env, body.group), loadEmails(env, body.group)]);
+  const result = await sendWelcome(env, body.group, welcomeContacts(body.group, assigned, emails), body, identity.email);
+  return json(result, result.error ? (result.error === 'resend' || result.error === 'unreachable' ? 502 : 409) : 200);
+}
+
+async function handleSetEmail(request, env){
+  const body = await readBody(request);
+  if(!body) return json({ error: 'bad_group' }, 400);
+  const result = await setDrafterEmail(env, body.group, body.drafter, body.email);
+  return json(result, result.error ? 400 : 200);
+}
+
 async function handlePush(request, env){
   if(!pushEnabled(env)) return json({ error: 'push_off' }, 409);
   const body = await readBody(request);
@@ -211,6 +242,8 @@ export async function handleSystemAdmin(request, url, env, deps){
         : route === '/push' ? await handlePush(request, env)
         : route === '/claims/confirm' ? await handleConfirmClaim(request, env, deps)
         : route === '/roster/release' ? await handleReleaseSpot(request, env, deps)
+        : route === '/welcome' ? await handleWelcome(request, env, deps, identity)
+        : route === '/email' ? await handleSetEmail(request, env)
         : await handleDismissClaim(request, env, deps);
     }
   } else {

@@ -218,7 +218,11 @@ route (`wrangler.toml`; `workers_dev = true` keeps the app's workers.dev address
 Access JWT itself (`worker/access-auth.js`), because the same routes are public on workers.dev. "Open as commissioner"
 mints a 12-hour token signed with that group's own password (`worker/commissioner-token.js`). The group app takes it from
 the `#commissioner=` URL fragment (`js/admin.js`) and stores it in place of a typed password, and every commissioner
-check accepts either. Rotating a group's password cancels its tokens. Setup, one time:
+check accepts either. Rotating a group's password cancels its tokens. The page shows one group at a time (a picker
+under Platform). Its **Welcome email** section (`worker/welcome-email.js`) emails a group's confirmed people (their claim's
+email) and any spot named in `js/groups.js` whose email was added there (`emails@<group>` in KV, never the public
+file), through Resend from `admin@boxscore.space` (worker secret `RESEND_API_KEY`, domain verified
+in Resend), with replies to the admin's Access email. `welcome@<group>` in KV records who has had it. Setup, one time:
 1. Zero Trust → Access → Applications → add a self-hosted app for `boxscore.space` with paths `admin` and `api/admin`,
    plus a policy allowing only your email.
 2. `npx wrangler secret put ACCESS_TEAM_DOMAIN` (e.g. `<team>.cloudflareaccess.com`) and
