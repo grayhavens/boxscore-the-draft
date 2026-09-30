@@ -224,7 +224,8 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
-room signs its socket in with the password saved there. See
+room signs its socket in with the password saved there. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
+league, the `desk*` functions); under that it keeps the phone column with a Draft/Scoring switch and league chips. See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
 Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
