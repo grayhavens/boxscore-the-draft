@@ -190,9 +190,12 @@ export const LEAGUE_FACTS_LEAGUES = LEAGUES.map(l => l.key);
 // rank change.
 export function leagueInputsSettled(){
   if(!DASHBOARD_WORKER_BASE) return true;
+  // A league still showing last season never reads its adjustments
+  // (obDrafterAwards skips them), so they never load: don't wait on them.
   return LEAGUES.every(l => {
     const f = factsCacheFor(l.key), a = adjustmentsCacheFor(l.key);
-    return (f.data !== null || f.error) && (a.data !== null || a.error);
+    const adjSettled = PRIOR_SEASON_DISPLAY_LEAGUES.includes(l.key) || a.data !== null || a.error;
+    return (f.data !== null || f.error) && adjSettled;
   });
 }
 
