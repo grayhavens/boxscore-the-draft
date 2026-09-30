@@ -114,6 +114,28 @@ export async function removeDevice(env, group, drafterId, endpoint){
   if(kept.length !== devices.length) await saveDevices(env, group, drafterId, kept);
 }
 
+// For the admin page (worker/system-admin.js), which lists devices without
+// ever seeing an endpoint: a short id hashed from it, and which push
+// service it's on (so which kind of device it is).
+export async function deviceId(endpoint){
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint)));
+  return [...hash.slice(0, 6)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const PUSH_SERVICES = [
+  [/(^|\.)push\.apple\.com$/, 'Apple'],
+  [/(^|\.)googleapis\.com$/, 'Chrome'],
+  [/(^|\.)mozilla\.com$/, 'Firefox'],
+  [/(^|\.)notify\.windows\.com$/, 'Windows']
+];
+
+export function pushService(endpoint){
+  let hostname = '';
+  try { hostname = new URL(endpoint).hostname; } catch (e){ return 'Unknown'; }
+  const hit = PUSH_SERVICES.find(([re]) => re.test(hostname));
+  return hit ? hit[1] : hostname;
+}
+
 // ---- VAPID ----
 
 async function vapidSigningKey(env){

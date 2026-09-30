@@ -38,8 +38,10 @@
                        someone already looking at it
                        'ping' (bare string; answered with 'pong' by the
                        runtime's auto-response, without waking the room)
-     server -> client  { type: 'history', messages: [...], reactions: {...} }
-                                                              on connect
+     server -> client  { type: 'history', messages: [...], reactions: {...},
+                         deleted: [id, ...] }                 on connect
+                       { type: 'deleted', messageId }         the admin
+                                                              deleted it
                        { type: 'message', message: {...} }    new message
                        { type: 'reactions', messageId, reactions }
                                                               a message's
@@ -82,6 +84,7 @@ const MAX_CATCHUP_MESSAGES = 500;
 const KEEP_MESSAGES = 1000;
 const RATE_WINDOW_MS = 10000;
 const RATE_MAX_MESSAGES = 10;
+const ADMIN_RECENT_MESSAGES = 40;
 
 // Mirrors REACTION_EMOJI in js/chat.js — the picker's order is also the
 // order reaction pills are shown in.
@@ -140,6 +143,10 @@ export class ChatRoom extends DurableObject {
     // Same for `game`, a shared game's snapshot (JSON text, else null).
     const hasGameColumn = this.sql.exec('PRAGMA table_info(messages)').toArray().some(c => c.name === 'game');
     if(!hasGameColumn) this.sql.exec('ALTER TABLE messages ADD COLUMN game TEXT');
+    // Messages the admin deleted (worker/system-admin.js), by id, so a
+    // device that was offline at the time drops its cached copy: the
+    // history frame carries the list. Pruned with the messages.
+    this.sql.exec('CREATE TABLE IF NOT EXISTS deleted (id INTEGER PRIMARY KEY)');
     // Client keepalive: answered by the runtime itself, so a ping never
     // wakes a hibernating room or counts as compute.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
@@ -147,8 +154,14 @@ export class ChatRoom extends DurableObject {
 
   async fetch(request){
     if(request.headers.get('Upgrade') !== 'websocket'){
-      if(new URL(request.url).pathname.endsWith('/summary')){
-        return new Response(JSON.stringify(this.summary()), { headers: { 'Content-Type': 'application/json' } });
+      const path = new URL(request.url).pathname;
+      const reply = data => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+      if(path.endsWith('/summary')) return reply(this.summary());
+      if(path.endsWith('/recent')) return reply({ messages: this.recent() });
+      if(path.endsWith('/delete') && request.method === 'POST'){
+        let body;
+        try { body = await request.json(); } catch (e){ body = null; }
+        return reply(this.deleteMessage(body && body.id));
       }
       return new Response('Expected a WebSocket upgrade', { status: 426 });
     }
@@ -158,7 +171,7 @@ export class ChatRoom extends DurableObject {
     this.ctx.acceptWebSocket(server);
     const group = new URL(request.url).searchParams.get('group') || LEGACY_GROUP_ID;
     server.serializeAttachment({ sent: [], group });
-    server.send(JSON.stringify({ type: 'history', messages: this.messagesAfter(after), reactions: this.reactionSnapshot() }));
+    server.send(JSON.stringify({ type: 'history', messages: this.messagesAfter(after), reactions: this.reactionSnapshot(), deleted: this.deletedIds() }));
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -179,6 +192,29 @@ export class ChatRoom extends DurableObject {
       connected: sockets.length,
       watching: [...watching]
     };
+  }
+
+  // For the admin page's chat moderation: the latest messages, newest
+  // first, with a GIF or shared game flagged rather than sent whole.
+  recent(){
+    return this.sql.exec('SELECT id, sender, text, ts, gif, game FROM messages ORDER BY id DESC LIMIT ?', ADMIN_RECENT_MESSAGES).toArray()
+      .map(r => ({ id: r.id, from: r.sender, text: r.text, ts: r.ts, gif: !!r.gif, game: !!r.game }));
+  }
+
+  // The admin deletes a message: gone from history, its reactions too,
+  // and every open socket is told. { ok, message } or { ok: false }.
+  deleteMessage(id){
+    if(!Number.isInteger(id)) return { ok: false };
+    const row = this.sql.exec('DELETE FROM messages WHERE id = ? RETURNING id, sender, text, ts', id).toArray()[0];
+    if(!row) return { ok: false };
+    this.sql.exec('DELETE FROM reactions WHERE message_id = ?', id);
+    this.sql.exec('INSERT OR IGNORE INTO deleted (id) VALUES (?)', id);
+    this.broadcast({ type: 'deleted', messageId: id });
+    return { ok: true, message: { id: row.id, from: row.sender, text: row.text, ts: row.ts } };
+  }
+
+  deletedIds(){
+    return this.sql.exec('SELECT id FROM deleted ORDER BY id').toArray().map(r => r.id);
   }
 
   // A valid `after` resumes from there (a reconnect that only wants what
@@ -285,6 +321,7 @@ export class ChatRoom extends DurableObject {
     const { id } = this.sql.exec('INSERT INTO messages (sender, text, ts, gif, game) VALUES (?, ?, ?, ?, ?) RETURNING id', msg.from, text, now, gif ? JSON.stringify(gif) : null, game ? JSON.stringify(game) : null).one();
     this.sql.exec('DELETE FROM messages WHERE id <= ?', id - KEEP_MESSAGES);
     this.sql.exec('DELETE FROM reactions WHERE message_id <= ?', id - KEEP_MESSAGES);
+    this.sql.exec('DELETE FROM deleted WHERE id <= ?', id - KEEP_MESSAGES);
 
     const message = { id, from: msg.from, text, ts: now };
     if(gif) message.gif = gif;

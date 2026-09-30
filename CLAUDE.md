@@ -179,6 +179,9 @@ on the message) since they change after it's sent, so the `history` frame always
 of every retained message's reactions — a reconnect (`?after=<lastId>`) fetches no old messages and
 would otherwise never see a reaction added to one. **Deploy the worker before the static site:** an
 old worker silently ignores `react` frames, so the buttons would do nothing.
+The system admin page can delete a message for everyone: the room broadcasts `{type:'deleted', messageId}` and
+keeps the deleted ids (pruned with the messages) in the `history` frame's `deleted` list, for the same reason, so a
+device that was away drops its cached copy.
 
 **Shared games in chat** (`js/game-card.js`, `worker/chat-game.js`): Game Details' "Share to chat" button posts the
 game right away (no caption step) and jumps to the Chat tab. The message's `game` field is a snapshot of the game
@@ -269,8 +272,16 @@ route (`wrangler.toml`; `workers_dev = true` keeps the app's workers.dev address
 Access JWT itself (`worker/access-auth.js`), because the same routes are public on workers.dev. "Open as commissioner"
 mints a 12-hour token signed with that group's own password (`worker/commissioner-token.js`). The group app takes it from
 the `#commissioner=` URL fragment (`js/admin.js`) and stores it in place of a typed password, and every commissioner
-check accepts either. Rotating a group's password cancels its tokens. The page shows one group at a time (a picker
-under Platform). Its **Welcome email** section (`worker/welcome-email.js`) emails a group's confirmed people (their claim's
+check accepts either. Rotating a group's password cancels its tokens. It's the one desktop-first page: a sidebar
+picks Platform (health tiles, a "Needs attention" queue, every group in a table, the admin log) or one group (summary
+strip, claims, one Roster table of every spot, invite code, announcement, welcome email with a live preview, alert
+devices, chat moderation, that group's log); under 900px the sidebar becomes a top bar with a picker. Action results
+show as a toast, and it refreshes itself every minute while nothing is being typed. The Roster adds a person to an
+open spot with no claim, edits a confirmed spot's name or email, and welcomes one person. **`APP_VERSION` lives in
+`js/version.js`** (bump it there), which the worker imports too, so `/status` reports the version the worker was
+deployed with and the page flags a worker that's behind the site. Every admin POST that changes or sends something
+writes a line to the admin log (`adminlog` in KV, `worker/admin-log.js`). Alert devices are listed by a hashed id and
+push service (never the endpoint), with Remove for an old one. Its **Welcome email** section (`worker/welcome-email.js`) emails a group's confirmed people (their claim's
 email) and any spot named in `js/groups.js` whose email was added there (`emails@<group>` in KV, never the public
 file), through Resend from `admin@boxscore.space` (worker secret `RESEND_API_KEY`, domain verified
 in Resend), with replies to the admin's Access email. `welcome@<group>` in KV records who has had it. Confirming a claim sends it

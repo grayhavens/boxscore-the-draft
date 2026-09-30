@@ -195,7 +195,7 @@ import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '.
 import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
-import { handleClaim, loadClaims, dismissClaim, confirmClaim } from './claims.js';
+import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
@@ -1105,7 +1105,8 @@ async function route(request, env, ctx){
   // in production — see worker/system-admin.js.
   if(url.pathname.startsWith('/api/admin/')){
     return handleSystemAdmin(request, url, env, {
-      draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim, confirmClaim, loadAssigned, releaseSpot, effectiveDrafters
+      draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot, loadAssigned, releaseSpot, effectiveDrafters,
+      historyPrefix: group => kvGroupPrefix('history', group)
     });
   }
 

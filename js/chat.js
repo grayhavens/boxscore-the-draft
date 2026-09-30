@@ -160,11 +160,29 @@ function handleFrame(raw){
   try { frame = JSON.parse(raw); } catch (e){ return; }
 
   if(frame.type === 'history' && Array.isArray(frame.messages)){
+    if(Array.isArray(frame.deleted)) dropMessages(frame.deleted, false);
     mergeMessages(frame.messages, frame.reactions);
   } else if(frame.type === 'message' && frame.message){
     mergeMessages([frame.message]);
   } else if(frame.type === 'reactions' && frame.reactions){
     applyReactions(frame.messageId, frame.reactions);
+  } else if(frame.type === 'deleted'){
+    dropMessages([frame.messageId], true);
+  }
+}
+
+// Messages the admin deleted (worker/chat-room.js): live as it happens,
+// and from the history frame's list for a device that was away, whose
+// cache still has them. The history frame repaints right after, so it
+// skips its own.
+function dropMessages(ids, repaint){
+  const gone = new Set(ids);
+  if(!messages.some(m => gone.has(m.id))) return;
+  messages = messages.filter(m => !gone.has(m.id));
+  saveCachedMessages();
+  if(repaint){
+    paintBadges();
+    if(open) renderList('follow');
   }
 }
 
