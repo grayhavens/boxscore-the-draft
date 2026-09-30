@@ -23,8 +23,11 @@
                                    whole group
      POST /api/admin/claims/dismiss { group, id } -> drop one spot claim
                                    (worker/claims.js); /status lists them
-     POST /api/admin/claims/confirm { group, id, name } -> give the claim's
-                                   person the next open spot under `name`
+     POST /api/admin/claims/confirm { group, id, name, welcome } -> give the
+                                   claim's person the next open spot under
+                                   `name`; with welcome { subject, body }
+                                   they're sent the welcome email too, and
+                                   the answer's `welcome` says how it went
      POST /api/admin/roster/release { group, drafter } -> undo a confirmed
                                    spot (worker/roster.js)
      POST /api/admin/welcome       { group, drafters, subject, body, test }
@@ -41,7 +44,7 @@ import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
 import { loadDevices, pushEnabled, pushToDrafters } from './web-push.js';
 import { claimAlertEnabled } from './claims.js';
-import { loadWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
+import { loadWelcomed, clearWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
@@ -169,17 +172,32 @@ async function handleCommissioner(request, env){
   return json({ token: await makeCommissionerToken(password, body.group, expiresAt), expiresAt });
 }
 
-async function handleConfirmClaim(request, env, deps){
+async function handleConfirmClaim(request, env, deps, identity){
   const body = await readBody(request);
   if(!body || typeof body.id !== 'string') return json({ error: 'bad_request' }, 400);
   const result = await deps.confirmClaim(env, body.group, body.id, body.name);
-  return json(result, result.error ? 409 : 200);
+  if(result.error) return json(result, 409);
+  // The welcome email rides on the confirm. The contact is built from the
+  // confirm's own result rather than re-read from KV, which may not show
+  // the new spot yet. A failed send leaves the spot confirmed and the
+  // person unwelcomed, so the page's Welcome email section still offers it.
+  const w = body.welcome;
+  if(w && typeof w === 'object'){
+    const contacts = welcomeContacts(body.group, { [result.drafter]: { name: result.name, email: result.email } }, {});
+    result.welcome = contacts[result.drafter]
+      ? await sendWelcome(env, body.group, contacts, { drafters: [result.drafter], subject: w.subject, body: w.body }, identity.email)
+      : { error: 'no_email' };
+  }
+  return json(result);
 }
 
 async function handleReleaseSpot(request, env, deps){
   const body = await readBody(request);
   if(!body || typeof body.drafter !== 'string') return json({ error: 'bad_request' }, 400);
-  return json({ ok: await deps.releaseSpot(env, body.group, body.drafter) });
+  const ok = await deps.releaseSpot(env, body.group, body.drafter);
+  // The spot's next person hasn't had the welcome email.
+  if(ok) await clearWelcomed(env, body.group, body.drafter);
+  return json({ ok });
 }
 
 async function handleDismissClaim(request, env, deps){
@@ -242,7 +260,7 @@ export async function handleSystemAdmin(request, url, env, deps){
     } else {
       response = route === '/commissioner' ? await handleCommissioner(request, env)
         : route === '/push' ? await handlePush(request, env)
-        : route === '/claims/confirm' ? await handleConfirmClaim(request, env, deps)
+        : route === '/claims/confirm' ? await handleConfirmClaim(request, env, deps, identity)
         : route === '/roster/release' ? await handleReleaseSpot(request, env, deps)
         : route === '/welcome' ? await handleWelcome(request, env, deps, identity)
         : route === '/email' ? await handleSetEmail(request, env)

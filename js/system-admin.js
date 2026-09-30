@@ -24,7 +24,10 @@
      admin@boxscore.space
      (worker/welcome-email.js), with a test copy to you first. It offers
      the email to whoever hasn't had it yet, so people confirmed later can
-     be welcomed without re-sending to everyone.
+     be welcomed without re-sending to everyone. Confirming a claim sends
+     it to that person in the same step ("Send the welcome email" in the
+     confirm row, on unless you untick it, remembered on this browser),
+     with the text as it stands in this section.
 
    Locally it talks to `wrangler dev` started with ADMIN_DEV_BYPASS=1 (the
    admin-worker config in .claude/launch.json); on any other host it sends
@@ -51,8 +54,13 @@ let confirming = null;   // { group, id, name }: the claim whose name is open fo
 let selected = null;     // id of the group on screen
 let welcomeDrafts = {};  // group id -> { subject, body } as edited, kept across re-renders
 let previewing = null;   // group id whose welcome email preview is open
+let autoWelcome = true;  // confirming a claim also sends the welcome email
 const SELECTED_KEY = 'sysadmin-group';
-try { selected = localStorage.getItem(SELECTED_KEY); } catch (e){}
+const AUTO_WELCOME_KEY = 'sysadmin-auto-welcome';
+try {
+  selected = localStorage.getItem(SELECTED_KEY);
+  autoWelcome = localStorage.getItem(AUTO_WELCOME_KEY) !== 'off';
+} catch (e){}
 // ?group=<id> (the link in a claim alert email) opens on that group, then
 // comes off the URL so a reload goes back to the remembered one.
 const linkedGroup = new URLSearchParams(window.location.search).get('group');
@@ -148,6 +156,7 @@ function claimRow(g, c, nextSpot){
         <label class="sysadmin-confirm-label" for="confirm-name">Name in ${esc(g.name)}</label>
         <input id="confirm-name" type="text" maxlength="40" value="${esc(confirming.name ?? c.name)}" autocomplete="off" oninput="sysadminConfirmName(this.value)">
         <span class="set-row-sub">${mail}takes ${esc(nextSpot ? nextSpot.name : 'the next open spot')}’s spot</span>
+        ${email && status.platform.secrets.email ? `<label class="sysadmin-check"><input type="checkbox" ${autoWelcome ? 'checked' : ''} onchange="sysadminAutoWelcome(this.checked)"> Send the welcome email</label>` : ''}
         <span class="sysadmin-confirm-actions">
           <button type="button" class="sysadmin-btn solid" onclick="sysadminLockIn('${g.id}', '${esc(c.id)}')" ${busy ? 'disabled' : ''}>Lock in</button>
           <button type="button" class="sysadmin-btn" onclick="sysadminConfirmClaim(null)" ${busy ? 'disabled' : ''}>Cancel</button>
@@ -230,11 +239,13 @@ function welcomeSection(g){
     d.email ? `<a href="mailto:${esc(d.email)}">${esc(d.email)}</a>` : 'No email, so no welcome email',
     `<button type="button" class="sysadmin-btn" onclick="sysadminSetEmail('${g.id}', '${esc(d.drafter)}')" ${busy ? 'disabled' : ''}>${d.email ? 'Edit' : 'Add email'}</button>`
   )).join('');
-  if(!people.length) return section('Welcome email', `${named}${row('Nobody to email yet', 'Confirmed people get it with their claim’s email.')}${welcomeNote(g)}`);
+  // With nobody to email yet the text is still here to edit: it's what
+  // the first person confirmed will be sent.
   return section('Welcome email', `
     ${named}
-    ${row(fresh.length ? `${fresh.length} to welcome` : 'Everyone’s been welcomed',
-      [fresh.length ? `Not yet: ${names(fresh)}` : '',
+    ${row(!people.length ? 'Nobody to email yet' : fresh.length ? `${fresh.length} to welcome` : 'Everyone’s been welcomed',
+      [!people.length ? 'Confirmed people get it with their claim’s email.' : '',
+       fresh.length ? `Not yet: ${names(fresh)}` : '',
        sent.length ? `Sent: ${names(sent)} · ${ago(Math.max(...sent.map(c => c.welcomedAt)))}` : '',
        open ? `${open} spot${open === 1 ? '' : 's'} still open` : ''].filter(Boolean).join('<br>'))}
     <div class="sysadmin-announce sysadmin-welcome">
@@ -243,16 +254,16 @@ function welcomeSection(g){
       ${previewing === g.id ? `
         <span class="set-row-sub">Preview, as ${esc((people[0] || {}).name || 'someone')} will get it: <b id="welcome-preview-subject"></b></span>
         <iframe class="sysadmin-preview" id="welcome-preview" title="Welcome email preview" sandbox=""></iframe>` : ''}
-      <span class="set-row-sub">{name}, {group} and {link} are filled in for each person. Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
+      <span class="set-row-sub">{name}, {group} and {link} are filled in for each person.${open ? ' Confirming a claim sends this to that person.' : ''} Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
       <div class="sysadmin-confirm-actions">
-        <button type="button" class="sysadmin-btn" onclick="sysadminWelcome('${g.id}', true)" ${busy || !canTest ? 'disabled' : ''}>Send me a test</button>
+        <button type="button" class="sysadmin-btn" onclick="sysadminWelcome('${g.id}', true)" ${busy || !canTest || !people.length ? 'disabled' : ''}>Send me a test</button>
         <button type="button" class="sysadmin-btn" onclick="sysadminWelcomePreview('${g.id}')">${previewing === g.id ? 'Hide preview' : 'Preview'}</button>
         <button type="button" class="sysadmin-btn" onclick="sysadminWelcomeReset('${g.id}')" ${busy ? 'disabled' : ''}>Reset text</button>
       </div>
-      <button type="button" class="modal-cta" onclick="sysadminWelcome('${g.id}', false)" ${busy ? 'disabled' : ''}>${!fresh.length ? `Send again to all ${people.length}`
+      ${people.length ? `<button type="button" class="modal-cta" onclick="sysadminWelcome('${g.id}', false)" ${busy ? 'disabled' : ''}>${!fresh.length ? `Send again to all ${people.length}`
         : fresh.length === 1 ? `Send to ${esc(fresh[0].name)}`
         : fresh.length === people.length ? `Send to all ${fresh.length}`
-        : `Send to the ${fresh.length} new`}</button>
+        : `Send to the ${fresh.length} new`}</button>` : ''}
     </div>
     ${welcomeNote(g)}`);
 }
@@ -402,11 +413,14 @@ window.sysadminWelcomeReset = groupId => {
 
 const WELCOME_ERRORS = {
   empty: 'Add a subject and a message first.',
+  no_email: 'Their claim has no usable email.',
   bad_drafters: 'Someone on the list has no email or isn’t confirmed any more. Refresh and try again.',
   no_admin_email: 'There’s no email to send your test to.',
   no_key: 'RESEND_API_KEY isn’t set on the worker.',
   unreachable: 'Couldn’t reach Resend.'
 };
+
+const welcomeError = data => WELCOME_ERRORS[data.error] || `Resend said: ${data.detail || data.error || 'error'}.`;
 
 window.sysadminWelcome = (groupId, test) => {
   const group = status.groups.find(g => g.id === groupId);
@@ -419,7 +433,7 @@ window.sysadminWelcome = (groupId, test) => {
     const { ok, data } = await api('/welcome', {
       group: groupId, drafters: target.map(c => c.drafter), subject: draft.subject, body: draft.body, test
     });
-    if(!ok) return WELCOME_ERRORS[data.error] || `Resend said: ${data.detail || data.error || 'error'}.`;
+    if(!ok) return welcomeError(data);
     if(test) return `Test sent to ${status.you}, written as ${target[0].name}.`;
     load();
     return `Sent to ${data.sent} ${data.sent === 1 ? 'person' : 'people'}.`;
@@ -461,6 +475,12 @@ window.sysadminConfirmClaim = (groupId, id) => {
 // Kept as it's typed, so a re-render (busy, an error) doesn't lose the edit.
 window.sysadminConfirmName = value => { if(confirming) confirming.name = value; };
 
+// No re-render: the name being typed keeps its cursor.
+window.sysadminAutoWelcome = on => {
+  autoWelcome = on;
+  try { localStorage.setItem(AUTO_WELCOME_KEY, on ? 'on' : 'off'); } catch (e){}
+};
+
 const CONFIRM_ERRORS = {
   name: 'Add a name first.',
   taken: 'Someone in the group already has that name. Try a last initial.',
@@ -473,13 +493,24 @@ window.sysadminLockIn = (groupId, id) => {
   const name = input ? input.value.trim() : '';
   const group = status.groups.find(g => g.id === groupId);
   if(!name){ notes[`claims:${groupId}`] = CONFIRM_ERRORS.name; render(); return; }
-  if(!confirm(`Add ${name} to ${group.name}? They’ll show up in the app under this name.`)) return;
+  // The welcome email goes with the confirm, as the Welcome email section
+  // has it written right now.
+  const claim = group.claims.find(c => c.id === id);
+  const email = (claim && (claim.email || claim.contact)) || '';
+  const draft = autoWelcome && email && status.platform.secrets.email ? welcomeDraft(group) : null;
+  if(!confirm(`Add ${name} to ${group.name}? They’ll show up in the app under this name${draft ? `, and the welcome email goes to ${email}` : ''}.`)) return;
   act(`claims:${groupId}`, async () => {
-    const { ok, data } = await api('/claims/confirm', { group: groupId, id, name });
+    const { ok, data } = await api('/claims/confirm', {
+      group: groupId, id, name, ...(draft ? { welcome: { subject: draft.subject, body: draft.body } } : {})
+    });
     if(!ok) return CONFIRM_ERRORS[data.error] || `Couldn’t confirm (${data.error || 'error'}).`;
     confirming = null;
     load();
-    return `${data.name} is in ${group.name}.`;
+    const w = data.welcome;
+    const mail = !draft ? ''
+      : w && w.ok ? ` Welcome email sent to ${email}.`
+      : ` The welcome email didn’t send. ${w ? welcomeError(w) : 'The worker needs a deploy first.'} Send it from Welcome email below.`;
+    return `${data.name} is in ${group.name}.${mail}`;
   });
 };
 

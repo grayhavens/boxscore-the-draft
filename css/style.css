@@ -5927,13 +5927,15 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .sysadmin-btns{ display: flex; gap: 6px; flex: none; }
 .sysadmin .set-row.sysadmin-confirm{ flex-direction: column; align-items: stretch; gap: 8px; }
 .sysadmin-confirm-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
-.sysadmin-confirm input{
+.sysadmin-confirm input[type="text"]{
   width: 100%; padding: 10px 12px;
   border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: 16px; font-weight: 700;
 }
 .sysadmin-confirm-actions{ display: flex; gap: 8px; }
+.sysadmin-check{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); font-weight: 700; cursor: pointer; }
+.sysadmin-check input{ width: 18px; height: 18px; margin: 0; accent-color: var(--accent-fill); }
 .sysadmin-refresh{ align-self: flex-start; }
 .sysadmin-pill{ flex: none; padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 700; }
 .sysadmin-pill.ok{ background: var(--win-soft); color: var(--win); }
