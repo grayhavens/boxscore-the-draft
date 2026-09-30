@@ -2642,6 +2642,358 @@ body{
   line-height: 1.45;
 }
 
+/* ---- Commissioner page, desktop (js/admin.js's desk* functions) ----
+   At 900px and up the page is a full-screen shell like the draft room:
+   a sidebar (Draft, then one entry per league) beside one screen at a
+   time, each pane scrolling on its own. Built on the shared tokens, so
+   the light theme follows. */
+#view-admin.admin-desk-on{
+  position: fixed;
+  left: 0; right: 0; top: 0;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  z-index: 190;
+  background: var(--bg);
+}
+#view-admin.admin-desk-on > .page-header{ display: none; }
+#view-admin.admin-desk-on #admin-content{ height: 100%; }
+
+.admin-desk{
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  height: 100%;
+  background: var(--bg);
+}
+.admin-desk.admin-desk-gated{ grid-template-columns: minmax(0, 1fr); }
+.admin-desk [hidden]{ display: none !important; }
+
+.admin-desk-side{
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px 14px;
+  border-right: 1px solid var(--hairline);
+  background: var(--bg);
+  overflow-y: auto;
+}
+.admin-desk-brand{ display: flex; flex-direction: column; gap: 4px; padding: 0 10px; }
+.admin-desk-brand-row{
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--text);
+}
+.admin-desk-brand-row img{ width: 22px; height: 22px; object-fit: contain; }
+.admin-desk-group{ padding-left: 32px; font-size: var(--fs-12); color: var(--text-sub); }
+
+.admin-desk-nav{ display: flex; flex-direction: column; gap: 2px; }
+.admin-desk-nav-label{ padding: 0 12px 8px; }
+.admin-desk-item{
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none; border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-ui) var(--ease-out);
+}
+.admin-desk-nav:first-of-type .admin-desk-item{ padding: 9px 12px; }
+.admin-desk-item:hover{ background: rgba(var(--ink-rgb), 0.04); }
+.admin-desk-item.on{ background: var(--surface-2); }
+.admin-desk-item-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-desk-item-title{ font-size: 14px; font-weight: 700; }
+.admin-desk-item-sub{ font-size: var(--fs-12); color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-desk-swatch{ flex: none; width: 8px; height: 8px; border-radius: 2px; }
+.admin-desk-dot{ flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-mute); }
+.admin-desk-dot.lg{ width: 10px; height: 10px; }
+.admin-desk-dot[data-state="ok"]{ background: var(--win); }
+.admin-desk-dot[data-state="warn"]{ background: var(--accent); }
+.admin-desk-dot[data-state="live"]{ background: var(--live); }
+.admin-desk-locked{ flex: none; font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--win); }
+.admin-desk-foot{
+  margin-top: auto;
+  display: flex; justify-content: space-between;
+  padding: 14px 12px 0;
+  border-top: 1px solid var(--hairline);
+}
+.admin-desk-foot button, .admin-desk-back{
+  padding: 0; border: none; background: none;
+  color: var(--text-sub);
+  font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700;
+  cursor: pointer;
+}
+.admin-desk-foot button:hover, .admin-desk-back:hover{ color: var(--text); }
+
+.admin-desk-main{ min-width: 0; overflow-y: auto; padding: 32px 40px 64px; }
+.admin-desk-inner{ max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+/* Headers: eyebrow, title, a line under it, the main action on the right. */
+.admin-desk-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-desk-titles{ display: flex; flex-direction: column; gap: 6px; }
+.admin-desk-titles h1{
+  margin: 0;
+  font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text);
+}
+.admin-desk-eyebrow, .admin-desk-label, .admin-desk-stat-label, .admin-desk-field-label{
+  font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-mute);
+}
+.admin-desk-eyebrow{ display: flex; align-items: center; gap: 8px; }
+.admin-desk-stat-label{ letter-spacing: 0.08em; }
+.admin-desk-field-label{ letter-spacing: 0.06em; }
+.admin-desk-lede{ max-width: 640px; font-size: 14px; line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+
+.admin-desk-section{ display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.admin-desk-label-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.admin-desk-aside{ font-size: var(--fs-12); color: var(--text-sub); }
+.admin-desk-card{ padding: 18px; border-radius: 14px; background: var(--surface); }
+.admin-desk-stack{ display: flex; flex-direction: column; gap: 14px; }
+.admin-desk-row-card{ display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.admin-desk-card-text{ font-size: 14px; color: var(--text-sub); }
+.admin-desk-note{ font-size: var(--fs-12); line-height: 1.5; color: var(--text-sub); text-wrap: pretty; }
+.admin-desk-section > .admin-gate-error{ padding-left: 4px; }
+
+/* Buttons: ghost (gold-soft, the default), solid gold, outline. */
+.admin-desk-btn{
+  flex: none;
+  padding: 9px 18px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700;
+  cursor: pointer;
+}
+.admin-desk-btn.solid{ border-color: var(--accent-fill); background: var(--accent-fill); color: var(--on-accent); font-weight: 800; }
+.admin-desk-btn.outline{ border-color: var(--hairline-strong); background: transparent; color: var(--text-sub); }
+.admin-desk-btn.lg{ padding: 12px 24px; font-size: 14px; }
+.admin-desk-btn.sm{ padding: 6px 14px; font-size: var(--fs-12); }
+.admin-desk-btn:disabled{ opacity: 0.5; cursor: default; }
+.admin-desk-btns{ display: flex; gap: 8px; flex-wrap: wrap; }
+
+.admin-desk-input, .admin-desk-select{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui); font-size: 14px;
+  outline: none;
+}
+.admin-desk-input:focus, .admin-desk-select:focus{ border-color: var(--accent-border); }
+.admin-desk-input.sm{ padding: 9px 12px; font-size: var(--fs-13); }
+.admin-desk-select{
+  padding: 9px 12px;
+  background-color: var(--surface-2);
+  color: var(--text-sub);
+  font-size: var(--fs-13); font-weight: 600;
+  cursor: pointer;
+}
+
+/* Draft: the status strip. */
+.admin-desk-strip{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  border-radius: 14px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.admin-desk-stat{ display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-right: 1px solid var(--hairline); }
+.admin-desk-stat-value{ font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text); }
+.admin-desk-stat-value[data-state="ok"]{ color: var(--win); }
+.admin-desk-stat-value[data-state="warn"]{ color: var(--accent); }
+.admin-desk-stat-value[data-state="live"]{ color: var(--live); }
+.admin-desk-stat-sub{ font-size: var(--fs-12); color: var(--text-sub); }
+
+.admin-desk-pair{ display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+.admin-desk-poll{ display: flex; flex-direction: column; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+.admin-desk-poll-row{ display: flex; align-items: center; gap: 14px; padding: 12px 14px; }
+.admin-desk-poll-row + .admin-desk-poll-row{ border-top: 1px solid var(--hairline); }
+.admin-desk-poll-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-desk-poll-name{ font-size: 14px; font-weight: 700; }
+.admin-desk-poll-who{ font-size: var(--fs-12); color: var(--text-sub); }
+.admin-desk-pill{
+  flex: none;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(var(--ink-rgb), 0.06);
+  color: var(--text);
+  font-size: var(--fs-12); font-weight: 700;
+  white-space: nowrap;
+}
+.admin-desk-pill[data-state="ok"]{ background: var(--win-soft); color: var(--win); }
+.admin-desk-pill[data-state="warn"]{ background: var(--accent-soft); color: var(--accent); }
+.admin-desk-fields{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.admin-desk-field{ display: flex; flex-direction: column; gap: 6px; }
+.admin-desk-when{ display: flex; flex-direction: column; gap: 2px; }
+.admin-desk-when-time{ font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.admin-desk-when-sub{ font-size: var(--fs-12); font-weight: 700; color: var(--win); }
+
+/* League: lock banner. */
+.admin-desk-lock{ display: flex; align-items: center; gap: 16px; padding: 16px 18px; }
+.admin-desk-lock-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-desk-lock-title{ font-size: var(--fs-15); font-weight: 700; }
+.admin-desk-lock-sub{ font-size: var(--fs-13); color: var(--text-sub); text-wrap: pretty; }
+
+/* League: rules (and the chart) beside the adjustments, stacking when
+   the window is narrow. */
+.admin-desk-body{ display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.admin-desk-body-main{ flex: 1.5 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+
+.admin-desk-rules{ padding: 0; border-top: 3px solid transparent; overflow: hidden; }
+.admin-desk-rule{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 18px; }
+.admin-desk-rule + .admin-desk-rule{ border-top: 1px solid var(--hairline); }
+.admin-desk-rule-main{ flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.admin-desk-rule-head{ display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.admin-desk-pts{
+  min-width: 34px;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-12); font-weight: 800;
+  text-align: center;
+}
+.admin-desk-pts[data-sign="pos"]{ background: var(--win-soft); color: var(--win); }
+.admin-desk-pts[data-sign="neg"]{ background: var(--loss-soft); color: var(--loss); }
+.admin-desk-rule-label{ font-size: 14px; font-weight: 700; }
+.admin-desk-auto{
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(var(--ink-rgb), 0.06);
+  color: var(--text-sub);
+  font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.admin-desk-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-desk-empty{ font-size: var(--fs-13); font-style: italic; color: var(--text-mute); }
+.admin-desk-chip{
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 6px 4px 5px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: var(--fs-13); font-weight: 700;
+}
+.admin-desk-chip-badge, .admin-desk-adj-badge{
+  flex: none;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800;
+  overflow: hidden;
+}
+.admin-desk-chip-badge{ width: 26px; height: 18px; border-radius: 5px; font-size: 9px; }
+.admin-desk-chip-owner{ color: var(--text-sub); font-weight: 600; }
+.admin-desk-chip-x{
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  border: none; border-radius: 50%;
+  background: rgba(var(--ink-rgb), 0.06);
+  color: var(--text-sub);
+  font-size: var(--fs-13); line-height: 1;
+  cursor: pointer;
+}
+.admin-desk-chip-x:hover{ color: var(--text); }
+.admin-desk-rule-side{ flex: 0 1 220px; min-width: 160px; }
+.admin-desk-rule-source{ font-size: var(--fs-12); color: var(--text-mute); }
+
+/* League: points by drafter. */
+.admin-desk-bars{ padding: 8px 18px; }
+.admin-desk-bar-row{ display: grid; grid-template-columns: 90px minmax(0, 1fr) 44px; gap: 12px; align-items: center; padding: 7px 0; --bar: var(--text-mute); }
+.admin-desk-bar-row[data-sign="pos"]{ --bar: var(--win); }
+.admin-desk-bar-row[data-sign="neg"]{ --bar: var(--loss); }
+.admin-desk-bar-name{ font-size: var(--fs-13); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-desk-bar-track{ height: 8px; border-radius: 4px; background: rgba(var(--ink-rgb), 0.05); overflow: hidden; }
+.admin-desk-bar-fill{ display: block; height: 100%; border-radius: 4px; background: var(--bar); }
+.admin-desk-bar-value{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 600; text-align: right; color: var(--bar); }
+
+/* League: point adjustments, beside the rules and staying in view. */
+.admin-desk-adj{ flex: 1 1 360px; min-width: 0; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.admin-desk-adj-card{
+  display: flex; flex-direction: column;
+  max-height: calc(100vh - var(--nav-h) - env(safe-area-inset-bottom) - 100px);
+  padding: 0;
+  overflow: hidden;
+}
+.admin-desk-adj-tools{ display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
+.admin-desk-toggle{
+  flex: none;
+  padding: 8px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.admin-desk-toggle.on{ border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); }
+.admin-desk-adj-list{ overflow-y: auto; padding: 4px 0; overscroll-behavior: contain; }
+.admin-desk-adj-row{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr) 62px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 14px;
+}
+.admin-desk-adj-team{ display: flex; align-items: center; gap: 8px; min-width: 0; }
+.admin-desk-adj-badge{ width: 30px; height: 22px; border-radius: 6px; font-size: var(--fs-10); }
+.admin-desk-adj-text{ display: flex; flex-direction: column; min-width: 0; }
+.admin-desk-adj-name{ font-size: var(--fs-13); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-desk-adj-owner{ font-size: var(--fs-11); color: var(--text-sub); }
+.admin-desk-adj-pts, .admin-desk-adj-note{
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui); font-size: var(--fs-13);
+  outline: none;
+}
+.admin-desk-adj-pts{ padding: 8px; text-align: center; font-weight: 700; }
+.admin-desk-adj-pts:focus, .admin-desk-adj-note:focus{ border-color: var(--accent-border); }
+.admin-desk-adj-pts[data-sign="pos"]{ color: var(--win); }
+.admin-desk-adj-pts[data-sign="neg"]{ color: var(--loss); }
+.admin-desk-adj-pts[data-saved="pos"]{ border-color: color-mix(in srgb, var(--win) 40%, transparent); }
+.admin-desk-adj-pts[data-saved="neg"]{ border-color: color-mix(in srgb, var(--loss) 40%, transparent); }
+.admin-desk-adj-state{ display: flex; justify-content: center; }
+.admin-desk-adj-state .admin-desk-btn{ width: 100%; padding: 7px 0; }
+.admin-desk-adj-saved{ font-size: var(--fs-12); font-weight: 700; color: var(--win); }
+.admin-desk-adj-none{ font-size: var(--fs-12); font-weight: 700; color: var(--text-mute); }
+.admin-desk-adj-empty{ padding: 18px 14px; font-size: var(--fs-13); color: var(--text-mute); }
+
+/* Password gate, centered in the main pane (no sidebar until unlocked). */
+.admin-desk-gate{
+  max-width: 360px;
+  min-height: 100%;
+  margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 16px;
+}
+.admin-desk-gate .admin-desk-brand{ align-items: center; }
+.admin-desk-gate-card{ display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.admin-desk-gate .admin-gate-input{ background: var(--bg); }
+.admin-desk-back{ align-self: center; }
+
+/* The corner confirmation after a write (desktop only). */
+.admin-toast{
+  position: fixed;
+  right: 24px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
+  z-index: 400;
+  max-width: 380px;
+  padding: 14px 18px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  color: var(--text);
+  font-family: var(--font-ui); font-size: 14px; font-weight: 600;
+}
+.admin-toast[hidden]{ display: none; }
+.admin-toast.error{ border-color: color-mix(in srgb, var(--loss) 45%, transparent); }
+
 /* ---- Live data additions ---- */
 
 /* Modal-head season-phase badge (see seasonStatus/renderSeasonBadge in

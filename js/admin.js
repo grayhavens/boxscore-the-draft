@@ -10,6 +10,11 @@
    and Log out here signs the room out as well, since it reads the same
    saved password.
 
+   Two layouts over the same state and writes: on a desktop window
+   (DESK_MQ) a sidebar shell with Draft and one entry per league, each
+   its own screen (the desk* functions below); under that, the phone
+   column with a Draft/Scoring switch and league chips.
+
    Draft section: status, read from the worker's GET /draft/status
    (no socket), a way into the room, and the live draft's start time
    (PUT /draft/schedule), which every drafter's Home counts down to. Before that, a draft time poll
@@ -27,10 +32,10 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml, draftOwnerName } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
-import { withGroupQuery } from './group.js';
-import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
+import { withGroupQuery, ACTIVE_GROUP } from './group.js';
+import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment, getLeagueRuleTeams, addLeagueFact, removeLeagueFact, ruleAutoNote, ruleDataPending, leagueDrafterPoints } from './league-facts.js';
 import { LEAGUE_FULL_LABELS } from './board.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
@@ -60,17 +65,29 @@ let verifying = false;
 let errorMsg = '';
 let autoVerifyTried = false;
 
-// Which league this page is isolated to — a per-league chip row like the
-// Standings tab (js/board.js's standingsFilterKey), but with no "All"
-// option: every league's rules + team adjustments stacked together is a
-// lot to render at once (each rankAuto rule reads a live standings
-// table), so only one league is ever rendered here. Not persisted/
-// URL-mirrored — resets to the first league each time the page is opened.
-let adminFilterKey = LEAGUES[0].key;
+// Desktop windows get the sidebar layout; phones keep the one column.
+const DESK_MQ = window.matchMedia('(min-width: 900px)');
+DESK_MQ.addEventListener('change', () => renderAdminPage());
+const isDesk = () => DESK_MQ.matches;
 
-// Which section is showing. Kept for the session, so coming back from
-// the draft room lands where you left.
-let adminSection = 'draft';
+// What's showing: 'draft' or a league key. One league at a time — every
+// league's rules + team adjustments stacked together is a lot to render
+// at once (each rankAuto rule reads a live standings table). Kept for
+// the session, so coming back from the draft room lands where you left.
+// lastLeague is the league the phone layout's Scoring switch returns to.
+let selected = 'draft';
+let lastLeague = LEAGUES[0].key;
+
+// Desktop point adjustments: rows being edited (kept across re-renders,
+// such as the facts GET landing, until saved), the filter text and the
+// "Adjusted only" toggle. The last two reset when the league changes.
+let adjEdits = {};
+let adjFilter = '';
+let adjOnly = false;
+
+// Set when the desktop main pane should start at the top on the next
+// render (a different screen was picked).
+let resetDeskScroll = false;
 
 // The live room's GET /draft/status, refetched each time the Draft
 // section is shown. null until the first answer; draftStatusError when
@@ -79,16 +96,24 @@ let draftStatus = null;
 let draftStatusError = false;
 let draftStatusLoading = false;
 
-window.setAdminFilter = function(key){
-  adminFilterKey = key;
+window.selectAdmin = function(key){
+  if(key === selected) return;
+  selected = key;
+  if(key === 'draft'){
+    loadDraftStatus();
+  } else {
+    lastLeague = key;
+    adjFilter = '';
+    adjOnly = false;
+  }
+  resetDeskScroll = true;
   renderAdminPage();
 };
 
+// The phone layout's league chips and Draft/Scoring switch.
+window.setAdminFilter = window.selectAdmin;
 window.setAdminSection = function(key){
-  if(key === adminSection) return;
-  adminSection = key;
-  if(key === 'draft') loadDraftStatus();
-  renderAdminPage();
+  window.selectAdmin(key === 'draft' ? 'draft' : lastLeague);
 };
 
 async function loadDraftStatus(){
@@ -126,7 +151,8 @@ async function putDraftRoom(what, body){
   return '';
 }
 
-async function saveDraftSchedule(scheduledAt){
+// `done` is the desktop toast once it saved.
+async function saveDraftSchedule(scheduledAt, done){
   if(scheduleSaving) return;
   scheduleSaving = true;
   scheduleError = '';
@@ -134,9 +160,10 @@ async function saveDraftSchedule(scheduledAt){
   scheduleError = await putDraftRoom('schedule', { scheduledAt });
   scheduleSaving = false;
   renderAdminPage();
+  if(!scheduleError) toast(done);
 }
 
-async function saveDraftPoll(options){
+async function saveDraftPoll(options, done){
   if(pollSaving) return;
   pollSaving = true;
   pollError = '';
@@ -144,6 +171,7 @@ async function saveDraftPoll(options){
   pollError = await putDraftRoom('poll', { options });
   pollSaving = false;
   renderAdminPage();
+  if(!pollError) toast(done);
 }
 
 window.saveAdminDraftPoll = function(){
@@ -158,17 +186,17 @@ window.saveAdminDraftPoll = function(){
     renderAdminPage();
     return;
   }
-  saveDraftPoll(options);
+  saveDraftPoll(options, draftStatus && draftStatus.poll ? 'Poll times saved.' : 'Poll is open on everyone’s Home.');
 };
 
 window.removeAdminDraftPoll = function(){
-  if(window.confirm('Remove the poll and everyone’s answers?')) saveDraftPoll(null);
+  if(window.confirm('Remove the poll and everyone’s answers?')) saveDraftPoll(null, 'Poll removed.');
 };
 
 // Make one of the poll's times the draft time. That closes the poll on
 // Home; the answers stay here.
 window.useAdminPollTime = function(at){
-  saveDraftSchedule(at);
+  saveDraftSchedule(at, `Draft time set to ${whenLabel(at)}. The poll closes on Home.`);
 };
 
 window.saveAdminDraftSchedule = function(){
@@ -179,11 +207,11 @@ window.saveAdminDraftSchedule = function(){
     renderAdminPage();
     return;
   }
-  saveDraftSchedule(at);
+  saveDraftSchedule(at, 'Draft time saved. Everyone with alerts on was notified.');
 };
 
 window.clearAdminDraftSchedule = function(){
-  saveDraftSchedule(null);
+  saveDraftSchedule(null, 'Draft time cleared.');
 };
 
 function isActive(){
@@ -201,7 +229,7 @@ export async function verifyAdminPassword(password){
   if(ok){
     saveAdminPassword(password);
     unlocked = true;
-    if(adminSection === 'draft') loadDraftStatus();
+    if(selected === 'draft') loadDraftStatus();
   } else {
     errorMsg = status === 401 ? 'Incorrect password' : 'Could not reach the server — try again';
   }
@@ -315,7 +343,7 @@ function leagueSectionHtml(league){
 function filterChipsHtml(){
   const chipsHtml = LEAGUES.map(l => {
     const label = FILTER_CHIP_LABELS[l.key] || l.label;
-    return `<div class="filter-chip ${l.key === adminFilterKey ? 'active' : ''}" onclick="setAdminFilter('${l.key}')">${label}</div>`;
+    return `<div class="filter-chip ${l.key === lastLeague ? 'active' : ''}" onclick="setAdminFilter('${l.key}')">${label}</div>`;
   }).join('');
   return `<div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>`;
 }
@@ -462,8 +490,8 @@ function scheduleEditorHtml(scheduledAt){
 }
 
 function unlockedHtml(){
-  const shownLeague = LEAGUES.find(l => l.key === adminFilterKey) || LEAGUES[0];
-  const body = adminSection === 'draft'
+  const shownLeague = LEAGUES.find(l => l.key === lastLeague) || LEAGUES[0];
+  const body = selected === 'draft'
     ? draftSectionHtml()
     : `${filterChipsHtml()}${leagueSectionHtml(shownLeague)}`;
   return `
@@ -471,9 +499,574 @@ function unlockedHtml(){
       <button class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
-    ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'scoring', label: 'Scoring' }], adminSection, 'setAdminSection')}
+    ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'scoring', label: 'Scoring' }], selected === 'draft' ? 'draft' : 'scoring', 'setAdminSection')}
     ${body}
   `;
+}
+
+// ============================================================
+// Desktop layout: a sidebar (Draft, then one entry per league) beside
+// one screen at a time. Same state and writes as the phone column above.
+// ============================================================
+
+const whenLabel = at => `${scheduleDateLabel(at)} · ${scheduleTimeLabel(at)}`;
+const signed = n => n > 0 ? `+${n}` : (n < 0 ? `−${Math.abs(n)}` : '0');
+const signState = n => n > 0 ? 'pos' : (n < 0 ? 'neg' : 'zero');
+const leagueChip = league => FILTER_CHIP_LABELS[league.key] || league.label;
+const leagueName = league => LEAGUE_FULL_LABELS[league.key] || league.label;
+// Drafted teams only: favoriteOnly teams (js/data.js) have no owner and
+// never score, so they're never marked or adjusted.
+const draftedTeams = league => league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly);
+const manualRules = league => LEAGUE_SCORING[league.key].rules.filter(r => !r.rankAuto);
+const markedCount = league => manualRules(league).reduce((n, r) => n + (getLeagueRuleTeams(league.key, r) || []).length, 0);
+const hasAutoRules = league => LEAGUE_SCORING[league.key].rules.some(r => r.rankAuto);
+
+// A confirmation in the corner after each write, desktop only. Lives on
+// <body>, outside #admin-content, so a re-render doesn't cut it short.
+let toastTimer = null;
+function toast(msg, isError){
+  if(!msg || !isDesk()) return;
+  let el = document.getElementById('admin-toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'admin-toast';
+    el.className = 'admin-toast';
+    el.setAttribute('role', 'status');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.toggle('error', !!isError);
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+// A write that saved locally but didn't reach the shared store.
+function toastIfUnsynced(synced){
+  Promise.resolve(synced).then(ok => {
+    if(ok === false) toast("Saved on this device only: it didn't sync. Check you're still signed in.", true);
+  });
+}
+
+window.adminMarkTeam = function(leagueKey, ruleIndex, teamKey){
+  const rule = LEAGUE_SCORING[leagueKey].rules[ruleIndex];
+  if(!rule || !teamKey) return;
+  const synced = addLeagueFact(leagueKey, rule.label, teamKey);
+  toast(`${TEAM_META[teamKey].name} marked: ${rule.label}. ${draftOwnerName(teamKey)} ${signed(rule.pts)}.`);
+  toastIfUnsynced(synced);
+};
+
+window.adminUnmarkTeam = function(leagueKey, ruleIndex, teamKey){
+  const rule = LEAGUE_SCORING[leagueKey].rules[ruleIndex];
+  if(!rule) return;
+  const synced = removeLeagueFact(leagueKey, rule.label, teamKey);
+  toast(`Removed ${TEAM_META[teamKey].name} from ${rule.label}.`);
+  toastIfUnsynced(synced);
+};
+
+window.adminLockLeague = function(leagueKey){
+  const league = LEAGUES.find(l => l.key === leagueKey);
+  forceLockLeague(leagueKey);
+  // lockLeague quietly refuses a league still showing last season.
+  if(isLeagueLocked(leagueKey)) toast(`${leagueChip(league)} locked. Standings rules are frozen.`);
+  else toast(`Couldn't lock ${leagueChip(league)}: its live standings aren't this season's yet.`, true);
+};
+
+window.adminUnlockLeague = function(leagueKey){
+  const league = LEAGUES.find(l => l.key === leagueKey);
+  unlockLeague(leagueKey);
+  toast(`${leagueChip(league)} unlocked. Standings rules are live again.`);
+};
+
+// ---- Point adjustments (desktop) ----
+
+function savedAdjustment(teamKey){
+  return currentLeagueAdjustments(TEAM_META[teamKey].leagueKey)[teamKey] || { pts: 0, note: '' };
+}
+
+function adjCurrent(teamKey){
+  const saved = savedAdjustment(teamKey);
+  return adjEdits[teamKey] || { pts: saved.pts ? String(saved.pts) : '', note: saved.note || '' };
+}
+
+function adjDirty(teamKey){
+  const edit = adjEdits[teamKey];
+  if(!edit) return false;
+  const saved = savedAdjustment(teamKey);
+  return (parseInt(edit.pts, 10) || 0) !== (saved.pts || 0) || edit.note.trim() !== (saved.note || '');
+}
+
+function adjStateHtml(teamKey){
+  if(adjDirty(teamKey)) return `<button type="button" class="admin-desk-btn solid sm" onclick="saveAdminAdj('${teamKey}')">Save</button>`;
+  return savedAdjustment(teamKey).pts ? '<span class="admin-desk-adj-saved">Saved</span>' : '<span class="admin-desk-adj-none">—</span>';
+}
+
+// Typing updates the row in place (no re-render), so the input keeps
+// focus.
+window.editAdminAdj = function(teamKey){
+  const ptsEl = document.getElementById(`admin-adj-pts-${teamKey}`);
+  const noteEl = document.getElementById(`admin-adj-note-${teamKey}`);
+  if(!ptsEl || !noteEl) return;
+  adjEdits[teamKey] = { pts: ptsEl.value, note: noteEl.value };
+  ptsEl.dataset.sign = signState(parseInt(ptsEl.value, 10) || 0);
+  const state = document.getElementById(`admin-adj-state-${teamKey}`);
+  if(state) state.innerHTML = adjStateHtml(teamKey);
+};
+
+window.adjKeydown = function(event, teamKey){
+  if(event.key === 'Enter' && adjDirty(teamKey)) window.saveAdminAdj(teamKey);
+};
+
+window.saveAdminAdj = function(teamKey){
+  const cur = adjCurrent(teamKey);
+  const pts = parseInt(cur.pts, 10) || 0;
+  const note = cur.note.trim();
+  delete adjEdits[teamKey];
+  const synced = setTeamAdjustment(teamKey, pts, note);
+  const name = TEAM_META[teamKey].name;
+  toast(!pts && !note ? `Cleared ${name}’s adjustment.` : `${name} ${signed(pts)} saved for ${draftOwnerName(teamKey)}.`);
+  toastIfUnsynced(synced);
+};
+
+// The filter hides rows in place, for the same reason as editAdminAdj.
+window.filterAdminAdj = function(value){
+  adjFilter = value;
+  applyAdjFilter();
+};
+
+function applyAdjFilter(){
+  const list = document.querySelector('.admin-desk-adj-list');
+  if(!list) return;
+  const q = adjFilter.trim().toLowerCase();
+  let shown = 0;
+  list.querySelectorAll('.admin-desk-adj-row').forEach(row => {
+    const match = !q || row.dataset.q.includes(q);
+    row.hidden = !match;
+    if(match) shown++;
+  });
+  const empty = list.querySelector('.admin-desk-adj-empty');
+  if(empty) empty.hidden = shown > 0;
+}
+
+window.toggleAdminAdjOnly = function(){
+  adjOnly = !adjOnly;
+  renderAdminPage();
+};
+
+// ---- Sidebar ----
+
+function deskDraftNav(){
+  const st = draftStatus;
+  if(!st) return { sub: draftStatusError ? 'Couldn’t reach the room' : 'Checking…', dot: '' };
+  if(st.phase === 'draft'){
+    const pick = st.slot === null ? '' : ` · pick ${st.slot + 1} of ${st.total}`;
+    return { sub: `${st.running ? 'Live' : 'Paused'}${pick}`, dot: st.running ? 'live' : 'warn' };
+  }
+  if(st.phase === 'done') return { sub: 'Complete', dot: 'ok' };
+  if(st.scheduledAt) return { sub: `Set · ${scheduleDateLabel(st.scheduledAt)}`, dot: 'ok' };
+  return { sub: 'Lobby · time not set', dot: 'warn' };
+}
+
+function deskSideHtml(){
+  const draft = deskDraftNav();
+  const leagues = LEAGUES.filter(l => LEAGUE_SCORING[l.key]).map(league => {
+    const marked = markedCount(league);
+    const adjustments = currentLeagueAdjustments(league.key);
+    const adjusted = draftedTeams(league).filter(teamKey => adjustments[teamKey]).length;
+    const sub = [marked ? `${marked} marked` : 'Nothing marked', adjusted ? `${adjusted} adj` : ''].filter(Boolean).join(' · ');
+    return `
+      <button type="button" class="admin-desk-item${selected === league.key ? ' on' : ''}" onclick="selectAdmin('${league.key}')">
+        <span class="admin-desk-swatch" style="background:${LEAGUE_SCORING[league.key].accent};"></span>
+        <span class="admin-desk-item-text">
+          <span class="admin-desk-item-title">${leagueName(league)}</span>
+          <span class="admin-desk-item-sub">${sub}</span>
+        </span>
+        ${isLeagueLocked(league.key) ? '<span class="admin-desk-locked">Locked</span>' : ''}
+      </button>`;
+  }).join('');
+  return `
+    <aside class="admin-desk-side">
+      ${deskBrandHtml(true)}
+      <nav class="admin-desk-nav">
+        <button type="button" class="admin-desk-item${selected === 'draft' ? ' on' : ''}" onclick="selectAdmin('draft')">
+          <span class="admin-desk-dot"${draft.dot ? ` data-state="${draft.dot}"` : ''}></span>
+          <span class="admin-desk-item-text">
+            <span class="admin-desk-item-title">Draft</span>
+            <span class="admin-desk-item-sub">${draft.sub}</span>
+          </span>
+        </button>
+      </nav>
+      <nav class="admin-desk-nav">
+        <div class="admin-desk-label admin-desk-nav-label">Scoring</div>
+        ${leagues}
+      </nav>
+      <div class="admin-desk-foot">
+        <button type="button" onclick="backToSettings()">‹ Settings</button>
+        <button type="button" onclick="logoutAdmin()">Log out</button>
+      </div>
+    </aside>`;
+}
+
+function deskBrandHtml(withGroup){
+  return `
+    <div class="admin-desk-brand">
+      <div class="admin-desk-brand-row"><img src="icons/logo-header.png" alt=""><span>Commissioner</span></div>
+      ${withGroup ? `<span class="admin-desk-group">${escapeHtml(ACTIVE_GROUP.name)}</span>` : ''}
+    </div>`;
+}
+
+// A section label, with an optional note on the right.
+function deskLabelRow(label, aside){
+  return `<div class="admin-desk-label-row"><div class="admin-desk-label">${label}</div>${aside ? `<span class="admin-desk-aside">${aside}</span>` : ''}</div>`;
+}
+
+// ---- Draft screen ----
+
+function deskDraftHtml(){
+  const title = `The ${NEXT_DRAFT_LABEL} Draft`;
+  const st = draftStatus;
+  if(!st){
+    const body = draftStatusError
+      ? `<div class="admin-desk-card admin-desk-row-card">
+           <span class="admin-desk-card-text">Couldn’t reach the draft room.</span>
+           <button type="button" class="admin-desk-btn" onclick="loadAdminDraftStatus()">Try again</button>
+         </div>`
+      : '<div class="admin-desk-card"><span class="admin-desk-card-text">Checking the draft room…</span></div>';
+    return `
+      <div class="admin-desk-head"><div class="admin-desk-titles"><div class="admin-desk-eyebrow">Draft</div><h1>${title}</h1></div></div>
+      ${body}`;
+  }
+
+  // Each cell: label, value (state picks its color), sub-line. Rows an
+  // older worker doesn't send (poolSize/ordered/scheduledAt) stay out.
+  const cells = [];
+  if(st.phase === 'draft'){
+    const where = st.slot === null ? 'Waiting on the first pick' : `Round ${Math.floor(st.slot / st.drafters) + 1}, pick ${st.slot + 1} of ${st.total}`;
+    cells.push(['Status', st.running ? 'Live' : 'Paused', st.running ? 'live' : 'warn', where]);
+  } else if(st.phase === 'done'){
+    cells.push(['Status', 'Complete', 'ok', 'Every pick is in']);
+  } else {
+    cells.push(['Status', 'In the lobby', '', 'Nobody drafting yet']);
+  }
+  if(typeof st.poolSize === 'number'){
+    cells.push(st.poolSize ? ['Team pool', `${st.poolSize} teams`, 'ok', 'Loaded'] : ['Team pool', 'Not loaded', 'warn', 'Load it in the lobby']);
+  }
+  if(typeof st.ordered === 'boolean'){
+    cells.push(st.ordered ? ['Lottery', 'Order locked', 'ok', 'Draft order is set'] : ['Lottery', 'Not run', 'warn', 'Run it from the lobby']);
+  }
+  cells.push(['Drafters', String(st.drafters), '', `${st.total} picks`]);
+  if('scheduledAt' in st){
+    const sub = st.scheduledAt ? 'On everyone’s Home' : (st.poll ? 'Poll is open' : 'No poll yet');
+    cells.push(['Scheduled', st.scheduledAt ? whenLabel(st.scheduledAt) : 'Not set', st.scheduledAt ? 'ok' : 'warn', sub]);
+  }
+  const strip = cells.map(([label, value, state, sub]) => `
+    <div class="admin-desk-stat">
+      <span class="admin-desk-stat-label">${label}</span>
+      <span class="admin-desk-stat-value"${state ? ` data-state="${state}"` : ''}>${value}</span>
+      <span class="admin-desk-stat-sub">${sub}</span>
+    </div>`).join('');
+
+  const cta = st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby');
+  const note = st.phase === 'lobby'
+    ? "Load the team pool, set the pick clock, run the lottery and start the draft from the lobby. You're signed in there as commissioner."
+    : "You're signed in there as commissioner: pause, undo, trade, change picks and download the board from the bar under the header.";
+  const editors = st.phase === 'draft' ? '' : `
+    <div class="admin-desk-pair">
+      ${'poll' in st ? deskPollHtml(st.poll, st.scheduledAt) : ''}
+      ${'scheduledAt' in st ? deskScheduleHtml(st.scheduledAt) : ''}
+    </div>`;
+
+  return `
+    <div class="admin-desk-head">
+      <div class="admin-desk-titles">
+        <div class="admin-desk-eyebrow">Draft</div>
+        <h1>${title}</h1>
+        <div class="admin-desk-lede">${note}</div>
+      </div>
+      <button type="button" class="admin-desk-btn solid lg" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
+    </div>
+    <div class="admin-desk-strip">${strip}</div>
+    ${editors}`;
+}
+
+function deskPollHtml(poll, scheduledAt){
+  const roster = DRAFT_TEAMS.filter(d => !d.open);
+  let results = '';
+  let answered = '';
+  if(poll){
+    // Unclaimed roster spots can't answer, so they aren't listed as waiting.
+    const tally = pollTally(poll, roster.map(d => d.id));
+    const names = ids => ids.map(id => escapeHtml(roster.find(d => d.id === id).name)).join(', ');
+    const most = Math.max(...tally.options.map(o => o.voters.length));
+    const row = (name, who, side) => `
+      <div class="admin-desk-poll-row">
+        <span class="admin-desk-poll-text"><span class="admin-desk-poll-name">${name}</span><span class="admin-desk-poll-who">${who}</span></span>
+        ${side}
+      </div>`;
+    const pill = (text, state) => `<span class="admin-desk-pill"${state ? ` data-state="${state}"` : ''}>${text}</span>`;
+    results = `<div class="admin-desk-poll">
+      ${tally.options.map(o => row(
+        whenLabel(o.at),
+        o.voters.length ? names(o.voters) : 'Nobody yet',
+        `${pill(`${o.voters.length} of ${roster.length}`, most && o.voters.length === most ? 'ok' : '')}
+         ${o.at === scheduledAt
+           ? pill('Set', 'ok')
+           : `<button type="button" class="admin-desk-btn sm" onclick="useAdminPollTime(${o.at})"${scheduleSaving ? ' disabled' : ''}>Use</button>`}`
+      )).join('')}
+      ${tally.none.length ? row('None of these work', names(tally.none), pill(tally.none.length)) : ''}
+      ${tally.waiting.length ? row('Haven’t answered', names(tally.waiting), pill(tally.waiting.length, 'warn')) : ''}
+    </div>`;
+    answered = `${roster.length - tally.waiting.length} of ${roster.length} answered`;
+  }
+  const inputs = [];
+  for(let i = 0; i < POLL_MAX_OPTIONS; i++){
+    const at = poll && poll.options[i];
+    inputs.push(`
+      <label class="admin-desk-field">
+        <span class="admin-desk-field-label">Option ${i + 1}</span>
+        <input type="datetime-local" id="admin-poll-when-${i}" class="admin-desk-input" value="${at ? toLocalInputValue(at) : ''}">
+      </label>`);
+  }
+  let note = 'Offer two or three times. Home asks every drafter which ones they can make, until you set the draft time.';
+  if(poll){
+    note = scheduledAt
+      ? 'A draft time is set, so Home shows that instead of the poll. Clear it to reopen voting.'
+      : 'Open on everyone’s Home. Use sets that time as the draft time and closes the poll. Changing a time drops the answers that only named it.';
+  }
+  return `
+    <section class="admin-desk-section">
+      ${deskLabelRow('Draft time poll', answered)}
+      <div class="admin-desk-card admin-desk-stack">
+        ${results}
+        <div class="admin-desk-fields">${inputs.join('')}</div>
+        <div class="admin-desk-btns">
+          <button type="button" class="admin-desk-btn solid" onclick="saveAdminDraftPoll()"${pollSaving ? ' disabled' : ''}>${pollSaving ? 'Saving…' : (poll ? 'Save times' : 'Start poll')}</button>
+          ${poll ? `<button type="button" class="admin-desk-btn outline" onclick="removeAdminDraftPoll()"${pollSaving ? ' disabled' : ''}>Remove poll</button>` : ''}
+        </div>
+        <span class="admin-desk-note">${note}</span>
+      </div>
+      ${pollError ? `<div class="admin-gate-error">${pollError}</div>` : ''}
+    </section>`;
+}
+
+function deskScheduleHtml(scheduledAt){
+  return `
+    <section class="admin-desk-section">
+      ${deskLabelRow('Draft time')}
+      <div class="admin-desk-card admin-desk-stack">
+        ${scheduledAt ? `
+          <div class="admin-desk-when">
+            <span class="admin-desk-when-time">${whenLabel(scheduledAt)}</span>
+            <span class="admin-desk-when-sub">Counting down on everyone’s Home</span>
+          </div>` : ''}
+        <input type="datetime-local" id="admin-draft-when" class="admin-desk-input" aria-label="Draft time" value="${scheduledAt ? toLocalInputValue(scheduledAt) : ''}">
+        <div class="admin-desk-btns">
+          <button type="button" class="admin-desk-btn solid" onclick="saveAdminDraftSchedule()"${scheduleSaving ? ' disabled' : ''}>${scheduleSaving ? 'Saving…' : 'Save'}</button>
+          ${scheduledAt ? `<button type="button" class="admin-desk-btn outline" onclick="clearAdminDraftSchedule()"${scheduleSaving ? ' disabled' : ''}>Clear</button>` : ''}
+        </div>
+        <span class="admin-desk-note">Shows on everyone's Home with a countdown until the draft starts, and everyone with alerts on gets a notification when you set or change it. Times are in your time zone; each drafter sees their own.</span>
+      </div>
+      ${scheduleError ? `<div class="admin-gate-error">${scheduleError}</div>` : ''}
+    </section>`;
+}
+
+// ---- League screen ----
+
+function deskBadgeHtml(teamKey, cls){
+  const meta = TEAM_META[teamKey];
+  return `<span class="${cls}" style="${meta.badgeStyle}">${meta.badgeText}</span>`;
+}
+
+function deskRuleRowHtml(league, rule, index){
+  const teams = getLeagueRuleTeams(league.key, rule) || [];
+  const auto = !!rule.rankAuto;
+  const chips = teams.map(teamKey => `
+    <span class="admin-desk-chip">
+      ${deskBadgeHtml(teamKey, 'admin-desk-chip-badge')}
+      ${TEAM_META[teamKey].name}<span class="admin-desk-chip-owner">${draftOwnerName(teamKey)}</span>
+      ${auto ? '' : `<button type="button" class="admin-desk-chip-x" onclick="adminUnmarkTeam('${league.key}', ${index}, '${teamKey}')" aria-label="Remove ${TEAM_META[teamKey].name}">×</button>`}
+    </span>`).join('');
+  const empty = auto ? (ruleDataPending(league.key, rule) ? 'Pending' : 'Nobody right now') : 'Not marked yet';
+  const side = auto
+    ? `<span class="admin-desk-rule-source">${ruleAutoNote(rule)} · ${isLeagueLocked(league.key) ? 'frozen' : 'live'}</span>`
+    : `<select class="admin-desk-select" aria-label="Mark a team: ${escapeHtml(rule.label)}" onchange="if(this.value){ adminMarkTeam('${league.key}', ${index}, this.value); this.value=''; }">
+        <option value="">+ Mark a team…</option>
+        ${draftedTeams(league).filter(teamKey => !teams.includes(teamKey)).map(teamKey => `<option value="${teamKey}">${TEAM_META[teamKey].name} — ${draftOwnerName(teamKey)}</option>`).join('')}
+      </select>`;
+  return `
+    <div class="admin-desk-rule">
+      <div class="admin-desk-rule-main">
+        <div class="admin-desk-rule-head">
+          <span class="admin-desk-pts" data-sign="${rule.pts >= 0 ? 'pos' : 'neg'}">${signed(rule.pts)}</span>
+          <span class="admin-desk-rule-label">${rule.label}</span>
+          ${auto ? '<span class="admin-desk-auto">Auto</span>' : ''}
+        </div>
+        <div class="admin-desk-chips">${chips || `<span class="admin-desk-empty">${empty}</span>`}</div>
+      </div>
+      <div class="admin-desk-rule-side">${side}</div>
+    </div>`;
+}
+
+function deskLockHtml(league){
+  if(!hasAutoRules(league)) return '';
+  const locked = isLeagueLocked(league.key);
+  const at = locked && lockedAtFor(league.key);
+  return `
+    <div class="admin-desk-card admin-desk-lock">
+      <span class="admin-desk-dot lg" data-state="${locked ? 'ok' : 'warn'}"></span>
+      <div class="admin-desk-lock-text">
+        <span class="admin-desk-lock-title">${locked ? `Regular season locked in${at ? ` — ${formatDateShort(at)}` : ''}` : 'Regular season still live'}</span>
+        <span class="admin-desk-lock-sub">${locked ? 'Standings-based rules are frozen, not live.' : 'Standings-based rules lock automatically once ESPN confirms the regular season is over.'}</span>
+      </div>
+      ${locked
+        ? `<button type="button" class="admin-desk-btn" onclick="adminUnlockLeague('${league.key}')">Unlock</button>`
+        : `<button type="button" class="admin-desk-btn" onclick="adminLockLeague('${league.key}')">Force lock</button>`}
+    </div>`;
+}
+
+function deskByDrafterHtml(league){
+  const rows = leagueDrafterPoints(league.key);
+  if(!rows.some(r => r.pts !== 0)) return '';
+  const max = Math.max(1, ...rows.map(r => Math.abs(r.pts)));
+  const bars = rows.sort((a, b) => b.pts - a.pts).map(r => `
+    <div class="admin-desk-bar-row" data-sign="${signState(r.pts)}">
+      <span class="admin-desk-bar-name">${escapeHtml(r.name)}</span>
+      <span class="admin-desk-bar-track"><span class="admin-desk-bar-fill" style="width:${Math.round(Math.abs(r.pts) / max * 100)}%;"></span></span>
+      <span class="admin-desk-bar-value">${signed(r.pts)}</span>
+    </div>`).join('');
+  return `
+    <section class="admin-desk-section">
+      ${deskLabelRow(`${leagueChip(league)} points by drafter`, 'Rules + adjustments')}
+      <div class="admin-desk-card admin-desk-bars">${bars}</div>
+    </section>`;
+}
+
+function deskAdjustmentsHtml(league){
+  const adjustments = currentLeagueAdjustments(league.key);
+  const teams = draftedTeams(league);
+  const adjusted = teams.filter(teamKey => adjustments[teamKey]);
+  const net = adjusted.reduce((n, teamKey) => n + (adjustments[teamKey].pts || 0), 0);
+  const q = adjFilter.trim().toLowerCase();
+  let shown = 0;
+  const rows = teams.filter(teamKey => !adjOnly || adjustments[teamKey]).map(teamKey => {
+    const meta = TEAM_META[teamKey];
+    const owner = draftOwnerName(teamKey);
+    const haystack = `${meta.name} ${owner}`.toLowerCase();
+    const match = !q || haystack.includes(q);
+    if(match) shown++;
+    const saved = adjustments[teamKey];
+    const cur = adjCurrent(teamKey);
+    return `
+      <div class="admin-desk-adj-row" data-q="${escapeHtml(haystack)}"${match ? '' : ' hidden'}>
+        <div class="admin-desk-adj-team">
+          ${deskBadgeHtml(teamKey, 'admin-desk-adj-badge')}
+          <span class="admin-desk-adj-text"><span class="admin-desk-adj-name">${meta.name}</span><span class="admin-desk-adj-owner">${owner}</span></span>
+        </div>
+        <input type="number" id="admin-adj-pts-${teamKey}" class="admin-desk-adj-pts" aria-label="${meta.name} points" data-sign="${signState(parseInt(cur.pts, 10) || 0)}"${saved && saved.pts ? ` data-saved="${signState(saved.pts)}"` : ''} value="${escapeHtml(cur.pts)}" placeholder="0" oninput="editAdminAdj('${teamKey}')" onkeydown="adjKeydown(event, '${teamKey}')">
+        <input type="text" id="admin-adj-note-${teamKey}" class="admin-desk-adj-note" aria-label="${meta.name} note" value="${escapeHtml(cur.note)}" placeholder="Why?" oninput="editAdminAdj('${teamKey}')" onkeydown="adjKeydown(event, '${teamKey}')">
+        <span class="admin-desk-adj-state" id="admin-adj-state-${teamKey}">${adjStateHtml(teamKey)}</span>
+      </div>`;
+  }).join('');
+  return `
+    <div class="admin-desk-adj">
+      ${deskLabelRow('Point adjustments', adjusted.length ? `${adjusted.length} adjusted · net ${signed(net)}` : 'None yet')}
+      <div class="admin-desk-card admin-desk-adj-card">
+        <div class="admin-desk-adj-tools">
+          <input type="text" id="admin-adj-filter" class="admin-desk-input sm" placeholder="Filter teams or drafters" aria-label="Filter teams or drafters" value="${escapeHtml(adjFilter)}" oninput="filterAdminAdj(this.value)">
+          <button type="button" class="admin-desk-toggle${adjOnly ? ' on' : ''}" aria-pressed="${adjOnly}" onclick="toggleAdminAdjOnly()">Adjusted only</button>
+        </div>
+        <div class="admin-desk-adj-list">
+          ${rows}
+          <div class="admin-desk-adj-empty"${shown ? ' hidden' : ''}>${adjOnly && !adjusted.length ? 'No adjustments yet.' : 'No teams match.'}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function deskLeagueHtml(league){
+  const scoring = LEAGUE_SCORING[league.key];
+  const marked = markedCount(league);
+  const manual = manualRules(league).length;
+  const adjustments = currentLeagueAdjustments(league.key);
+  const teams = draftedTeams(league);
+  const adjusted = teams.filter(teamKey => adjustments[teamKey]).length;
+  const rules = scoring.rules.map((rule, i) => deskRuleRowHtml(league, rule, i)).join('');
+  return `
+    <div class="admin-desk-head">
+      <div class="admin-desk-titles">
+        <div class="admin-desk-eyebrow"><span class="admin-desk-swatch" style="background:${scoring.accent};"></span>Scoring · ${leagueChip(league)}</div>
+        <h1>${leagueName(league)}</h1>
+        <div class="admin-desk-lede">${teams.length} drafted teams · ${scoring.rules.length} rules · ${marked} marked · ${adjusted} adjusted</div>
+      </div>
+    </div>
+    ${deskLockHtml(league)}
+    <div class="admin-desk-body">
+      <div class="admin-desk-body-main">
+        <section class="admin-desk-section">
+          ${deskLabelRow('Scoring rules', manual ? `${marked} team${marked === 1 ? '' : 's'} marked across ${manual} manual rule${manual === 1 ? '' : 's'}` : 'Every rule reads the standings')}
+          <div class="admin-desk-card admin-desk-rules" style="border-top-color:${scoring.accent};">${rules}</div>
+        </section>
+        ${deskByDrafterHtml(league)}
+      </div>
+      ${teams.length ? deskAdjustmentsHtml(league) : ''}
+    </div>`;
+}
+
+function deskGateHtml(){
+  const body = verifying
+    ? '<div class="admin-gate-title">Checking password…</div>'
+    : `
+      <div class="admin-gate-title">Enter the commissioner password</div>
+      <input type="password" id="admin-password-input" class="admin-gate-input" placeholder="Password" autocomplete="off" onkeydown="if(event.key==='Enter') submitAdminPassword();">
+      ${errorMsg ? `<div class="admin-gate-error">${errorMsg}</div>` : ''}
+      <button type="button" class="admin-desk-btn solid lg" onclick="submitAdminPassword()">Unlock</button>`;
+  return `
+    <div class="admin-desk admin-desk-gated">
+      <main class="admin-desk-main">
+        <div class="admin-desk-gate">
+          ${deskBrandHtml(false)}
+          <div class="admin-desk-card admin-desk-gate-card">${body}</div>
+          <button type="button" class="admin-desk-back" onclick="backToSettings()">‹ Settings</button>
+        </div>
+      </main>
+    </div>`;
+}
+
+function deskHtml(){
+  const league = selected === 'draft' ? null : LEAGUES.find(l => l.key === selected);
+  return `
+    <div class="admin-desk">
+      ${deskSideHtml()}
+      <main class="admin-desk-main">
+        <div class="admin-desk-inner">${league ? deskLeagueHtml(league) : deskDraftHtml()}</div>
+      </main>
+    </div>`;
+}
+
+// innerHTML swaps out the scrolling panes and whatever has focus; put
+// back the scroll positions (unless a new screen was picked) and the
+// focused field, so a background re-render doesn't yank the page.
+function renderDesk(container, html){
+  const scrollOf = sel => { const el = container.querySelector(sel); return el ? el.scrollTop : 0; };
+  const scrolls = {
+    '.admin-desk-main': resetDeskScroll ? 0 : scrollOf('.admin-desk-main'),
+    '.admin-desk-side': scrollOf('.admin-desk-side'),
+    '.admin-desk-adj-list': resetDeskScroll ? 0 : scrollOf('.admin-desk-adj-list')
+  };
+  resetDeskScroll = false;
+  const active = document.activeElement;
+  const focusId = active && container.contains(active) && active.id;
+  let selection = null;
+  try { selection = focusId ? [active.selectionStart, active.selectionEnd] : null; } catch (e){}
+
+  container.innerHTML = html;
+
+  Object.entries(scrolls).forEach(([sel, top]) => { const el = container.querySelector(sel); if(el) el.scrollTop = top; });
+  const again = focusId && document.getElementById(focusId);
+  if(again){
+    again.focus({ preventScroll: true });
+    try { if(selection && selection[0] !== null) again.setSelectionRange(selection[0], selection[1]); } catch (e){}
+  }
 }
 
 export function renderAdminPage(){
@@ -489,12 +1082,18 @@ export function renderAdminPage(){
     }
   }
 
+  const desk = isDesk();
+  document.getElementById('view-admin').classList.toggle('admin-desk-on', desk);
+  if(desk){
+    renderDesk(container, unlocked ? deskHtml() : deskGateHtml());
+    return;
+  }
   container.innerHTML = unlocked ? unlockedHtml() : gateHtml();
 }
 
 // The page was just opened (js/board.js's showView): refresh the draft
 // status, which may have moved on since it was last shown.
 export function showAdminPage(){
-  if(unlocked && adminSection === 'draft') loadDraftStatus();
+  if(unlocked && selected === 'draft') loadDraftStatus();
   renderAdminPage();
 }

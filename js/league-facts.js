@@ -268,12 +268,16 @@ async function fetchLeagueFacts(leagueKey){
 // just won't show up for anyone else until the next successful sync.
 // Only ever called from the admin page, which already gated the edit
 // controls behind a verified password — loadAdminPassword() here is
-// just reading what that page already confirmed.
+// just reading what that page already confirmed. Resolves to whether it
+// reached the shared store, so the admin page can say when it didn't.
 function persistLeagueFacts(leagueKey, facts){
   saveLocalLeagueFacts(leagueKey, facts);
-  if(!DASHBOARD_WORKER_BASE) return;
-  putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), loadAdminPassword(), facts)
-    .then(({ ok }) => { if(!ok) console.warn('[League Facts]', leagueKey, 'failed to sync to shared store'); });
+  if(!DASHBOARD_WORKER_BASE) return Promise.resolve(true);
+  return putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), loadAdminPassword(), facts)
+    .then(({ ok }) => {
+      if(!ok) console.warn('[League Facts]', leagueKey, 'failed to sync to shared store');
+      return ok;
+    });
 }
 
 // ---- Manual point adjustments ----
@@ -325,16 +329,20 @@ async function fetchLeagueAdjustments(leagueKey){
 
 function persistLeagueAdjustments(leagueKey, adjustments){
   saveLocalLeagueAdjustments(leagueKey, adjustments);
-  if(!DASHBOARD_WORKER_BASE) return;
-  putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), loadAdminPassword(), adjustments)
-    .then(({ ok }) => { if(!ok) console.warn('[League Adjustments]', leagueKey, 'failed to sync to shared store'); });
+  if(!DASHBOARD_WORKER_BASE) return Promise.resolve(true);
+  return putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), loadAdminPassword(), adjustments)
+    .then(({ ok }) => {
+      if(!ok) console.warn('[League Adjustments]', leagueKey, 'failed to sync to shared store');
+      return ok;
+    });
 }
 
 // Sets (or, with pts 0 and no note, clears) one team's manual point
-// adjustment. Only ever called from the admin page.
+// adjustment. Only ever called from the admin page. Resolves to whether
+// the shared store took it.
 export function setTeamAdjustment(teamKey, pts, note){
   const meta = TEAM_META[teamKey];
-  if(!meta) return;
+  if(!meta) return Promise.resolve(false);
   const leagueKey = meta.leagueKey;
   const cache = adjustmentsCacheFor(leagueKey);
   const adjustments = cache.data || (cache.data = currentLeagueAdjustments(leagueKey));
@@ -343,8 +351,9 @@ export function setTeamAdjustment(teamKey, pts, note){
   } else {
     adjustments[teamKey] = { pts: pts || 0, note: note || '' };
   }
-  persistLeagueAdjustments(leagueKey, adjustments);
+  const synced = persistLeagueAdjustments(leagueKey, adjustments);
   renderAdminPage();
+  return synced;
 }
 window.setTeamAdjustment = setTeamAdjustment;
 
@@ -422,9 +431,11 @@ export function getLeagueRuleTeams(leagueKey, rule){
   return currentLeagueFacts(leagueKey)[rule.label] || [];
 }
 
+// Both resolve to whether the shared store took the change (false for a
+// no-op).
 export function addLeagueFact(leagueKey, ruleLabel, teamKey){
   const rule = findLeagueRule(leagueKey, ruleLabel);
-  if(!rule || rule.rankAuto || !teamKey) return;
+  if(!rule || rule.rankAuto || !teamKey) return Promise.resolve(false);
 
   const cache = factsCacheFor(leagueKey);
   const facts = cache.data || (cache.data = currentLeagueFacts(leagueKey));
@@ -434,8 +445,9 @@ export function addLeagueFact(leagueKey, ruleLabel, teamKey){
     const list = facts[ruleLabel] || (facts[ruleLabel] = []);
     if(!list.includes(teamKey)) list.push(teamKey);
   }
-  persistLeagueFacts(leagueKey, facts);
+  const synced = persistLeagueFacts(leagueKey, facts);
   renderAdminPage();
+  return synced;
 }
 window.addLeagueFact = addLeagueFact;
 
@@ -444,10 +456,11 @@ export function removeLeagueFact(leagueKey, ruleLabel, teamKey){
   const facts = cache.data || (cache.data = currentLeagueFacts(leagueKey));
   const list = facts[ruleLabel] || [];
   const idx = list.indexOf(teamKey);
-  if(idx === -1) return;
+  if(idx === -1) return Promise.resolve(false);
   list.splice(idx, 1);
-  persistLeagueFacts(leagueKey, facts);
+  const synced = persistLeagueFacts(leagueKey, facts);
   renderAdminPage();
+  return synced;
 }
 window.removeLeagueFact = removeLeagueFact;
 
@@ -497,6 +510,47 @@ function teamPointsSplit(teamKey){
   if(adj) split.locked += adj.pts;
   split.projected = split.locked + split.live;
   return split;
+}
+
+// Where a rankAuto rule's answer comes from, in words, for the admin
+// page: "1st in each conference", "Bottom 3 of the table", "Clinched on
+// ESPN".
+export function ruleAutoNote(rule){
+  const spec = rule.rankAuto;
+  if(!spec) return '';
+  if(spec.clinched) return 'Clinched on ESPN';
+  const where = spec.scope === 'conference' || spec.scope === 'division' ? `in each ${spec.scope}` : 'of the table';
+  const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+  if(spec.bottom) return spec.bottom === 1 ? `Last ${where}` : `Bottom ${spec.bottom} ${where}`;
+  if(spec.top) return `Top ${spec.top} ${where}`;
+  return `${ordinal(spec.rank)} ${where}`;
+}
+
+// Whether a rankAuto rule has nothing to read yet (no table loaded, the
+// season not under way, or a league still showing last season), as
+// opposed to a loaded table where no drafted team qualifies.
+export function ruleDataPending(leagueKey, rule){
+  if(!rule.rankAuto) return false;
+  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return true;
+  if(isLeagueLocked(leagueKey)) return false;
+  if(leagueSeasonUnderway(leagueKey) !== true) return true;
+  return rule.rankAuto.clinched
+    ? !clinchAutoRows(leagueKey).length
+    : !rankAutoTables(leagueKey, rule.rankAuto.scope).length;
+}
+
+// Every owner's projected points in one league (rules plus adjustments,
+// the same split the team page shows), for the admin page's chart. Only
+// drafters with a team in the league.
+export function leagueDrafterPoints(leagueKey){
+  const league = LEAGUES.find(l => l.key === leagueKey);
+  const totals = new Map();
+  (league ? league.teams : []).forEach(teamKey => {
+    const meta = TEAM_META[teamKey];
+    if(!meta || meta.favoriteOnly) return;
+    totals.set(meta.draftTeamId, (totals.get(meta.draftTeamId) || 0) + teamPointsSplit(teamKey).projected);
+  });
+  return DRAFT_TEAMS.filter(d => totals.has(d.id)).map(d => ({ id: d.id, name: d.name, pts: totals.get(d.id) }));
 }
 
 function signedPts(n){
