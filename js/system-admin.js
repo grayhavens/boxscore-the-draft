@@ -60,6 +60,7 @@
    ============================================================ */
 import { GROUP_DOMAIN, groupAppUrl, isPlatformHost, adminSecretName } from './groups.js';
 import { welcomeHtml } from './welcome-template.js';
+import { pollTally } from './draft-poll.js';
 
 const host = window.location.hostname;
 const isLocal = host === 'localhost' || host === '127.0.0.1';
@@ -98,20 +99,31 @@ let announceDrafts = {}; // group id -> announcement as typed, kept across re-re
 let chatRecent = {};     // group id -> latest messages, once loaded
 let logOpen = false;     // the admin log shows every line, not just the latest
 let autoWelcome = true;  // filling a spot also sends the welcome email
+let emailEdit = null;    // { group, values: { drafter: email } }: the roster's emails open for editing
 const SELECTED_KEY = 'sysadmin-group';
 const AUTO_WELCOME_KEY = 'sysadmin-auto-welcome';
 try {
   selected = localStorage.getItem(SELECTED_KEY);
   autoWelcome = localStorage.getItem(AUTO_WELCOME_KEY) !== 'off';
 } catch (e){}
-// ?group=<id> (the link in a claim alert email) opens on that group, then
-// comes off the URL so a reload goes back to the remembered one.
-const linkedGroup = new URLSearchParams(window.location.search).get('group');
-if(linkedGroup){
-  selected = linkedGroup;
-  try { localStorage.setItem(SELECTED_KEY, linkedGroup); } catch (e){}
-  history.replaceState(null, '', window.location.pathname + window.location.hash);
+// The screen is ?group=<id> (or ?group=platform): the link in a claim
+// alert email opens on its group, a reload stays put, and Back returns to
+// the screen before. With none, the last one picked here opens.
+const groupParam = () => new URLSearchParams(window.location.search).get('group');
+const screenUrl = id => `${window.location.pathname}?group=${encodeURIComponent(id)}${window.location.hash}`;
+if(groupParam()){
+  selected = groupParam();
+  try { localStorage.setItem(SELECTED_KEY, selected); } catch (e){}
+} else if(selected){
+  history.replaceState(null, '', screenUrl(selected));
 }
+window.addEventListener('popstate', () => {
+  const id = groupParam();
+  if(!id || id === selected) return;
+  selected = id;
+  confirming = adding = editing = emailEdit = null;
+  render();
+});
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -266,6 +278,9 @@ function attentionItems(g){
   if(fresh.length) items.push({ dot: 'mute', title: `${fresh.length} not welcomed yet`, detail: fresh.map(c => esc(c.name)).join(', ') });
   if(!g.access) items.push({ dot: 'mute', title: 'Open to anyone with the address', detail: 'No invite code' });
   else if(!g.access.enforce) items.push({ dot: 'mute', title: 'Invite code in soft mode', detail: 'Nobody is turned away yet' });
+  const d = g.draft;
+  if(d && d.phase === 'draft' && !d.running) items.push({ dot: 'warn', title: 'The draft is paused', detail: d.slot === null ? 'Before the first pick' : `On pick ${d.slot + 1} of ${d.total}` });
+  if(d && d.phase === 'lobby' && d.scheduledAt && d.scheduledAt < Date.now()) items.push({ dot: 'mute', title: 'The draft time has passed', detail: `Set for ${shortWhen(d.scheduledAt)}, still in the lobby` });
   if(raceStale(g)) items.push({ dot: 'mute', title: `Race chart hasn’t recorded since ${g.history.lastDay}`, detail: 'Nobody has opened the app, or saving scores is failing' });
   return items.map(i => ({ ...i, group: g, rank: ATTENTION_RANK[i.dot] }));
 }
@@ -317,7 +332,7 @@ function sidebarHtml(current){
 // ---- The admin log (worker/admin-log.js) ----
 
 function logHtml(entries, { showGroup }){
-  if(!entries.length) return block('Recent actions', `<div class="sysadmin-card pad"><span class="sysadmin-row-sub">Nothing done from this page yet.</span></div>`);
+  if(!entries.length) return block('Recent actions', `<div class="sysadmin-card pad"><span class="sysadmin-row-sub">Nothing logged yet. Actions from this page and each group’s commissioner show up here.</span></div>`);
   const shown = logOpen ? entries : entries.slice(0, LOG_SHORT);
   const rows = shown.map(e => `
     <div class="sysadmin-list-row compact">
@@ -460,6 +475,47 @@ function summaryHtml(g){
     </div>`;
 }
 
+// The live room as the commissioner set it up: the start time, the lobby's
+// setup, and the draft time poll's answers. Changed from the Commissioner
+// page (the header's Open as commissioner).
+function draftHtml(g){
+  const d = g.draft;
+  if(!d) return '';
+  const row = (title, sub, side) => `
+    <div class="sysadmin-list-row compact">
+      <span class="sysadmin-row-text"><span class="sysadmin-row-title">${title}</span>${sub ? `<span class="sysadmin-row-sub">${sub}</span>` : ''}</span>
+      ${side}
+    </div>`;
+  const rows = [];
+  if(d.phase === 'draft'){
+    rows.push(row(d.slot === null ? 'Waiting on the first pick' : `Pick ${d.slot + 1} of ${d.total}`,
+      d.owner ? `${esc(drafterName(g, d.owner))} on the clock` : '', pill(d.running ? 'ok' : 'warn', d.running ? 'Live' : 'Paused')));
+  } else if(d.phase === 'done'){
+    rows.push(row('Complete', plural(d.total, 'pick'), pill('ok', 'Done')));
+  } else {
+    const passed = d.scheduledAt && d.scheduledAt < Date.now();
+    rows.push(row('Draft time', d.scheduledAt ? shortWhen(d.scheduledAt) : d.poll ? 'Not set · the poll is open on Home' : 'Not set',
+      d.scheduledAt ? pill(passed ? 'warn' : 'ok', passed ? 'Passed' : 'Set') : pill('warn', 'Not set')));
+    rows.push(row('Team pool', plural(d.poolSize, 'team'), d.poolSize ? pill('ok', 'Loaded') : pill('warn', 'Not loaded')));
+    rows.push(row('Lottery', d.ordered ? 'The draft order is set' : 'Run from the lobby', d.ordered ? pill('ok', 'Drawn') : pill('warn', 'Not run')));
+  }
+  let poll = '';
+  if(d.phase === 'lobby' && d.poll){
+    const roster = g.drafters.filter(x => !x.open);
+    const tally = pollTally(d.poll, roster.map(x => x.id));
+    const names = ids => ids.map(id => esc(drafterName(g, id))).join(', ');
+    const most = Math.max(0, ...tally.options.map(o => o.voters.length));
+    poll = [
+      ...tally.options.map(o => row(shortWhen(o.at), o.voters.length ? names(o.voters) : 'Nobody yet',
+        `<span class="sysadmin-actions">${o.at === d.scheduledAt ? pill('ok', 'Set') : ''}${pill(most && o.voters.length === most ? 'ok' : 'neutral', `${o.voters.length} of ${roster.length}`)}</span>`)),
+      tally.none.length ? row('None of these work', names(tally.none), pill('neutral', tally.none.length)) : '',
+      tally.waiting.length ? row('Haven’t answered', names(tally.waiting), pill('warn', tally.waiting.length)) : ''
+    ].join('');
+    poll = `<div class="sysadmin-sublist"><div class="sysadmin-sublabel">Draft time poll · ${roster.length - tally.waiting.length} of ${roster.length} answered</div>${poll}</div>`;
+  }
+  return block('Draft', `<div class="sysadmin-card flush">${rows.join('')}${poll}</div>`, 'Set up by the commissioner');
+}
+
 // The inline form for a person: a claim being confirmed, Add person, or a
 // confirmed spot being edited. Its fields are kept in `state` as they're
 // typed, so a re-render doesn't lose them.
@@ -542,15 +598,18 @@ function rosterHtml(g){
     const named = !conf && !d.open ? g.welcome.named.find(n => n.drafter === d.id) : null;
     const contact = g.welcome.contacts.find(c => c.drafter === d.id);
     const email = (contact && contact.email) || (conf && conf.email) || (named && named.email) || '';
+    const editingEmail = named && emailEdit && emailEdit.group === g.id;
     const state = conf ? pill('ok', 'Confirmed') : d.open ? pill('open', 'Open') : pill('neutral', 'Named');
     const welcomed = contact && contact.welcomedAt ? ago(contact.welcomedAt) : d.open ? '—' : email ? 'Not yet' : 'No email';
     const alerts = d.devices ? `${plural(d.devices, 'device')} · chat ${d.chat} · draft ${d.draft}` : d.open ? '—' : 'Off';
     const actions = [
       contact && !contact.welcomedAt && secrets.email ? btn('Welcome', `sysadminWelcome('${g.id}', false, '${esc(d.id)}')`, { small: true }) : '',
       conf ? btn('Edit', `sysadminEditSpot('${g.id}', '${esc(d.id)}')`, { small: true }) : '',
-      conf ? btn('Undo', `sysadminRelease('${g.id}', '${esc(d.id)}')`, { small: true }) : '',
-      named ? btn(named.email ? 'Edit email' : 'Add email', `sysadminSetEmail('${g.id}', '${esc(d.id)}')`, { small: true }) : ''
+      conf ? btn('Undo', `sysadminRelease('${g.id}', '${esc(d.id)}')`, { small: true }) : ''
     ].join('');
+    const emailCell = editingEmail
+      ? `<input type="email" class="sysadmin-input cell" value="${esc(emailEdit.values[d.id])}" placeholder="name@example.com" aria-label="${esc(d.name)}’s email" oninput="sysadminEmailField('${esc(d.id)}', this.value)" onkeydown="if(event.key === 'Enter') sysadminEmailsSave('${g.id}'); if(event.key === 'Escape') sysadminEmailsEdit(null);">`
+      : email ? `<a href="mailto:${esc(email)}" title="${esc(email)}">${esc(email)}</a>` : '<span class="sysadmin-mute">—</span>';
     return `
       <div class="sysadmin-tr">
         <span class="sysadmin-mute sysadmin-strong">${i + 1}</span>
@@ -558,7 +617,7 @@ function rosterHtml(g){
           <span class="sysadmin-row-title${d.open ? ' sysadmin-mute' : ''}">${esc(d.name)}</span>
           ${conf ? `<span class="sysadmin-mute sysadmin-small">was ${esc(conf.spot)}${conf.at ? ` · ${ago(conf.at)}` : ''}</span>` : ''}
         </span>
-        <span class="sysadmin-ellipsis">${email ? `<a href="mailto:${esc(email)}" title="${esc(email)}">${esc(email)}</a>` : '<span class="sysadmin-mute">—</span>'}</span>
+        <span class="${editingEmail ? 'sysadmin-cell' : 'sysadmin-ellipsis'}">${emailCell}</span>
         <span>${state}</span>
         <span class="sysadmin-sub">${welcomed}</span>
         <span class="sysadmin-sub">${alerts}</span>
@@ -575,6 +634,17 @@ function rosterHtml(g){
     submit: `sysadminAddSubmit('${g.id}')`, cancel: 'sysadminAddPerson(null)', submitLabel: 'Add'
   }) : '';
   const addBtn = open.length && !form ? btn('Add person', `sysadminAddPerson('${g.id}')`, { small: true }) : '';
+  // Named spots (js/groups.js) get their email here; confirmed people's
+  // is edited with the person (Edit).
+  const editingEmails = emailEdit && emailEdit.group === g.id;
+  const emailsBtn = g.welcome.named.length && !editingEmails ? btn('Edit emails', `sysadminEmailsEdit('${g.id}')`, { small: true, quiet: true }) : '';
+  const emailsFoot = !editingEmails ? '' : `
+    <div class="sysadmin-claim-edit sysadmin-emails-foot">
+      <span class="sysadmin-help">For the welcome email. Only the platform admin sees them. Leave one empty to remove it.</span>
+      <span class="sysadmin-spacer"></span>
+      ${btn('Cancel', 'sysadminEmailsEdit(null)', { quiet: true })}
+      ${btn('Save emails', `sysadminEmailsSave('${g.id}')`, { solid: true })}
+    </div>`;
   return block('Roster', `
     <div class="sysadmin-card flush">
       ${form}
@@ -584,7 +654,8 @@ function rosterHtml(g){
           ${rows}
         </div>
       </div>
-    </div>`, `${note}${addBtn ? ` ${addBtn}` : ''}`);
+      ${emailsFoot}
+    </div>`, `${note}${emailsBtn ? ` ${emailsBtn}` : ''}${addBtn ? ` ${addBtn}` : ''}`);
 }
 
 // The group's invite code (worker/access-code.js): the link to send, the
@@ -788,6 +859,7 @@ function groupHtml(g){
       </header>
       ${summaryHtml(g)}
       ${claimsHtml(g)}
+      ${draftHtml(g)}
       ${rosterHtml(g)}
       <div class="sysadmin-pair">${inviteHtml(g)}${announceHtml(g)}</div>
       ${welcomeSection(g)}
@@ -820,7 +892,7 @@ function render(){
 // Nothing open or being typed in, so a re-render can't lose anything.
 function quiet(){
   const a = document.activeElement;
-  return !busy && !confirming && !adding && !editing && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+  return !busy && !confirming && !adding && !editing && !emailEdit && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
 }
 
 async function autoRefresh(){
@@ -881,8 +953,9 @@ function openForm(which, value){
 const formState = () => confirming || adding || editing;
 
 window.sysadminPickGroup = id => {
+  if(id !== selected) history.pushState(null, '', screenUrl(id));
   selected = id;
-  confirming = adding = editing = null;
+  confirming = adding = editing = emailEdit = null;
   try { localStorage.setItem(SELECTED_KEY, id); } catch (e){}
   render();
   window.scrollTo(0, 0);
@@ -964,16 +1037,40 @@ window.sysadminWelcome = (groupId, test, drafter = null) => {
   });
 };
 
-window.sysadminSetEmail = (groupId, drafter) => {
+// Every named spot's email in one pass (null closes the editor).
+window.sysadminEmailsEdit = groupId => {
+  const group = groupId && status.groups.find(g => g.id === groupId);
+  emailEdit = group ? { group: groupId, values: Object.fromEntries(group.welcome.named.map(n => [n.drafter, n.email || ''])) } : null;
+  render();
+  const first = group && root.querySelector('.sysadmin-input.cell');
+  if(first) first.focus();
+};
+
+// Kept as it's typed, no re-render (the cursor stays).
+window.sysadminEmailField = (drafter, value) => { if(emailEdit) emailEdit.values[drafter] = value; };
+
+// Saves the ones that changed, one call each, stopping at the first the
+// worker turns down so the editor stays open on it.
+window.sysadminEmailsSave = groupId => {
+  if(busy || !emailEdit) return;
   const group = status.groups.find(g => g.id === groupId);
-  const spot = group.welcome.named.find(d => d.drafter === drafter);
-  const email = prompt(`${spot.name}’s email for the welcome email (empty to remove):`, spot.email);
-  if(email === null) return;
+  const changed = group.welcome.named.filter(n => (emailEdit.values[n.drafter] || '').trim() !== (n.email || ''));
+  if(!changed.length){ emailEdit = null; render(); return; }
   act(async () => {
-    const { ok, data } = await api('/email', { group: groupId, drafter, email });
-    if(!ok) return data.error === 'email' ? 'That doesn’t look like an email.' : `Couldn’t save (${data.error || 'error'}).`;
+    let saved = 0;
+    for(const spot of changed){
+      const email = emailEdit.values[spot.drafter].trim();
+      const { ok, data } = await api('/email', { group: groupId, drafter: spot.drafter, email });
+      if(!ok){
+        if(saved) load();
+        return `${saved ? `Saved ${plural(saved, 'email')}, then ` : ''}${spot.name}: ${data.error === 'email' ? 'that doesn’t look like an email.' : `couldn’t save (${data.error || 'error'}).`}`;
+      }
+      spot.email = data.email || '';
+      saved++;
+    }
+    emailEdit = null;
     load();
-    return data.email ? `Saved ${spot.name}’s email.` : `Removed ${spot.name}’s email.`;
+    return `Saved ${plural(saved, 'email')}.`;
   });
 };
 

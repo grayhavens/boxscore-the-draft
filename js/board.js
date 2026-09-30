@@ -774,6 +774,7 @@ function showView(view){
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
   if(view === 'admin') showAdminPage();
+  else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
   if(view === 'guide') renderGuidePage();
 }

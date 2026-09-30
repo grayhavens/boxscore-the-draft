@@ -111,6 +111,14 @@ export async function fetchAuthedJSON(url, password){
 
 // PUT with the admin password attached and a JSON body — the write
 // counterpart to fetchAuthedJSON, used for every facts/adjustments save.
+// `url` with ?note=<text>: what a commissioner write did, in words, for
+// the system admin page's log (logCommissionerWrite in
+// worker/rundown-proxy.js). No note, no log line.
+export function withNote(url, note){
+  if(!note) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}note=${encodeURIComponent(note)}`;
+}
+
 export async function putAuthedJSON(url, password, body){
   const { signal, clear } = withTimeoutSignal();
   try {

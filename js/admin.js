@@ -31,11 +31,11 @@
    edit controls live now, consolidated across every league instead of
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
-import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml, draftOwnerName } from './utils.js';
+import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml, draftOwnerName, updateUrlParam, withNote } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery, ACTIVE_GROUP } from './group.js';
-import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment, getLeagueRuleTeams, addLeagueFact, removeLeagueFact, ruleAutoNote, ruleDataPending, leagueDrafterPoints } from './league-facts.js';
+import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment, setTeamAdjustments, getLeagueRuleTeams, addLeagueFact, removeLeagueFact, ruleAutoNote, ruleDataPending, leagueDrafterPoints } from './league-facts.js';
 import { LEAGUE_FULL_LABELS } from './board.js';
 import { obLeagueColor } from './overall.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
@@ -79,6 +79,16 @@ const isDesk = () => DESK_MQ.matches;
 let selected = 'draft';
 let lastLeague = LEAGUES[0].key;
 
+// ?view=admin&screen=<league> opens on that league (Draft has no param),
+// so a reload or a shared link keeps the place. js/board.js drops the
+// param when another view opens.
+const isScreen = key => key === 'draft' || (!!LEAGUE_SCORING[key] && LEAGUES.some(l => l.key === key));
+try {
+  const screen = new URLSearchParams(window.location.search).get('screen');
+  if(screen && screen !== 'draft' && isScreen(screen)) selected = lastLeague = screen;
+} catch (e){}
+const syncScreenParam = () => updateUrlParam('screen', selected === 'draft' ? null : selected);
+
 // Desktop point adjustments: rows being edited (kept across re-renders,
 // such as the facts GET landing, until saved), the filter text and the
 // "Adjusted only" toggle. The last two reset when the league changes.
@@ -98,8 +108,9 @@ let draftStatusError = false;
 let draftStatusLoading = false;
 
 window.selectAdmin = function(key){
-  if(key === selected) return;
+  if(key === selected || !isScreen(key)) return;
   selected = key;
+  syncScreenParam();
   if(key === 'draft'){
     loadDraftStatus();
   } else {
@@ -150,9 +161,10 @@ function draftRoomLink(st){
 // A commissioner write to the live room (`what` is 'schedule' or 'poll').
 // The room answers with its new status; resolves to an error message, or
 // '' when it saved.
-async function putDraftRoom(what, body){
+// `note` goes in the system admin page's log (withNote in js/utils.js).
+async function putDraftRoom(what, body, note){
   const { ok, status, data } = await putAuthedJSON(
-    withGroupQuery(`${chatWorkerBase()}/draft/${what}?room=${LIVE_DRAFT_ROOM}`),
+    withNote(withGroupQuery(`${chatWorkerBase()}/draft/${what}?room=${LIVE_DRAFT_ROOM}`), note),
     loadAdminPassword(),
     body
   );
@@ -168,7 +180,7 @@ async function saveDraftSchedule(scheduledAt, done){
   scheduleSaving = true;
   scheduleError = '';
   renderAdminPage();
-  scheduleError = await putDraftRoom('schedule', { scheduledAt });
+  scheduleError = await putDraftRoom('schedule', { scheduledAt }, scheduledAt ? `Draft time set to ${whenLabel(scheduledAt)}` : 'Draft time cleared');
   scheduleSaving = false;
   renderAdminPage();
   if(!scheduleError) toast(done);
@@ -179,7 +191,7 @@ async function saveDraftPoll(options, done){
   pollSaving = true;
   pollError = '';
   renderAdminPage();
-  pollError = await putDraftRoom('poll', { options });
+  pollError = await putDraftRoom('poll', { options }, options ? `Draft time poll: ${options.map(whenLabel).join(', ')}` : 'Draft time poll removed');
   pollSaving = false;
   renderAdminPage();
   if(!pollError) toast(done);
@@ -240,7 +252,7 @@ export async function verifyAdminPassword(password){
   if(ok){
     saveAdminPassword(password);
     unlocked = true;
-    if(selected === 'draft') loadDraftStatus();
+    loadDraftStatus();
   } else {
     errorMsg = status === 401 ? 'Incorrect password' : 'Could not reach the server — try again';
   }
@@ -620,6 +632,32 @@ window.editAdminAdj = function(teamKey){
   ptsEl.dataset.sign = signState(parseInt(ptsEl.value, 10) || 0);
   const state = document.getElementById(`admin-adj-state-${teamKey}`);
   if(state) state.innerHTML = adjStateHtml(teamKey);
+  const all = document.getElementById('admin-adj-save-all');
+  if(all) all.outerHTML = adjSaveAllHtml();
+};
+
+// The league on screen's rows with unsaved edits.
+const dirtyAdjTeams = () => {
+  const league = LEAGUES.find(l => l.key === selected);
+  return league ? draftedTeams(league).filter(adjDirty) : [];
+};
+
+function adjSaveAllHtml(){
+  const n = dirtyAdjTeams().length;
+  return `<button type="button" id="admin-adj-save-all" class="admin-desk-btn solid sm" onclick="saveAllAdminAdj()"${n > 1 ? '' : ' hidden'}>Save ${n}</button>`;
+}
+
+window.saveAllAdminAdj = function(){
+  const teams = dirtyAdjTeams();
+  if(!teams.length) return;
+  const changes = teams.map(teamKey => {
+    const cur = adjCurrent(teamKey);
+    return { teamKey, pts: parseInt(cur.pts, 10) || 0, note: cur.note.trim() };
+  });
+  teams.forEach(teamKey => { delete adjEdits[teamKey]; });
+  const synced = setTeamAdjustments(changes);
+  toast(`Saved ${changes.length} adjustments.`);
+  toastIfUnsynced(synced);
 };
 
 window.adjKeydown = function(event, teamKey){
@@ -662,6 +700,66 @@ window.toggleAdminAdjOnly = function(){
   renderAdminPage();
 };
 
+// ---- Needs attention ----
+
+// Days out that a lobby with no pool or lottery gets flagged.
+const DRAFT_SOON_DAYS = 3;
+
+// What's waiting on the commissioner, for the top of the Draft screen and
+// the sidebar's flags: { key (the screen that fixes it), title, detail }.
+function draftAttention(){
+  const st = draftStatus;
+  if(!st) return [];
+  const items = [];
+  if(st.phase === 'draft' && !st.running){
+    items.push({ key: 'draft', title: 'The draft is paused', detail: st.slot === null ? 'Resume it from the draft room' : `On pick ${st.slot + 1} of ${st.total}. Resume it from the draft room` });
+  }
+  if(st.phase !== 'lobby') return items;
+  if(st.scheduledAt && st.scheduledAt < Date.now()){
+    items.push({ key: 'draft', title: 'The draft time has passed', detail: 'Start the draft from the lobby, or move the time' });
+  } else if(st.scheduledAt && st.scheduledAt - Date.now() < DRAFT_SOON_DAYS * 86400000){
+    const todo = [st.poolSize === 0 ? 'load the team pool' : '', st.ordered === false ? 'run the lottery' : ''].filter(Boolean);
+    if(todo.length) items.push({ key: 'draft', title: `The draft starts ${whenLabel(st.scheduledAt)}`, detail: `Still to do in the lobby: ${todo.join(' and ')}` });
+  }
+  if(st.poll && !st.scheduledAt){
+    const roster = DRAFT_TEAMS.filter(d => !d.open);
+    const tally = pollTally(st.poll, roster.map(d => d.id));
+    if(roster.length && !tally.waiting.length) items.push({ key: 'draft', title: 'Everyone has answered the poll', detail: 'Pick a time below to set the draft' });
+  }
+  return items;
+}
+
+// A league whose regular season is over (locked) still has postseason
+// rules nobody has been marked for.
+function leagueAttention(league){
+  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) || !draftedTeams(league).length || !isLeagueLocked(league.key)) return null;
+  const open = manualRules(league).filter(r => !(getLeagueRuleTeams(league.key, r) || []).length);
+  if(!open.length) return null;
+  return { key: league.key, title: `${leagueChip(league)}: the regular season is over`, detail: `Nobody marked yet for ${open.map(r => escapeHtml(r.label)).join(', ')}` };
+}
+
+const scoringLeagues = () => LEAGUES.filter(l => LEAGUE_SCORING[l.key]);
+
+function attentionItems(){
+  return [...draftAttention(), ...scoringLeagues().map(leagueAttention).filter(Boolean)];
+}
+
+function deskAttentionHtml(){
+  const items = attentionItems();
+  if(!items.length) return '';
+  const rows = items.map(item => `
+    <div class="admin-desk-poll-row">
+      <span class="admin-desk-dot" data-state="warn"></span>
+      <span class="admin-desk-poll-text"><span class="admin-desk-poll-name">${item.title}</span><span class="admin-desk-poll-who">${item.detail}</span></span>
+      ${item.key === 'draft' ? '' : `<button type="button" class="admin-desk-btn sm" onclick="selectAdmin('${item.key}')">Open</button>`}
+    </div>`).join('');
+  return `
+    <section class="admin-desk-section">
+      ${deskLabelRow(`Needs attention · ${items.length}`)}
+      <div class="admin-desk-card admin-desk-attn">${rows}</div>
+    </section>`;
+}
+
 // ---- Sidebar ----
 
 function deskDraftNav(){
@@ -672,13 +770,14 @@ function deskDraftNav(){
     return { sub: `${st.running ? 'Live' : 'Paused'}${pick}`, dot: st.running ? 'live' : 'warn' };
   }
   if(st.phase === 'done') return { sub: 'Complete', dot: 'ok' };
+  if(st.scheduledAt && st.scheduledAt < Date.now()) return { sub: 'Lobby · time has passed', dot: 'warn' };
   if(st.scheduledAt) return { sub: `Set · ${scheduleDateLabel(st.scheduledAt)}`, dot: 'ok' };
   return { sub: 'Lobby · time not set', dot: 'warn' };
 }
 
 function deskSideHtml(){
   const draft = deskDraftNav();
-  const leagues = LEAGUES.filter(l => LEAGUE_SCORING[l.key]).map(league => {
+  const leagues = scoringLeagues().map(league => {
     const marked = markedCount(league);
     const adjustments = currentLeagueAdjustments(league.key);
     const adjusted = draftedTeams(league).filter(teamKey => adjustments[teamKey]).length;
@@ -690,6 +789,7 @@ function deskSideHtml(){
           <span class="admin-desk-item-title">${leagueName(league)}</span>
           <span class="admin-desk-item-sub">${sub}</span>
         </span>
+        ${leagueAttention(league) ? '<span class="admin-desk-flag" title="Needs attention"></span>' : ''}
         ${isLeagueLocked(league.key) ? '<span class="admin-desk-locked">Locked</span>' : ''}
       </button>`;
   }).join('');
@@ -743,6 +843,7 @@ function deskDraftHtml(){
       : '<div class="admin-desk-card"><span class="admin-desk-card-text">Checking the draft room…</span></div>';
     return `
       <div class="admin-desk-head"><div class="admin-desk-titles"><div class="admin-desk-eyebrow">Draft</div><h1>${title}</h1></div></div>
+      ${deskAttentionHtml()}
       ${body}`;
   }
 
@@ -765,8 +866,9 @@ function deskDraftHtml(){
   }
   cells.push(['Drafters', String(st.drafters), '', `${st.total} picks`]);
   if('scheduledAt' in st){
-    const sub = st.scheduledAt ? 'On everyone’s Home' : (st.poll ? 'Poll is open' : 'No poll yet');
-    cells.push(['Scheduled', st.scheduledAt ? whenLabel(st.scheduledAt) : 'Not set', st.scheduledAt ? 'ok' : 'warn', sub]);
+    const passed = st.phase === 'lobby' && st.scheduledAt && st.scheduledAt < Date.now();
+    const sub = passed ? 'That time has passed' : st.scheduledAt ? 'On everyone’s Home' : (st.poll ? 'Poll is open' : 'No poll yet');
+    cells.push(['Scheduled', st.scheduledAt ? whenLabel(st.scheduledAt) : 'Not set', st.scheduledAt && !passed ? 'ok' : 'warn', sub]);
   }
   const strip = cells.map(([label, value, state, sub]) => `
     <div class="admin-desk-stat">
@@ -791,6 +893,7 @@ function deskDraftHtml(){
       </div>
       <button type="button" class="admin-desk-btn solid lg" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
     </div>
+    ${deskAttentionHtml()}
     <div class="admin-desk-strip">${strip}</div>
     ${editors}`;
 }
@@ -863,7 +966,9 @@ function deskScheduleHtml(scheduledAt){
         ${scheduledAt ? `
           <div class="admin-desk-when">
             <span class="admin-desk-when-time">${whenLabel(scheduledAt)}</span>
-            <span class="admin-desk-when-sub">Counting down on everyone’s Home</span>
+            ${scheduledAt < Date.now()
+              ? '<span class="admin-desk-when-sub" data-state="warn">That time has passed</span>'
+              : '<span class="admin-desk-when-sub">Counting down on everyone’s Home</span>'}
           </div>` : ''}
         <input type="datetime-local" id="admin-draft-when" class="admin-desk-input" aria-label="Draft time" value="${scheduledAt ? toLocalInputValue(scheduledAt) : ''}">
         <div class="admin-desk-btns">
@@ -980,6 +1085,7 @@ function deskAdjustmentsHtml(league){
         <div class="admin-desk-adj-tools">
           <input type="text" id="admin-adj-filter" class="admin-desk-input sm" placeholder="Filter teams or drafters" aria-label="Filter teams or drafters" value="${escapeHtml(adjFilter)}" oninput="filterAdminAdj(this.value)">
           <button type="button" class="admin-desk-toggle${adjOnly ? ' on' : ''}" aria-pressed="${adjOnly}" onclick="toggleAdminAdjOnly()">Adjusted only</button>
+          ${adjSaveAllHtml()}
         </div>
         <div class="admin-desk-adj-list">
           ${rows}
@@ -1100,6 +1206,9 @@ export function renderAdminPage(){
 // The page was just opened (js/board.js's showView): refresh the draft
 // status, which may have moved on since it was last shown.
 export function showAdminPage(){
-  if(unlocked && selected === 'draft') loadDraftStatus();
+  syncScreenParam();
+  // The Draft screen's "Needs attention" reads the room's status, and so
+  // does the sidebar's Draft line, whichever screen is showing.
+  if(unlocked) loadDraftStatus();
   renderAdminPage();
 }
