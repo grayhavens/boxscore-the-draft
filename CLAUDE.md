@@ -15,7 +15,7 @@ Plain static site: no build step, no bundler, no package.json, no test framework
 There is no build/lint/test tooling in this repo — there's nothing to run before checking in a
 change beyond loading the page.
 
-**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs tests/draft-poll.test.mjs`
+**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs tests/draft-poll.test.mjs tests/draft-time-alert.test.mjs`
 (`node --test tests/*.test.mjs` runs every pure-logic test, including `tests/web-push.test.mjs`)
 (pure logic, no dependencies).
 **Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
@@ -225,6 +225,9 @@ password-gated), which the card shows in place of "Date to be set" so each draft
 "None of these work" (`PUT /draft/vote`, no-auth like favorites). The room stores the poll beside the schedule and sends
 it on the same status, so the Commissioner page lists who can make each time, with a Use button that sets it as the
 draft time. A set time closes the poll on Home; the answers stay on the Commissioner page until the poll is removed.
+Setting or moving the time (not clearing it) sends a push alert to every device in the group with alerts on, whichever
+switches are set (`worker/draft-time-alert.js`). The payload carries the timestamp and `sw.js` writes the body in the
+phone's own time zone.
 The card goes away once the draft goes live (the banner takes over) or is done,
 and a pre-draft group's card goes away when its draft is exported into a real class. **Deploy the worker first.**
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),

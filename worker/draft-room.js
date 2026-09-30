@@ -71,7 +71,8 @@
    in-progress banner on the app's other pages (js/draft-live.js), plus
    the scheduled start the commissioner set (PUT .../schedule, already
    password-checked by the worker), which Home counts down to
-   (js/draft-schedule.js). The schedule is kept outside the draft state,
+   (js/draft-schedule.js). Setting or moving it alerts the whole group
+   (worker/draft-time-alert.js). The schedule is kept outside the draft state,
    so a lobby reset doesn't clear it. So is the draft time poll
    (js/draft-poll.js), which rides along on the status: the commissioner's
    candidate times (PUT .../poll, password-checked by the worker) and each
@@ -85,6 +86,7 @@ import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
+import { draftTimeAlert } from './draft-time-alert.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 
 const MAX_QUEUE = 100;
@@ -214,10 +216,22 @@ export class DraftRoom extends DurableObject {
     if(at !== null && !(Number.isSafeInteger(at) && at > 0)){
       return new Response('Expected { scheduledAt: epoch ms | null }', { status: 400 });
     }
+    const alert = draftTimeAlert(this.scheduledAt, at, Date.now());
     this.scheduledAt = at;
     if(at === null) this.sql.exec("DELETE FROM kv WHERE k = 'scheduledAt'");
     else this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('scheduledAt', ?)", String(at));
+    if(alert) this.ctx.waitUntil(this.pushDraftTime(alert, new URL(request.url).searchParams));
     return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Tells everyone in the group the draft has a time. A room nobody has
+  // opened a socket to yet doesn't know its own name or group, so they're
+  // read off the request (the worker has already checked both).
+  async pushDraftTime(alert, params){
+    if(isMockRoom(this.room || params.get('room') || 'main')) return;
+    const asked = params.get('group');
+    const group = this.group || (isKnownGroup(asked) ? asked : LEGACY_GROUP_ID);
+    await pushToDrafters(this.env, group, drafterIdsFor(group), null, alert, { ttl: 24 * 60 * 60, topic: 'draft-time' });
   }
 
   savePoll(poll){

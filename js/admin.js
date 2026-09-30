@@ -457,7 +457,7 @@ function scheduleEditorHtml(scheduledAt){
       </div>
     </div>
     ${scheduleError ? `<div class="admin-gate-error">${scheduleError}</div>` : ''}
-    <div class="admin-status-note">Shows on everyone's Home with a countdown until the draft starts. Times are in your time zone; each drafter sees their own.</div>
+    <div class="admin-status-note">Shows on everyone's Home with a countdown until the draft starts, and everyone with alerts on gets a notification when you set or change it. Times are in your time zone; each drafter sees their own.</div>
   `;
 }
 
