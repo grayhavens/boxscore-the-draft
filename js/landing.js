@@ -1,10 +1,13 @@
 /* ============================================================
    The Boxscore landing page (landing.html): the platform's front door
    at boxscore.space, listing the groups in LANDING_GROUPS below with a
-   link to each one's app, plus "How it works" and spot claims.
+   link to each one's app, plus "How it works", the scoring rules and
+   spot claims.
    ============================================================ */
-import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots } from './groups.js';
+import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots, groupCaps } from './groups.js';
 import { initExplainer } from './landing-explainer.js';
+import { setScoringRules } from './scoring-sheet.js';
+import { preDraftClass } from './seasons/pre-draft.js';
 import { loadRoster } from './roster.js';
 import { chatWorkerBase } from './worker-base.js';
 
@@ -16,6 +19,11 @@ initExplainer(document.getElementById('hiw'));
 // people. A group left off (The Draft, mid-season) still works at its own
 // subdomain and on the admin page; it just isn't advertised here.
 const LANDING_GROUPS = ['seasonticket'];
+
+// "How scoring works" shows the rules the first group listed will play
+// by: its pre-draft class, the same one its app shows before its draft.
+const { LEAGUES, LEAGUE_SCORING } = preDraftClass(groupCaps(LANDING_GROUPS[0]));
+setScoringRules(LEAGUES, LEAGUE_SCORING);
 
 // A group still filling its roster is a recruiting card: the claim form
 // and no link into its app, since everyone who lands here then is a

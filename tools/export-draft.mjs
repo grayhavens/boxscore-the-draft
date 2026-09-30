@@ -17,7 +17,7 @@
      --allow-partial       accept an unfinished draft (for rehearsals)
      --offline             skip ESPN; teams not in the previous season are reported unresolved
 
-   Writes js/seasons/<year>.js, registers it in js/seasons/index.js and
+   Writes js/seasons/<year>.js, registers it in js/seasons/the-draft.js and
    adds it to sw.js's shell list. Nothing is deployed: review the diff
    and commit. See docs/draft-room-plan.md.
    ============================================================ */
@@ -51,7 +51,7 @@ async function loadResult(source){
 }
 
 const args = parseArgs(process.argv.slice(2));
-const registrySource = fs.readFileSync(path.join(root, 'js/seasons/index.js'), 'utf8');
+const registrySource = fs.readFileSync(path.join(root, 'js/seasons/the-draft.js'), 'utf8');
 const existingYears = [...registrySource.matchAll(/import \* as s(\d+) from/g)].map(m => Number(m[1])).sort((a, b) => a - b);
 const prevYear = Number(args.prev || existingYears[existingYears.length - 1]);
 const year = Number(args.year || prevYear + 1);
@@ -95,11 +95,11 @@ const out = args.out ? path.resolve(args.out) : path.join(root, `js/seasons/${ye
 fs.writeFileSync(out, file);
 console.log(`\nWrote ${path.relative(root, out)}`);
 if(!args.out){
-  fs.writeFileSync(path.join(root, 'js/seasons/index.js'), updateRegistry(registrySource, year));
+  fs.writeFileSync(path.join(root, 'js/seasons/the-draft.js'), updateRegistry(registrySource, year));
   const swPath = path.join(root, 'sw.js');
   const sw = fs.readFileSync(swPath, 'utf8');
   if(!sw.includes(`./js/seasons/${year}.js`)){
     fs.writeFileSync(swPath, sw.replace(`  './js/seasons/${prevYear}.js',\n`, `  './js/seasons/${prevYear}.js',\n  './js/seasons/${year}.js',\n`));
   }
-  console.log(`Registered ${year} in js/seasons/index.js and sw.js. Review \`git diff\`, then commit.`);
+  console.log(`Registered ${year} in js/seasons/the-draft.js and sw.js. Review \`git diff\`, then commit.`);
 }

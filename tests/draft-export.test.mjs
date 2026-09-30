@@ -205,7 +205,7 @@ test('the rendered module is valid JS that round-trips, with apostrophes in doub
 });
 
 test('updateRegistry adds the new season once and keeps the map valid', () => {
-  const src = fs.readFileSync(new URL('../js/seasons/index.js', import.meta.url), 'utf8');
+  const src = fs.readFileSync(new URL('../js/seasons/the-draft.js', import.meta.url), 'utf8');
   const once = updateRegistry(src, 2027);
   assert.match(once, /import \* as s2027 from '\.\/2027\.js';/);
   assert.match(once, /'2027': \{ id: '2027', label: '2027 Draft', \.\.\.s2027 \}/);

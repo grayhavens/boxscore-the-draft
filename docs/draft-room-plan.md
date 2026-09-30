@@ -139,7 +139,7 @@ light theme works.
 ### As built (Phase F)
 
 - `tools/export-draft.mjs` (CLI) + `tools/draft-export-lib.mjs` (pure, unit-tested) turn the room's
-  `/draft/result` into `js/seasons/<year>.js`, register it in `js/seasons/index.js` and `sw.js`, and print
+  `/draft/result` into `js/seasons/<year>.js`, register it in `js/seasons/the-draft.js` and `sw.js`, and print
   a report. Run `node tools/export-draft.mjs --dry-run` first; the default source is the deployed room
   "main". Nothing is deployed: review `git diff`, commit, and Pages ships it.
 - Each drafted team is copied from the previous season's entry (all live-data ids, colors, badge) with the

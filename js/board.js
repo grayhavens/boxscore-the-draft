@@ -6,7 +6,7 @@
    window.* entry points for the inline onclick handlers in the
    rendered HTML.
    ============================================================ */
-import { DRAFT_TEAMS, TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
+import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml } from './utils.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
@@ -75,7 +75,8 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { showAdminPage } from './admin.js';
-import { openScoringSheet } from './scoring-sheet.js';
+import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
 import { renderGuidePage } from './guide.js';
@@ -83,6 +84,10 @@ import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.
 import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
+
+// The scoring sheet shows this group's rules. Set before anything can open
+// it: the Points button, the guide, the draft room, ?view=scoring below.
+setScoringRules(LEAGUES, LEAGUE_SCORING);
 
 // Bump this on every deploy that changes what's on screen. It's shown
 // at the bottom of the Settings page (js/identity.js) so you can
@@ -347,7 +352,7 @@ export function renderBoard(){
 
 // Spelled out in both the Teams tab's section headers and the
 // Standings header — the filter chips still keep the short
-// LEAGUES[].label as-is (see FILTER_CHIP_LABELS below). Also used by
+// LEAGUES[].label as-is (see FILTER_CHIP_LABELS in js/league-labels.js). Also used by
 // the Scoring modal header and the admin page (js/admin.js) so every
 // "EPL"/"College FB"/"College BB" data.name reads as its full name
 // wherever a header titles itself after the league.
@@ -357,16 +362,6 @@ export const LEAGUE_FULL_LABELS = {
   mcbb: 'College Basketball'
 };
 
-// Shortened further still for the filter chip row only — the Teams
-// tab's league jump-to chips, the Standings tab's league filter chips,
-// and the admin page's (js/admin.js). Every other use of a league's
-// label (Board section headers, the Standings header above, modal
-// titles) keeps LEAGUES[].label.
-export const FILTER_CHIP_LABELS = {
-  cfb: 'CFB',
-  mcbb: 'CBB',
-  pga: 'PGA'
-};
 
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);

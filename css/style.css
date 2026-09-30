@@ -5029,6 +5029,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-modal-team{ display: flex; align-items: center; gap: 12px; }
 /* Scoring sheet (js/scoring-sheet.js): the room's league tabs, run edge to
    edge of the sheet, over the rule list. */
+.sc-head p{ margin-top: 3px; }
 .sc-tabs{ margin: 0 -22px; padding: 0 14px; }
 @media (max-width: 700px){ .sc-tabs{ margin: 0 -20px; padding: 0 12px; } }
 .sc-rules{ min-height: 300px; }
@@ -5528,6 +5529,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
   flex-direction: column;
 }
 .landing-label{ margin-top: 22px; }
+.landing-scoring-btn{ margin-top: 12px; }
 .landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .landing-group{ text-decoration: none; color: inherit; }
 .landing-foot[hidden]{ display: none; }
@@ -5563,7 +5565,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 #landing-handoff[hidden]{ display: none; }
 #landing-handoff .ls-bg{ opacity: 0; }
 
-/* "How it works" explainer (js/landing-explainer.js). Four stacked scenes
+/* "How it works" explainer (js/landing-explainer.js). Six stacked scenes
    in a fixed-height stage; the caption keeps a min-height so the card
    never changes size between steps. */
 .hiw{
@@ -5593,10 +5595,10 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 }
 
 /* 1 · Draft */
-.hiw-draft{ gap: 10px; }
+.hiw-draft{ gap: 8px; }
 .hiw-slots{ font-size: var(--fs-13); color: var(--text-sub); }
-.hiw-grid{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.hiw-tile{ display: flex; flex-direction: column; gap: 9px; padding: 11px 9px 10px; border-radius: 12px; background: var(--surface-2); }
+.hiw-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.hiw-tile{ display: flex; flex-direction: column; gap: 6px; padding: 7px 9px; border-radius: 12px; background: var(--surface-2); }
 .hiw-tile-top{ display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
 .hiw-lg{
   font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
@@ -5605,7 +5607,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-tile.full .hiw-lg{ color: var(--text); }
 .hiw-cap{ font-size: var(--fs-11); color: var(--text-mute); }
 .hiw-pips{ display: flex; gap: 4px; }
-.hiw-pip{ position: relative; flex: 1; height: 30px; border-radius: 7px; border: 1.5px dashed var(--hairline-strong); }
+.hiw-pip{ position: relative; flex: 1; height: 22px; border-radius: 7px; border: 1.5px dashed var(--hairline-strong); }
 .hiw-pip > i{
   position: absolute; inset: -1.5px; border-radius: 7px; background: var(--pip, transparent);
   box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.12); /* keeps a white team color visible on light tiles */
@@ -5615,7 +5617,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-pip.on > i{ opacity: 1; transform: scale(1); }
 .hiw-strip{
   margin-top: auto; display: flex; align-items: center; gap: 10px;
-  padding: 11px 13px; border-radius: var(--r-md); border: 1px solid var(--hairline); background: var(--surface-2);
+  padding: 10px 13px; border-radius: var(--r-md); border: 1px solid var(--hairline); background: var(--surface-2);
 }
 .hiw-round{
   font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
@@ -5654,7 +5656,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-rule.lit .hiw-rule-pts{ color: var(--provisional); }
 .hiw-rule.lit .pts-tag{ opacity: 1; transform: none; }
 
-/* 3 · Live → Locked */
+/* 5 · Live → Locked */
 .hiw-lock .pts-tag{ transition: color 260ms ease, background 260ms ease, box-shadow 260ms ease; }
 .hiw-proj{ font-size: 46px; line-height: 1; letter-spacing: var(--track-tight); margin-top: 10px; }
 .hiw-lock-bar{ margin-top: 16px; }
@@ -5683,15 +5685,8 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 }
 .hiw-season-note{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); margin-top: 10px; }
 
-/* 4 · Leaderboard */
+/* 6 · Leaderboard */
 .hiw-board-head{ height: 30px; }
-.hiw-bonus{
-  padding: 5px 9px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent);
-  font-size: var(--fs-12); font-weight: 700; white-space: nowrap;
-  opacity: 0; transform: translateY(-6px);
-  transition: opacity 260ms ease, transform 420ms var(--ease-out);
-}
-.hiw-bonus.on{ opacity: 1; transform: none; }
 .hiw-ladder{ position: relative; flex: 1; margin-top: 10px; }
 .hiw-lrow{
   position: absolute; left: 0; right: 0; height: 48px;
@@ -5709,8 +5704,41 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-total{ text-align: right; font-size: var(--fs-17); color: var(--lb-ink-3); }
 .hiw-lrow.first .hiw-total{ color: var(--lb-ink-strong); }
 
+/* 3 · Scores: the Scores tab's own timeline (.tg-*), with the node's
+   cut-out ring matched to this card. */
+.hiw-scores{ gap: 4px; }
+.hiw-scores .tg-node{ box-shadow: 0 0 0 4px var(--surface); }
+.hiw-scores .tg-row{ grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding-bottom: 10px; }
+.hiw-scores .tg-line{ left: 50px; }
+.hiw-scores .tg-node{ left: 46px; }
+.hiw-scores .tg-card{ gap: 6px; padding: 9px 12px; }
+
+/* 4 · Chat: the Chat tab's bubbles, shared game card and reaction pills
+   (.chat-*, .cg-*), a size down to fit the stage. */
+.hiw-chat{ gap: 0; }
+.hiw-msg{
+  display: flex; flex-direction: column; align-items: flex-start;
+  opacity: 0; transform: translateY(8px) scale(0.96); transform-origin: bottom left;
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+.hiw-msg.mine{ align-items: flex-end; transform-origin: bottom right; }
+.hiw-msg.on{ opacity: 1; transform: none; }
+.hiw-msg .chat-meta{ margin: 5px 4px 2px; }
+.hiw-msg:first-child .chat-meta{ margin-top: 0; }
+.hiw-msg .chat-bubble{ max-width: 88%; font-size: var(--fs-13); padding: 4px 11px; }
+.hiw-msg .chat-game{ width: 64%; padding: 6px 11px 7px; cursor: default; }
+.hiw-msg .cg-league{ margin-bottom: 1px; }
+.hiw-msg .cg-foot{ margin-top: 3px; padding-top: 4px; }
+.hiw-msg .cg-side{ padding: 1px 0; }
+.hiw-msg .cg-name{ line-height: 1.1; }
+.hiw-msg .cg-side .badge{ flex-basis: 22px; width: 22px; height: 22px; font-size: 8px; border-radius: 6px; }
+.hiw-msg .chat-reactions{ margin-top: 2px; opacity: 0; transform: translateY(-4px) scale(0.9); transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-spring); }
+.hiw-msg .chat-reactions.on{ opacity: 1; transform: none; }
+.hiw-msg .chat-react-pill{ height: 20px; font-size: var(--fs-12); cursor: default; }
+
 /* Caption + controls */
-.hiw-caption{ padding: 18px 20px 0; min-height: 156px; }
+/* Sized to the longest caption (two-line title + two-line body) at phone width. */
+.hiw-caption{ padding: 18px 20px 0; min-height: 132px; }
 .hiw-title{
   font-family: var(--font-display); font-weight: 700; font-size: var(--fs-20);
   letter-spacing: var(--track-snug); line-height: 1.2; margin: 6px 0 0; text-wrap: pretty;

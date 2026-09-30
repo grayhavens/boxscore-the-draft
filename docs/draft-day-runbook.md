@@ -103,7 +103,7 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
    on ESPN (it suggests near matches; `--overrides file.json` fixes one: `{"cfb:Kent Sate": "2306"}`).
    Teams it generated from ESPN (not in last year's class) are listed for a glance.
 3. Write it: `node tools/export-draft.mjs`. This creates `js/seasons/<year>.js` and registers it in
-   `js/seasons/index.js` and `sw.js`. Review `git diff`; entries marked `// generated from ESPN` deserve a
+   `js/seasons/the-draft.js` and `sw.js`. Review `git diff`; entries marked `// generated from ESPN` deserve a
    look (name, colors, crest).
 4. Commit, open the PR, merge. Cloudflare Pages deploys the site.
 

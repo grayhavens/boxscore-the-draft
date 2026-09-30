@@ -29,7 +29,8 @@ import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJS
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment } from './league-facts.js';
-import { LEAGUE_FULL_LABELS, FILTER_CHIP_LABELS } from './board.js';
+import { LEAGUE_FULL_LABELS } from './board.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
 import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';

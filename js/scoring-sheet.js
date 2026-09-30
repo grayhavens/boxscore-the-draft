@@ -2,16 +2,26 @@
    Scoring sheet: every league's draft scoring rules, one league at a
    time behind a row of league tabs, in a bottom sheet (centered on
    desktop). One sheet for every way in: the Points tab's "How scoring
-   works" button, the feature guide, and the draft room's "Scoring" link
+   works" button, the feature guide, the draft room's "Scoring" link
    (js/draft.js), which opens it on the league its Available list is
    filtered to. It replaced a full Scoring page (?view=scoring, which now
    lands on Points with this sheet open).
+   The landing page's "How scoring works" button (js/landing.js) opens it
+   too, which is why it takes its rules through setScoringRules instead of
+   importing js/data.js: the landing page has no group to read them from.
    The sheet borrows the draft room's sheet layout (.dr-modal) and league
    tabs (.dr-ltab) so it looks the same wherever it opens.
    ============================================================ */
-import { LEAGUES, LEAGUE_SCORING } from './data.js';
-import { FILTER_CHIP_LABELS } from './board.js';
-import { openSheetOverlay, closeSheetOverlay, isSheetOpen, enableSheetSwipeToDismiss, lockBodyScroll, unlockBodyScroll } from './utils.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
+import { openSheetOverlay, closeSheetOverlay, isSheetOpen, enableSheetSwipeToDismiss, lockBodyScroll, unlockBodyScroll } from './sheet.js';
+
+// The rules on show: a LEAGUES-shaped list (key, label) and LEAGUE_SCORING.
+let LEAGUES = [];
+let LEAGUE_SCORING = {};
+export function setScoringRules(leagues, scoring){
+  LEAGUES = leagues;
+  LEAGUE_SCORING = scoring;
+}
 
 // The league last shown, so reopening lands where you left off.
 let leagueKey = null;
@@ -53,7 +63,7 @@ function render(){
   if(!leagues.some(l => l.key === leagueKey)) leagueKey = leagues[0].key;
   const tabs = leagues.map(l =>
     `<button class="dr-ltab${l.key === leagueKey ? ' on' : ''}" onclick="setScoringLeague('${l.key}')" aria-pressed="${l.key === leagueKey}">${FILTER_CHIP_LABELS[l.key] || l.label}</button>`).join('');
-  sheet.innerHTML = `<h3>Scoring</h3>
+  sheet.innerHTML = `<div class="sc-head"><h3>Scoring</h3><p>Each team you draft earns these points on its own.</p></div>
     <div class="dr-ltabs sc-tabs">${tabs}</div>
     <div class="sc-rules">${rulesHtml(leagueKey)}</div>
     <div class="dr-modal-btns"><button class="dr-btn" onclick="closeScoringSheet()">Done</button></div>`;
