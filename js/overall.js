@@ -14,7 +14,7 @@
    until the league locks.
 
    The page: a "You" hero (projected rank, the locked/live split and a
-   ladder of the drafters around you), then a Standings | Race | Activity
+   ladder of the drafters around you), then a Standings | Activity | Race
    switch. Race (js/race.js, docs/points-race-plan.md) charts the season.
    Any drafter opens a quick sheet; its Full breakdown pushes the
    per-drafter detail (one accordion card per scoring league). The
@@ -65,8 +65,8 @@ export function obLeagueFullName(leagueKey){
 }
 
 // Within-session view state, same as standingsFilterKey in js/board.js.
-// obSegment is the Standings | Race | Activity switch ('standings' |
-// 'race' | 'activity'; Race is js/race.js, hidden before a group's draft):
+// obSegment is the Standings | Activity | Race switch ('standings' |
+// 'activity' | 'race'; Race is js/race.js, hidden before a group's draft):
 // every visit opens on Standings unless it was asked for Activity (the
 // Home link, or ?seg=activity). obSegmentNext carries that request
 // across switchView, which is what starts the visit. The
@@ -555,9 +555,8 @@ export function obTableHtml(rows, opts = {}){
 }
 
 function obSegments(badge){
-  return [{ key: 'standings', label: 'Standings' }]
-    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }])
-    .concat([{ key: 'activity', label: 'Activity', badge }]);
+  return [{ key: 'standings', label: 'Standings' }, { key: 'activity', label: 'Activity', badge }]
+    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }]);
 }
 const obSegmentKeys = () => obSegments(0).map(s => s.key);
 

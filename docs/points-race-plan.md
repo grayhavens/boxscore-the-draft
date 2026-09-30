@@ -2,7 +2,7 @@
 
 Branch: `points-race`. Source: Claude Design handoff `design_handoff_points_race`
 (README + `Points Race v3.dc.html` + screenshots). It adds a third segment to the Points tab
-(**Standings · Race · Activity**): a chart of every drafter's projected points (or rank) over the
+(**Standings · Activity · Race**): a chart of every drafter's projected points (or rank) over the
 season, a month window with chips and a season minimap, Replay, and the standings table re-sorted
 to the scrubbed day.
 
@@ -91,6 +91,12 @@ so the Y floor is 0 only when nobody is below it.
   Re-sorts glide with a small FLIP inside `js/race.js` (Web Animations), not `obPlayFlip`: that one
   also washes rows and counts totals up, which is too much at scrub/replay speed.
 - The chart's today is always the on-screen totals (`withToday`), so it matches Standings between samples.
+- The SVG's viewBox is the plot's real width (310 × 232 minimum, height up to 340), re-measured on
+  resize, so on iPad/desktop text keeps its size and the plot widens instead of the whole drawing
+  scaling up.
+- Race is the third segment (after Activity), by request.
+- The minimap spans the recorded history (first sample → today), not the whole class: early in the
+  season a whole-class minimap is a sliver at one end. The future still shows in All.
 - Replay runs 2–6s depending on how much history there is; under reduced motion it jumps to today.
 - Empty/short history state: "History starts {date}" in place of the chart when there are fewer
   than 2 days.

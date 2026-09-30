@@ -29,9 +29,24 @@ import {
   monthIndexAt, dayAtFraction, yDomain, gridValues, xTicks, spreadLabels, withToday, simulatedHistory, MONTH_PAD
 } from './race-math.js';
 
-// Chart geometry, in viewBox units (the SVG scales to the card's width).
-const W = 310, H = 232, TOP = 14, BOT = 204, TICK_Y = 222, MINI_H = 30;
-const PLOT_L = 4, PLOT_W = W - 14;
+// Chart geometry. The viewBox is the plot's real CSS width (measure()),
+// so text and strokes stay their designed size on a tablet or desktop
+// and only the plot widens; the height grows a little with it, capped.
+// The handoff's 310 x 232 phone layout is the minimum.
+const TOP = 14, MINI_H = 30, PLOT_L = 4;
+const MIN_W = 310, MIN_H = 232, MAX_H = 340;
+let W = MIN_W, H = MIN_H, BOT = H - 28, TICK_Y = H - 10, PLOT_W = W - 14;
+
+function measure(){
+  const plot = part('plot');
+  W = Math.max(MIN_W, Math.round(plot ? plot.clientWidth : MIN_W));
+  H = Math.round(Math.min(MAX_H, Math.max(MIN_H, W * 0.42)));
+  BOT = H - 28;
+  TICK_Y = H - 10;
+  PLOT_W = W - 14;
+  part('chart').setAttribute('viewBox', `0 0 ${W} ${H}`);
+  part('mini-svg').setAttribute('viewBox', `0 0 ${W} ${MINI_H}`);
+}
 const PAN_MS = 480;
 const SIM_START = '2026-09-01';
 
@@ -77,7 +92,7 @@ let focus = null;             // drafter followed in the chart
 let series = null, months = [], seasonWin = [0, 1], markers = [];
 let seriesKey = '';
 let rowsNow = null, root = null;
-let panRaf = 0, replayRaf = 0;
+let panRaf = 0, replayRaf = 0, resizeObs = null;
 let lastTableKey = '';
 
 function buildState(rows){
@@ -166,8 +181,8 @@ function cardHtml(){
         <div class="race-chip-scroll" data-race="chips">${chips}</div>
         <button type="button" class="race-chip all" data-month="all" onclick="raceMonth('all')">All</button>
       </div>
-      <div class="race-plot" data-race="plot"><svg viewBox="0 0 ${W} ${H}" data-race="chart" aria-label="Points race chart"></svg></div>
-      <div class="race-mini" data-race="mini"><svg viewBox="0 0 ${W} ${MINI_H}" data-race="mini-svg" aria-hidden="true"></svg></div>
+      <div class="race-plot" data-race="plot"><svg viewBox="0 0 ${MIN_W} ${MIN_H}" data-race="chart" aria-label="Points race chart"></svg></div>
+      <div class="race-mini" data-race="mini"><svg viewBox="0 0 ${MIN_W} ${MINI_H}" data-race="mini-svg" aria-hidden="true"></svg></div>
     </div>
     <div data-race="table"></div>
   `;
@@ -181,6 +196,7 @@ const f1 = n => n.toFixed(1);
 
 function draw(){
   if(!root || !series || series.today < 1) return;
+  measure();
   const c = currentDay();
   part('chart').innerHTML = chartSvg(c);
   const mini = part('mini');
@@ -314,9 +330,13 @@ function chartSvg(c){
   return out.join('');
 }
 
-// The whole season, small: where the window sits, tap to jump.
+// The season so far, small: where the window sits, tap to jump. It spans
+// the recorded history, not the whole class (All shows the future), so
+// it fills its width from the first week on.
+const miniSpan = () => [-MONTH_PAD, series.today + MONTH_PAD];
+
 function miniSvg(){
-  const [sa, sb] = seasonWin;
+  const [sa, sb] = miniSpan();
   const x = t => PLOT_L + (t - sa) / (sb - sa) * PLOT_W;
   let lo = Infinity, hi = -Infinity;
   series.ids.forEach(id => series.proj[id].forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
@@ -488,7 +508,7 @@ function bind(){
     draw();
   });
   part('mini').addEventListener('click', e => {
-    const [sa, sb] = seasonWin;
+    const [sa, sb] = miniSpan();
     const t = sa + plotFraction(e, part('mini')) * (sb - sa);
     raceMonth(monthIndexAt(months, Math.max(0, Math.min(series.today, t))));
   });
@@ -503,6 +523,15 @@ export function raceMount(container, rows){
   lastTableKey = '';
   bind();
   draw();
+  // Rotating an iPad or resizing a window re-measures the chart.
+  if(window.ResizeObserver){
+    let lastW = part('plot').clientWidth;
+    resizeObs = new ResizeObserver(() => {
+      const w = part('plot') ? part('plot').clientWidth : lastW;
+      if(Math.abs(w - lastW) >= 1){ lastW = w; draw(); }
+    });
+    resizeObs.observe(part('plot'));
+  }
   const scroller = part('chips');
   if(scroller) scroller.scrollLeft = scroller.scrollWidth;
   if(zoom === 'month') scrollChipIntoView();
@@ -510,6 +539,7 @@ export function raceMount(container, rows){
 
 export function raceUnmount(){
   cancelAnimationFrame(panRaf);
+  if(resizeObs){ resizeObs.disconnect(); resizeObs = null; }
   if(replaying){ cancelAnimationFrame(replayRaf); replaying = false; cursor = null; }
   root = null;
 }
