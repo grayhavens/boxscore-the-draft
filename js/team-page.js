@@ -1342,7 +1342,7 @@ function depthChartRowsFor(groupLabel, items, meta){
     const matches = groupLabel === 'Special Teams' ? isST : (!isST && player.group === groupLabel);
     if(!matches) return;
     const key = `${r.pos_grp}|${r.pos_slot}`;
-    const slotOrder = `${r.pos_grp} ${String(parseInt(r.pos_slot, 10) || 0).padStart(3, '0')}`;
+    const slotOrder = `${r.pos_grp}\u0000${String(parseInt(r.pos_slot, 10) || 0).padStart(3, '0')}`;
     if(!bySlot[key]) bySlot[key] = { label: r.pos_abb || r.pos_name || '', slotOrder, entries: [] };
     bySlot[key].entries.push({ player, rank: parseInt(r.pos_rank, 10) || 999 });
   });

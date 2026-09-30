@@ -6,7 +6,7 @@
    cache only when there's no connectivity — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v23';
+const CACHE_NAME = 'boxscore-v24';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -35,6 +35,8 @@ const SHELL_FILES = [
   './js/season-switcher.js',
   './js/frozen-cache.js',
   './js/seasons/index.js',
+  './js/seasons/the-draft.js',
+  './js/seasons/pre-draft.js',
   './js/seasons/2026.js',
   './js/utils.js',
   './js/api.js',
@@ -71,6 +73,15 @@ const SHELL_FILES = [
   './js/settings.js',
   './js/standings-cbb.js',
   './js/team-page.js',
+  './js/sheet.js',
+  './js/league-labels.js',
+  './js/draft-schedule.js',
+  './js/game-card.js',
+  './js/golf.js',
+  './js/golf-api.js',
+  './js/golf-view.js',
+  './js/golfers.js',
+  './js/seasons/pga.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

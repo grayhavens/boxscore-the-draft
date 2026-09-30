@@ -55,7 +55,7 @@ Still to verify: a live leaderboard mid-round (`today`, `thru`). Capture a fixtu
 
 1. **Per-group leagues and caps.** Done: `caps` on a group in `js/groups.js` (`groupCaps`) sets the
    draft room's sports and picks (`syncCaps` in `js/draft-engine.js`, applied to rooms in the lobby)
-   and a pre-draft group's league tabs (`js/seasons/index.js`).
+   and a pre-draft group's league tabs (`js/seasons/pre-draft.js`).
 2. **Golf data layer.** Done: `js/golf.js`, `js/golf-api.js`, `worker/golf.js`, tests in
    `tests/golf.test.mjs` against real ESPN fixtures (`tests/fixtures/golf/`).
 3. **Golfers in the draft.** Done: `js/golfers.js` is the pool (top 80 by official 2026 FedEx points,

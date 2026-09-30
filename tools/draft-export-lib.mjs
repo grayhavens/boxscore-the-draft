@@ -339,17 +339,17 @@ export const LEAGUE_SCORING = PREVIOUS_SCORING;
 `;
 }
 
-// Adds the new class to the registry (js/seasons/index.js) — idempotent.
+// Adds the new class to The Draft's registry (js/seasons/the-draft.js) — idempotent.
 export function updateRegistry(source, year){
   if(source.includes(`'./${year}.js'`)) return source;
   const importLine = `import * as s${year} from './${year}.js';`;
   const importRe = /^import \* as s\d+ from '\.\/\d+\.js';$/gm;
   let last = null, m;
   while((m = importRe.exec(source))) last = m;
-  if(!last) throw new Error('could not find the season imports in js/seasons/index.js');
+  if(!last) throw new Error('could not find the season imports in js/seasons/the-draft.js');
   let out = source.slice(0, last.index + last[0].length) + '\n' + importLine + source.slice(last.index + last[0].length);
   const entryRe = /(  '\d+': \{ id: '\d+', label: '[^']*', \.\.\.s\d+ \})(\n\};)/;
-  if(!entryRe.test(out)) throw new Error('could not find the SEASONS map in js/seasons/index.js');
+  if(!entryRe.test(out)) throw new Error('could not find the SEASONS map in js/seasons/the-draft.js');
   out = out.replace(entryRe, `$1,\n  '${year}': { id: '${year}', label: '${year} Draft', ...s${year} }$2`);
   return out;
 }
