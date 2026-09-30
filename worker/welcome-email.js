@@ -22,6 +22,8 @@
    Routes (admin, worker/system-admin.js):
      POST /api/admin/welcome { group, drafters, subject, body, test }
        test: true sends one copy, as the first drafter, to the admin only.
+     POST /api/admin/claims/confirm with welcome: { subject, body } sends
+       it to the person just confirmed, in the same request.
      POST /api/admin/email { group, drafter, email } -> set or ('') clear
        a named spot's email
    ============================================================ */
@@ -39,6 +41,16 @@ export function welcomeKey(group){
 
 export function loadWelcomed(env, group){
   return loadRecord(env, welcomeKey(group));
+}
+
+// A released spot (Undo on the admin page) forgets its welcome, so whoever
+// is confirmed into it next isn't listed as already welcomed.
+export async function clearWelcomed(env, group, drafterId){
+  const welcomed = await loadWelcomed(env, group);
+  if(!(drafterId in welcomed)) return;
+  delete welcomed[drafterId];
+  if(Object.keys(welcomed).length) await env.LEAGUE_FACTS.put(welcomeKey(group), JSON.stringify(welcomed));
+  else await env.LEAGUE_FACTS.delete(welcomeKey(group));
 }
 
 export function emailsKey(group){

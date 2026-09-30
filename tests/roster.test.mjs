@@ -39,7 +39,7 @@ test('confirming a claim fills the next open spot under the edited name and drop
   const env = fakeEnv();
   withClaims(env, [{ id: 'c1', name: 'sam', email: 'sam@example.com' }, { id: 'c2', name: 'Alex', email: 'a@example.com' }]);
   const spot = firstOpen();
-  assert.deepEqual(await confirmClaim(env, 'seasonticket', 'c1', ' Sam R '), { drafter: spot.id, name: 'Sam R' });
+  assert.deepEqual(await confirmClaim(env, 'seasonticket', 'c1', ' Sam R '), { drafter: spot.id, name: 'Sam R', email: 'sam@example.com' });
   const assigned = await loadAssigned(env, 'seasonticket');
   assert.equal(assigned[spot.id].name, 'Sam R');
   assert.equal(assigned[spot.id].email, 'sam@example.com');

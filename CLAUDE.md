@@ -254,7 +254,10 @@ check accepts either. Rotating a group's password cancels its tokens. The page s
 under Platform). Its **Welcome email** section (`worker/welcome-email.js`) emails a group's confirmed people (their claim's
 email) and any spot named in `js/groups.js` whose email was added there (`emails@<group>` in KV, never the public
 file), through Resend from `admin@boxscore.space` (worker secret `RESEND_API_KEY`, domain verified
-in Resend), with replies to the admin's Access email. `welcome@<group>` in KV records who has had it. Setup, one time:
+in Resend), with replies to the admin's Access email. `welcome@<group>` in KV records who has had it. Confirming a claim sends it
+to that person in the same request (`welcome: { subject, body }` on `/api/admin/claims/confirm`, the section's text as it
+stands; a "Send the welcome email" checkbox in the confirm row, on by default). A failed send still confirms, and the
+section then offers that person. **Deploy the worker first.** Setup, one time:
 1. Zero Trust → Access → Applications → add a self-hosted app for `boxscore.space` with paths `admin` and `api/admin`,
    plus a policy allowing only your email.
 2. `npx wrangler secret put ACCESS_TEAM_DOMAIN` (e.g. `<team>.cloudflareaccess.com`) and

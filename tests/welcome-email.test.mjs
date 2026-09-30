@@ -2,7 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { welcomeHtml, welcomeText } from '../js/welcome-template.js';
-import { fillTemplate, buildMessages, sendWelcome, welcomeKey, welcomeContacts, setDrafterEmail, loadEmails, WELCOME_FROM } from '../worker/welcome-email.js';
+import { fillTemplate, buildMessages, sendWelcome, welcomeKey, welcomeContacts, setDrafterEmail, loadEmails, loadWelcomed, WELCOME_FROM } from '../worker/welcome-email.js';
+import { handleSystemAdmin } from '../worker/system-admin.js';
+import { claimsKey, confirmClaim } from '../worker/claims.js';
 
 function fakeEnv(extra = {}){
   const store = new Map();
@@ -117,4 +119,54 @@ test('setDrafterEmail sets and clears a named spot only', async () => {
   assert.deepEqual(await setDrafterEmail(env, 'seasonticket', 'josh', 'nope'), { error: 'email' });
   assert.deepEqual(await setDrafterEmail(env, 'seasonticket', 'josh', ''), { ok: true, email: '' });
   assert.equal(env.store.size, 0);
+});
+
+// The admin route, with Access skipped the way local dev skips it.
+async function adminPost(env, route, body, deps){
+  const url = new URL(`https://boxscore.space/api/admin${route}`);
+  const request = new Request(url, { method: 'POST', headers: { Origin: url.origin, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await handleSystemAdmin(request, url, env, deps);
+  return { status: res.status, data: await res.json() };
+}
+
+function withClaim(env){
+  env.store.set(claimsKey('seasonticket'), JSON.stringify([{ id: 'c1', name: 'Sam', email: 'sam@example.com', at: 1 }]));
+  return env;
+}
+
+test('confirming a claim with welcome text emails that person and records it', async t => {
+  const calls = stubFetch(t);
+  const env = withClaim(fakeEnv({ ADMIN_DEV_BYPASS: '1' }));
+  const { status, data } = await adminPost(env, '/claims/confirm',
+    { group: 'seasonticket', id: 'c1', name: 'Sam R', welcome: { subject: request.subject, body: request.body } }, { confirmClaim });
+  assert.equal(status, 200);
+  assert.deepEqual(data.welcome, { ok: true, sent: 1, test: false });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body[0].to, ['sam@example.com']);
+  assert.match(calls[0].body[0].text, /^Hi Sam R,/);
+  assert.deepEqual(Object.keys(await loadWelcomed(env, 'seasonticket')), [data.drafter]);
+});
+
+test('confirming without welcome text sends nothing, and a failed send still confirms', async t => {
+  const calls = stubFetch(t, { message: 'domain not verified' }, 403);
+  const env = withClaim(fakeEnv({ ADMIN_DEV_BYPASS: '1' }));
+  const plain = await adminPost(env, '/claims/confirm', { group: 'seasonticket', id: 'c1', name: 'Sam' }, { confirmClaim });
+  assert.equal(plain.status, 200);
+  assert.equal('welcome' in plain.data, false);
+  assert.equal(calls.length, 0);
+
+  env.store.set(claimsKey('seasonticket'), JSON.stringify([{ id: 'c2', name: 'Alex', email: 'alex@example.com', at: 2 }]));
+  const failed = await adminPost(env, '/claims/confirm',
+    { group: 'seasonticket', id: 'c2', name: 'Alex', welcome: { subject: 'Hi', body: 'Hi {name}' } }, { confirmClaim });
+  assert.equal(failed.status, 200);
+  assert.equal(failed.data.name, 'Alex');
+  assert.deepEqual(failed.data.welcome, { error: 'resend', detail: 'domain not verified' });
+  assert.deepEqual(await loadWelcomed(env, 'seasonticket'), {});
+});
+
+test('undoing a spot forgets its welcome', async () => {
+  const env = fakeEnv({ ADMIN_DEV_BYPASS: '1' });
+  env.store.set(welcomeKey('seasonticket'), JSON.stringify({ draftertwo: 5, drafterthree: 6 }));
+  await adminPost(env, '/roster/release', { group: 'seasonticket', drafter: 'draftertwo' }, { releaseSpot: async () => true });
+  assert.deepEqual(await loadWelcomed(env, 'seasonticket'), { drafterthree: 6 });
 });

@@ -13,7 +13,8 @@
      GET /roster?group=      public: { assigned: { <id>: { name } } },
                              names only, never emails
      (admin, worker/system-admin.js)
-     POST /api/admin/claims/confirm  { group, id, name } -> fill a spot
+     POST /api/admin/claims/confirm  { group, id, name, welcome } -> fill a
+                                     spot (and send the welcome email)
      POST /api/admin/roster/release  { group, drafter }  -> free it again
    ============================================================ */
 import { GROUPS, applyRoster } from '../js/groups.js';

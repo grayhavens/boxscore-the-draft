@@ -154,7 +154,7 @@ export function cleanName(name){
 
 // Confirming a claim (admin page): its person gets the next open spot
 // (worker/roster.js) under `rawName`, and the claim is dropped.
-// { drafter, name } or { error }: 'name' (blank), 'taken' (another drafter
+// { drafter, name, email } or { error }: 'name' (blank), 'taken' (another drafter
 // already has that name, which would make the name pickers ambiguous),
 // 'claim' (already confirmed or dismissed), 'full' (no open spot left).
 export async function confirmClaim(env, group, claimId, rawName){
@@ -168,10 +168,11 @@ export async function confirmClaim(env, group, claimId, rawName){
   const spot = drafters.find(d => d.open);
   if(!spot) return { error: 'full' };
 
-  assigned[spot.id] = { name, email: claim.email || claim.contact || '', at: Date.now() };
+  const email = claim.email || claim.contact || '';
+  assigned[spot.id] = { name, email, at: Date.now() };
   await saveAssigned(env, group, assigned);
   const rest = claims.filter(c => c.id !== claimId);
   if(rest.length) await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify(rest));
   else await env.LEAGUE_FACTS.delete(claimsKey(group));
-  return { drafter: spot.id, name };
+  return { drafter: spot.id, name, email };
 }
