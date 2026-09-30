@@ -197,6 +197,7 @@ import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
+import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
 
@@ -1120,8 +1121,19 @@ async function route(request, env, ctx){
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
-    /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+    url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
+
+  // The group's invite code (worker/access-code.js). Left open on purpose:
+  // the check itself, the claim form and roster (the landing page and boot
+  // need them before anyone has a code), and the password-only verify.
+  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/admin/verify'].includes(url.pathname);
+  if(isGated){
+    const denied = await gateRequest(env, group, url, headers);
+    if(denied) return denied;
+  }
+
+  if(url.pathname === '/access/check') return handleAccessCheck(request, url, env, group, headers, { json });
 
   if(url.pathname === '/admin/verify'){
     if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });

@@ -33,6 +33,10 @@
      POST /api/admin/welcome       { group, drafters, subject, body, test }
                                    -> the welcome email to confirmed people
                                    (worker/welcome-email.js)
+     POST /api/admin/access        { group, action } -> the group's invite
+                                   code: rotate (new code, soft mode),
+                                   enforce, soften or clear
+                                   (worker/access-code.js); /status carries it
      POST /api/admin/email         { group, drafter, email } -> a named
                                    spot's email, for the welcome email
 
@@ -44,11 +48,12 @@ import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
 import { loadDevices, pushEnabled, pushToDrafters } from './web-push.js';
 import { claimAlertEnabled } from './claims.js';
+import { loadAccess, changeAccess } from './access-code.js';
 import { loadWelcomed, clearWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
-const POST_ROUTES = ['/commissioner', '/push', '/claims/dismiss', '/claims/confirm', '/roster/release', '/welcome', '/email'];
+const POST_ROUTES = ['/commissioner', '/push', '/claims/dismiss', '/claims/confirm', '/roster/release', '/welcome', '/email', '/access'];
 
 function json(data, status = 200){
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -89,7 +94,7 @@ async function stubJson(stub, path){
 
 async function groupStatus(env, id, deps){
   const group = GROUPS[id];
-  const [draft, chat, activity, claims, assigned, roster, welcomed, emails] = await Promise.all([
+  const [draft, chat, activity, claims, assigned, roster, welcomed, emails, access] = await Promise.all([
     stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, id), '/status'),
     stubJson(deps.chatRoomStub(env, id), '/summary'),
     env.LEAGUE_FACTS.get(deps.activityKey(id), 'json'),
@@ -97,7 +102,8 @@ async function groupStatus(env, id, deps){
     deps.loadAssigned(env, id),
     deps.effectiveDrafters(env, id),
     loadWelcomed(env, id),
-    loadEmails(env, id)
+    loadEmails(env, id),
+    loadAccess(env, id, 0)
   ]);
   const drafters = await Promise.all(roster.map(async d => {
     const devices = await loadDevices(env, id, d.id);
@@ -121,6 +127,7 @@ async function groupStatus(env, id, deps){
     id,
     name: group.name,
     commissionerPassword: !!env[adminSecretName(id)],
+    access: access ? { code: access.code, enforce: access.enforce, at: access.at } : null,
     draft,
     chat,
     activity: { events: events.length, lastTs: events.length ? events[0].ts : null },
@@ -169,7 +176,15 @@ async function handleCommissioner(request, env){
   const password = env[adminSecretName(body.group)];
   if(!password) return json({ error: 'no_password' }, 409);
   const expiresAt = Date.now() + COMMISSIONER_TOKEN_TTL_MS;
-  return json({ token: await makeCommissionerToken(password, body.group, expiresAt), expiresAt });
+  const access = await loadAccess(env, body.group, 0);
+  return json({ token: await makeCommissionerToken(password, body.group, expiresAt), expiresAt, code: access ? access.code : null });
+}
+
+async function handleAccess(request, env){
+  const body = await readBody(request);
+  if(!body) return json({ error: 'bad_group' }, 400);
+  const result = await changeAccess(env, body.group, body.action);
+  return json(result, result.error ? (result.error === 'no_code' ? 409 : 400) : 200);
 }
 
 async function handleConfirmClaim(request, env, deps, identity){
@@ -264,6 +279,7 @@ export async function handleSystemAdmin(request, url, env, deps){
         : route === '/roster/release' ? await handleReleaseSpot(request, env, deps)
         : route === '/welcome' ? await handleWelcome(request, env, deps, identity)
         : route === '/email' ? await handleSetEmail(request, env)
+        : route === '/access' ? await handleAccess(request, env)
         : await handleDismissClaim(request, env, deps);
     }
   } else {

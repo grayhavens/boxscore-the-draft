@@ -8,6 +8,7 @@
    ============================================================ */
 import { GROUPS, LEGACY_GROUP_ID, chooseGroupId } from './groups.js';
 import { loadRoster } from './roster.js';
+import { ensureAccess, accessCode } from './access.js';
 
 function resolveActiveGroupId(){
   let hostname = '', fromUrl = null;
@@ -21,6 +22,10 @@ function resolveActiveGroupId(){
 export const ACTIVE_GROUP_ID = resolveActiveGroupId();
 export const ACTIVE_GROUP = GROUPS[ACTIVE_GROUP_ID];
 
+// The group's invite code (js/access.js): taken from the invite link, or
+// asked for once, before anything below reads group state.
+await ensureAccess(ACTIVE_GROUP_ID, ACTIVE_GROUP.name);
+
 // Real names for spots confirmed on the admin page, before anything reads
 // ACTIVE_GROUP.drafters. A no-op for a group with no open spots; otherwise
 // instant from the last copy seen, and only a device's first launch waits
@@ -29,8 +34,11 @@ await loadRoster(ACTIVE_GROUP_ID);
 export const IS_LEGACY_GROUP = ACTIVE_GROUP_ID === LEGACY_GROUP_ID;
 
 // Adds ?group= to a worker URL for any group but The Draft, whose worker
-// state predates groups and is what an absent param means.
+// state predates groups and is what an absent param means, plus the
+// group's invite code as ?gc= when this device has one (worker/access-code.js).
 export function withGroupQuery(url){
-  if(IS_LEGACY_GROUP) return url;
-  return `${url}${url.includes('?') ? '&' : '?'}group=${ACTIVE_GROUP_ID}`;
+  const code = accessCode();
+  const params = [...(IS_LEGACY_GROUP ? [] : [`group=${ACTIVE_GROUP_ID}`]), ...(code ? [`gc=${encodeURIComponent(code)}`] : [])];
+  if(!params.length) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
 }

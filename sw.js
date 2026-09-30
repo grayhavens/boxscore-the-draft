@@ -16,6 +16,7 @@ const SHELL_FILES = [
   './js/motion.js',
   './js/data.js',
   './js/group.js',
+  './js/access.js',
   './js/groups.js',
   './js/roster.js',
   './js/worker-base.js',
