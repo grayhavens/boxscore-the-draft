@@ -14,15 +14,18 @@
    until the league locks.
 
    The page: a "You" hero (projected rank, the locked/live split and a
-   ladder of the drafters around you), then a Standings | Activity switch.
+   ladder of the drafters around you), then a Standings | Activity | Race
+   switch. Race (js/race.js, docs/points-race-plan.md) charts the season.
    Any drafter opens a quick sheet; its Full breakdown pushes the
    per-drafter detail (one accordion card per scoring league). The
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
-import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
+import { assignRank } from './rank.js';
+import { raceHtml, raceMount, raceUnmount } from './race.js';
 import { currentProfileId } from './identity.js';
 import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink } from './activity.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
@@ -62,7 +65,8 @@ export function obLeagueFullName(leagueKey){
 }
 
 // Within-session view state, same as standingsFilterKey in js/board.js.
-// obSegment is the Standings | Activity switch ('standings' | 'activity'):
+// obSegment is the Standings | Activity | Race switch ('standings' |
+// 'activity' | 'race'; Race is js/race.js, hidden before a group's draft):
 // every visit opens on Standings unless it was asked for Activity (the
 // Home link, or ?seg=activity). obSegmentNext carries that request
 // across switchView, which is what starts the visit. The
@@ -356,22 +360,6 @@ function obBuildRow(d, bonuses){
   };
 }
 
-// Standard competition rank on `field` with a "T" tie prefix, e.g.
-// 1, T2, T2, 4, written to row[rankKey] / row[rankKey + 'Label'].
-function obAssignRank(rows, field, rankKey){
-  const sorted = rows.slice().sort((a, b) => b[field] - a[field] || a.name.localeCompare(b.name));
-  let prev = null, prevRank = 0;
-  sorted.forEach((r, i) => {
-    r[rankKey] = (prev !== null && r[field] === prev) ? prevRank : i + 1;
-    prev = r[field];
-    prevRank = r[rankKey];
-  });
-  const counts = {};
-  sorted.forEach(r => { counts[r[rankKey]] = (counts[r[rankKey]] || 0) + 1; });
-  sorted.forEach(r => { r[rankKey + 'Label'] = (counts[r[rankKey]] > 1 ? 'T' : '') + r[rankKey]; });
-  return sorted;
-}
-
 // All ten rows, sorted by projected points (ties broken alphabetically).
 // `rank`/`rankLabel` is the projected rank; `lockedRank`/`lockedRankLabel`
 // ranks the same rows on locked points. The single source every surface
@@ -379,8 +367,8 @@ function obAssignRank(rows, field, rankKey){
 export function obRankedRows(){
   const bonuses = obMode === 'simulated' ? {} : bonusStandings();
   const rows = DRAFT_TEAMS.map(d => obBuildRow(d, bonuses));
-  obAssignRank(rows, 'confirmedTotal', 'lockedRank');
-  return obAssignRank(rows, 'total', 'rank');
+  assignRank(rows, 'confirmedTotal', 'lockedRank');
+  return assignRank(rows, 'total', 'rank');
 }
 
 // "T2" -> "T2nd", "3" -> "3rd".
@@ -534,7 +522,11 @@ function obHeroHtml(rows, me){
 // highlighting "the leader" in that case would just be singling out an
 // arbitrary alphabetical pick, so the leader wash/gold rank only renders
 // once someone has actually separated from the pack.
-function obTableHtml(rows){
+// The Race segment (js/race.js) renders a past day through this same
+// table: `opts.head` replaces the header label, `opts.tap` the row's
+// handler, `opts.focus` marks the drafter followed in the chart, and
+// `opts.noMoves` drops the "since last visit" arrows, which are about today.
+export function obTableHtml(rows, opts = {}){
   const leaderCount = rows.filter(r => r.rank === 1).length;
   const hasLeader = leaderCount > 0 && leaderCount < rows.length;
   const me = obYouId();
@@ -543,9 +535,9 @@ function obTableHtml(rows){
     const tier = isTop ? 'rank-1' : (hasLeader && r.rank <= 3 ? 'rank-mid' : '');
     const live = r.provisionalTotal;
     return `
-      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="obOpenSheet('${r.id}')">
+      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''} ${r.id === opts.focus ? 'focus' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="${opts.tap || 'obOpenSheet'}('${r.id}')">
         <span class="ob-rank ${tier}">${r.rankLabel}</span>
-        <span class="ob-table-name"><span class="ob-table-name-text">${r.name}</span>${obMoveHtml(obRankMove(r), false)}</span>
+        <span class="ob-table-name"><span class="ob-table-name-text">${r.name}</span>${opts.noMoves ? '' : obMoveHtml(obRankMove(r), false)}</span>
         <span class="ob-table-locked">${obPts(r.confirmedTotal)}</span>
         <span class="ob-table-live ${live === 0 ? 'zero' : (live < 0 ? 'neg' : '')}">${obSignedPts(live)}</span>
         <span class="ob-table-proj">${obPts(r.total)}</span>
@@ -555,24 +547,28 @@ function obTableHtml(rows){
   return `
     <div class="ob-table">
       <div class="ob-table-row head">
-        <span></span><span>Ranked by projected</span><span>Locked</span><span class="lv">Live</span><span class="pj">Proj</span>
+        <span></span><span>${opts.head || 'Ranked by projected'}</span><span>Locked</span><span class="lv">Live</span><span class="pj">Proj</span>
       </div>
       ${body}
     </div>
   `;
 }
 
+function obSegments(badge){
+  return [{ key: 'standings', label: 'Standings' }, { key: 'activity', label: 'Activity', badge }]
+    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }]);
+}
+const obSegmentKeys = () => obSegments(0).map(s => s.key);
+
 function obListHtml(rows){
   const me = rows.find(r => r.id === obYouId());
   const badge = obSegment === 'activity' ? 0 : unseenCount();
-  const seg = segmentedControlHtml([
-    { key: 'standings', label: 'Standings' },
-    { key: 'activity', label: 'Activity', badge }
-  ], obSegment, 'obSetSegment');
+  const seg = segmentedControlHtml(obSegments(badge), obSegment, 'obSetSegment');
+  const body = obSegment === 'activity' ? activityPanelHtml() : obSegment === 'race' ? raceHtml(rows) : obTableHtml(rows);
   return `
     ${me ? obHeroHtml(rows, me) : ''}
     <div class="ob-seg">${seg}</div>
-    ${obSegment === 'activity' ? activityPanelHtml() : obTableHtml(rows)}
+    ${body}
     <button type="button" class="modal-cta secondary ob-scoring-btn" onclick="openScoringSheet()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
       How scoring works
@@ -866,14 +862,14 @@ function obDetailHtml(row){
 // starts a new visit for the "since" rank baseline.
 export function obEnterView(){
   const fromUrl = new URLSearchParams(window.location.search).get('seg');
-  obSegment = obSegmentNext || (fromUrl === 'activity' ? 'activity' : 'standings');
+  obSegment = obSegmentNext || (fromUrl !== 'standings' && obSegmentKeys().includes(fromUrl) ? fromUrl : 'standings');
   obSegmentNext = null;
   obBaselinePending = true;
   obGrowNext = true;
 }
 
 export function obSetSegment(key){
-  if(key !== 'standings' && key !== 'activity') return;
+  if(!obSegmentKeys().includes(key)) return;
   obSegment = key;
   renderOverallStandings();
 }
@@ -990,6 +986,8 @@ export function renderOverallStandings(opts){
   obRollBaseline(rows);
   runActivityDetection();
   obPrimeBonus();
+  // Every surface below replaces the Race chart's DOM (if it was up).
+  raceUnmount();
 
   if(obDetailId){
     const row = rows.find(r => r.id === obDetailId);
@@ -1023,6 +1021,7 @@ export function renderOverallStandings(opts){
   const prevHeroTotal = container.querySelector('.ob-hero-total');
   container.innerHTML = simBanner + obListHtml(rows);
   container.dataset.obSurface = surface;
+  if(obSegment === 'race') raceMount(container, rows);
   if(growNow) obGrowStart = performance.now();
   obPlayGrow(container, rows, growNow ? null : prevHeroTotal);
   if(before) obPlayFlip(container, before, rows);

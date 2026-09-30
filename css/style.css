@@ -211,6 +211,13 @@ html{ background: var(--bg); }
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --live-stripe: repeating-linear-gradient(135deg, var(--provisional) 0 3px, var(--provisional-soft) 3px 6px);
   --risk-stripe: repeating-linear-gradient(135deg, var(--loss) 0 3px, color-mix(in srgb, var(--loss) 35%, transparent) 3px 6px);
+  /* Race chart (js/race.js) lines and rules. On --ink-rgb, so they flip
+     with the theme without a light-mode copy. */
+  --race-line: rgba(var(--ink-rgb), 0.13);
+  --race-ghost: rgba(var(--ink-rgb), 0.07);
+  --race-grid: rgba(var(--ink-rgb), 0.05);
+  --race-today: rgba(var(--ink-rgb), 0.22);
+  --race-mini: rgba(var(--ink-rgb), 0.12);
   --text-strong: #FFFFFF;
   --on-accent: #0A0B0D;
   --hover: rgba(var(--ink-rgb), 0.04);
@@ -2993,6 +3000,109 @@ body{
 .ob-table-live.zero{ color: var(--text-mute); }
 .ob-table-live.neg{ color: var(--loss); }
 .ob-table-proj{ font-family: var(--font-display); font-size: 18px; color: var(--text); }
+/* The drafter the Race chart is following (js/race.js). */
+.ob-table-row.focus{ box-shadow: inset 3px 0 0 var(--text); }
+.ob-table-row.focus.current{ box-shadow: inset 3px 0 0 var(--accent); }
+
+/* -- Race (js/race.js, docs/points-race-plan.md) --
+   Card chrome matches .ob-hero; the chips and the Points | Rank switch
+   are .seg's track and thumb at a smaller size. SVG text sits below the
+   type scale on purpose (chart annotations). */
+.race-card{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  padding: 16px 16px 14px;
+  margin-bottom: 14px;
+}
+.race-top{ display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.race-top-text{ min-width: 0; }
+.race-title{ font-family: var(--font-display); font-size: var(--fs-17); font-weight: 700; letter-spacing: var(--track-snug); }
+.race-sub{ margin-top: 2px; font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.race-controls{ display: flex; align-items: center; gap: 8px; flex: none; }
+.race-mode .seg{ margin: 0; border-radius: 8px; }
+.race-mode .seg-thumb{ border-radius: 6px; }
+.race-mode .seg-btn{ flex: none; width: 52px; min-height: 0; padding: 5px 0; font-size: var(--fs-12); }
+.race-replay{
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font: 800 var(--fs-12) var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.race-replay:active{ transform: scale(0.96); }
+.race-chips{ display: flex; gap: 2px; padding: 3px; background: var(--seg-track); border-radius: 11px; }
+.race-chip-scroll{ display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.race-chip-scroll::-webkit-scrollbar{ display: none; }
+.race-chip{
+  flex: 1 0 auto;
+  min-width: 38px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-sub);
+  font: 700 var(--fs-12) var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+}
+.race-chip.all{ flex: none; min-width: 44px; }
+.race-chip.active{ background: var(--seg-thumb); box-shadow: var(--seg-thumb-shadow); color: var(--text); }
+.race-plot{ touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+.race-plot svg, .race-mini svg{ display: block; width: 100%; height: auto; overflow: visible; }
+.race-mini{ cursor: pointer; }
+.race-mini[hidden]{ display: none; }
+
+.race-grid{ stroke: var(--race-grid); }
+.race-base{ stroke: var(--hairline-strong); }
+.race-axis{ font: 700 9.5px var(--font-display); fill: var(--text-mute); }
+.race-tick{ font: 700 9.5px var(--font-ui); fill: var(--text-mute); }
+.race-tick.past{ fill: var(--text-sub); }
+.race-today{ stroke: var(--race-today); stroke-dasharray: 3 3; }
+.race-today-label{ font: 800 9px var(--font-ui); letter-spacing: var(--track-tag); fill: var(--text-sub); }
+.race-lock{ fill: var(--surface); stroke: var(--text-mute); stroke-width: 1; }
+.race-lock.done{ fill: var(--accent); stroke: var(--accent); }
+.race-lock-label{ font: 800 9px var(--font-ui); letter-spacing: 0.04em; fill: var(--accent); }
+.race-line{ fill: none; stroke: var(--race-line); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
+.race-line.focus{ stroke: var(--text); stroke-width: 2.25; }
+.race-line.me{ stroke: var(--accent); stroke-width: 2.5; }
+.race-ghost{ fill: none; stroke: var(--race-ghost); stroke-width: 1.25; }
+.race-locked-area{ fill: var(--race-ghost); }
+.race-locked-line{ fill: none; stroke: var(--text); stroke-opacity: 0.55; stroke-width: 1.25; }
+.race-live-area{ fill: url(#race-live); opacity: 0.5; }
+.race-stripe-bg{ fill: var(--provisional-soft); }
+.race-stripe{ fill: var(--provisional); opacity: 0.75; }
+.race-cursor{ stroke: var(--text); stroke-opacity: 0.5; }
+.race-dot{ fill: var(--race-line); stroke: var(--surface); stroke-width: 1.5; }
+.race-dot.focus{ fill: var(--text); }
+.race-dot.me{ fill: var(--accent); }
+.race-label{
+  font: 700 10.5px var(--font-ui);
+  fill: var(--text-sub);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+.race-label.focus{ fill: var(--text); font-weight: 800; }
+.race-label.me{ fill: var(--accent); font-weight: 800; }
+.race-label .v{ font-family: var(--font-display); font-weight: 600; fill: var(--text-mute); }
+.race-label.focus .v, .race-label.me .v{ fill: var(--text); }
+.race-mini-line{ fill: none; stroke: var(--race-mini); stroke-width: 1; }
+.race-mini-line.me{ stroke: var(--accent); stroke-width: 1.5; }
+.race-mini-mask{ fill: var(--surface); opacity: 0.6; }
+.race-mini-win{ fill: rgba(var(--ink-rgb), 0.04); stroke: var(--text); stroke-opacity: 0.4; stroke-width: 1; }
+.race-idle{ margin-top: 0; margin-bottom: 14px; }
 
 /* -- Quick sheet (#ob-sheet-overlay) -- */
 .ob-sheet-head{ align-items: flex-end; padding-right: 60px; }

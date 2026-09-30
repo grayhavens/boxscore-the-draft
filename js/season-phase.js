@@ -166,6 +166,16 @@ export function isRegularSeasonOver(leagueKey){
   return new Date() > new Date(regular.endDate);
 }
 
+// When this league's Regular Season ends (a Date), or null while the data
+// hasn't loaded. The Race chart (js/race.js) marks a league's expected
+// lock there until it actually locks.
+export function regularSeasonEnd(leagueKey){
+  const cache = phaseCacheFor(leagueKey);
+  if(!cache.data) return null;
+  const regular = cache.data.types.find(t => t.type === 2);
+  return regular && regular.endDate ? new Date(regular.endDate) : null;
+}
+
 // Whether this league's current season is under way: from the first
 // day of its Regular Season through the end of its Postseason. Before
 // that (Pre-Season, or a table still showing last season's finish, or a

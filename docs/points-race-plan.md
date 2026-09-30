@@ -2,7 +2,7 @@
 
 Branch: `points-race`. Source: Claude Design handoff `design_handoff_points_race`
 (README + `Points Race v3.dc.html` + screenshots). It adds a third segment to the Points tab
-(**Standings · Race · Activity**): a chart of every drafter's projected points (or rank) over the
+(**Standings · Activity · Race**): a chart of every drafter's projected points (or rank) over the
 season, a month window with chips and a season minimap, Replay, and the standings table re-sorted
 to the scrubbed day.
 
@@ -44,7 +44,7 @@ use that component.
 
 ## Phases
 
-### 1. History recorder (worker + snapshot). **Done on this branch, ship first.**
+### 1. History recorder (worker + snapshot). **Shipped (#175).**
 Every day without it is history lost.
 - `worker/points-history.js`: KV `history[@<group>]:<season>` → `{ days: [{ d, p, l }] }`, one entry
   per Central-time day (the last write of a day wins), capped at 550 days. `GET /points/history`
@@ -61,10 +61,14 @@ Every day without it is history lost.
 - Tests: `tests/points-history.test.mjs`.
 - **Deploy the worker, then the static site.** An old worker ignores the extra `sample` field.
 
-### 2. Pure race math (`js/race-math.js` + tests)
-Pure functions shared by the renderer and Node tests:
-- history → per-day series with gaps held flat, plus derived projected/locked ranks (via the
-  same competition-rank rule as `obAssignRank`; move that into a shared helper rather than copying it)
+### 2. Pure race math (`js/race-math.js` + tests). **Done.**
+Pure functions shared by the renderer and Node tests (`tests/race-math.test.mjs`). The ranking rule
+moved out of `overall.js` into `js/rank.js` (`assignRank`) so a past day ranks exactly like today.
+Two details the handoff didn't cover: month chips run from the first sample **through today** (the
+prototype's chips also stop at the current month), so they grow over the season, and a label that
+would repeat gets its year (`Sep '26`, `Sep '27`). Totals can go **negative** (last-place rules),
+so the Y floor is 0 only when nobody is below it.
+- history → per-day series with gaps held flat, plus derived projected/locked ranks
 - the season's months → chip list; month window `[start − ε, next start + ε]`
 - Y domain: min/max inside the window (interpolated at the edges), padded 12% (min 6), floored at
   0, blended toward `[0, seasonMax]` as the window widens
@@ -72,7 +76,7 @@ Pure functions shared by the renderer and Node tests:
 - head-label de-collision (12px) and flip near the right edge
 - replay camera `[t − k, t + 1]` and which chip is active
 
-### 3. Race segment UI (`js/race.js`, `js/overall.js`, `css/style.css`)
+### 3. Race segment UI (`js/race.js`, `js/overall.js`, `css/style.css`). **Done.**
 - `obSetSegment` accepts `'race'`; `?seg=race` survives boot (`board.js`); the segment is hidden
   when `PRE_DRAFT`.
 - History fetch with a localStorage copy (paint immediately, refresh in the background), like
@@ -83,11 +87,21 @@ Pure functions shared by the renderer and Node tests:
   diamonds, head labels (tap to focus).
 - Scrub with pointer events; leaving resets to the window's latest day.
 - Month pan 480ms `EASE_OUT`; Replay; both skipped under `reducedMotion`.
-- Table below via `obTableHtml(rowsAtDay, { label })`; row tap = focus, then sheet.
+- Table below via `obTableHtml(rowsAtDay, { head, tap, focus, noMoves })`; row tap = focus, then sheet.
+  Re-sorts glide with a small FLIP inside `js/race.js` (Web Animations), not `obPlayFlip`: that one
+  also washes rows and counts totals up, which is too much at scrub/replay speed.
+- The chart's today is always the on-screen totals (`withToday`), so it matches Standings between samples.
+- The SVG's viewBox is the plot's real width (310 × 232 minimum, height up to 340), re-measured on
+  resize, so on iPad/desktop text keeps its size and the plot widens instead of the whole drawing
+  scaling up.
+- Race is the third segment (after Activity), by request.
+- The minimap spans the recorded history (first sample → today), not the whole class: early in the
+  season a whole-class minimap is a sliver at one end. The future still shows in All.
+- Replay runs 2–6s depending on how much history there is; under reduced motion it jumps to today.
 - Empty/short history state: "History starts {date}" in place of the chart when there are fewer
   than 2 days.
 
-### 4. Polish
+### 4. Polish. **Done** (simulated history, `GUIDE`, CLAUDE.md, `sw.js` v25, light theme checked).
 - Simulated-mode history generator.
 - `GUIDE` entry (`js/guide.js`), CLAUDE.md paragraph, `sw.js` `CACHE_NAME` bump.
 - Light theme and phone-width pass.
