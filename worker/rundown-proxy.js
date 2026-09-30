@@ -92,7 +92,10 @@
       for the finished board and GET /draft/status?room=<name> (phase and
       whose pick, edge-cached a few seconds) for the "draft is live"
       banner every other page polls, which also carries the scheduled
-      start (PUT /draft/schedule, password-gated). Drafter actions are no-auth (chat's trust
+      start (PUT /draft/schedule, password-gated) and the draft time
+      poll (js/draft-poll.js): PUT /draft/poll sets its candidate times
+      (password-gated), PUT /draft/vote is a drafter's answer (no-auth,
+      Origin-checked). Drafter actions are no-auth (chat's trust
       tier); commissioner actions need an `auth` frame with
       ADMIN_PASSWORD. Its rules are the same js/draft-engine.js the
       draft UI imports — that file lives in the static site's js/
@@ -866,11 +869,42 @@ async function handleDraftSchedule(request, url, env, group, headers){
   if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
   const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
-  const upstream = await stub.fetch(new Request(new URL('/schedule', url), { method: 'PUT', body: await request.text() }));
+  return putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
+}
+
+// A write to the room that changes what /draft/status says: forwards it,
+// then drops the room's edge-cached status (see handleDraftSchedule).
+async function putToDraftRoom(stub, url, path, body, headers){
+  const upstream = await stub.fetch(new Request(new URL(path, url), { method: 'PUT', body }));
   const statusUrl = new URL(url);
   statusUrl.pathname = '/draft/status';
   await caches.default.delete(new Request(statusUrl.toString(), { method: 'GET' }));
   return new Response(upstream.body, { status: upstream.status, headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
+// The draft time poll's candidate times (js/draft-poll.js), set from the
+// Commissioner page. Same gate as the schedule.
+async function handleDraftPoll(request, url, env, group, headers){
+  if(request.method !== 'PUT') return new Response('Method not allowed', { status: 405, headers });
+  if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
+  const stub = draftRoomStub(url, env, group);
+  if(!stub) return new Response('Bad room', { status: 400, headers });
+  return putToDraftRoom(stub, url, '/poll', await request.text(), headers);
+}
+
+// A drafter's answer to that poll, from Home's draft card. Same no-auth
+// trust tier as favorites and draft picks: an Origin check, and the
+// drafter has to be one of this group's.
+async function handleDraftVote(request, url, env, group, headers){
+  if(request.method !== 'PUT') return new Response('Method not allowed', { status: 405, headers });
+  if(!isAllowedOrigin(request.headers.get('Origin') || '')) return new Response('Forbidden', { status: 403, headers });
+  const stub = draftRoomStub(url, env, group);
+  if(!stub) return new Response('Bad room', { status: 400, headers });
+  const text = await request.text();
+  let body;
+  try { body = JSON.parse(text); } catch (e){ body = null; }
+  if(!body || !drafterIdsFor(group).includes(body.drafter)) return new Response('Unknown drafter', { status: 400, headers });
+  return putToDraftRoom(stub, url, '/vote', text, headers);
 }
 
 // Runtime delivery of the KLIPY app key — see the header comment's KLIPY
@@ -1103,6 +1137,10 @@ async function route(request, env, ctx){
   if(url.pathname === '/draft/status') return handleDraftStatus(request, url, env, group, headers, ctx);
 
   if(url.pathname === '/draft/schedule') return handleDraftSchedule(request, url, env, group, headers);
+
+  if(url.pathname === '/draft/poll') return handleDraftPoll(request, url, env, group, headers);
+
+  if(url.pathname === '/draft/vote') return handleDraftVote(request, url, env, group, headers);
 
   if(url.pathname === '/gif/config') return handleGifConfig(request, env, headers);
 

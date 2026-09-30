@@ -48,7 +48,7 @@ const GUIDE = [
       'Tap a drafter on Points to see their board.'
     ],
     pre: {
-      lead: 'Home is your board. Until the draft it shows when the draft starts and the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
+      lead: 'Home is your board. Until the draft it shows when the draft starts, or asks which times you can make while the commissioner is still choosing, plus the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
       points: [
         'Tap any team for its page: schedule, news, squad and stats.',
         'Star a team on its page to keep it on your board even if someone else drafted it.'
@@ -124,6 +124,7 @@ const GUIDE = [
     lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
     points: [
       'Mock Draft is always open: practice against bots whenever you like.',
+      'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
       'Once the commissioner sets the next draft’s time, Home counts down to it.',
       'While the real draft is live, a banner on every page takes you back to it.',
       'Tap any team, in the list, the board or a roster, for a quick outlook, its last season, its record so far and its title odds.',

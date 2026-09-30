@@ -72,11 +72,15 @@
    the scheduled start the commissioner set (PUT .../schedule, already
    password-checked by the worker), which Home counts down to
    (js/draft-schedule.js). The schedule is kept outside the draft state,
-   so a lobby reset doesn't clear it.
+   so a lobby reset doesn't clear it. So is the draft time poll
+   (js/draft-poll.js), which rides along on the status: the commissioner's
+   candidate times (PUT .../poll, password-checked by the worker) and each
+   drafter's answer (PUT .../vote, no-auth like a pick).
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
+import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
@@ -131,6 +135,8 @@ export class DraftRoom extends DurableObject {
       this.room = room ? room.v : null;
       const scheduled = this.sql.exec("SELECT v FROM kv WHERE k = 'scheduledAt'").toArray()[0];
       this.scheduledAt = scheduled ? Number(scheduled.v) : null;
+      const poll = this.sql.exec("SELECT v FROM kv WHERE k = 'poll'").toArray()[0];
+      this.poll = poll ? JSON.parse(poll.v) : null;
     });
   }
 
@@ -166,6 +172,12 @@ export class DraftRoom extends DurableObject {
     if(new URL(request.url).pathname.endsWith('/schedule') && request.method === 'PUT'){
       return this.setSchedule(request);
     }
+    if(new URL(request.url).pathname.endsWith('/poll') && request.method === 'PUT'){
+      return this.setPoll(request);
+    }
+    if(new URL(request.url).pathname.endsWith('/vote') && request.method === 'PUT'){
+      return this.votePoll(request);
+    }
     if(new URL(request.url).pathname.endsWith('/status')){
       return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
     }
@@ -187,7 +199,8 @@ export class DraftRoom extends DurableObject {
       total: totalPicks(state.config),
       ordered: !!state.order,
       poolSize: state.pool.length,
-      scheduledAt: this.scheduledAt
+      scheduledAt: this.scheduledAt,
+      poll: this.poll
     };
   }
 
@@ -205,6 +218,46 @@ export class DraftRoom extends DurableObject {
     if(at === null) this.sql.exec("DELETE FROM kv WHERE k = 'scheduledAt'");
     else this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('scheduledAt', ?)", String(at));
     return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  savePoll(poll){
+    this.poll = poll;
+    if(poll === null) this.sql.exec("DELETE FROM kv WHERE k = 'poll'");
+    else this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('poll', ?)", JSON.stringify(poll));
+    return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // { options: [epoch ms, ...] } opens the draft time poll or changes its
+  // times, { options: null } removes it along with every answer. The
+  // caller (the worker's /draft/poll) has already checked the commissioner
+  // password.
+  async setPoll(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    if(body && body.options === null) return this.savePoll(null);
+    const options = parsePollOptions(body && body.options);
+    if(!options) return new Response('Expected { options: [2-3 epoch ms] | null }', { status: 400 });
+    return this.savePoll(replacePollOptions(this.poll, options));
+  }
+
+  // { drafter, options: [epoch ms, ...] } is that drafter's answer (an
+  // empty list: none of them work), { drafter, options: null } takes it
+  // back. The worker's /draft/vote has already checked the drafter is in
+  // this group.
+  async votePoll(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    if(!this.poll) return new Response('No poll', { status: 409 });
+    if(!body || typeof body.drafter !== 'string') return new Response('Expected { drafter, options }', { status: 400 });
+    const votes = { ...this.poll.votes };
+    if(body.options === null){
+      delete votes[body.drafter];
+    } else {
+      const picks = parsePollVote(this.poll, body.options);
+      if(!picks) return new Response('Expected { drafter, options }', { status: 400 });
+      votes[body.drafter] = picks;
+    }
+    return this.savePoll({ ...this.poll, votes });
   }
 
   // The board in the order it was drafted, each pick carrying the full
