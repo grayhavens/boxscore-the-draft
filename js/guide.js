@@ -125,7 +125,7 @@ const GUIDE = [
     points: [
       'Mock Draft is always open: practice against bots whenever you like.',
       'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
-      'Once the commissioner sets the next draft’s time, Home counts down to it.',
+      'Once the commissioner sets the next draft’s time, Home counts down to it, and your phone tells you if alerts are on.',
       'While the real draft is live, a banner on every page takes you back to it.',
       'Tap any team, in the list, the board or a roster, for a quick outlook, its last season, its record so far and its title odds.',
       'Tap Scoring under the room’s title to check what each league’s teams are worth.',
@@ -146,7 +146,7 @@ const GUIDE = [
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your phone can tell you when you’re on the clock in the draft, and when someone posts in chat.',
+    lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat, and when the draft’s time is set.',
     points: [
       'Turn them on in Settings, under Alerts. Each device is set up on its own.',
       'On iPhone, alerts only work in the app added to your Home Screen.'

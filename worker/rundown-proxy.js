@@ -92,7 +92,8 @@
       for the finished board and GET /draft/status?room=<name> (phase and
       whose pick, edge-cached a few seconds) for the "draft is live"
       banner every other page polls, which also carries the scheduled
-      start (PUT /draft/schedule, password-gated) and the draft time
+      start (PUT /draft/schedule, password-gated; setting it alerts the
+      group, worker/draft-time-alert.js) and the draft time
       poll (js/draft-poll.js): PUT /draft/poll sets its candidate times
       (password-gated), PUT /draft/vote is a drafter's answer (no-auth,
       Origin-checked). Drafter actions are no-auth (chat's trust
@@ -872,10 +873,11 @@ async function handleDraftSchedule(request, url, env, group, headers){
   return putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
 }
 
-// A write to the room that changes what /draft/status says: forwards it,
-// then drops the room's edge-cached status (see handleDraftSchedule).
+// A write to the room that changes what /draft/status says: forwards it
+// (query included: the room reads ?room= and ?group= off it), then drops
+// the room's edge-cached status (see handleDraftSchedule).
 async function putToDraftRoom(stub, url, path, body, headers){
-  const upstream = await stub.fetch(new Request(new URL(path, url), { method: 'PUT', body }));
+  const upstream = await stub.fetch(new Request(new URL(path + url.search, url), { method: 'PUT', body }));
   const statusUrl = new URL(url);
   statusUrl.pathname = '/draft/status';
   await caches.default.delete(new Request(statusUrl.toString(), { method: 'GET' }));

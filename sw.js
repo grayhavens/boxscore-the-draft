@@ -129,7 +129,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 /* ---- Push alerts (worker/web-push.js sends them, js/push.js opts in) ----
-   Payload: { kind: 'chat' | 'draft' | 'test', title, body, url, tag }.
+   Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'test', title, body, url, tag }.
    Every push must show a notification (iOS revokes a subscription that
    stays silent), so there's no "skip it" path here; the worker already
    leaves out whoever is looking at the app. */
@@ -155,6 +155,12 @@ async function showAlert(data){
       title = `${count} new messages`;
     }
     if(self.navigator.setAppBadge) self.navigator.setAppBadge(count).catch(() => {});
+  }
+  // The draft's start time arrives as a timestamp (`at`), since only this
+  // device knows its time zone (worker/draft-time-alert.js).
+  if(data.kind === 'draft-time' && Number.isFinite(data.at)){
+    const when = new Date(data.at).toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    body = `The live draft starts ${when}.`;
   }
   return self.registration.showNotification(title, {
     body,
