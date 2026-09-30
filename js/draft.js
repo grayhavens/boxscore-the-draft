@@ -86,7 +86,7 @@ const ICON = {
 };
 
 function loadSort(){
-  try { return localStorage.getItem(SORT_KEY) === 'rank' ? 'rank' : 'az'; } catch(e){ return 'az'; }
+  try { return localStorage.getItem(SORT_KEY) === 'az' ? 'az' : 'rank'; } catch(e){ return 'rank'; }
 }
 const CLOCK_CHOICES = [30, 60, 90, 120, 180, 300];
 // Mock rooms auto-pick when the clock runs out, so they get shorter
