@@ -72,6 +72,10 @@ const BOARD = [
   { name: 'Collin', lk: 9, lv: 6 }
 ];
 const LOCK_AT = 0.66, LOCK_SCALE = 16, LADDER_SCALE = 26;
+// The finale: once you're in first, the season ends, your bar fills gold
+// and the trophy lands on it.
+const GOLD_AT = 0.55, TROPHY_AT = 0.66;
+const TROPHY = '<svg class="hiw-trophy" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 6H4.6v1.2A3.3 3.3 0 0 0 7.6 10.5M17 6h2.4v1.2a3.3 3.3 0 0 1-3 3.3"/><path fill="currentColor" d="M6.8 3.6h10.4v5.2a5.2 5.2 0 0 1-10.4 0z"/><rect fill="currentColor" x="11" y="13.4" width="2" height="3.6"/><rect fill="currentColor" x="7.6" y="17" width="8.8" height="3" rx="1"/></svg>';
 
 const signed = n => (n > 0 ? '+' : '−') + Math.abs(n);
 
@@ -91,7 +95,8 @@ function markup(){
     <div class="hiw-lrow${d.me ? ' me' : ''}">
       <span class="hiw-rank"></span>
       <span class="hiw-name">${d.name}</span>
-      <span class="split-bar sm"><span class="lk"></span><span class="lv"></span></span>
+      <span class="hiw-bar-wrap"><span class="split-bar sm"><span class="lk"></span><span class="lv"></span></span>${d.me ? `
+        <span class="hiw-cup">${TROPHY}<span class="hiw-sparks">${'<i></i>'.repeat(10)}</span></span>` : ''}</span>
       <span class="hiw-total"></span>
     </div>`).join('');
   const badge = t => `<div class="badge" style="background:${t.bg};color:${t.fg}">${t.abbr}</div>`;
@@ -166,7 +171,7 @@ function markup(){
       </div>
     </div>
     <div class="hiw-scene hiw-board">
-      <div class="hiw-head hiw-board-head"><span class="tg-section-label">Points</span></div>
+      <div class="hiw-head hiw-board-head"><span class="tg-section-label">Points</span><span class="pts-tag lock-in hiw-champ">Champion</span></div>
       <div class="hiw-ladder">${ladder}</div>
     </div>
   </div>
@@ -265,7 +270,8 @@ export function initExplainer(root){
 
   function drawBoard(p){
     // Your teams pick up 5 live points and you pass Isaac.
-    const landed = p >= 0.4;
+    const landed = p >= 0.4, gold = p >= GOLD_AT, crowned = p >= TROPHY_AT;
+    cls($('.hiw-board'), 'crowned', crowned);
     const live = BOARD.map(d => d.lv + (d.me && landed ? 5 : 0));
     const totals = BOARD.map((d, i) => d.lk + live[i]);
     // Ties go to You, so the swap reads as You passing Isaac.
@@ -276,8 +282,12 @@ export function initExplainer(root){
       cls(row, 'first', rank === 0);
       text(row.querySelector('.hiw-rank'), String(rank + 1));
       text(row.querySelector('.hiw-total'), String(totals[i]));
-      css(row.querySelector('.lk'), 'width', (BOARD[i].lk / LADDER_SCALE) * 100 + '%');
-      css(row.querySelector('.lv'), 'width', (live[i] / LADDER_SCALE) * 100 + '%');
+      // The winner's bar runs all the way out, solid gold.
+      const full = gold && !!BOARD[i].me;
+      cls(row, 'gold', full);
+      cls(row, 'crowned', crowned && !!BOARD[i].me);
+      css(row.querySelector('.lk'), 'width', full ? '100%' : (BOARD[i].lk / LADDER_SCALE) * 100 + '%');
+      css(row.querySelector('.lv'), 'width', full ? '0%' : (live[i] / LADDER_SCALE) * 100 + '%');
     });
   }
 

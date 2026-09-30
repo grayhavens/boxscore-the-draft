@@ -6195,6 +6195,83 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-total{ text-align: right; font-size: var(--fs-17); color: var(--lb-ink-3); }
 .hiw-lrow.first .hiw-total{ color: var(--lb-ink-strong); }
 
+/* The finale: your bar fills solid gold with a shine sweep, then the
+   trophy drops onto its end with a ring and a burst of sparks while the
+   rest of the ladder steps back. Reduced motion shows the end state. */
+.hiw-lrow{ transition: top 560ms var(--ease-out), opacity 400ms ease, box-shadow 500ms ease; }
+.hiw-bar-wrap{ position: relative; display: flex; align-items: center; min-width: 0; }
+.hiw-bar-wrap .split-bar{ flex: 1; position: relative; }
+.hiw-lrow.gold .split-bar{ --split-h: 10px; }
+.hiw-lrow.gold .split-bar .lk{
+  background: linear-gradient(90deg, #B8862B, #F6D985 45%, #E2B84A 70%, #C7952F);
+  transition: width 700ms var(--ease-out);
+}
+.hiw-lrow.gold .split-bar::after{
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.85) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: hiw-shine 900ms 450ms ease-in-out both;
+}
+/* A second sweep as the trophy lands (its own name, so it restarts). */
+.hiw-lrow.crowned .split-bar::after{ animation: hiw-shine-2 900ms 250ms ease-in-out both; }
+.hiw-lrow.gold .hiw-total{ color: var(--accent); }
+.hiw-lrow.crowned{
+  box-shadow: inset 0 0 0 1px var(--accent-border), 0 8px 26px -10px rgba(217,180,91,0.7);
+}
+.hiw-board.crowned .hiw-lrow:not(.crowned){ opacity: 0.5; }
+.hiw-champ{ opacity: 0; transform: translateY(4px) scale(0.9); transition: opacity 260ms ease, transform 420ms var(--ease-spring); }
+.hiw-board.crowned .hiw-champ{ opacity: 1; transform: none; }
+
+.hiw-cup{
+  position: absolute; right: -9px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface); color: var(--accent-fill);
+  box-shadow: 0 0 0 1.5px var(--accent-fill), 0 3px 10px -2px rgba(0,0,0,0.35);
+  opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg);
+  pointer-events: none;
+}
+.hiw-trophy{ width: 18px; height: 18px; }
+.hiw-lrow.crowned .hiw-cup{ opacity: 1; transform: none; animation: hiw-cup-drop 700ms var(--ease-spring) both; }
+/* A ring flashes out from where the trophy lands. */
+.hiw-cup::before{
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--accent-fill); opacity: 0;
+}
+.hiw-lrow.crowned .hiw-cup::before{ animation: hiw-ring 800ms 280ms var(--ease-out) both; }
+.hiw-sparks{ position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.hiw-sparks > i{
+  position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 1px;
+  background: var(--accent-fill); opacity: 0;
+}
+.hiw-sparks > i:nth-child(even){ width: 3px; height: 3px; left: -1.5px; top: -1.5px; background: #F6D985; }
+.hiw-sparks > i:nth-child(1){ --a: 8deg; --d: 28px; }
+.hiw-sparks > i:nth-child(2){ --a: 44deg; --d: 35px; }
+.hiw-sparks > i:nth-child(3){ --a: 80deg; --d: 42px; }
+.hiw-sparks > i:nth-child(4){ --a: 116deg; --d: 28px; }
+.hiw-sparks > i:nth-child(5){ --a: 152deg; --d: 35px; }
+.hiw-sparks > i:nth-child(6){ --a: 188deg; --d: 42px; }
+.hiw-sparks > i:nth-child(7){ --a: 224deg; --d: 28px; }
+.hiw-sparks > i:nth-child(8){ --a: 260deg; --d: 35px; }
+.hiw-sparks > i:nth-child(9){ --a: 296deg; --d: 42px; }
+.hiw-sparks > i:nth-child(10){ --a: 332deg; --d: 28px; }
+.hiw-lrow.crowned .hiw-sparks > i{ animation: hiw-spark 760ms 260ms var(--ease-out) both; }
+@keyframes hiw-shine{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
+@keyframes hiw-shine-2{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
+@keyframes hiw-cup-drop{
+  0%{ opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg); }
+  55%{ opacity: 1; transform: translateY(0) scale(1.25) rotate(8deg); }
+  100%{ opacity: 1; transform: none; }
+}
+@keyframes hiw-ring{
+  0%{ opacity: 0.9; transform: scale(1); }
+  100%{ opacity: 0; transform: scale(2.4); }
+}
+@keyframes hiw-spark{
+  0%{ opacity: 1; transform: rotate(var(--a)) translateY(-15px) scale(1) rotate(45deg); }
+  100%{ opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.3) rotate(45deg); }
+}
+.hiw.still .hiw-lrow *, .hiw.still .hiw-lrow *::before, .hiw.still .hiw-lrow *::after{ animation: none !important; }
+
 /* 3 · Scores: the Scores tab's own timeline (.tg-*), with the node's
    cut-out ring matched to this card. */
 .hiw-scores{ gap: 4px; }
