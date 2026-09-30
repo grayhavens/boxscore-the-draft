@@ -90,13 +90,6 @@ import { navigate, enableNavMotion } from './motion.js';
 // it: the Points button, the guide, the draft room, ?view=scoring below.
 setScoringRules(LEAGUES, LEAGUE_SCORING);
 
-// Bump this on every deploy that changes what's on screen. It's shown
-// at the bottom of the Settings page (js/identity.js) so you can
-// confirm a device is actually running the latest build rather than
-// a stale cached copy — compare what's on screen to the version
-// mentioned when a change ships.
-export const APP_VERSION = '2026.09.30-2';
-
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
 // same setters a person clicking around would trigger, so this is the

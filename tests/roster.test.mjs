@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GROUPS, applyRoster } from '../js/groups.js';
-import { claimsKey, confirmClaim, cleanName, handleClaim } from '../worker/claims.js';
+import { claimsKey, confirmClaim, cleanName, handleClaim, addPerson, editSpot } from '../worker/claims.js';
 import { rosterKey, loadAssigned, releaseSpot, effectiveDrafters, handleRoster } from '../worker/roster.js';
 
 function fakeEnv(){
@@ -66,6 +66,32 @@ test('confirm refuses a blank name, a duplicate name, a gone claim and a full gr
   GROUPS.seasonticket.drafters.filter(d => d.open).forEach((d, i) => { full[d.id] = { name: `P${i}` }; });
   env.store.set(rosterKey('seasonticket'), JSON.stringify(full));
   assert.deepEqual(await confirmClaim(env, 'seasonticket', 'c1', 'Sam'), { error: 'full' });
+});
+
+test('adding someone without a claim fills the next open spot, email optional', async () => {
+  const env = fakeEnv();
+  const spot = firstOpen();
+  assert.deepEqual(await addPerson(env, 'seasonticket', ' Pat ', ''), { drafter: spot.id, name: 'Pat', email: '' });
+  const second = await addPerson(env, 'seasonticket', 'Kim', ' kim@example.com ');
+  assert.equal(second.email, 'kim@example.com');
+  assert.notEqual(second.drafter, spot.id);
+  assert.deepEqual(await addPerson(env, 'seasonticket', 'pat', ''), { error: 'taken' });
+  assert.deepEqual(await addPerson(env, 'seasonticket', 'Lee', 'not-an-email'), { error: 'email' });
+  assert.deepEqual(await addPerson(env, 'seasonticket', '  ', ''), { error: 'name' });
+});
+
+test('editing a confirmed spot changes its name and email, keeps the rest, and only for confirmed spots', async () => {
+  const env = fakeEnv();
+  const spot = firstOpen();
+  env.store.set(rosterKey('seasonticket'), JSON.stringify({ [spot.id]: { name: 'Sam', email: 'sam@example.com', at: 5 } }));
+  assert.deepEqual(await editSpot(env, 'seasonticket', spot.id, 'Sam R', 'samr@example.com'),
+    { drafter: spot.id, name: 'Sam R', email: 'samr@example.com', was: { name: 'Sam', email: 'sam@example.com' } });
+  assert.deepEqual((await loadAssigned(env, 'seasonticket'))[spot.id], { name: 'Sam R', email: 'samr@example.com', at: 5 });
+  // Its own name (another case) is fine; someone else's isn't.
+  assert.equal((await editSpot(env, 'seasonticket', spot.id, 'sam r', '')).name, 'sam r');
+  assert.deepEqual(await editSpot(env, 'seasonticket', spot.id, 'Josh', ''), { error: 'taken' });
+  assert.deepEqual(await editSpot(env, 'seasonticket', spot.id, 'Sam', 'nope'), { error: 'email' });
+  assert.deepEqual(await editSpot(env, 'seasonticket', 'josh', 'Joshua', ''), { error: 'spot' });
 });
 
 test('undo frees a confirmed spot, and only a confirmed one', async () => {

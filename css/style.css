@@ -5902,84 +5902,269 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw.still .hiw-play{ display: none; }
 .hiw.still *{ transition: none !important; }
 
-/* System admin page (admin.html, js/system-admin.js): the landing page's
-   column, Settings' sections and rows. */
-.sysadmin .page-sub a{ color: var(--accent); text-decoration: none; }
-.sysadmin-sections{ display: flex; flex-direction: column; gap: 28px; margin-top: 14px; }
-.sysadmin-sublabel{ margin-top: 6px; }
-.sysadmin .set-row{ cursor: default; }
-.sysadmin a.set-row{ cursor: pointer; }
-.sysadmin code{ font-size: var(--fs-12); }
+/* ============================================================
+   System admin page (admin.html, js/system-admin.js). The one desktop-
+   first page: a sidebar (Platform, then each group) beside a wide main
+   column of cards and tables. Under 900px the sidebar folds into a top
+   bar with a <select> picker, and the tables scroll sideways.
+   ============================================================ */
+body.sysadmin-page{ padding: 0; }
+.sysadmin{
+  --sysadmin-rail: color-mix(in srgb, var(--surface) 18%, var(--bg));
+  --sysadmin-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.sysadmin a{ color: var(--accent); text-decoration: none; }
+.sysadmin a:hover{ text-decoration: underline; }
+.sysadmin code{ font-family: var(--sysadmin-mono); font-size: var(--fs-12); }
+.sysadmin :focus-visible{ outline: none; box-shadow: var(--focus-ring); }
+
+/* -- Sidebar -- */
+.sysadmin-side{
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 22px;
+  padding: 24px 14px;
+  background: var(--sysadmin-rail);
+  border-right: 1px solid var(--hairline);
+  overflow-y: auto;
+}
+.sysadmin-brand{
+  display: flex; align-items: center; gap: 10px; padding: 0 10px;
+  font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: var(--track-snug);
+}
+.sysadmin-brand img{ width: 22px; height: 22px; object-fit: contain; }
+.sysadmin-nav{ display: flex; flex-direction: column; gap: 2px; }
+.sysadmin-nav-label{
+  display: flex; justify-content: space-between; padding: 0 12px 8px;
+  font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute);
+}
+.sysadmin-nav-item{
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 12px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--dur-ui) var(--ease-out);
+}
+.sysadmin-nav-item:hover{ background: var(--hover); }
+.sysadmin-nav-item.active{ background: var(--surface-2); }
+.sysadmin-nav-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sysadmin-nav-name{ font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sysadmin-nav-sub{ font-size: var(--fs-12); color: var(--text-sub); }
+.sysadmin-nav-aside{ font-size: var(--fs-12); color: var(--text-mute); }
+.sysadmin-picker{ display: none; }
+.sysadmin-foot{
+  margin-top: auto; padding: 14px 12px 0; border-top: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--fs-12); color: var(--text-sub);
+}
+.sysadmin-you{ color: var(--text); font-weight: 600; word-break: break-all; }
+.sysadmin-foot-links{ display: flex; gap: 12px; margin-top: 4px; }
+
+.sysadmin-dot{ flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--win); }
+.sysadmin-dot.bad{ background: var(--loss); }
+.sysadmin-dot.warn{ background: var(--accent-fill); }
+.sysadmin-dot.mute{ background: var(--text-sub); }
+.sysadmin-badge{
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill);
+  background: var(--accent-fill); color: var(--on-accent);
+  font-size: var(--fs-11); font-weight: 800; letter-spacing: 0;
+}
+
+/* -- Main column -- */
+.sysadmin-main{ min-width: 0; padding: 32px 40px 64px; }
+.sysadmin-content{ max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.sysadmin-content.group{ gap: 24px; }
+.sysadmin-loading{ font-size: 14px; color: var(--text-sub); }
+.sysadmin-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sysadmin-head-text{ display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sysadmin-eyebrow{ font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute); }
+.sysadmin-crumb{ display: flex; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-mute); }
+.sysadmin .sysadmin-crumb a{ color: var(--text-sub); }
+.sysadmin h1{ font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: var(--track-tight); line-height: 1.1; }
+.sysadmin-head-sub{ font-size: 14px; color: var(--text-sub); }
+.sysadmin-head-link{ font-size: 14px; }
+.sysadmin-head-actions{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sysadmin-alert-chip{
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: var(--r-pill);
+  background: var(--loss-soft); color: var(--loss); font-size: var(--fs-13); font-weight: 700;
+}
+.sysadmin-alert-chip code{ color: var(--text); }
+
+/* A section: its label (and a note on the right), then a card. */
+.sysadmin-block{ display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sysadmin-label-row{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sysadmin-label{
+  display: flex; align-items: center; gap: 10px;
+  font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute);
+}
+.sysadmin-label-count{ color: var(--accent); }
+.sysadmin-label-note{ font-size: var(--fs-13); color: var(--text-sub); }
+.sysadmin-card{ background: var(--surface); border-radius: var(--r-md); }
+.sysadmin-card.flush{ overflow: hidden; }
+.sysadmin-card.scroll{ overflow-x: auto; }
+.sysadmin-card.attn{ border: 1px solid var(--accent-border); }
+.sysadmin-card.pad{ flex: 1; display: flex; flex-direction: column; gap: 12px; padding: 18px; min-width: 0; }
+.sysadmin-pair{ display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; }
+.sysadmin-pair.wide{ grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); }
+
+/* Platform health tiles */
+.sysadmin-tiles{ display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.sysadmin-tile{ display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 16px 18px; border-radius: var(--r-md); background: var(--surface); }
+.sysadmin-tile-top{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sysadmin-tile-label{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.sysadmin-tile-title{ font-size: 14px; font-weight: 700; }
+.sysadmin-tile-value{ font-family: var(--font-display); font-size: var(--fs-20); font-weight: 600; }
+.sysadmin-env{ font-family: var(--sysadmin-mono); font-size: var(--fs-12); color: var(--text-sub); overflow-wrap: anywhere; }
+
+/* Group summary strip: the cells share hairlines, drawn as shadows so a
+   wrapped row divides cleanly and the card's edge clips the outer ones. */
+.sysadmin-stats{
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  border-radius: var(--r-md); background: var(--surface); overflow: hidden;
+}
+.sysadmin-stat{ display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; box-shadow: 1px 0 0 var(--hairline), 0 1px 0 var(--hairline); }
+.sysadmin-stat-label{ font-size: var(--fs-11); font-weight: 700; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-mute); }
+.sysadmin-stat-value{ font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.sysadmin-stat-sub{ font-size: var(--fs-12); line-height: 1.4; color: var(--text-sub); text-wrap: pretty; }
+.sysadmin-stat-sub.warn{ color: var(--accent); }
+
+/* Rows in a card (Needs attention, claims) */
+.sysadmin-list-row{ display: flex; align-items: center; gap: 16px; padding: 14px 18px; }
+.sysadmin-list-row + .sysadmin-list-row,
+.sysadmin-list-row + .sysadmin-claim-edit,
+.sysadmin-claim-edit + .sysadmin-list-row{ border-top: 1px solid var(--hairline); }
+.sysadmin-row-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sysadmin-row-title{ font-size: 14px; font-weight: 700; }
+.sysadmin-row-title.big{ font-size: var(--fs-15); }
+.sysadmin-list-row.compact{ padding: 10px 18px; }
+.sysadmin-log-text{ font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.sysadmin-chat-list{ max-height: 480px; overflow-y: auto; }
+.sysadmin-chat-from{ color: var(--text); font-weight: 700; }
+.sysadmin-chat-text{ font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sysadmin-label-note .sysadmin-btn{ margin-left: 8px; }
+.sysadmin-row-sub{ font-size: var(--fs-13); line-height: 1.45; color: var(--text-sub); overflow-wrap: anywhere; }
+.sysadmin-claim-edit{ display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 16px 18px; background: var(--surface-2); }
+.sysadmin-field{ flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.sysadmin-field-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
+.sysadmin-edit-meta{ display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; font-size: var(--fs-13); color: var(--text-sub); }
+.sysadmin-check{ display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; cursor: pointer; }
+.sysadmin-check input{ width: 16px; height: 16px; margin: 0; accent-color: var(--accent-fill); }
+
+/* Tables: grid rows, so a row can be a link and cells can stack two lines.
+   The card scrolls sideways once the columns stop fitting. */
+.sysadmin-table.groups{ min-width: 940px; --sysadmin-cols: minmax(180px, 1.5fr) 90px 90px minmax(170px, 1.4fr) minmax(150px, 1.2fr) 80px 100px 110px 20px; }
+.sysadmin-table.roster{ min-width: 1000px; --sysadmin-cols: 36px minmax(140px, 1fr) minmax(200px, 1.4fr) 100px 90px 160px 230px; }
+.sysadmin-table.devices{ min-width: 720px; --sysadmin-cols: minmax(140px, 1fr) 110px 120px minmax(140px, 1fr) 160px; }
+.sysadmin-scroll{ overflow-x: auto; }
+/* A roster row open for editing: the form spans the whole row. */
+.sysadmin-tr-edit{ border-top: 1px solid var(--hairline); }
+.sysadmin-card > .sysadmin-claim-edit + .sysadmin-scroll{ border-top: 1px solid var(--hairline); }
+.sysadmin-tr{
+  display: grid; grid-template-columns: var(--sysadmin-cols); gap: 12px; align-items: center;
+  padding: 14px 18px; font-size: var(--fs-13);
+}
+.sysadmin-table.roster .sysadmin-tr{ padding: 12px 18px; }
+.sysadmin-tr + .sysadmin-tr, .sysadmin-tr-edit + .sysadmin-tr{ border-top: 1px solid var(--hairline); }
+.sysadmin-table .sysadmin-th{ padding: 12px 18px; font-size: var(--fs-11); font-weight: 700; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-mute); }
+.sysadmin-tr.link{ cursor: pointer; transition: background var(--dur-ui) var(--ease-out); }
+.sysadmin-tr.link:hover{ background: var(--surface-2); }
+.sysadmin-cell{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sysadmin-strong{ font-weight: 600; }
+.sysadmin-sub{ color: var(--text-sub); }
+.sysadmin-mute{ color: var(--text-mute); }
+.sysadmin-small{ font-size: var(--fs-12); }
+.sysadmin-right{ text-align: right; }
+.sysadmin-ellipsis{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sysadmin-chev{ font-size: 18px; color: var(--text-mute); }
+.sysadmin-actions{ display: flex; justify-content: flex-end; gap: 6px; }
+
+/* Invite code, announcement, welcome email */
+.sysadmin-invite-empty{ display: flex; align-items: center; gap: 16px; }
+.sysadmin-code-row{ display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.sysadmin .sysadmin-code{ font-size: 22px; font-weight: 600; letter-spacing: 0.08em; }
+.sysadmin-help{ font-size: var(--fs-12); line-height: 1.5; color: var(--text-sub); text-wrap: pretty; }
+.sysadmin-card-foot{ display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sysadmin-btn-row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sysadmin-spacer{ flex: 1; }
+.sysadmin-input{
+  width: 100%; padding: 10px 14px;
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-sm);
+  background: var(--bg); color: var(--text);
+  font: inherit; font-size: 14px; line-height: 1.5;
+}
+.sysadmin-input:focus{ outline: none; border-color: var(--accent-border); }
+textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
+.sysadmin-input.name{ font-size: var(--fs-15); font-weight: 600; }
+.sysadmin-input.subject{ padding: 12px 14px; font-size: var(--fs-15); font-weight: 700; }
+.sysadmin-input.body{ line-height: 1.55; }
+.sysadmin-input.mono{ font-family: var(--sysadmin-mono); font-size: var(--fs-13); }
+.sysadmin-preview-cap{ display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-12); color: var(--text-sub); }
+.sysadmin-preview-subject{ font-size: var(--fs-15); font-weight: 700; }
+/* The email is dark in every theme (js/welcome-template.js). */
+.sysadmin-preview{ flex: 1; width: 100%; min-height: 560px; border: 1px solid var(--hairline); border-radius: 12px; background: #0A0B0D; }
+
+/* Buttons and pills */
 .sysadmin-btn{
-  flex: none;
-  padding: 8px 12px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--r-pill);
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-family: var(--font-ui);
-  font-size: var(--fs-13);
-  font-weight: 700;
+  flex: none; padding: 8px 16px;
+  border: 1px solid var(--accent-border); border-radius: var(--r-pill);
+  background: var(--accent-soft); color: var(--accent);
+  font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700; white-space: nowrap;
   cursor: pointer;
 }
 .sysadmin-btn:disabled{ opacity: 0.5; cursor: default; }
-.sysadmin-btn.solid{ background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
-.sysadmin-btns{ display: flex; gap: 6px; flex: none; }
-.sysadmin .set-row.sysadmin-confirm{ flex-direction: column; align-items: stretch; gap: 8px; }
-.sysadmin-confirm-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
-.sysadmin-confirm input[type="text"]{
-  width: 100%; padding: 10px 12px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: 16px; font-weight: 700;
-}
-.sysadmin-confirm-actions{ display: flex; gap: 8px; }
-.sysadmin-check{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); font-weight: 700; cursor: pointer; }
-.sysadmin-check input{ width: 18px; height: 18px; margin: 0; accent-color: var(--accent-fill); }
-.sysadmin-refresh{ align-self: flex-start; }
-.sysadmin-pill{ flex: none; padding: 3px 9px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 700; }
+.sysadmin-btn.small{ padding: 6px 12px; font-size: var(--fs-12); }
+.sysadmin-btn.solid{ background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); font-weight: 800; }
+.sysadmin-btn.quiet{ background: none; border-color: var(--hairline-strong); color: var(--text-sub); }
+.sysadmin-pill{ flex: none; display: inline-block; padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 700; white-space: nowrap; }
 .sysadmin-pill.ok{ background: var(--win-soft); color: var(--win); }
 .sysadmin-pill.bad{ background: var(--loss-soft); color: var(--loss); }
-.sysadmin-announce{ display: flex; flex-direction: column; gap: 8px; }
-.sysadmin-announce textarea{
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-15);
-  resize: vertical;
-}
-.sysadmin-note{ margin-top: 4px; font-size: var(--fs-13); line-height: 1.45; color: var(--text-sub); }
-.sysadmin-count{
-  display: inline-block; min-width: 18px; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill);
-  background: var(--accent-fill); color: var(--on-accent); text-align: center; letter-spacing: 0;
-}
-.sysadmin-claims-group{ margin-top: 4px; font-size: var(--fs-15); font-weight: 700; }
-.sysadmin-claims-group:first-child{ margin-top: 0; }
-.sysadmin .set-row-sub a{ color: var(--accent); text-decoration: none; }
-.sysadmin-welcome input{
-  width: 100%; padding: 12px 14px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
-  background: var(--surface); color: var(--text);
-  font: inherit; font-size: var(--fs-15); font-weight: 700;
-}
-.sysadmin-preview{
-  width: 100%; height: 640px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
-  background: #0A0B0D;
-}
-.sysadmin-picker{ display: flex; flex-direction: column; gap: 8px; }
-.sysadmin-picker select{
-  width: 100%; padding: 12px 40px 12px 14px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
-  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
-  color: var(--text);
-  font: inherit; font-size: 16px; font-weight: 700;
-  appearance: none; -webkit-appearance: none;
+.sysadmin-pill.warn{ background: var(--accent-soft); color: var(--accent); }
+.sysadmin-pill.neutral{ background: rgba(var(--ink-rgb), 0.06); color: var(--text); }
+.sysadmin-pill.open{ padding: 2px 9px; border: 1px dashed var(--hairline-strong); color: var(--text-sub); }
+.sysadmin-pill.solid{ background: var(--accent-fill); color: var(--on-accent); font-weight: 800; }
+
+/* Each action's result */
+.sysadmin-toast{
+  position: fixed; right: 24px; bottom: 24px; z-index: 50; max-width: 380px;
+  padding: 14px 18px; border: 1px solid var(--hairline-strong); border-radius: 12px;
+  background: var(--surface-2); color: var(--text);
+  font-size: 14px; font-weight: 600; line-height: 1.4;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   cursor: pointer;
+  animation: sysadmin-toast-in var(--dur-ui) var(--ease-out);
+}
+.sysadmin-toast[hidden]{ display: none; }
+@keyframes sysadmin-toast-in{ from{ opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce){ .sysadmin-toast{ animation: none; } }
+
+@media (max-width: 900px){
+  .sysadmin{ grid-template-columns: minmax(0, 1fr); }
+  .sysadmin-side{
+    position: static; height: auto; overflow: visible;
+    flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: calc(env(safe-area-inset-top) + 14px) 16px 14px;
+    border-right: 0; border-bottom: 1px solid var(--hairline);
+  }
+  .sysadmin-brand{ padding: 0; }
+  .sysadmin-nav, .sysadmin-foot-who{ display: none; }
+  .sysadmin-foot{ margin: 0 0 0 auto; padding: 0; border: 0; }
+  .sysadmin-foot-links{ margin: 0; font-size: var(--fs-13); }
+  .sysadmin-picker{
+    display: block; order: 3; flex: 1 1 100%;
+    width: 100%; padding: 12px 40px 12px 14px;
+    border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+    color: var(--text); font: inherit; font-size: 16px; font-weight: 700;
+    appearance: none; -webkit-appearance: none; cursor: pointer;
+  }
+  .sysadmin-main{ padding: 20px 16px calc(48px + env(safe-area-inset-bottom)); }
+  .sysadmin h1{ font-size: var(--fs-30); }
+  .sysadmin-invite-empty{ flex-direction: column; align-items: stretch; }
+  .sysadmin-list-row{ flex-wrap: wrap; }
+  .sysadmin-list-row .sysadmin-row-text{ flex-basis: 180px; }
+  .sysadmin-toast{ left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: none; }
 }
 
 /* ---- PGA Tour (js/golf-view.js) ---- */
@@ -6050,12 +6235,6 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .golf-card-more, .golf-card-leader{ font-size: var(--fs-11); color: var(--text-mute); font-weight: 600; }
 
 /* -- Group invite code gate (js/access.js) -- */
-.sysadmin-announce input[readonly]{
-  width: 100%; padding: 12px 14px;
-  border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
-  background: var(--surface); color: var(--text);
-  font: inherit; font-size: var(--fs-13);
-}
 .access-gate{
   position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;

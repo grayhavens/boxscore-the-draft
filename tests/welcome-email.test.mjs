@@ -5,6 +5,7 @@ import { welcomeHtml, welcomeText } from '../js/welcome-template.js';
 import { fillTemplate, buildMessages, sendWelcome, welcomeKey, welcomeContacts, setDrafterEmail, loadEmails, loadWelcomed, WELCOME_FROM } from '../worker/welcome-email.js';
 import { handleSystemAdmin } from '../worker/system-admin.js';
 import { claimsKey, confirmClaim } from '../worker/claims.js';
+import { loadAssigned } from '../worker/roster.js';
 
 function fakeEnv(extra = {}){
   const store = new Map();
@@ -167,6 +168,6 @@ test('confirming without welcome text sends nothing, and a failed send still con
 test('undoing a spot forgets its welcome', async () => {
   const env = fakeEnv({ ADMIN_DEV_BYPASS: '1' });
   env.store.set(welcomeKey('seasonticket'), JSON.stringify({ draftertwo: 5, drafterthree: 6 }));
-  await adminPost(env, '/roster/release', { group: 'seasonticket', drafter: 'draftertwo' }, { releaseSpot: async () => true });
+  await adminPost(env, '/roster/release', { group: 'seasonticket', drafter: 'draftertwo' }, { releaseSpot: async () => true, loadAssigned });
   assert.deepEqual(await loadWelcomed(env, 'seasonticket'), { drafterthree: 6 });
 });

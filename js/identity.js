@@ -30,7 +30,7 @@ import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeS
 import { SEASON_IDS } from './seasons/index.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
-import { APP_VERSION } from './board.js';
+import { APP_VERSION } from './version.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
 import { startTour, endTour } from './guide.js';
 

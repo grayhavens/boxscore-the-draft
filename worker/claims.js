@@ -7,7 +7,9 @@
    (worker/roster.js). No push alert: alerts belong to a group, and a claim
    is platform business. Instead the platform admin gets an email
    (sendClaimAlert) with who it was and a link to the admin page, when the
-   CLAIM_ALERT_EMAIL and RESEND_API_KEY worker secrets are set.
+   CLAIM_ALERT_EMAIL and RESEND_API_KEY worker secrets are set. The admin
+   can also fill a spot with no claim (addPerson) and fix a confirmed
+   spot's name or email (editSpot).
 
    Public and unauthenticated, so it's bounded every way it can be: our
    origins only, a group must have an open spot, a few claims per IP per
@@ -152,6 +154,18 @@ export function cleanName(name){
     : '';
 }
 
+// Another drafter already has that name (any case), which would make the
+// name pickers ambiguous. `except` is the spot being renamed.
+function nameTaken(drafters, name, except = null){
+  return drafters.some(d => !d.open && d.id !== except && d.name.toLowerCase() === name.toLowerCase());
+}
+
+// An optional email: '' when blank, null when it's there but isn't one.
+function cleanEmail(raw){
+  const email = typeof raw === 'string' ? raw.trim().replace(/ /g, '').slice(0, CLAIM_LIMITS.email) : '';
+  return !email || EMAIL.test(email) ? email : null;
+}
+
 // Confirming a claim (admin page): its person gets the next open spot
 // (worker/roster.js) under `rawName`, and the claim is dropped.
 // { drafter, name, email } or { error }: 'name' (blank), 'taken' (another drafter
@@ -164,7 +178,7 @@ export async function confirmClaim(env, group, claimId, rawName){
   const claim = claims.find(c => c.id === claimId);
   if(!claim) return { error: 'claim' };
   const drafters = applyRoster(GROUPS[group].drafters, assigned);
-  if(drafters.some(d => !d.open && d.name.toLowerCase() === name.toLowerCase())) return { error: 'taken' };
+  if(nameTaken(drafters, name)) return { error: 'taken' };
   const spot = drafters.find(d => d.open);
   if(!spot) return { error: 'full' };
 
@@ -175,4 +189,40 @@ export async function confirmClaim(env, group, claimId, rawName){
   if(rest.length) await env.LEAGUE_FACTS.put(claimsKey(group), JSON.stringify(rest));
   else await env.LEAGUE_FACTS.delete(claimsKey(group));
   return { drafter: spot.id, name, email };
+}
+
+// Adding someone without a claim (admin page: they texted instead of using
+// the landing page): the same as confirming one, from a name and an
+// optional email. { drafter, name, email } or { error }: 'name', 'email'
+// (not blank but not an email), 'taken', 'full'.
+export async function addPerson(env, group, rawName, rawEmail){
+  const name = cleanName(rawName);
+  if(!name) return { error: 'name' };
+  const email = cleanEmail(rawEmail);
+  if(email === null) return { error: 'email' };
+  const assigned = await loadAssigned(env, group);
+  const drafters = applyRoster(GROUPS[group].drafters, assigned);
+  if(nameTaken(drafters, name)) return { error: 'taken' };
+  const spot = drafters.find(d => d.open);
+  if(!spot) return { error: 'full' };
+  assigned[spot.id] = { name, email, at: Date.now() };
+  await saveAssigned(env, group, assigned);
+  return { drafter: spot.id, name, email };
+}
+
+// Fixing a confirmed spot's name or email (admin page). The spot keeps its
+// id, so picks, chat and favorites are untouched. { drafter, name, email,
+// was } or { error }: 'name', 'email', 'taken', 'spot' (not a confirmed spot).
+export async function editSpot(env, group, drafterId, rawName, rawEmail){
+  const name = cleanName(rawName);
+  if(!name) return { error: 'name' };
+  const email = cleanEmail(rawEmail);
+  if(email === null) return { error: 'email' };
+  const assigned = await loadAssigned(env, group);
+  const before = assigned[drafterId];
+  if(!before) return { error: 'spot' };
+  if(nameTaken(applyRoster(GROUPS[group].drafters, assigned), name, drafterId)) return { error: 'taken' };
+  assigned[drafterId] = { ...before, name, email };
+  await saveAssigned(env, group, assigned);
+  return { drafter: drafterId, name, email, was: { name: before.name, email: before.email || '' } };
 }
