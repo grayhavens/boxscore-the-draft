@@ -61,10 +61,14 @@ Every day without it is history lost.
 - Tests: `tests/points-history.test.mjs`.
 - **Deploy the worker, then the static site.** An old worker ignores the extra `sample` field.
 
-### 2. Pure race math (`js/race-math.js` + tests)
-Pure functions shared by the renderer and Node tests:
-- history → per-day series with gaps held flat, plus derived projected/locked ranks (via the
-  same competition-rank rule as `obAssignRank`; move that into a shared helper rather than copying it)
+### 2. Pure race math (`js/race-math.js` + tests). **Done on `points-race-ui`.**
+Pure functions shared by the renderer and Node tests (`tests/race-math.test.mjs`). The ranking rule
+moved out of `overall.js` into `js/rank.js` (`assignRank`) so a past day ranks exactly like today.
+Two details the handoff didn't cover: month chips run from the first sample **through today** (the
+prototype's chips also stop at the current month), so they grow over the season, and a label that
+would repeat gets its year (`Sep '26`, `Sep '27`). Totals can go **negative** (last-place rules),
+so the Y floor is 0 only when nobody is below it.
+- history → per-day series with gaps held flat, plus derived projected/locked ranks
 - the season's months → chip list; month window `[start − ε, next start + ε]`
 - Y domain: min/max inside the window (interpolated at the edges), padded 12% (min 6), floored at
   0, blended toward `[0, seasonMax]` as the window widens

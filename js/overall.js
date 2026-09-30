@@ -23,6 +23,7 @@ import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_L
 import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
+import { assignRank } from './rank.js';
 import { currentProfileId } from './identity.js';
 import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink } from './activity.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
@@ -356,22 +357,6 @@ function obBuildRow(d, bonuses){
   };
 }
 
-// Standard competition rank on `field` with a "T" tie prefix, e.g.
-// 1, T2, T2, 4, written to row[rankKey] / row[rankKey + 'Label'].
-function obAssignRank(rows, field, rankKey){
-  const sorted = rows.slice().sort((a, b) => b[field] - a[field] || a.name.localeCompare(b.name));
-  let prev = null, prevRank = 0;
-  sorted.forEach((r, i) => {
-    r[rankKey] = (prev !== null && r[field] === prev) ? prevRank : i + 1;
-    prev = r[field];
-    prevRank = r[rankKey];
-  });
-  const counts = {};
-  sorted.forEach(r => { counts[r[rankKey]] = (counts[r[rankKey]] || 0) + 1; });
-  sorted.forEach(r => { r[rankKey + 'Label'] = (counts[r[rankKey]] > 1 ? 'T' : '') + r[rankKey]; });
-  return sorted;
-}
-
 // All ten rows, sorted by projected points (ties broken alphabetically).
 // `rank`/`rankLabel` is the projected rank; `lockedRank`/`lockedRankLabel`
 // ranks the same rows on locked points. The single source every surface
@@ -379,8 +364,8 @@ function obAssignRank(rows, field, rankKey){
 export function obRankedRows(){
   const bonuses = obMode === 'simulated' ? {} : bonusStandings();
   const rows = DRAFT_TEAMS.map(d => obBuildRow(d, bonuses));
-  obAssignRank(rows, 'confirmedTotal', 'lockedRank');
-  return obAssignRank(rows, 'total', 'rank');
+  assignRank(rows, 'confirmedTotal', 'lockedRank');
+  return assignRank(rows, 'total', 'rank');
 }
 
 // "T2" -> "T2nd", "3" -> "3rd".
