@@ -10,7 +10,7 @@
    addresses, all in one batch call. Replies go to the admin's own
    Cloudflare Access email.
 
-   The admin page writes the subject and body. {name}, {group} and {link}
+   The admin page writes the subject and body. {name}, {group}, {link} and {code}
    are filled in per person here; the body is plain text, sent as-is (plus
    the app link) and in the Boxscore-themed HTML of js/welcome-template.js.
 
@@ -29,6 +29,7 @@
    ============================================================ */
 import { GROUPS, GROUP_DOMAIN, isKnownGroup } from '../js/groups.js';
 import { welcomeHtml, welcomeText } from '../js/welcome-template.js';
+import { loadAccess } from './access-code.js';
 
 const RESEND_BATCH = 'https://api.resend.com/emails/batch';
 export const WELCOME_FROM = 'Boxscore <admin@boxscore.space>';
@@ -98,12 +99,15 @@ export function welcomeEnabled(env){
 }
 
 export function fillTemplate(text, vars){
-  return text.replace(/\{(name|group|link)\}/g, (_, k) => vars[k] ?? '');
+  return text.replace(/\{(name|group|link|code)\}/g, (_, k) => vars[k] ?? '');
 }
 
 // One Resend message per recipient ({ name, email }), templates filled.
-export function buildMessages(groupId, recipients, { subject, body, replyTo }){
-  const vars = { group: GROUPS[groupId].name, link: `https://${groupId}.${GROUP_DOMAIN}` };
+// `code` is the group's invite code (worker/access-code.js), when it has
+// one: the link carries it, and {code} spells it out for the Home Screen
+// app, which has its own storage and asks for it on first open.
+export function buildMessages(groupId, recipients, { subject, body, replyTo, code }){
+  const vars = { group: GROUPS[groupId].name, code: code || '', link: `https://${groupId}.${GROUP_DOMAIN}${code ? `/#code=${code}` : ''}` };
   return recipients.map(r => {
     const filled = fillTemplate(body, { ...vars, name: r.name });
     const filledSubject = fillTemplate(subject, { ...vars, name: r.name });
@@ -133,7 +137,8 @@ export async function sendWelcome(env, groupId, contacts, request, adminEmail){
   const test = !!request.test;
   if(test && !replyTo) return { error: 'no_admin_email' };
   const recipients = test ? [{ name: people[0].name, email: replyTo }] : people;
-  const messages = buildMessages(groupId, recipients, { subject: test ? `[Test] ${subject}` : subject, body, replyTo });
+  const access = await loadAccess(env, groupId, 0);
+  const messages = buildMessages(groupId, recipients, { subject: test ? `[Test] ${subject}` : subject, body, replyTo, code: access ? access.code : '' });
 
   let res;
   try {

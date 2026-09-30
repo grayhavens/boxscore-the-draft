@@ -85,6 +85,22 @@ in the lobby (`syncCaps`), and its pre-draft class shows only those leagues (sta
 for Season Ticket are planned in `docs/golf-plan.md`. The ESPN
 data and proxy edge cache are shared by every group.
 
+**Group invite code** (`worker/access-code.js`, `js/access.js`): a light gate that keeps outsiders out of a group's own
+state (chat, draft room, activity, favorites, facts, points history, push), with no accounts. One shared code per group
+(`access@<group>` in KV, like `maple-river-42`), set from the system admin page's Invite code section: **Make a code**
+starts in soft mode (the worker logs a missing or wrong code but lets it through), **Enforce** turns the gate on, and
+New code / Remove do what they say. The invite link `https://<group>.boxscore.space/#code=<code>` stores the code on the
+device (`js/access.js` takes it from the fragment at boot, from `js/group.js`, and leaves other fragment pieces alone);
+a device with no code (the Home Screen app starts from `manifest.json`'s fixed `start_url`, with its own storage) gets a
+full-screen prompt for it once. `withGroupQuery` adds `?gc=<code>` to every group call, a query param because a
+WebSocket can't set headers. The worker gates every group route in `route()` except `/access/check` (public,
+`{ required, ok }`), `/claim`, `/roster` and `/admin/verify`. The static site and ESPN data stay public by nature.
+A device that has been let in doesn't wait on the network at boot; the check runs behind it and sends the device back
+through the prompt only if the code was rotated or enforcing turned on. The welcome email's link carries the code and
+`{code}` spells it out; "Open as commissioner" passes it along in the fragment. Records are cached 30s per worker isolate,
+so a change takes up to that long, and already-open chat/draft sockets stay connected until they reconnect.
+**Deploy the worker first:** an old worker ignores `gc`, which is harmless, but the admin page needs the new route.
+
 **Three views, one page:** `#view-board` (Teams), `#view-standings`, `#view-overall` — toggled by
 `switchView` in `js/board.js`, mirrored into the URL query string (`updateUrlParam` in
 `js/utils.js`) so state survives a reload/share. `js/board.js` is the boot/orchestration module: it

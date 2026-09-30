@@ -18,6 +18,10 @@
      group's next open spot, no deploy (worker/roster.js); Dismiss drops the
      claim; confirmed people can be undone. A new claim is also emailed to
      CLAIM_ALERT_EMAIL, linking here with ?group=, which opens on that group.
+   - Invite code (worker/access-code.js): the picked group's shared code and
+     invite link, to keep outsiders out of its chat, draft room and activity.
+     A new code starts in soft mode (nobody turned away); Enforce turns the
+     gate on. The welcome email carries the link and {code}.
    - Welcome email, for a group that takes claims or has emails: an
      editable subject and body sent to everyone with an email (a claim's,
      or one added here for a spot named in js/groups.js) from
@@ -190,6 +194,41 @@ function claimsSection(g){
     ${notes[`claims:${g.id}`] ? `<div class="sysadmin-note">${esc(notes[`claims:${g.id}`])}</div>` : ''}`);
 }
 
+// The group's invite code (worker/access-code.js): the link to send, the
+// code itself, and whether the worker enforces it yet. A new code starts in
+// soft mode so the link can go out before anyone is turned away.
+function inviteLink(g){
+  return `https://${g.id}.${GROUP_DOMAIN}/#code=${g.access.code}`;
+}
+
+function accessSection(g){
+  const a = g.access;
+  const btn = (label, action, solid = false) =>
+    `<button type="button" class="sysadmin-btn${solid ? ' solid' : ''}" onclick="sysadminAccess('${g.id}', '${action}')" ${busy ? 'disabled' : ''}>${label}</button>`;
+  if(!a){
+    return section('Invite code', `
+      ${row('Open to anyone with the address', 'Add a code to keep outsiders out of this group’s chat, draft room and activity.',
+        btn('Make a code', 'rotate', true))}
+      ${accessNote(g)}`);
+  }
+  return section('Invite code', `
+    ${row(`<code>${esc(a.code)}</code>`, a.enforce ? 'Enforced: devices without it are turned away' : 'Soft mode: nobody is turned away yet. Send the link, then enforce.',
+      pill(a.enforce, 'Enforced', 'Soft'))}
+    <div class="sysadmin-announce">
+      <input type="text" readonly value="${esc(inviteLink(g))}" aria-label="Invite link" onfocus="this.select()">
+      <span class="set-row-sub">Anyone who opens this link is in. The Home Screen app starts from its own address, so it asks for the code once.</span>
+      <div class="sysadmin-confirm-actions">
+        <button type="button" class="sysadmin-btn solid" onclick="sysadminCopyInvite('${g.id}')">Copy link</button>
+        ${a.enforce ? btn('Switch to soft mode', 'soften') : btn('Enforce', 'enforce', true)}
+        ${btn('New code', 'rotate')}
+        ${btn('Remove', 'clear')}
+      </div>
+    </div>
+    ${accessNote(g)}`);
+}
+
+const accessNote = g => notes[`access:${g.id}`] ? `<div class="sysadmin-note">${esc(notes[`access:${g.id}`])}</div>` : '';
+
 function welcomeDefaults(g){
   const at = g.draft && g.draft.scheduledAt;
   const when = at ? new Date(at).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
@@ -199,6 +238,7 @@ function welcomeDefaults(g){
       'Hi {name},',
       'You’re in! Welcome to {group}, our draft league on Boxscore.',
       'Tap the button below to open it. On iPhone, open it in Safari, then tap Share and Add to Home Screen. Boxscore works best from your Home Screen, and it’s the only place alerts work on iPhone.',
+      ...(g.access ? [`If the app asks for an invite code, it’s ${g.access.code}.`] : []),
       'Once it’s open, pick your name and turn on alerts in Settings so you know when you’re on the clock.',
       ...(when ? [`The draft starts ${when}.`] : []),
       'See you at the draft!'
@@ -215,8 +255,8 @@ function welcomeDraft(g){
 function welcomePreviewHtml(g){
   const draft = welcomeDraft(g);
   const first = g.welcome.contacts[0];
-  const vars = { name: first ? first.name : 'there', group: g.name, link: `https://${g.id}.${GROUP_DOMAIN}` };
-  const fill = t => t.replace(/\{(name|group|link)\}/g, (_, k) => vars[k]);
+  const vars = { name: first ? first.name : 'there', group: g.name, code: g.access ? g.access.code : '', link: `https://${g.id}.${GROUP_DOMAIN}${g.access ? `/#code=${g.access.code}` : ''}` };
+  const fill = t => t.replace(/\{(name|group|link|code)\}/g, (_, k) => vars[k]);
   return welcomeHtml({ groupName: g.name, link: vars.link, subject: fill(draft.subject), text: fill(draft.body) });
 }
 
@@ -254,7 +294,7 @@ function welcomeSection(g){
       ${previewing === g.id ? `
         <span class="set-row-sub">Preview, as ${esc((people[0] || {}).name || 'someone')} will get it: <b id="welcome-preview-subject"></b></span>
         <iframe class="sysadmin-preview" id="welcome-preview" title="Welcome email preview" sandbox=""></iframe>` : ''}
-      <span class="set-row-sub">{name}, {group} and {link} are filled in for each person.${open ? ' Confirming a claim sends this to that person.' : ''} Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
+      <span class="set-row-sub">{name}, {group}, {link} and {code} are filled in for each person.${open ? ' Confirming a claim sends this to that person.' : ''} Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
       <div class="sysadmin-confirm-actions">
         <button type="button" class="sysadmin-btn" onclick="sysadminWelcome('${g.id}', true)" ${busy || !canTest || !people.length ? 'disabled' : ''}>Send me a test</button>
         <button type="button" class="sysadmin-btn" onclick="sysadminWelcomePreview('${g.id}')">${previewing === g.id ? 'Hide preview' : 'Preview'}</button>
@@ -346,7 +386,7 @@ function render(){
         ${row('TheRundown', 'THERUNDOWN_API_KEY', pill(s.rundown))}
         ${row('TheSportsDB', 'SPORTSDB_API_KEY', pill(s.sportsdb))}
         <button type="button" class="sysadmin-btn sysadmin-refresh" onclick="sysadminRefresh()">Refresh</button>`)}
-      ${g ? `${pickerHtml(g)}${claimsSection(g)}${welcomeSection(g)}${groupHtml(g)}` : ''}
+      ${g ? `${pickerHtml(g)}${claimsSection(g)}${accessSection(g)}${welcomeSection(g)}${groupHtml(g)}` : ''}
     </div>`;
   refreshWelcomePreview();
 }
@@ -393,7 +433,7 @@ function refreshWelcomePreview(){
   const subject = document.getElementById('welcome-preview-subject');
   const first = group.welcome.contacts[0];
   if(subject) subject.textContent = welcomeDraft(group).subject
-    .replace(/\{(name|group|link)\}/g, (_, k) => ({ name: first ? first.name : 'there', group: group.name, link: '' }[k]));
+    .replace(/\{(name|group|link|code)\}/g, (_, k) => ({ name: first ? first.name : 'there', group: group.name, link: '', code: group.access ? group.access.code : '' }[k]));
 }
 
 window.sysadminWelcomeEdit = (groupId, field, value) => {
@@ -526,6 +566,35 @@ window.sysadminRelease = (groupId, drafter) => {
   });
 };
 
+const ACCESS_CONFIRMS = {
+  rotate: g => g.access ? `Make a new code for ${g.name}? The old one stops working once you enforce, and everyone needs the new link.` : '',
+  enforce: g => `Enforce the code for ${g.name}? Devices without it are turned away until they enter it. Send the link first.`,
+  clear: g => `Remove the code? ${g.name} goes back to open to anyone with the address.`
+};
+
+window.sysadminAccess = (groupId, action) => {
+  const group = status.groups.find(g => g.id === groupId);
+  const ask = ACCESS_CONFIRMS[action] && ACCESS_CONFIRMS[action](group);
+  if(ask && !confirm(ask)) return;
+  act(`access:${groupId}`, async () => {
+    const { ok, data } = await api('/access', { group: groupId, action });
+    if(!ok) return `Couldn’t change it (${data.error || 'error'}).`;
+    group.access = data.access;
+    return action === 'rotate' ? `New code: ${data.access.code}. Soft mode, so nobody is turned away yet.`
+      : action === 'enforce' ? 'Enforced.'
+      : action === 'soften' ? 'Back to soft mode.'
+      : 'Code removed.';
+  });
+};
+
+window.sysadminCopyInvite = async groupId => {
+  const group = status.groups.find(g => g.id === groupId);
+  let done = false;
+  try { await navigator.clipboard.writeText(inviteLink(group)); done = true; } catch (e){}
+  notes[`access:${groupId}`] = done ? 'Invite link copied.' : 'Couldn’t copy. Select the link and copy it by hand.';
+  render();
+};
+
 window.sysadminAnnounce = groupId => {
   const input = document.getElementById(`announce-${groupId}`);
   const message = input ? input.value.trim() : '';
@@ -548,7 +617,7 @@ window.sysadminCommissioner = groupId => {
       return data.error === 'no_password' ? 'That group has no commissioner password yet.' : `Couldn’t open (${data.error || 'error'}).`;
     }
     const base = groupAppUrl(groupId, host);
-    const url = `${base}${base.includes('?') ? '&' : '?'}view=admin#commissioner=${data.token}`;
+    const url = `${base}${base.includes('?') ? '&' : '?'}view=admin#commissioner=${data.token}${data.code ? `&code=${data.code}` : ''}`;
     if(tab) tab.location = url;
     else window.location.href = url;
     return `Opened as commissioner until ${new Date(data.expiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`;
