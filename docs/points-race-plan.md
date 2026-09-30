@@ -44,7 +44,7 @@ use that component.
 
 ## Phases
 
-### 1. History recorder (worker + snapshot). **Done on this branch, ship first.**
+### 1. History recorder (worker + snapshot). **Shipped (#175).**
 Every day without it is history lost.
 - `worker/points-history.js`: KV `history[@<group>]:<season>` → `{ days: [{ d, p, l }] }`, one entry
   per Central-time day (the last write of a day wins), capped at 550 days. `GET /points/history`
@@ -61,7 +61,7 @@ Every day without it is history lost.
 - Tests: `tests/points-history.test.mjs`.
 - **Deploy the worker, then the static site.** An old worker ignores the extra `sample` field.
 
-### 2. Pure race math (`js/race-math.js` + tests). **Done on `points-race-ui`.**
+### 2. Pure race math (`js/race-math.js` + tests). **Done.**
 Pure functions shared by the renderer and Node tests (`tests/race-math.test.mjs`). The ranking rule
 moved out of `overall.js` into `js/rank.js` (`assignRank`) so a past day ranks exactly like today.
 Two details the handoff didn't cover: month chips run from the first sample **through today** (the
@@ -76,7 +76,7 @@ so the Y floor is 0 only when nobody is below it.
 - head-label de-collision (12px) and flip near the right edge
 - replay camera `[t − k, t + 1]` and which chip is active
 
-### 3. Race segment UI (`js/race.js`, `js/overall.js`, `css/style.css`)
+### 3. Race segment UI (`js/race.js`, `js/overall.js`, `css/style.css`). **Done.**
 - `obSetSegment` accepts `'race'`; `?seg=race` survives boot (`board.js`); the segment is hidden
   when `PRE_DRAFT`.
 - History fetch with a localStorage copy (paint immediately, refresh in the background), like
@@ -87,11 +87,15 @@ so the Y floor is 0 only when nobody is below it.
   diamonds, head labels (tap to focus).
 - Scrub with pointer events; leaving resets to the window's latest day.
 - Month pan 480ms `EASE_OUT`; Replay; both skipped under `reducedMotion`.
-- Table below via `obTableHtml(rowsAtDay, { label })`; row tap = focus, then sheet.
+- Table below via `obTableHtml(rowsAtDay, { head, tap, focus, noMoves })`; row tap = focus, then sheet.
+  Re-sorts glide with a small FLIP inside `js/race.js` (Web Animations), not `obPlayFlip`: that one
+  also washes rows and counts totals up, which is too much at scrub/replay speed.
+- The chart's today is always the on-screen totals (`withToday`), so it matches Standings between samples.
+- Replay runs 2–6s depending on how much history there is; under reduced motion it jumps to today.
 - Empty/short history state: "History starts {date}" in place of the chart when there are fewer
   than 2 days.
 
-### 4. Polish
+### 4. Polish. **Done** (simulated history, `GUIDE`, CLAUDE.md, `sw.js` v25, light theme checked).
 - Simulated-mode history generator.
 - `GUIDE` entry (`js/guide.js`), CLAUDE.md paragraph, `sw.js` `CACHE_NAME` bump.
 - Light theme and phone-width pass.

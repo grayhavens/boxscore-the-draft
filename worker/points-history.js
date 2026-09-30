@@ -15,24 +15,21 @@
 
    KV: history[@<group>]:<season> -> { days: [{ d: 'YYYY-MM-DD', p, l }] }
    (The Draft keeps the bare prefix, like every other group-owned key.)
-   Days are Central time, oldest first.
+   Days are Central time (historyDay in js/race-math.js), oldest first.
 
    Routes:
      GET /points/history?group=&season=   public: { days }
      (written only through PUT /activity)
    ============================================================ */
 
-export const HISTORY_TZ = 'America/Chicago';
+import { historyDay } from '../js/race-math.js';
+
+export { historyDay };
 export const HISTORY_MAX_DAYS = 550;   // a class runs Aug to Oct of the next year
 const LEGACY_SEASON = '2026';
 
 export function historyKey(prefix, season){
   return `${prefix}:${season}`;
-}
-
-export function historyDay(ts){
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat('en-CA', { timeZone: HISTORY_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
 }
 
 function cleanTotals(obj, drafterIds){

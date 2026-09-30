@@ -97,6 +97,7 @@ const GUIDE = [
       'Points come from where teams finish, not single games: division titles, best records, playoffs and titles, minus points for finishing last.',
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
+      'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
       'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved.'
     ],
     go: ['Go to Points', "switchView('overall')"]

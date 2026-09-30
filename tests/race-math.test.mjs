@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   dayNumber, isoOfDay, fmtDay, buildSeries, standingsAt, interp, monthsOf, monthWindow, followWindow,
-  monthIndexAt, dayAtFraction, yDomain, gridValues, xTicks, spreadLabels, MIN_WINDOW
+  monthIndexAt, dayAtFraction, yDomain, gridValues, xTicks, spreadLabels, MIN_WINDOW, withToday, simulatedHistory
 } from '../js/race-math.js';
 import { assignRank } from '../js/rank.js';
 
@@ -130,4 +130,20 @@ test('spreadLabels keeps a gap and stays in bounds', () => {
   assert.deepEqual(labs.map(l => l.y), [100, 112, 199]);
   const low = spreadLabels([{ y: 198 }, { y: 199 }, { y: 200 }], 12, 10, 200);
   assert.deepEqual(low.map(l => l.y), [176, 188, 200]);
+});
+
+test('withToday swaps in the on-screen totals for today', () => {
+  const rows = [{ id: 'a', total: 9, confirmedTotal: 2 }];
+  const out = withToday([{ d: '2026-09-29', p: { a: 1 }, l: { a: 0 } }, { d: '2026-09-30', p: { a: 3 }, l: { a: 0 } }], '2026-09-30', rows);
+  assert.deepEqual(out, [{ d: '2026-09-29', p: { a: 1 }, l: { a: 0 } }, { d: '2026-09-30', p: { a: 9 }, l: { a: 2 } }]);
+});
+
+test('simulatedHistory is seeded, starts near 0 and lands on today', () => {
+  const rows = [{ id: 'a', name: 'Ann', total: 40, confirmedTotal: 10 }, { id: 'b', name: 'Bob', total: -3, confirmedTotal: 0 }];
+  const h = simulatedHistory(rows, '2026-08-31', '2026-12-01');
+  assert.deepEqual(h, simulatedHistory(rows, '2026-08-31', '2026-12-01'));
+  assert.equal(h[0].d, '2026-08-31');
+  assert.equal(h[0].p.a, 0);
+  assert.deepEqual(h.at(-1), { d: '2026-12-01', p: { a: 40, b: -3 }, l: { a: 10, b: 0 } });
+  assert.ok(h.every(x => x.l.a <= Math.max(x.p.a, x.l.a)));
 });

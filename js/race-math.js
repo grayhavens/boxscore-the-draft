@@ -26,6 +26,14 @@ export function isoOfDay(n){
   return new Date(n * DAY_MS).toISOString().slice(0, 10);
 }
 
+// The history day a timestamp belongs to: Central time, the same day
+// boundary the worker files samples under (worker/points-history.js).
+export const HISTORY_TZ = 'America/Chicago';
+export function historyDay(ts){
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: HISTORY_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
+}
+
 // "Sep 29"
 export function fmtDay(n){
   const d = new Date(n * DAY_MS);
@@ -65,6 +73,43 @@ export function buildSeries(historyDays, drafters, todayIso){
     });
   }
   return { origin, today, drafters, ids, proj, locked, rank, lrank, pos };
+}
+
+// Today's entry replaced by the totals on screen right now (the Points
+// table's rows), so the chart's today always matches the Standings tab
+// even between samples.
+export function withToday(historyDays, todayIso, rows){
+  const p = {}, l = {};
+  rows.forEach(r => { p[r.id] = r.total; l[r.id] = r.confirmedTotal; });
+  return (historyDays || []).filter(x => x.d !== todayIso).concat([{ d: todayIso, p, l }]);
+}
+
+// Seeded made-up history for the Fake points mode (js/overall.js
+// obMode): every drafter wanders from 0 on `startIso` to their current
+// total today, a share of it locking along the way.
+export function simulatedHistory(rows, startIso, todayIso, seed = 11){
+  let s = seed;
+  const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const start = dayNumber(startIso), n = Math.max(1, dayNumber(todayIso) - start);
+  const walks = rows.map(r => {
+    let noise = 0;
+    const out = [];
+    for(let i = 0; i <= n; i++){
+      const f = i / n;
+      noise = noise * 0.9 + (rnd() - 0.5) * 3;
+      const p = i === n ? r.total : Math.round(r.total * Math.pow(f, 0.7) + noise * Math.sin(Math.PI * f) * 4);
+      const l = i === n ? r.confirmedTotal : Math.round(r.confirmedTotal * Math.max(0, (f - 0.4) / 0.6));
+      out.push({ p, l: Math.min(l, Math.max(p, l)) });
+    }
+    return out;
+  });
+  const days = [];
+  for(let i = 0; i <= n; i++){
+    const p = {}, l = {};
+    rows.forEach((r, k) => { p[r.id] = walks[k][i].p; l[r.id] = walks[k][i].l; });
+    days.push({ d: isoOfDay(start + i), p, l });
+  }
+  return days;
 }
 
 // One day's rows in the shape the Points table renders (obTableHtml):

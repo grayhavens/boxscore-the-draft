@@ -269,7 +269,8 @@ only — see `getLeagueRuleTeams`). Every league is on this model; the older per
 achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
 **Points history** (`worker/points-history.js`): one sample per Central-time day of every drafter's projected and
-locked points, for the Points tab's Race segment (`docs/points-race-plan.md`). Scoring only exists in the browser, so
+locked points, for the Points tab's Race segment (`js/race.js` draws it, `js/race-math.js` is its pure math;
+`docs/points-race-plan.md`). Scoring only exists in the browser, so
 the sample rides on the Activity PUT (`js/activity.js`) and the worker only validates and stores it
 (`history[@<group>]:<season>` in KV, served by `GET /points/history`). A day nobody opens the app has no entry.
 **Deploy the worker first.**
