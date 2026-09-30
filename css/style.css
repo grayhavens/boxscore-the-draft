@@ -2602,6 +2602,7 @@ body{
   cursor: pointer;
 }
 .admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
+.admin-adj-save:disabled{ opacity: 0.4; cursor: default; pointer-events: none; }
 
 /* Draft section: the live room's status as label/value rows. */
 #admin-content .seg{ margin-bottom: 16px; }
