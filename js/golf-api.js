@@ -13,11 +13,10 @@ import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './worker-base.js';
 import { fetchJSON } from './utils.js';
 import {
   golfScoreboardUrl, golfLeaderboardUrl, golferRecordUrl,
-  parseCalendar, fedexSeasonEvents, parseLeaderboard, parseGolferRecord
+  parseLeaderboard, parseGolferRecord
 } from './golf.js';
 
 const SEASON_TTL_MS = 10 * 60 * 1000;      // matches the worker's edge cache
-const SCHEDULE_TTL_MS = 6 * 60 * 60 * 1000;
 const LEADERBOARD_TTL_MS = 60 * 1000;      // live scoring
 const RECORD_TTL_MS = 30 * 60 * 1000;      // FedEx points move once an event ends
 
@@ -40,14 +39,6 @@ export function fetchGolfSeason(season){
   // chatWorkerBase: wrangler dev on localhost, so a local change to
   // worker/golf.js is what the local app reads.
   return cached(`season:${season}`, SEASON_TTL_MS, () => fetchJSON(`${chatWorkerBase()}/golf/season/${season}`));
-}
-
-// The FedEx Cup season's events, from ESPN's calendar (no results).
-export function fetchGolfSchedule(season){
-  return cached(`schedule:${season || 'now'}`, SCHEDULE_TTL_MS, async () => {
-    const data = await fetchJSON(golfScoreboardUrl(season));
-    return data ? fedexSeasonEvents(parseCalendar(data)) : null;
-  });
 }
 
 // The event being played now, or the next one: ESPN's scoreboard picks it.

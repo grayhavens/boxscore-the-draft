@@ -292,7 +292,6 @@ function enableSwipe(el){
 
 // A sheet closed some other way (tapping outside) ends the tour.
 export function endTour(){ tour = null; }
-export function isTourOpen(){ return !!tour; }
 
 /* ---- The guide page (#view-guide) ---- */
 
