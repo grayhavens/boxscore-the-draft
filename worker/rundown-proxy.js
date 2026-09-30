@@ -194,6 +194,7 @@ import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
 import { handleGolfSeason } from './golf.js';
+import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -954,7 +955,9 @@ async function handlePushTest(request, env, group, headers){
 // same change; here the second gets a 409 and simply re-reads. Same
 // no-auth trust tier as favorites (an Origin check only, no admin
 // password) — the worst a caller can do is add a bogus feed line.
-// One blob per group: The Draft's is the original key.
+// One blob per group: The Draft's is the original key. A landed PUT can
+// also carry the day's points sample for the Race chart
+// (worker/points-history.js).
 function activityKey(group){
   return `${kvGroupPrefix('activity', group)}:state`;
 }
@@ -1028,6 +1031,16 @@ async function handleActivity(request, env, group, headers){
       .slice(0, ACTIVITY_MAX_EVENTS);
     const next = { snapshot: snap, events };
     await env.LEAGUE_FACTS.put(key, JSON.stringify(next));
+    // The day's Race chart sample (worker/points-history.js). Best effort:
+    // the feed write above already landed.
+    const sample = parseSample(body.sample, drafterIds);
+    if(sample){
+      try {
+        await recordSample(env, kvGroupPrefix('history', group), sample, snap.dataAt);
+      } catch (e){
+        console.warn('[activity] history sample failed', e);
+      }
+    }
     return json(next, 200, headers);
   }
 
@@ -1068,7 +1081,7 @@ async function route(request, env, ctx){
 
   // Everything down to the proxies below is group-owned state.
   const group = requestGroup(url);
-  const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' ||
+  const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
     /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
@@ -1100,6 +1113,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/push/test') return handlePushTest(request, env, group, headers);
 
   if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
+
+  if(url.pathname === '/points/history') return handlePointsHistory(request, url, env, kvGroupPrefix('history', group), headers, { json });
 
   if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json, waitUntil: p => ctx.waitUntil(p) });
 

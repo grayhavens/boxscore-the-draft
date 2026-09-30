@@ -268,6 +268,12 @@ manual marking entirely and are instead derived live off a loaded standings tabl
 only — see `getLeagueRuleTeams`). Every league is on this model; the older per-team
 achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
+**Points history** (`worker/points-history.js`): one sample per Central-time day of every drafter's projected and
+locked points, for the Points tab's Race segment (`docs/points-race-plan.md`). Scoring only exists in the browser, so
+the sample rides on the Activity PUT (`js/activity.js`) and the worker only validates and stores it
+(`history[@<group>]:<season>` in KV, served by `GET /points/history`). A day nobody opens the app has no entry.
+**Deploy the worker first.**
+
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
 actually being played right now. Until that next season starts, their Standings tab and team modals

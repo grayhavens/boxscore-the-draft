@@ -20,6 +20,8 @@
    so two people opening the app at once can't log the same change twice.
    The known gap: nothing is logged while nobody has the app open — a
    change overnight shows up when the next person opens it, stamped then.
+   The same PUT carries the day's points sample for the Points tab's Race
+   chart (worker/points-history.js), so history has the same gap.
 
    Safety rails so a partial or stale load can't invent events:
    - a league only counts once its season is under way (Regular Season
@@ -46,6 +48,8 @@ import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES, wasSeasonUnderwayAt } fro
 import { currentDraftTeamId } from './board.js';
 import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenSheet, obSinceTs, obSinceLabel } from './overall.js';
 import { currentBonusHolders, loadBonusInputs } from './compare.js';
+import { ACTIVE_SEASON_ID } from './season.js';
+import { LATEST_SEASON_ID } from './seasons/index.js';
 import {
   espnNflStandingsCache, espnNflDivisionCache, fetchEspnNflStandingsCached, fetchEspnNflDivisionStandingsCached,
   computeNflConferenceStandings, computeNflDivisionStandings, findNflTeamKeyByEspnAbbr
@@ -275,11 +279,12 @@ async function buildSnapshot(){
   // league's live points read as 0, and a phase landing later would look
   // like a rank move.
   const phasesKnown = LEAGUES.every(l => PRIOR_SEASON_DISPLAY_LEAGUES.includes(l.key) || leagueSeasonUnderway(l.key) !== null);
-  let totals = null, ranks = null, live = null;
+  let totals = null, lockedTotals = null, ranks = null, live = null;
   if(leagueInputsSettled() && phasesKnown){
-    totals = {}; ranks = {}; live = {};
+    totals = {}; lockedTotals = {}; ranks = {}; live = {};
     obRankedRows().forEach(r => {
       totals[r.id] = r.total;
+      lockedTotals[r.id] = r.confirmedTotal;
       ranks[r.id] = r.rank;
       r.leagues.forEach(x => {
         if(!x.provisional) return;
@@ -294,7 +299,7 @@ async function buildSnapshot(){
     LEAGUES.forEach(l => { locked[l.key] = isLeagueLocked(l.key); });
   }
 
-  return { v: SNAPSHOT_VERSION, dataAt: Math.min(...times), holders, bonus, totals, ranks, live, locked };
+  return { v: SNAPSHOT_VERSION, dataAt: Math.min(...times), holders, bonus, totals, lockedTotals, ranks, live, locked };
 }
 
 function delta(drafterId, pts, prov){
@@ -426,7 +431,8 @@ let running = false;
 // Called at boot, whenever the Points tab opens, and when the app comes
 // back to the foreground — it throttles itself.
 export async function runActivityDetection(force){
-  if(running || isObSimulated() || PRE_DRAFT) return;
+  // An older class's totals would rewind the shared feed and history.
+  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
   if(!force && Date.now() - lastRun < DETECT_COOLDOWN_MS) return;
   running = true;
   lastRun = Date.now();
@@ -442,16 +448,22 @@ export async function runActivityDetection(force){
     // points), so this run just replaces it.
     const comparable = prev && prev.v === SNAPSHOT_VERSION;
 
+    // The day's Race chart sample (worker/points-history.js), only from
+    // totals this run computed itself, never the carried-forward ones.
+    const sample = snapshot.totals && snapshot.lockedTotals
+      ? { season: ACTIVE_SEASON_ID, p: snapshot.totals, l: snapshot.lockedTotals }
+      : null;
+
     // Carry the last known ranks/locks forward if they couldn't be trusted
     // this time, so the next run still has something to diff against.
-    if(comparable && !snapshot.totals){ snapshot.totals = prev.totals || null; snapshot.ranks = prev.ranks || null; snapshot.live = prev.live || null; }
+    if(comparable && !snapshot.totals){ snapshot.totals = prev.totals || null; snapshot.lockedTotals = prev.lockedTotals || null; snapshot.ranks = prev.ranks || null; snapshot.live = prev.live || null; }
     if(comparable && !snapshot.locked) snapshot.locked = prev.locked || null;
 
     const events = comparable ? diffSnapshots(prev, snapshot, Date.now()) : [];
     const res = await fetch(withGroupQuery(`${chatWorkerBase()}/activity`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base: prev ? prev.dataAt : null, snapshot, events })
+      body: JSON.stringify({ base: prev ? prev.dataAt : null, snapshot, events, sample })
     });
     // 409 = someone else wrote first; their state is in the body.
     const state = await res.json().catch(() => null);
