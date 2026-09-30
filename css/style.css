@@ -2651,11 +2651,13 @@ body{
    the light theme follows. */
 #view-admin.admin-desk-on{
   position: fixed;
-  left: 0; right: 0; top: 0;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  inset: 0;
   z-index: 190;
   background: var(--bg);
 }
+/* The phone tab bar has no place under a desktop console: the sidebar's
+   "Settings" is the way back into the app. */
+body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 #view-admin.admin-desk-on > .page-header{ display: none; }
 #view-admin.admin-desk-on #admin-content{ height: 100%; }
 
@@ -2712,6 +2714,7 @@ body{
 .admin-desk-dot[data-state="ok"]{ background: var(--win); }
 .admin-desk-dot[data-state="warn"]{ background: var(--accent-fill); }
 .admin-desk-dot[data-state="live"]{ background: var(--live); }
+.admin-desk-flag{ flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
 .admin-desk-locked{ flex: none; font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--win); }
 .admin-desk-foot{
   margin-top: auto;
@@ -2834,6 +2837,11 @@ body{
 .admin-desk-when{ display: flex; flex-direction: column; gap: 2px; }
 .admin-desk-when-time{ font-family: var(--font-display); font-size: 22px; font-weight: 600; }
 .admin-desk-when-sub{ font-size: var(--fs-12); font-weight: 700; color: var(--win); }
+.admin-desk-when-sub[data-state="warn"]{ color: var(--accent); }
+
+/* Draft: Needs attention. */
+.admin-desk-attn{ padding: 0; border: 1px solid var(--accent-border); overflow: hidden; }
+.admin-desk-attn .admin-desk-poll-row{ padding: 14px 18px; }
 
 /* League: lock banner. */
 .admin-desk-lock{ display: flex; align-items: center; gap: 16px; padding: 16px 18px; }
@@ -2914,11 +2922,11 @@ body{
 .admin-desk-adj{ flex: 1 1 360px; min-width: 0; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 10px; }
 .admin-desk-adj-card{
   display: flex; flex-direction: column;
-  max-height: calc(100vh - var(--nav-h) - env(safe-area-inset-bottom) - 100px);
+  max-height: calc(100vh - 100px);
   padding: 0;
   overflow: hidden;
 }
-.admin-desk-adj-tools{ display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
+.admin-desk-adj-tools{ display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
 .admin-desk-toggle{
   flex: none;
   padding: 8px 12px;
@@ -2983,7 +2991,7 @@ body{
 .admin-toast{
   position: fixed;
   right: 24px;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
+  bottom: 24px;
   z-index: 400;
   max-width: 380px;
   padding: 14px 18px;
@@ -6406,6 +6414,12 @@ body.sysadmin-page{ padding: 0; }
 .sysadmin-field{ flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
 .sysadmin-field-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
 .sysadmin-edit-meta{ display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; font-size: var(--fs-13); color: var(--text-sub); }
+/* A second list inside a card (the Draft section's poll), and the roster's
+   email editor. */
+.sysadmin-sublist{ border-top: 1px solid var(--hairline); }
+.sysadmin-sublabel{ padding: 14px 18px 4px; font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute); }
+.sysadmin-input.cell{ padding: 6px 10px; font-size: var(--fs-13); }
+.sysadmin-card > .sysadmin-scroll + .sysadmin-emails-foot{ align-items: center; border-top: 1px solid var(--hairline); }
 .sysadmin-check{ display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; cursor: pointer; }
 .sysadmin-check input{ width: 16px; height: 16px; margin: 0; accent-color: var(--accent-fill); }
 
