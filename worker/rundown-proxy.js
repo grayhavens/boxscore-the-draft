@@ -146,6 +146,10 @@
       one on the admin page fills the spot, and /roster serves the
       confirmed names to the app and landing page (worker/roster.js).
 
+   12. SPORTS — /sports is a group's sports: which it shows scores for
+      and which it drafts, with how many picks (worker/sports.js, set on
+      the Commissioner page with the commissioner password).
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -197,6 +201,7 @@ import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
+import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
@@ -1122,13 +1127,13 @@ async function route(request, env, ctx){
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
-    url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+    url.pathname === '/sports' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
   // The group's invite code (worker/access-code.js). Left open on purpose:
-  // the check itself, the claim form and roster (the landing page and boot
+  // the check itself, the claim form, roster and sports (the landing page and boot
   // need them before anyone has a code), and the password-only verify.
-  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/admin/verify'].includes(url.pathname);
+  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/sports', '/admin/verify'].includes(url.pathname);
   if(isGated){
     const denied = await gateRequest(env, group, url, headers);
     if(denied) return denied;
@@ -1172,6 +1177,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json, waitUntil: p => ctx.waitUntil(p) });
 
   if(url.pathname === '/roster') return handleRoster(request, env, group, headers, { json });
+
+  if(url.pathname === '/sports') return handleSports(request, url, env, group, headers, { json, isAuthorized, draftRoomStub });
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
   if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);

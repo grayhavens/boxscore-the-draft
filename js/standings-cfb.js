@@ -362,7 +362,7 @@ export function renderCfbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const ownerHtml = standingsOwnerHtml(teamKey);
+  const ownerHtml = standingsOwnerHtml(teamKey, 'cfb');
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCfbByDrafterRow
   // below) — the raw W-L record as the bold line, win% called out
@@ -403,7 +403,7 @@ export function cfbStandingsToggleHtml(){
     { key: 'ranking', label: 'AP Top 25' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return standingsToggleHtml(segments, cfbStandingsMode, 'setCfbStandingsMode');
+  return standingsToggleHtml(segments, cfbStandingsMode, 'setCfbStandingsMode', 'cfb');
 }
 
 // Combined win percentage across each drafter's 3 CFB teams — matches

@@ -28,3 +28,9 @@ export const PRE_DRAFT = !!ACTIVE_SEASON.preDraft;
 export function leagueOf(key){
   return LEAGUES.find(l => l.key === key) || { key, teams: [] };
 }
+
+// A league the group shows scores for without drafting it (js/sports.js):
+// nobody owns its teams, so nothing drafter-shaped shows for it.
+export function isScoresOnly(key){
+  return !!leagueOf(key).scoresOnly;
+}

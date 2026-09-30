@@ -4,7 +4,8 @@
    link to each one's app, plus "How it works", the scoring rules and
    spot claims.
    ============================================================ */
-import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots, groupCaps } from './groups.js';
+import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots, groupCaps, groupShown } from './groups.js';
+import { loadSports } from './group-sports.js';
 import { initExplainer } from './landing-explainer.js';
 import { setScoringRules } from './scoring-sheet.js';
 import { preDraftClass } from './seasons/pre-draft.js';
@@ -22,7 +23,9 @@ const LANDING_GROUPS = ['seasonticket'];
 
 // "How scoring works" shows the rules the first group listed will play
 // by: its pre-draft class, the same one its app shows before its draft.
-const { LEAGUES, LEAGUE_SCORING } = preDraftClass(groupCaps(LANDING_GROUPS[0]));
+// Its sports as last seen here (js/group-sports.js), not waited on.
+await loadSports(LANDING_GROUPS[0], { wait: false });
+const { LEAGUES, LEAGUE_SCORING } = preDraftClass(groupCaps(LANDING_GROUPS[0]), groupShown(LANDING_GROUPS[0]));
 setScoringRules(LEAGUES, LEAGUE_SCORING);
 
 // A group still filling its roster is a recruiting card: the claim form

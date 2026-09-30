@@ -128,7 +128,7 @@ export function renderWnbaStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = standingsOwnerHtml(teamKey);
+  const ownerHtml = standingsOwnerHtml(teamKey, 'wnba');
   // Same two-tier record treatment as the Drafted view's row below —
   // the raw W-L record as the bold line, win% called out underneath.
   const rowPct = winPct(row);
@@ -222,5 +222,5 @@ export function wnbaStandingsToggleHtml(){
     { key: 'table', label: 'League' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return standingsToggleHtml(segments, wnbaStandingsMode, 'setWnbaStandingsMode');
+  return standingsToggleHtml(segments, wnbaStandingsMode, 'setWnbaStandingsMode', 'wnba');
 }

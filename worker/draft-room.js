@@ -77,6 +77,10 @@
    (js/draft-poll.js), which rides along on the status: the commissioner's
    candidate times (PUT .../poll, password-checked by the worker) and each
    drafter's answer (PUT .../vote, no-auth like a pick).
+
+   Sports: a room in the lobby takes its group's drafted sports as its
+   caps (worker/sports.js), read on every connect, and PUT .../caps hands
+   a Commissioner page save straight to an open lobby.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
@@ -85,6 +89,7 @@ import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
+import { liveGroupCaps } from './sports.js';
 import { pushToDrafters } from './web-push.js';
 import { draftTimeAlert } from './draft-time-alert.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
@@ -97,7 +102,8 @@ const RATE_MAX_FRAMES = 30;
 const MAX_AUTH_FAILURES = 5;
 
 // A fresh room's state: the group's drafters, and its own sports and
-// pick counts when js/groups.js gives it some.
+// pick counts when js/groups.js gives it some. A Commissioner page
+// change (worker/sports.js) follows on the first connect.
 function newRoomState(group){
   const caps = groupCaps(group);
   return createState(drafterIdsFor(group), caps ? { caps: { ...caps } } : {});
@@ -139,6 +145,8 @@ export class DraftRoom extends DurableObject {
       this.scheduledAt = scheduled ? Number(scheduled.v) : null;
       const poll = this.sql.exec("SELECT v FROM kv WHERE k = 'poll'").toArray()[0];
       this.poll = poll ? JSON.parse(poll.v) : null;
+      const capsAt = this.sql.exec("SELECT v FROM kv WHERE k = 'capsAt'").toArray()[0];
+      this.capsAt = capsAt ? Number(capsAt.v) : 0;
     });
   }
 
@@ -159,7 +167,7 @@ export class DraftRoom extends DurableObject {
         const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
         if(!saved) this.state = newRoomState(this.group);
       }
-      this.syncGroupCaps();
+      await this.syncGroupCaps();
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
       this.ctx.acceptWebSocket(server);
@@ -179,6 +187,9 @@ export class DraftRoom extends DurableObject {
     }
     if(new URL(request.url).pathname.endsWith('/vote') && request.method === 'PUT'){
       return this.votePoll(request);
+    }
+    if(new URL(request.url).pathname.endsWith('/caps') && request.method === 'PUT'){
+      return this.pushCaps(request);
     }
     if(new URL(request.url).pathname.endsWith('/status')){
       return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
@@ -301,16 +312,48 @@ export class DraftRoom extends DurableObject {
     };
   }
 
-  // A group's sports or pick counts changed in js/groups.js since this
-  // room was made: apply them while it's still in the lobby.
-  syncGroupCaps(){
-    const caps = groupCaps(this.group);
-    const next = caps && syncCaps(this.state, caps);
+  // A group's sports or pick counts changed since this room was made (on
+  // the Commissioner page, or in js/groups.js): apply them while it's
+  // still in the lobby. `pushed` is a save handed over by the worker;
+  // otherwise they're read from KV, which can lag a save, so a record
+  // older than the last one applied here is ignored.
+  async syncGroupCaps(pushed){
+    const live = pushed || await liveGroupCaps(this.env, this.group);
+    if(live.at < this.capsAt) return;
+    if(live.at > this.capsAt){
+      this.capsAt = live.at;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('capsAt', ?)", String(live.at));
+    }
+    const next = live.caps && syncCaps(this.state, live.caps);
     if(!next) return;
     this.state = next;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
     this.broadcast({ type: 'pool', pool: this.state.pool });
     this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
+  }
+
+  // { caps, at } from the worker's PUT /sports, which has already checked
+  // the commissioner password. A room nobody has opened yet learns its
+  // group from the request, as pushDraftTime does.
+  async pushCaps(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    const caps = body && body.caps;
+    if(!caps || typeof caps !== 'object' || !Number.isSafeInteger(body.at)) return new Response('Expected { caps, at }', { status: 400 });
+    const params = new URL(request.url).searchParams;
+    if(this.room === null){
+      this.room = params.get('room') || 'main';
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('room', ?)", this.room);
+    }
+    if(this.group === null){
+      const asked = params.get('group');
+      this.group = isKnownGroup(asked) ? asked : LEGACY_GROUP_ID;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('group', ?)", this.group);
+      const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
+      if(!saved) this.state = newRoomState(this.group);
+    }
+    await this.syncGroupCaps({ caps, at: body.at });
+    return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
   }
 
   send(ws, payload){
