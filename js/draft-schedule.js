@@ -6,6 +6,11 @@
    js/board.js) until the draft goes live, when js/draft-live.js's banner
    takes over.
 
+   Before a time is set, the same status carries the draft time poll
+   (js/draft-poll.js): the commissioner's candidate times and everyone's
+   answers. Home's card shows it in place of "Date to be set", and
+   voteDraftPoll below sends this device's answer.
+
    Always reads the live room ('main'), whatever ?room= the page was
    opened on: a mock room has no schedule. Fetched at boot, when the app
    comes back to the foreground, and every few minutes; the card's
@@ -21,8 +26,16 @@ const TICK_MS = 60 * 1000;
 // date being updated; stop counting down to it.
 const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
 
-let schedule = { scheduledAt: null, phase: null };
+let schedule = { scheduledAt: null, phase: null, poll: null };
 let lastFetch = 0;
+// The poll as the worker last sent it (what a failed vote falls back to),
+// how many votes are still on their way, and a counter that moves
+// whenever a vote is sent or answered, so a status fetched around one
+// can tell its poll is out of date.
+let confirmedPoll = null;
+let votesInFlight = 0;
+let voteEpoch = 0;
+let voteChain = Promise.resolve();
 const listeners = new Set();
 
 function notify(){
@@ -41,7 +54,9 @@ export function onDraftSchedule(fn){
 // rather than waiting for the next poll.
 export function setKnownDraftStatus(status){
   if(!status) return;
-  schedule = { scheduledAt: status.scheduledAt ?? null, phase: status.phase || null };
+  // An older worker has no poll either.
+  confirmedPoll = status.poll || null;
+  schedule = { scheduledAt: status.scheduledAt ?? null, phase: status.phase || null, poll: confirmedPoll };
   notify();
 }
 
@@ -53,13 +68,64 @@ export function isDraftUpcoming(s = schedule, now = Date.now()){
   return now < s.scheduledAt + STALE_AFTER_MS;
 }
 
+// Whether Home should be asking for votes: there's a poll, no time has
+// been set yet, and the draft isn't under way. Setting a time closes the
+// poll; its answers stay on the Commissioner page.
+export function isDraftPollOpen(s = schedule){
+  return !!s.poll && !s.scheduledAt && s.phase !== 'draft';
+}
+
+// This drafter's answer: the offered times they can make, [] for "none
+// of these work", null to take the answer back. Shown right away, then
+// sent; taps queue up so answers reach the room in order.
+export function voteDraftPoll(drafter, picks){
+  if(!schedule.poll) return;
+  const votes = { ...schedule.poll.votes };
+  if(picks === null) delete votes[drafter];
+  else votes[drafter] = picks;
+  schedule = { ...schedule, poll: { ...schedule.poll, votes } };
+  votesInFlight++;
+  voteEpoch++;
+  notify();
+  voteChain = voteChain.then(async () => {
+    let data = null;
+    try {
+      const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/vote?room=${LIVE_ROOM}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drafter, options: picks })
+      });
+      if(res.ok) data = await res.json();
+    } catch (e){}
+    votesInFlight--;
+    voteEpoch++;
+    // Only the last answer in the queue settles what's shown; an earlier
+    // one would undo the taps after it.
+    if(votesInFlight) return;
+    if(data) setKnownDraftStatus(data);
+    else {
+      schedule = { ...schedule, poll: confirmedPoll };
+      notify();
+      refresh();
+    }
+  });
+}
+
 async function refresh(){
   if(document.visibilityState !== 'visible') return;
   lastFetch = Date.now();
+  const epoch = voteEpoch;
   try {
     const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_ROOM}`), { cache: 'no-store' });
     if(!res.ok) return;
     const data = await res.json();
+    // Fetched while a vote was in the air: its poll may predate the vote,
+    // so take everything but the poll.
+    if(epoch !== voteEpoch){
+      schedule = { ...schedule, scheduledAt: data.scheduledAt ?? null, phase: data.phase || null };
+      notify();
+      return;
+    }
     // An older worker has no scheduledAt; treat it as unset.
     setKnownDraftStatus(data);
   } catch (e){

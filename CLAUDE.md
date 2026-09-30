@@ -15,7 +15,7 @@ Plain static site: no build step, no bundler, no package.json, no test framework
 There is no build/lint/test tooling in this repo — there's nothing to run before checking in a
 change beyond loading the page.
 
-**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs`
+**Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs tests/draft-poll.test.mjs`
 (`node --test tests/*.test.mjs` runs every pure-logic test, including `tests/web-push.test.mjs`)
 (pure logic, no dependencies).
 **Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
@@ -219,7 +219,13 @@ whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's
 next draft shows it too. The commissioner sets the time on Commissioner → Draft (`PUT /draft/schedule`,
 password-gated); the live room stores it outside the draft state (a lobby reset keeps it) and returns it as
-`scheduledAt` on `GET /draft/status`. The card goes away once the draft goes live (the banner takes over) or is done,
+`scheduledAt` on `GET /draft/status`. Before setting it, the commissioner can run a **draft time poll** (`js/draft-poll.js`,
+pure and shared with the worker): two or three candidate times entered on Commissioner → Draft (`PUT /draft/poll`,
+password-gated), which the card shows in place of "Date to be set" so each drafter can mark every time they can make, or
+"None of these work" (`PUT /draft/vote`, no-auth like favorites). The room stores the poll beside the schedule and sends
+it on the same status, so the Commissioner page lists who can make each time, with a Use button that sets it as the
+draft time. A set time closes the poll on Home; the answers stay on the Commissioner page until the poll is removed.
+The card goes away once the draft goes live (the banner takes over) or is done,
 and a pre-draft group's card goes away when its draft is exported into a real class. **Deploy the worker first.**
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
 written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft

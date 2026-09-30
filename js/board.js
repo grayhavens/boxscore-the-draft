@@ -7,7 +7,7 @@
    rendered HTML.
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml } from './utils.js';
+import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, CHECK_ICON_SVG } from './utils.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
   renderStandingsRow, eplStandingsToggleHtml, fetchEplStandingsTable, loadEplStandingsCache,
@@ -69,7 +69,8 @@ import { isLeagueFrozen } from './frozen-cache.js';
 import { setDraftActive } from './draft.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
-import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
+import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, isDraftPollOpen, voteDraftPoll, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
+import { pollTally } from './draft-poll.js';
 import { ACTIVE_SEASON_ID, ACTIVE_SEASON } from './season.js';
 import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
@@ -94,7 +95,7 @@ setScoringRules(LEAGUES, LEAGUE_SCORING);
 // confirm a device is actually running the latest build rather than
 // a stale cached copy — compare what's on screen to the version
 // mentioned when a change ships.
-export const APP_VERSION = '2026.09.28-8';
+export const APP_VERSION = '2026.09.30-1';
 
 // ---- Bookmarkable state ----
 // Reads whatever the URL specifies at load and applies it through the
@@ -209,9 +210,54 @@ window.setBoardFilter = setBoardFilter;
 // leads with the way into the draft instead. Keyed off preDraft, so it
 // disappears on its own once the draft is exported into a real class.
 // Any group, drafted before or not, also gets it while a live draft the
-// commissioner scheduled is still ahead (js/draft-schedule.js).
+// commissioner scheduled is still ahead (js/draft-schedule.js), or while
+// they're polling for a time (js/draft-poll.js).
+function draftPollOptionHtml(arg, on, title, sub, count){
+  return `
+    <button type="button" class="draft-poll-opt" aria-pressed="${on}" onclick="toggleDraftPollVote(${arg})">
+      <span class="draft-poll-check">${CHECK_ICON_SVG}</span>
+      <span class="draft-poll-text"><span class="draft-poll-title">${title}</span>${sub ? `<span class="draft-poll-sub">${sub}</span>` : ''}</span>
+      <span class="draft-poll-count">${count}</span>
+    </button>`;
+}
+
+// Unclaimed roster spots can't answer, so they aren't counted as waiting.
+function draftPollHtml(poll){
+  const roster = DRAFT_TEAMS.filter(d => !d.open).map(d => d.id);
+  const tally = pollTally(poll, roster);
+  const mine = poll.votes[currentProfileId];
+  const optionsHtml = tally.options.map(o => draftPollOptionHtml(
+    o.at, !!mine && mine.includes(o.at), scheduleDateLabel(o.at), scheduleTimeLabel(o.at), `${o.voters.length} in`
+  )).join('');
+  const noneHtml = draftPollOptionHtml(
+    'null', !!mine && !mine.length, 'None of these work', '', tally.none.length ? `${tally.none.length} out` : ''
+  );
+  return `
+    <div class="draft-when draft-poll">
+      <div class="draft-when-label">Live draft</div>
+      <div class="draft-when-date">When can you draft?</div>
+      <div class="draft-when-time">Tap every time you can make. The commissioner picks the final one.</div>
+      <div class="draft-poll-opts">${optionsHtml}${noneHtml}</div>
+      <div class="draft-poll-foot">${roster.length - tally.waiting.length} of ${roster.length} have answered${mine ? '' : ' &middot; you haven&rsquo;t yet'}</div>
+    </div>`;
+}
+
+// A time toggles in or out of this drafter's answer; null is "none of
+// these work". Unpicking the last thing takes the answer back entirely.
+window.toggleDraftPollVote = function(at){
+  const { poll } = getDraftSchedule();
+  if(!poll) return;
+  const mine = poll.votes[currentProfileId];
+  let picks;
+  if(at === null) picks = mine && !mine.length ? null : [];
+  else if(mine && mine.includes(at)) picks = mine.length > 1 ? mine.filter(x => x !== at) : null;
+  else picks = (mine || []).concat(at);
+  voteDraftPoll(currentProfileId, picks);
+};
+
 function draftWhenHtml(){
-  const { scheduledAt } = getDraftSchedule();
+  const { scheduledAt, poll } = getDraftSchedule();
+  if(isDraftPollOpen()) return draftPollHtml(poll);
   if(!isDraftUpcoming()){
     return `
       <div class="draft-when" data-set="false">
@@ -235,7 +281,7 @@ function renderDraftHome(){
   const el = document.getElementById('draft-home');
   if(!el) return;
   const pre = !!ACTIVE_SEASON.preDraft;
-  el.innerHTML = (pre || isDraftUpcoming()) ? `
+  el.innerHTML = (pre || isDraftUpcoming() || isDraftPollOpen()) ? `
     <section class="draft-home">
       <div class="draft-home-head">
         <div class="draft-home-title">Draft</div>

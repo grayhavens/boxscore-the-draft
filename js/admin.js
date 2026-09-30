@@ -12,7 +12,9 @@
 
    Draft section: status, read from the worker's GET /draft/status
    (no socket), a way into the room, and the live draft's start time
-   (PUT /draft/schedule), which every drafter's Home counts down to. Setting up the pool and clock,
+   (PUT /draft/schedule), which every drafter's Home counts down to. Before that, a draft time poll
+   (js/draft-poll.js, PUT /draft/poll): two or three candidate times that Home asks every drafter
+   about, with who can make each one listed here. Setting up the pool and clock,
    the lottery and the start all stay in the lobby, where everyone
    watches the lottery reveal.
 
@@ -34,6 +36,7 @@ import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
 import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
+import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
 
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
@@ -105,26 +108,68 @@ window.loadAdminDraftStatus = loadDraftStatus;
 
 let scheduleSaving = false;
 let scheduleError = '';
+let pollSaving = false;
+let pollError = '';
+
+// A commissioner write to the live room (`what` is 'schedule' or 'poll').
+// The room answers with its new status; resolves to an error message, or
+// '' when it saved.
+async function putDraftRoom(what, body){
+  const { ok, status, data } = await putAuthedJSON(
+    withGroupQuery(`${chatWorkerBase()}/draft/${what}?room=${LIVE_DRAFT_ROOM}`),
+    loadAdminPassword(),
+    body
+  );
+  if(!ok || !data) return status === 401 ? 'Not signed in as commissioner' : "Couldn't save — try again";
+  draftStatus = data;
+  setKnownDraftStatus(data);
+  return '';
+}
 
 async function saveDraftSchedule(scheduledAt){
   if(scheduleSaving) return;
   scheduleSaving = true;
   scheduleError = '';
   renderAdminPage();
-  const { ok, status, data } = await putAuthedJSON(
-    withGroupQuery(`${chatWorkerBase()}/draft/schedule?room=${LIVE_DRAFT_ROOM}`),
-    loadAdminPassword(),
-    { scheduledAt }
-  );
+  scheduleError = await putDraftRoom('schedule', { scheduledAt });
   scheduleSaving = false;
-  if(ok && data){
-    draftStatus = data;
-    setKnownDraftStatus(data);
-  } else {
-    scheduleError = status === 401 ? 'Not signed in as commissioner' : "Couldn't save — try again";
-  }
   renderAdminPage();
 }
+
+async function saveDraftPoll(options){
+  if(pollSaving) return;
+  pollSaving = true;
+  pollError = '';
+  renderAdminPage();
+  pollError = await putDraftRoom('poll', { options });
+  pollSaving = false;
+  renderAdminPage();
+}
+
+window.saveAdminDraftPoll = function(){
+  const times = [];
+  for(let i = 0; i < POLL_MAX_OPTIONS; i++){
+    const input = document.getElementById(`admin-poll-when-${i}`);
+    if(input && input.value) times.push(new Date(input.value).getTime());
+  }
+  const options = parsePollOptions(times);
+  if(!options){
+    pollError = 'Enter two or three different times';
+    renderAdminPage();
+    return;
+  }
+  saveDraftPoll(options);
+};
+
+window.removeAdminDraftPoll = function(){
+  if(window.confirm('Remove the poll and everyone’s answers?')) saveDraftPoll(null);
+};
+
+// Make one of the poll's times the draft time. That closes the poll on
+// Home; the answers stay here.
+window.useAdminPollTime = function(at){
+  saveDraftSchedule(at);
+};
 
 window.saveAdminDraftSchedule = function(){
   const input = document.getElementById('admin-draft-when');
@@ -332,8 +377,70 @@ function draftSectionHtml(){
       <div class="admin-status">${rows.join('')}</div>
       <button class="admin-gate-btn admin-draft-cta" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
       <div class="admin-status-note">${note}</div>
+      ${'poll' in st && st.phase !== 'draft' ? pollEditorHtml(st.poll, st.scheduledAt) : ''}
       ${'scheduledAt' in st && st.phase !== 'draft' ? scheduleEditorHtml(st.scheduledAt) : ''}
     </div>
+  `;
+}
+
+// Who can make each of the poll's times. Unclaimed roster spots can't
+// answer, so they aren't listed as waiting.
+function pollResultsHtml(poll, scheduledAt){
+  const roster = DRAFT_TEAMS.filter(d => !d.open);
+  const tally = pollTally(poll, roster.map(d => d.id));
+  const names = ids => ids.map(id => escapeHtml(roster.find(d => d.id === id).name)).join(', ');
+  const most = Math.max(...tally.options.map(o => o.voters.length));
+  const rowHtml = (name, ids, side) => `
+    <div class="admin-status-row admin-poll-row">
+      <span class="admin-status-label">
+        <span class="admin-poll-name">${name}</span>
+        ${ids.length ? `<span class="admin-poll-who">${names(ids)}</span>` : ''}
+      </span>
+      <span class="admin-poll-side">${side}</span>
+    </div>`;
+  const optionRows = tally.options.map(o => rowHtml(
+    `${scheduleDateLabel(o.at)} · ${scheduleTimeLabel(o.at)}`,
+    o.voters,
+    `<span class="admin-status-value"${most && o.voters.length === most ? ' data-state="ok"' : ''}>${o.voters.length} of ${roster.length}</span>
+     ${o.at === scheduledAt
+       ? '<span class="admin-status-value" data-state="ok">Set</span>'
+       : `<button class="admin-adj-save" onclick="useAdminPollTime(${o.at})"${scheduleSaving ? ' disabled' : ''}>Use</button>`}`
+  )).join('');
+  const count = ids => `<span class="admin-status-value">${ids.length}</span>`;
+  return `
+    <div class="admin-status">
+      ${optionRows}
+      ${tally.none.length ? rowHtml('None of these work', tally.none, count(tally.none)) : ''}
+      ${tally.waiting.length ? rowHtml('Haven’t answered', tally.waiting, count(tally.waiting)) : ''}
+    </div>`;
+}
+
+// Two or three candidate times for Home to ask everyone about, before
+// the real one is set below.
+function pollEditorHtml(poll, scheduledAt){
+  const inputs = [];
+  for(let i = 0; i < POLL_MAX_OPTIONS; i++){
+    const at = poll && poll.options[i];
+    inputs.push(`<input type="datetime-local" id="admin-poll-when-${i}" class="admin-gate-input" aria-label="Option ${i + 1}" value="${at ? toLocalInputValue(at) : ''}">`);
+  }
+  let note = 'Offer two or three times. Home asks every drafter which ones they can make, until you set the draft time.';
+  if(poll){
+    note = scheduledAt
+      ? 'A draft time is set, so Home shows that instead of the poll. Clear it below to reopen voting.'
+      : 'Open on everyone’s Home. Use sets that time as the draft time and closes the poll. Changing a time drops the answers that only named it.';
+  }
+  return `
+    <div class="modal-section-title" style="margin-top: 18px;">Draft time poll</div>
+    ${poll ? pollResultsHtml(poll, scheduledAt) : ''}
+    <div class="admin-schedule"${poll ? ' style="margin-top: 10px;"' : ''}>
+      ${inputs.join('')}
+      <div class="admin-schedule-actions">
+        <button class="admin-adj-save" onclick="saveAdminDraftPoll()"${pollSaving ? ' disabled' : ''}>${pollSaving ? 'Saving…' : (poll ? 'Save times' : 'Start poll')}</button>
+        ${poll ? `<button class="admin-adj-save" onclick="removeAdminDraftPoll()"${pollSaving ? ' disabled' : ''}>Remove poll</button>` : ''}
+      </div>
+    </div>
+    ${pollError ? `<div class="admin-gate-error">${pollError}</div>` : ''}
+    <div class="admin-status-note">${note}</div>
   `;
 }
 
