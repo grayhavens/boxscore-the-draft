@@ -37,6 +37,7 @@ import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery, ACTIVE_GROUP } from './group.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment, getLeagueRuleTeams, addLeagueFact, removeLeagueFact, ruleAutoNote, ruleDataPending, leagueDrafterPoints } from './league-facts.js';
 import { LEAGUE_FULL_LABELS } from './board.js';
+import { obLeagueColor } from './overall.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
 import { NEXT_DRAFT_LABEL } from './seasons/index.js';
@@ -135,6 +136,16 @@ let scheduleSaving = false;
 let scheduleError = '';
 let pollSaving = false;
 let pollError = '';
+
+// The button into the live room and what you can do once there.
+function draftRoomLink(st){
+  return {
+    cta: st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby'),
+    note: st.phase === 'lobby'
+      ? "Load the team pool, set the pick clock, run the lottery and start the draft from the lobby. You're signed in there as commissioner."
+      : "You're signed in there as commissioner: pause, undo, trade, change picks and download the board from the bar under the header."
+  };
+}
 
 // A commissioner write to the live room (`what` is 'schedule' or 'poll').
 // The room answers with its new status; resolves to an error message, or
@@ -394,10 +405,7 @@ function draftSectionHtml(){
       : 'Not set', st.scheduledAt ? 'ok' : 'warn'));
   }
 
-  const cta = st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby');
-  const note = st.phase === 'lobby'
-    ? "Load the team pool, set the pick clock, run the lottery and start the draft from the lobby. You're signed in there as commissioner."
-    : "You're signed in there as commissioner: pause, undo, trade, change picks and download the board from the bar under the header.";
+  const { cta, note } = draftRoomLink(st);
 
   return `
     <div class="admin-league">
@@ -532,6 +540,7 @@ function toast(msg, isError){
     el.id = 'admin-toast';
     el.className = 'admin-toast';
     el.setAttribute('role', 'status');
+    el.addEventListener('click', () => { el.hidden = true; });
     document.body.appendChild(el);
   }
   el.textContent = msg;
@@ -676,7 +685,7 @@ function deskSideHtml(){
     const sub = [marked ? `${marked} marked` : 'Nothing marked', adjusted ? `${adjusted} adj` : ''].filter(Boolean).join(' · ');
     return `
       <button type="button" class="admin-desk-item${selected === league.key ? ' on' : ''}" onclick="selectAdmin('${league.key}')">
-        <span class="admin-desk-swatch" style="background:${LEAGUE_SCORING[league.key].accent};"></span>
+        <span class="admin-desk-swatch" style="background:${obLeagueColor(league.key)};"></span>
         <span class="admin-desk-item-text">
           <span class="admin-desk-item-title">${leagueName(league)}</span>
           <span class="admin-desk-item-sub">${sub}</span>
@@ -766,10 +775,7 @@ function deskDraftHtml(){
       <span class="admin-desk-stat-sub">${sub}</span>
     </div>`).join('');
 
-  const cta = st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby');
-  const note = st.phase === 'lobby'
-    ? "Load the team pool, set the pick clock, run the lottery and start the draft from the lobby. You're signed in there as commissioner."
-    : "You're signed in there as commissioner: pause, undo, trade, change picks and download the board from the bar under the header.";
+  const { cta, note } = draftRoomLink(st);
   const editors = st.phase === 'draft' ? '' : `
     <div class="admin-desk-pair">
       ${'poll' in st ? deskPollHtml(st.poll, st.scheduledAt) : ''}
@@ -994,7 +1000,7 @@ function deskLeagueHtml(league){
   return `
     <div class="admin-desk-head">
       <div class="admin-desk-titles">
-        <div class="admin-desk-eyebrow"><span class="admin-desk-swatch" style="background:${scoring.accent};"></span>Scoring · ${leagueChip(league)}</div>
+        <div class="admin-desk-eyebrow"><span class="admin-desk-swatch" style="background:${obLeagueColor(league.key)};"></span>Scoring · ${leagueChip(league)}</div>
         <h1>${leagueName(league)}</h1>
         <div class="admin-desk-lede">${teams.length} drafted teams · ${scoring.rules.length} rules · ${marked} marked · ${adjusted} adjusted</div>
       </div>
@@ -1004,7 +1010,7 @@ function deskLeagueHtml(league){
       <div class="admin-desk-body-main">
         <section class="admin-desk-section">
           ${deskLabelRow('Scoring rules', manual ? `${marked} team${marked === 1 ? '' : 's'} marked across ${manual} manual rule${manual === 1 ? '' : 's'}` : 'Every rule reads the standings')}
-          <div class="admin-desk-card admin-desk-rules" style="border-top-color:${scoring.accent};">${rules}</div>
+          <div class="admin-desk-card admin-desk-rules" style="border-top-color:${obLeagueColor(league.key)};">${rules}</div>
         </section>
         ${deskByDrafterHtml(league)}
       </div>
