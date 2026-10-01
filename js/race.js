@@ -29,6 +29,7 @@ import {
   monthIndexAt, dayAtFraction, yDomain, gridValues, xTicks, spreadLabels, withToday, simulatedHistory, MONTH_PAD
 } from './race-math.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // Chart geometry. The viewBox is the plot's real CSS width (measure()),
 // so text and strokes stay their designed size on a tablet or desktop
 // and only the plot widens; the height grows a little with it, capped.
@@ -68,7 +69,7 @@ function loadLocalHistory(){
 
 function refreshHistory(){
   if(historyLoading || isObSimulated()) return;
-  if(history && Date.now() - history.fetchedAt < HISTORY_FRESH_MS) return;
+  if(history && isFreshAt(history.fetchedAt, HISTORY_FRESH_MS)) return;
   historyLoading = true;
   fetchJSON(withScopeQuery(`${chatWorkerBase()}/points/history`)).then(res => {
     historyLoading = false;

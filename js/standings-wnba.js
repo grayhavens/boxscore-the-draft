@@ -16,6 +16,7 @@ import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 const ESPN_WNBA_STANDINGS_CACHE_KEY = 'teamDashboardEspnWnbaStandingsCache';
 const WNBA_STANDINGS_TTL_MS = 60 * 60 * 1000;
 export const espnWnbaStandingsCache = { table: null, error: false, loading: false, fetchedAt: null };
@@ -26,7 +27,7 @@ function winPct(row){
 }
 
 function wnbaStandingsIsFresh(){
-  return !!espnWnbaStandingsCache.table && !!espnWnbaStandingsCache.fetchedAt && (Date.now() - espnWnbaStandingsCache.fetchedAt) < WNBA_STANDINGS_TTL_MS;
+  return !!espnWnbaStandingsCache.table && !!espnWnbaStandingsCache.fetchedAt && isFreshAt(espnWnbaStandingsCache.fetchedAt, WNBA_STANDINGS_TTL_MS);
 }
 
 function saveWnbaStandingsCache(){

@@ -35,6 +35,7 @@ import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 const CFB_RECORDS_CACHE_KEY = 'teamDashboardCfbRecordsCache';
 // A team's record only changes after that team's own game (at most a
 // couple of times a week), far slower than EPL's continuous slate — no
@@ -45,7 +46,7 @@ export const cfbRecordsCache = { byTeamId: null, error: false, loading: false, f
 let cfbRecordsPromise = null;
 
 export function cfbRecordsIsFresh(){
-  return !!cfbRecordsCache.byTeamId && !!cfbRecordsCache.fetchedAt && (Date.now() - cfbRecordsCache.fetchedAt) < CFB_RECORDS_TTL_MS;
+  return !!cfbRecordsCache.byTeamId && !!cfbRecordsCache.fetchedAt && isFreshAt(cfbRecordsCache.fetchedAt, CFB_RECORDS_TTL_MS);
 }
 
 function saveCfbRecordsCache(){
@@ -149,7 +150,7 @@ export const espnCfbRankingsCache = { ranks: null, error: false, loading: false,
 let espnCfbRankingsPromise = null;
 
 function espnCfbRankingsIsFresh(){
-  return !!espnCfbRankingsCache.ranks && !!espnCfbRankingsCache.fetchedAt && (Date.now() - espnCfbRankingsCache.fetchedAt) < ESPN_CFB_RANKINGS_TTL_MS;
+  return !!espnCfbRankingsCache.ranks && !!espnCfbRankingsCache.fetchedAt && isFreshAt(espnCfbRankingsCache.fetchedAt, ESPN_CFB_RANKINGS_TTL_MS);
 }
 
 function saveEspnCfbRankingsCache(){
@@ -224,7 +225,7 @@ export const espnCfbRecordsCache = { rows: null, error: false, loading: false, f
 let espnCfbRecordsPromise = null;
 
 function espnCfbRecordsIsFresh(){
-  return !!espnCfbRecordsCache.rows && !!espnCfbRecordsCache.fetchedAt && (Date.now() - espnCfbRecordsCache.fetchedAt) < ESPN_CFB_RECORDS_TTL_MS;
+  return !!espnCfbRecordsCache.rows && !!espnCfbRecordsCache.fetchedAt && isFreshAt(espnCfbRecordsCache.fetchedAt, ESPN_CFB_RECORDS_TTL_MS);
 }
 
 function saveEspnCfbRecordsCache(){
