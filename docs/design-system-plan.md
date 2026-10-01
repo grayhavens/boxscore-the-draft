@@ -133,11 +133,10 @@ The two plans share tokens and screens, so they run as one sequence:
    - **Leaf module:** `js/ui.js` must stay a leaf (`js/escape.js` holds `escapeHtml` now, re-exported from
      `js/utils.js`). `js/access.js` uses it at boot, and importing `js/utils.js` there would cycle through
      `js/data.js` back to `js/group.js`.
-   - **Three back buttons not merged (they would look different):** `gd-back` (Game Details, a round
-     icon-only button, really the `IconButton` filled variant with a 16px rather than 14px chevron),
-     `cmp-sticky-back` (icon-only chevron in Compare's sticky header) and `admin-desk-back` (a bare
-     "‹ Settings" text link in the desktop Commissioner sidebar). Decide whether each becomes `BackLink`,
-     `IconButton` or a new variant before its screen moves over.
+   - **The other three back buttons (decided 2026-10-01):** Game Details' round back (`gd-back`) is now the
+     design system's `IconButton` (`iconButtonHtml`, `.icon-btn`; its chevron went from 16px to 14px), and
+     Compare's sticky-bar chevron and the desktop Commissioner gate's "‹ Settings" are now the standard
+     `BackLink`. Compare's sticky bar now reads "‹ Josh · Josh −7 …", matching the page's own back link.
 4. **Each later motion phase goes with its screen's move to `ui.js`,** in the same change, so each screen's
    markup only gets rewritten once:
    - Motion Phase 2 (Scores) with `gameCardHtml`.

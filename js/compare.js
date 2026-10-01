@@ -23,7 +23,7 @@
    ============================================================ */
 import { LEAGUE_SCORING, TEAM_META } from './data.js';
 import { leagueSeasonUnderway } from './league-facts.js';
-import { CHEVRON_LEFT_SVG, ordinal, teamBadgeHtml } from './utils.js';
+import { ordinal, teamBadgeHtml } from './utils.js';
 import { isLeagueLocked, getLockedBonusHolder } from './season-lock.js';
 import { computeEplDrafterCombined, fetchEplStandingsTable } from './standings-epl.js';
 import {
@@ -291,7 +291,7 @@ export function compareHtml(rows, aId, bId){
 
   return `
     <div class="cmp-sticky" id="cmp-sticky">
-      <button type="button" class="cmp-sticky-back" onclick="obCloseCompare()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
+      ${backLinkHtml({ label: a.name, onclick: 'obCloseCompare()' })}
       <span class="cmp-sticky-a">${a.name} ${a.total}</span>
       ${gapPill(diff).replace('cmp-gap-pill', 'cmp-sticky-gap')}
       <span class="cmp-sticky-b">${b.total} ${b.name}</span>

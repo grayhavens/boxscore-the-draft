@@ -8,7 +8,7 @@
    Helpers land here as screens move over (docs/design-system-plan.md, Step
    3). A component the app doesn't render yet gets its helper together with
    its first screen, so nothing here is untested markup. Still to come:
-   filter chips, scope chip, tag, icon button, live dot, team badge and row,
+   filter chips, scope chip, tag, the ghost icon button, live dot, team badge and row,
    league card, game card, points table, split bar, activity row, banner,
    sheet, settings row and page header. The segmented control (and the count
    badge inside it) already live in js/utils.js (segmentedControlHtml), which
@@ -38,8 +38,15 @@ export function buttonHtml({ label = '', html = null, variant = 'primary', icon 
 }
 
 // BackLink: chevron plus the name of the screen you go back to ("‹ Points").
-export function backLinkHtml({ label, onclick }){
-  return `<button type="button" class="ob-back" onclick="${onclick}">${iconHtml('chevron-left')}${escapeHtml(label)}</button>`;
+// `cls` adds a screen's own layout class.
+export function backLinkHtml({ label, onclick, cls = '' }){
+  return `<button type="button" class="ob-back${cls ? ` ${cls}` : ''}" onclick="${onclick}">${iconHtml('chevron-left')}${escapeHtml(label)}</button>`;
+}
+
+// IconButton: a round icon-only control (filled: 30px, fill-soft). `label`
+// is its accessible name; `cls` adds a screen's own layout class.
+export function iconButtonHtml({ icon, label, onclick, cls = '' }){
+  return `<button type="button" class="icon-btn${cls ? ` ${cls}` : ''}" onclick="${onclick}" aria-label="${escapeHtml(label)}">${iconHtml(icon)}</button>`;
 }
 
 // Switch: 44×26, gold when on. Pass `onclick` for a real control, or leave

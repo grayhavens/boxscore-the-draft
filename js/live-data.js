@@ -5,7 +5,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -22,7 +22,7 @@ import { favoriteStarHtml } from './favorites.js';
 import { openGolfer } from './golf-view.js';
 import { getSeasonPhaseLabel } from './season-phase.js';
 
-import { buttonHtml } from './ui.js';
+import { buttonHtml, iconButtonHtml } from './ui.js';
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
 // than TheSportsDB — see the "EPL/NBA/NHL/MLB/WNBA" branch in
@@ -1372,7 +1372,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     gameDetailRenderState = null;
     el.innerHTML = `
       <div class="gd-head with-back">
-        <button class="gd-back" onclick="closeGameDetail()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
+        ${iconButtonHtml({ icon: 'chevron-left', label: 'Back', onclick: 'closeGameDetail()', cls: 'gd-back' })}
         <div class="gd-title">Boxscore</div>
       </div>
       <div class="modal-body"><div class="loading-note">Boxscore isn't available for this game right now — try again in a moment.</div></div>
@@ -1609,7 +1609,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   el.innerHTML = `
     <div class="modal-accent" style="background:${accent};"></div>
     <div class="gd-head with-back">
-      <button class="gd-back" onclick="closeGameDetail()" aria-label="Back">${CHEVRON_LEFT_SVG}</button>
+      ${iconButtonHtml({ icon: 'chevron-left', label: 'Back', onclick: 'closeGameDetail()', cls: 'gd-back' })}
       <div>
         ${(() => {
           const awaySide = resolveGameDetailSide(away, leagueKey);

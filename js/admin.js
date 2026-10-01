@@ -1539,7 +1539,7 @@ function deskGateHtml(){
         <div class="admin-desk-gate">
           ${deskBrandHtml(false)}
           <div class="admin-desk-card admin-desk-gate-card">${body}</div>
-          <button type="button" class="admin-desk-back" onclick="backToSettings()">‹ Settings</button>
+          ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()', cls: 'admin-desk-back' })}
         </div>
       </main>
     </div>`;
