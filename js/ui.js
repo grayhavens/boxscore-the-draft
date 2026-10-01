@@ -95,6 +95,24 @@ export function gameSectionHtml({ label, html }){
   return `<div class="tg-section"><div class="tg-section-head"><span class="tg-section-label">${escapeHtml(label)}</span><span class="tg-section-rule"></span></div>${html}</div>`;
 }
 
+// TeamBadge: a team's real crest (`crestSrc`, drawn bare), or a rounded
+// square in its own colors (`style`) with its abbreviation (`text`). A
+// crest that fails to load falls back to that colored square. `person`
+// crops a golfer's headshot instead of fitting a crest whole.
+export function teamBadgeHtml({ crestSrc = null, name = '', style = '', text = '', person = false }){
+  if(crestSrc){
+    return `<div class="badge badge-crest${person ? ' badge-person' : ''}"><img src="${crestSrc}" alt="${escapeHtml(name)}" data-fallback-style="${style}" data-fallback-text="${escapeHtml(text)}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
+  }
+  return `<div class="badge" style="${style}">${escapeHtml(text)}</div>`;
+}
+
+// TeamRow: a team line on Home: badge, name over a sub line (trusted HTML:
+// it carries the record chips), an optional favorite mark, and the status
+// slot the live data fills in (`statusId`).
+export function teamRowHtml({ badgeHtml, name, subHtml = '', favHtml = '', statusId, onclick }){
+  return `<div class="team clickable" onclick="${onclick}">${badgeHtml}<div class="team-main"><div class="team-name">${escapeHtml(name)}</div><div class="team-sub">${subHtml}</div></div>${favHtml}<div class="status-slot" id="${statusId}"></div></div>`;
+}
+
 // SplitBar: Locked (solid ink) beside Live (blue hatch; red hatch when
 // negative), scaled so `max` is a full-width bar. Negative Live shows its
 // size as the risk stripe and shrinks the locked segment to the projected

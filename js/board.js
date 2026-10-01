@@ -87,6 +87,7 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
+import { teamRowHtml } from './ui.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
 setScoringRules(LEAGUES, LEAGUE_SCORING);
@@ -347,17 +348,14 @@ export function renderBoard(){
       // The star is a read-only favorited-status indicator here — it only
       // appears once a team is favorited, and toggling happens solely on
       // the team page.
-      return `
-        <div class="team clickable" onclick="openTeamModal('${teamKey}')">
-          ${teamBadgeHtml(meta)}
-          <div class="team-main">
-            <div class="team-name">${meta.name}</div>
-            <div class="team-sub">${subHtml}</div>
-          </div>
-          ${isFavorite(teamKey) ? favoriteMarkHtml() : ''}
-          <div class="status-slot" id="row-status-${teamKey}"></div>
-        </div>
-      `;
+      return teamRowHtml({
+        badgeHtml: teamBadgeHtml(meta),
+        name: meta.name,
+        subHtml,
+        favHtml: isFavorite(teamKey) ? favoriteMarkHtml() : '',
+        statusId: `row-status-${teamKey}`,
+        onclick: `openTeamModal('${teamKey}')`
+      });
     }).join('');
 
     return `

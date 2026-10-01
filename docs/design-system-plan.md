@@ -142,7 +142,7 @@ The two plans share tokens and screens, so they run as one sequence:
    - Motion Phase 2 (Scores) with `gameCardHtml`. **Done:** `gameCardHtml`, `gameSectionHtml` and `tagHtml` (with the `.status-tag` recipe). The app keeps its `.tg-section-head` wrapper, which the recipe flattens. Golf cards (`js/golf-view.js`) aren't game cards and stay as they are.
    - Motion Phase 3 (Points) with `pointsTableHtml`, `splitBarHtml` and `activityRowHtml`. **Done:** the table (Standings and Race), every split bar (hero, ladder, detail, cards) and both activity rows (feed and a drafter's recent changes) render through them, unchanged on screen. The activity rows' kind tags stay the app's `.pts-tag`; merging them into `Tag` would change how they look.
    - Motion Phase 4 (team page) with `teamBadgeHtml` and `teamRowHtml`. The shared-element push flies
-     the crest out of the row the helper renders.
+     the crest out of the row the helper renders. **Done:** `teamBadgeHtml` in `js/ui.js` takes plain values (crest URL, colors, text) so `ui.js` stays a leaf; `teamBadgeHtml(meta)` in `js/utils.js` is the adapter every caller already used. `teamRowHtml` renders Home's rows. The Standings rows are the app's own `.standings-row` component, not `TeamRow`, and stay as they are. Badges on Home, Standings and Scores, Home's rows, the team modal and the team page match `main` element for element.
    - Motion Phase 5 (chat) with the chat markup check.
    - Pull to refresh comes last, as the motion plan says.
 

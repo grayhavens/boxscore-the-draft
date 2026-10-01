@@ -58,6 +58,7 @@ export function retryPending(cache){
 }
 
 export { escapeHtml } from './escape.js';
+import { teamBadgeHtml as uiTeamBadgeHtml } from './ui.js';
 
 // ---- Admin password (scoring adjustments gate) ----
 // Cached client-side once verified against the worker's /admin/verify
@@ -406,12 +407,13 @@ export const NEUTRAL_BADGE_STYLE = 'background: rgba(var(--ink-rgb),0.08); color
 // has — that box stays as the fallback (onerror removes the img,
 // revealing it) since hotlinked images can occasionally fail to load,
 // and it's what every team without a badgeUrl yet still uses as-is.
+// A team's badge (TeamBadge, js/ui.js) from its TEAM_META entry. The
+// colored monogram rides along on a crest so its onerror handler can bring
+// it back if the hotlinked image fails to load.
 export function teamBadgeHtml(meta){
-  if(meta.badgeUrl){
-    // data-fallback-* carries the original colored-monogram look over
-    // to the onerror handler, restored only if the hotlinked image
-    // actually fails to load.
-    return `<div class="badge badge-crest${meta.kind === 'golfer' ? ' badge-person' : ''}"><img src="${crestSrc(meta)}" alt="${meta.name}" data-fallback-style="${meta.badgeStyle}" data-fallback-text="${meta.badgeText}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
-  }
-  return `<div class="badge" style="${meta.badgeStyle}">${meta.badgeText}</div>`;
+  return uiTeamBadgeHtml({
+    crestSrc: meta.badgeUrl ? crestSrc(meta) : null,
+    name: meta.name, style: meta.badgeStyle, text: meta.badgeText,
+    person: meta.kind === 'golfer'
+  });
 }

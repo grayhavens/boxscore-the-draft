@@ -107,6 +107,32 @@ export function riseLetters(el, { delay = 0, step = 55, duration = 560 } = {}){
   Promise.all(anims.map(a => a && a.finished)).then(restore, restore);
 }
 
+// Roll every whole number in `el`'s text up from 0 (a stat strip's "6th",
+// "9", "2-3-0"). Text with decimals or times (".750", "7:40") is left
+// alone. Stops if something else rewrites the element meanwhile.
+export function rollNumbers(el, { duration = 700, delay = 0 } = {}){
+  if(!el || !fxOn()) return;
+  const text = el.textContent;
+  if(!/\d/.test(text) || /[.:]\d/.test(text)) return;
+  const parts = text.split(/(\d+)/);
+  const t0 = performance.now() + delay / speed, ms = duration / speed;
+  let shown = null;
+  const paint = k => {
+    const e = 1 - Math.pow(1 - k, 3);
+    shown = parts.map((p, i) => (i % 2 ? String(Math.round(Number(p) * e)) : p)).join('');
+    el.textContent = shown;
+  };
+  paint(0);
+  const step = now => {
+    if(!el.isConnected || el.textContent !== shown) return;
+    const k = Math.max(0, Math.min(1, (now - t0) / ms));
+    if(k >= 1){ el.textContent = text; return; }
+    paint(k);
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 // A short sideways shake (time's up).
 export function nudge(el){
   return play(el, [{ transform: 'none' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(-2px)' }, { transform: 'none' }], { duration: 380 });
