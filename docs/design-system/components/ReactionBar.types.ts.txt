@@ -1,0 +1,8 @@
+export const REACTION_EMOJI: string[];
+export interface ReactionBarProps {
+  /** Emoji you've already reacted with. */
+  selected?: string[];
+  onPick?: (emoji: string) => void;
+  mine?: boolean;
+}
+export function ReactionBar(props: ReactionBarProps): JSX.Element;

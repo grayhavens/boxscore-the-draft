@@ -1,0 +1,16 @@
+export interface SplitBarProps {
+  /** Locked points — solid ink. */
+  locked?: number;
+  /** Live (provisional) points — blue hatch; negative → red hatch. */
+  live?: number;
+  /** Scale denominator (leader's projected total). */
+  max?: number;
+  /** lg 12px · md 8px · xs 6px. */
+  size?: 'lg' | 'md' | 'xs';
+  risk?: boolean;
+  /** Build from zero on mount, staggered 60ms per row. */
+  grow?: boolean;
+  row?: number;
+  style?: React.CSSProperties;
+}
+export function SplitBar(props: SplitBarProps): JSX.Element;

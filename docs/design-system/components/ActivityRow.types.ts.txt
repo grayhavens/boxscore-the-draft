@@ -1,0 +1,19 @@
+export interface ActivityChip { tone: 'prov' | 'win' | 'loss' | 'rank' | 'locked'; label: string; }
+export interface ActivityRowProps {
+  /** Team badge tile; omit and pass rankLabel for a rank-move tile. */
+  team?: { abbr: string; bg?: string; fg?: string };
+  rankLabel?: string;
+  /** What crossed a line: "Lions take the NFC North lead". */
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  /** Per-drafter deltas: { tone:'prov', label:'Josh +2' }. */
+  chips?: ActivityChip[];
+  /** Big signed number on the right: "+2". */
+  delta?: React.ReactNode;
+  deltaTone?: 'live' | 'lock' | 'up' | 'down' | 'risk' | 'mute';
+  time?: string;
+  /** Locked-in event — gold row wash. */
+  lock?: boolean;
+  onClick?: () => void;
+}
+export function ActivityRow(props: ActivityRowProps): JSX.Element;

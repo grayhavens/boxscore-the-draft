@@ -1,0 +1,16 @@
+import type { IconName } from './Icon';
+export interface ButtonProps {
+  /**
+   * primary — full-width gold CTA (44px, radius 12). secondary — full-width hairline outline.
+   * outline — inline 36px gold-text outline (Compare). pill — 30px gold pill (Replay).
+   * small — 32px inline gold (banner actions). inline — primary at content width.
+   */
+  variant?: 'primary' | 'secondary' | 'outline' | 'pill' | 'small' | 'inline';
+  icon?: IconName;
+  children?: React.ReactNode;
+  disabled?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
+  type?: 'button' | 'submit';
+  style?: React.CSSProperties;
+}
+export function Button(props: ButtonProps): JSX.Element;

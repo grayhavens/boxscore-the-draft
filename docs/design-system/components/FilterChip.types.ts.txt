@@ -1,0 +1,15 @@
+export interface FilterChipProps {
+  active?: boolean;
+  children?: React.ReactNode;
+  onClick?: () => void;
+}
+export function FilterChip(props: FilterChipProps): JSX.Element;
+export interface FilterChipsProps {
+  items: Array<string | { value: string; label: React.ReactNode }>;
+  value?: string;
+  onChange?: (value: string) => void;
+  /** sm — compact row for a phone width (Activity filters). */
+  size?: 'md' | 'sm';
+  style?: React.CSSProperties;
+}
+export function FilterChips(props: FilterChipsProps): JSX.Element;

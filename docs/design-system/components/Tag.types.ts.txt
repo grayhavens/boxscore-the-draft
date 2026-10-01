@@ -1,0 +1,9 @@
+export interface TagProps {
+  /**
+   * live — provisional blue with inner border (Live points). locked — gold soft. lock-in — solid gold.
+   * risk — loss red. win — green. pre/post/complete — season phase. rank — neutral. on-live — solid red LIVE.
+   */
+  variant?: 'live' | 'locked' | 'lock-in' | 'risk' | 'win' | 'pre' | 'post' | 'complete' | 'rank' | 'on-live';
+  children?: React.ReactNode;
+}
+export function Tag(props: TagProps): JSX.Element;

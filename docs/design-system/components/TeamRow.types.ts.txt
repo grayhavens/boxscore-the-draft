@@ -1,0 +1,21 @@
+export interface TeamRowTeam { name: string; abbr: string; bg?: string; fg?: string; crestUrl?: string; }
+export interface TeamRowProps {
+  team: TeamRowTeam;
+  /** Owner or city line: "Josh", "Detroit · 9–3". */
+  sub?: React.ReactNode;
+  /** Standings position (renders the muted rank column). */
+  rank?: number;
+  /** Small uppercase label: "SAT", "LIVE", "FINAL". */
+  statusLabel?: string;
+  /** Bold value under the label: "7:40 PM", "2–1", "W 3–1". */
+  statusValue?: React.ReactNode;
+  /** Result color for the value. */
+  tone?: 'w' | 'l' | 'd';
+  live?: boolean;
+  favorite?: boolean;
+  onFavorite?: (on: boolean) => void;
+  onClick?: () => void;
+  /** Standings density: 32px badge, 15px name. */
+  compact?: boolean;
+}
+export function TeamRow(props: TeamRowProps): JSX.Element;

@@ -1,0 +1,10 @@
+export interface SegmentedOption { value: string; label: React.ReactNode; badge?: number; }
+export interface SegmentedControlProps {
+  options: Array<string | SegmentedOption>;
+  value: string;
+  onChange?: (value: string) => void;
+  /** sm — fixed 52px segments (Race chart Points | Rank). */
+  size?: 'md' | 'sm';
+  style?: React.CSSProperties;
+}
+export function SegmentedControl(props: SegmentedControlProps): JSX.Element;

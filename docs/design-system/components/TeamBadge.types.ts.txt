@@ -1,0 +1,14 @@
+export interface TeamBadgeProps {
+  /** 2–4 letter abbreviation: LFC, DET, CLE. */
+  abbr: string;
+  /** Team primary color (badge ground). */
+  bg?: string;
+  /** Team secondary color (letters). */
+  fg?: string;
+  /** lg 44 (r13) · md 40 · sm 32 (r9) · xs 26 (r8). */
+  size?: 'lg' | 'md' | 'sm' | 'xs';
+  /** Real crest image — renders bare with a drop shadow. */
+  crestUrl?: string;
+  style?: React.CSSProperties;
+}
+export function TeamBadge(props: TeamBadgeProps): JSX.Element;

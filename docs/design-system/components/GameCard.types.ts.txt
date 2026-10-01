@@ -1,0 +1,23 @@
+export interface GameSide { name: string; abbr: string; bg?: string; fg?: string; owner?: string; score?: React.ReactNode; rank?: number; dim?: boolean; }
+/**
+ * @startingPoint section="Data" subtitle="Scores timeline game card (live, final, scheduled)" viewport="420x320"
+ */
+export interface GameCardProps {
+  /** live — red time, ringing node, red-tinted card. pre — blue kickoff time. final — muted. */
+  state?: 'live' | 'final' | 'pre';
+  /** Rail top: "Q3", "F", "7:40". */
+  time: React.ReactNode;
+  /** Rail bottom: "8:12", "PM". */
+  sub?: React.ReactNode;
+  /** Eyebrow above teams: "Preseason", "Wild Card". */
+  tag?: string;
+  /** Tag in gold (playoff round). */
+  tagPost?: boolean;
+  away: GameSide;
+  home: GameSide;
+  /** Flash a gold ring (score just changed). */
+  justScored?: boolean;
+  onClick?: () => void;
+}
+export function GameCard(props: GameCardProps): JSX.Element;
+export function GameSection(props: { label: string }): JSX.Element;

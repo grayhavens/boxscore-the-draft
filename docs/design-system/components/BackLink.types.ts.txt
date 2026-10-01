@@ -1,0 +1,6 @@
+export interface BackLinkProps {
+  /** Name of the screen you return to: "Points", "Standings". */
+  label?: string;
+  onClick?: () => void;
+}
+export function BackLink(props: BackLinkProps): JSX.Element;

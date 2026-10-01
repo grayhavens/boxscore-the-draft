@@ -1,0 +1,15 @@
+export interface SharedSide { name: string; abbr: string; bg?: string; fg?: string; owner?: string; score: number | string; }
+export interface SharedGameCardProps {
+  /** "NFL", "Premier League". */
+  league: string;
+  away: SharedSide;
+  home: SharedSide;
+  /** "Q3 8:12", "Final". */
+  status: string;
+  live?: boolean;
+  /** "Shared at Q2". */
+  shared?: string;
+  mine?: boolean;
+  onClick?: () => void;
+}
+export function SharedGameCard(props: SharedGameCardProps): JSX.Element;

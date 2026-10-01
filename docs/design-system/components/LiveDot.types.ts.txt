@@ -1,0 +1,8 @@
+export interface LiveDotProps {
+  /** Pulses opacity 1 → 0.35 over 1.4s. */
+  pulse?: boolean;
+  /** Defaults to currentColor. */
+  color?: string;
+  style?: React.CSSProperties;
+}
+export function LiveDot(props: LiveDotProps): JSX.Element;

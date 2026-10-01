@@ -1,0 +1,11 @@
+export interface SheetRowProps {
+  title: React.ReactNode;
+  desc?: React.ReactNode;
+  /** Selected: gold text + filled gold check ring. */
+  active?: boolean;
+  /** Show the empty-ring / filled-check indicator. */
+  check?: boolean;
+  right?: React.ReactNode;
+  onClick?: () => void;
+}
+export function SheetRow(props: SheetRowProps): JSX.Element;
