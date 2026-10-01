@@ -205,6 +205,7 @@ import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
+import { logAdminAction, commissionerNote } from './admin-log.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -707,6 +708,7 @@ async function handleKvBlob(request, url, env, group, leagueKey, headers, kvKeyP
       return new Response('Expected a JSON object', { status: 400, headers });
     }
     await env.LEAGUE_FACTS.put(kvKey, JSON.stringify(body));
+    await logCommissionerWrite(env, group, url, kvKeyPrefix);
     return json(body, 200, headers);
   }
 
@@ -867,6 +869,15 @@ async function handleDraftStatus(request, url, env, group, headers, ctx){
   return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
+// A Commissioner page write that says what it did (?note=, written by
+// js/admin.js and the modules it calls) goes in the system admin page's
+// log for that group. Writes without one (a lock's snapshot backfill)
+// aren't logged. The note is only read after the password check passed.
+async function logCommissionerWrite(env, group, url, what){
+  const text = commissionerNote(url.searchParams.get('note'));
+  if(text) await logAdminAction(env, { who: 'Commissioner', group, action: `commissioner-${what}`, text });
+}
+
 // The live draft's scheduled start, set from the Commissioner page
 // (js/admin.js). Same password gate as facts; the room stores it and
 // hands it back on /draft/status. Drops this room's edge-cached status so
@@ -876,7 +887,9 @@ async function handleDraftSchedule(request, url, env, group, headers){
   if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
   const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
-  return putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
+  const res = await putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
+  if(res.ok) await logCommissionerWrite(env, group, url, 'schedule');
+  return res;
 }
 
 // A write to the room that changes what /draft/status says: forwards it
@@ -897,7 +910,9 @@ async function handleDraftPoll(request, url, env, group, headers){
   if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
   const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
-  return putToDraftRoom(stub, url, '/poll', await request.text(), headers);
+  const res = await putToDraftRoom(stub, url, '/poll', await request.text(), headers);
+  if(res.ok) await logCommissionerWrite(env, group, url, 'poll');
+  return res;
 }
 
 // A drafter's answer to that poll, from Home's draft card. Same no-auth

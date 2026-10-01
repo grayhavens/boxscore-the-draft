@@ -241,7 +241,12 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
 room signs its socket in with the password saved there. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
-league, the `desk*` functions); under that it keeps the phone column with a Draft/Scoring switch and league chips. See
+league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Draft screen leads with
+a "Needs attention" list (a paused draft, a passed or near draft time with the lobby unready, a poll everyone answered,
+a locked league with postseason rules nobody is marked for), flagged in the sidebar too. Under 900px it keeps the phone
+column with a Draft/Scoring switch and league chips. Its writes (marks, adjustments, locks, the draft time and poll) carry
+a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker adds that to the system admin log as
+`Commissioner`; a write with no note isn't logged. **Deploy the worker first** (an old one ignores the note). See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
 Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
@@ -288,8 +293,10 @@ mints a 12-hour token signed with that group's own password (`worker/commissione
 the `#commissioner=` URL fragment (`js/admin.js`) and stores it in place of a typed password, and every commissioner
 check accepts either. Rotating a group's password cancels its tokens. It's the one desktop-first page: a sidebar
 picks Platform (health tiles, a "Needs attention" queue, every group in a table, the admin log) or one group (summary
-strip, claims, one Roster table of every spot, invite code, announcement, welcome email with a live preview, alert
-devices, chat moderation, that group's log); under 900px the sidebar becomes a top bar with a picker. Action results
+strip, claims, the live draft's setup and time poll answers, one Roster table of every spot with an Edit emails mode for
+the named spots, invite code, announcement, welcome email with a live preview, alert devices, chat moderation, that
+group's log, commissioner writes included); the screen is `?group=<id>` (`platform` for Platform), so Back and reloads
+work; under 900px the sidebar becomes a top bar with a picker. Action results
 show as a toast, and it refreshes itself every minute while nothing is being typed. The Roster adds a person to an
 open spot with no claim, edits a confirmed spot's name or email, and welcomes one person. **`APP_VERSION` lives in
 `js/version.js`** (bump it there), which the worker imports too, so `/status` reports the version the worker was
