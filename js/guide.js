@@ -62,6 +62,7 @@ const GUIDE = [
     lead: 'Every drafted team’s games for the day, live ones first.',
     points: [
       'Use the arrows to look back at results or ahead at the schedule.',
+      'A game that just ended stays under Live for two minutes, with a W for the winner.',
       'Narrow it to drafted teams or your favorites.',
       'Tap a game for its details and highlights.'
     ],
@@ -69,6 +70,7 @@ const GUIDE = [
       lead: 'Every game across the 8 leagues for the day, live ones first.',
       points: [
         'Use the arrows to look back at results or ahead at the schedule.',
+        'A game that just ended stays under Live for two minutes, with a W for the winner.',
         'Narrow it to your favorites.',
         'Tap a game for its details and highlights.'
       ]

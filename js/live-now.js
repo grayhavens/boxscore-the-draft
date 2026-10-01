@@ -32,10 +32,13 @@
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, reducedMotion, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
 import { golfCardsForDay, golfCardMatchesScope, golfCardHtml } from './golf-view.js';
+import { escapeHtml as esc } from './escape.js';
+import { gameCardHtml, gameSectionHtml, tagHtml, scoreBumpHtml } from './ui.js';
+import { fxOn, playClass, pop, floatUp } from './motion-fx.js';
 
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
@@ -54,6 +57,21 @@ let filterPicked = false;
 // not arrowing to another day, not a filter or scope switch.
 const lastScores = new Map(); // `${dayOffset}:${gameId}:${away|home}` -> score string
 let scoresPrimed = false;
+// A tab coming back from the background re-primes instead of replaying
+// whatever changed while it was away (docs/motion-plan.md).
+document.addEventListener('visibilitychange', () => { if(document.hidden) scoresPrimed = false; });
+
+// Final whistle: each game's state at the last render, so a refresh that
+// finds a live game final plays the final whistle. A game seen to end stays
+// on the Live tab for ENDED_LINGER_MS (with its winner's W chip), so the
+// moment happens where people are watching, not only on Completed.
+const lastStates = new Map(); // `${day}:${gameId}` -> 'pre' | 'live' | 'final'
+const endedAt = new Map();     // `${day}:${gameId}` -> when it was seen to end
+const ENDED_LINGER_MS = 2 * 60 * 1000;
+function justEnded(game){
+  const t = endedAt.get(`${game.day}:${game.id}`);
+  return t !== undefined && Date.now() - t < ENDED_LINGER_MS;
+}
 
 // Team SCOPE — a different axis from filterKey above, and independent
 // toggles rather than one exclusive choice: both can be on at once
@@ -278,13 +296,14 @@ function timeLabel(date){
 // game's whole identity at a glance — clock time when scheduled, the
 // period when live, a short "F"/"F/10" when done (never the word
 // "Final" twice, once here and once in the card).
-function railHtml(game){
-  if(game.state === 'live') return `<div class="tg-rail"><div class="tg-rail-top live">LIVE</div><div class="tg-rail-bot">${game.detail.replace(/\s+-\s+/, '<br>')}</div></div>`;
-  if(game.state === 'final') return `<div class="tg-rail"><div class="tg-rail-top">${game.detail.replace('Final', 'F')}</div></div>`;
-  if(game.postponed) return `<div class="tg-rail"><div class="tg-rail-top">PPD</div></div>`;
-  if(game.timeTbd) return `<div class="tg-rail"><div class="tg-rail-top pre">TBD</div></div>`;
+function railParts(game){
+  const detail = esc(game.detail);
+  if(game.state === 'live') return { time: 'LIVE', sub: detail.replace(/\s+-\s+/, '<br>'), timeTone: 'live' };
+  if(game.state === 'final') return { time: detail.replace('Final', 'F') };
+  if(game.postponed) return { time: 'PPD' };
+  if(game.timeTbd) return { time: 'TBD', timeTone: 'pre' };
   const t = timeLabel(game.date);
-  return `<div class="tg-rail"><div class="tg-rail-top pre">${t.replace(/ (AM|PM)/, '')}</div><div class="tg-rail-bot pre">${t.slice(-2)}</div></div>`;
+  return { time: t.replace(/ (AM|PM)/, ''), sub: t.slice(-2), timeTone: 'pre' };
 }
 
 // One rolling strip (0-9) per digit, parked on the old digit; renderLiveNow
@@ -299,89 +318,74 @@ function odometerHtml(score, prev){
   }).join('');
 }
 
-// The badge is the one carve-out from the row's own click-to-open-
-// Game-Details behavior (gameHtml's onclick, on .tg-row) — everything
-// else in the card, including the team name, bubbles up to that. Only
-// the badge button stops propagation, so tapping the crest still opens
-// that team's modal instead.
-function sideHtml(side, dim, game, which){
-  const nameClass = `tg-name${dim ? ' dim' : ''}`;
+// One side of a game card, as data for gameCardHtml (js/ui.js). The badge
+// is the one carve-out from the row's own click-to-open-Game-Details
+// behavior (the row's onclick) — everything else in the card, including
+// the team name, bubbles up to that. Only the badge button stops
+// propagation, so tapping the crest still opens that team's modal instead.
+function sideParts(side, dim, game, which, ended){
   const score = side.score === null || side.score === undefined ? '' : String(side.score);
   const key = `${game.day}:${game.id}:${which}`;
   const prev = lastScores.get(key);
   const scored = scoresPrimed && game.state === 'live' && prev !== undefined && prev !== score && score !== '';
   if(score !== '') lastScores.set(key, score);
   const scoreClass = `tg-score${dim ? ' dim' : ''}`;
+  // A score that just went up by a whole number also carries the "+N" that
+  // floats off it (playScoreEffects).
+  const delta = scored ? Number(score) - Number(prev) : 0;
+  const bump = delta > 0 && Number.isInteger(delta) ? ` data-delta="${delta}"` : '';
   const scoreHtml = scored
-    ? `<span class="${scoreClass}" data-scored="1"><span class="odo-sr">${score}</span><span aria-hidden="true">${odometerHtml(score, prev)}</span></span>`
+    ? `<span class="${scoreClass}" data-scored="1"${bump}><span class="odo-sr">${score}</span><span aria-hidden="true">${odometerHtml(score, prev)}</span></span>`
     : `<span class="${scoreClass}">${score}</span>`;
-  // AP Top 25 rank (CFB / College Basketball) — the usual "#5 Texas Tech"
-  // convention, shown for undrafted opponents too.
-  const rankHtml = side.rank ? `<span class="tg-rank" aria-label="Ranked ${side.rank}">${side.rank}</span>` : '';
-  if(!side.teamKey){
-    return `
-      <div class="tg-side">
-        ${teamBadgeHtml(side.meta)}
-        <div class="tg-label">${rankHtml}<span class="${nameClass}">${side.meta.name}</span></div>
-        ${scoreHtml}
-      </div>
-    `;
-  }
-  const openTeam = `onclick="event.stopPropagation(); openTeamModal('${side.teamKey}')"`;
-  // Same rule as the Teams tab: a read-only star, only once a team is
-  // favorited — toggling happens on the team page.
-  const favHtml = side.isFav ? favoriteMarkHtml() : '';
-  return `
-    <div class="tg-side">
-      <button type="button" class="tg-badge-btn" ${openTeam} aria-label="${side.meta.name}">${teamBadgeHtml(side.meta)}</button>
-      <div class="tg-label">
-        ${rankHtml}<span class="${nameClass}">${side.meta.name}</span>
-        <span class="tg-owner">${side.owner}</span>
-      </div>
-      ${favHtml}
-      ${scoreHtml}
-    </div>
-  `;
+  const parts = {
+    name: side.meta.name,
+    rank: side.rank,
+    dim,
+    badgeHtml: teamBadgeHtml(side.meta),
+    scoreHtml,
+    // A game that just ended, still on the Live tab: the winner's W chip,
+    // and an invisible one on the loser's line so the two scores stay aligned.
+    afterHtml: ended === 'won' ? tagHtml({ label: 'W', variant: 'win' })
+      : ended === 'lost' ? `<span class="tg-tag-space" aria-hidden="true">${tagHtml({ label: 'W', variant: 'win' })}</span>` : ''
+  };
+  if(!side.teamKey) return parts;
+  return {
+    ...parts,
+    owner: side.owner,
+    badgeOnclick: `event.stopPropagation(); openTeamModal('${side.teamKey}')`,
+    // Same rule as the Teams tab: a read-only star, only once a team is
+    // favorited — toggling happens on the team page.
+    favHtml: side.isFav ? favoriteMarkHtml() : ''
+  };
 }
 
+// The onclick sits on the whole row, not just the card, so the time-gutter
+// rail opens Game Details too. The badge buttons inside each side still
+// stopPropagation, so they keep opening the team modal instead.
 function gameHtml(game){
   // Only a finished game has a loser to de-emphasize; live and
   // scheduled games keep both sides at full strength.
   const done = game.state === 'final';
   const a = game.away.score, h = game.home.score;
   const awayDim = done && a < h, homeDim = done && h < a;
+  const ended = done && justEnded(game);
 
   const anyDrafted = game.away.teamKey ? game.away : game.home;
   const clickable = !!(GAME_DETAIL_LEAGUES[game.leagueKey] && game.id);
-  const onClick = clickable ? ` onclick="openGameDetail('${anyDrafted.teamKey}','${game.id}')"` : '';
-
-  // onclick sits on the whole row, not just the card, so the time-gutter
-  // rail (the clock/LIVE/Final label off to the side) opens Game
-  // Details too — a tap anywhere on the row's real estate should work,
-  // not just the two team lines. The badge/name buttons inside each
-  // side still stopPropagation, so they keep opening the team modal
-  // instead.
-  return `
-    <div class="tg-row${clickable ? ' clickable' : ''}"${onClick}>
-      ${railHtml(game)}
-      <span class="tg-line"></span>
-      <span class="tg-node ${game.state}"></span>
-      <div class="tg-card ${game.state}">
-        ${game.tag ? `<div class="tg-tag ${game.tag.cls}">${game.tag.text}</div>` : ''}
-        ${sideHtml(game.away, awayDim, game, 'away')}
-        ${sideHtml(game.home, homeDim, game, 'home')}
-      </div>
-    </div>
-  `;
+  return gameCardHtml({
+    ...railParts(game),
+    id: game.id,
+    state: game.state,
+    tag: game.tag,
+    away: sideParts(game.away, awayDim, game, 'away', ended && (homeDim ? 'won' : awayDim ? 'lost' : null)),
+    home: sideParts(game.home, homeDim, game, 'home', ended && (awayDim ? 'won' : homeDim ? 'lost' : null)),
+    onclick: clickable ? `openGameDetail('${anyDrafted.teamKey}','${game.id}')` : null,
+    cls: ended ? 'just-ended' : ''
+  });
 }
 
 function sectionHtml(label, games){
-  return `
-    <div class="tg-section">
-      <div class="tg-section-head"><span class="tg-section-label">${label}</span><span class="tg-section-rule"></span></div>
-      ${games.map(g => (g.kind === 'golf' ? golfCardHtml(g) : gameHtml(g))).join('')}
-    </div>
-  `;
+  return gameSectionHtml({ label, html: games.map(g => (g.kind === 'golf' ? golfCardHtml(g) : gameHtml(g))).join('') });
 }
 
 // ---- Controls ----
@@ -547,11 +551,19 @@ export async function renderLiveNow(){
   // itself) works off the scope-filtered set, not the full day's slate
   // \u2014 so picking "Drafted" actually narrows what "3 live" means too,
   // not just which cards are shown.
+  const endedNow = new Set();
+  all.forEach(g => {
+    if(g.kind === 'golf') return;
+    const key = `${g.day}:${g.id}`;
+    if(scoresPrimed && lastStates.get(key) === 'live' && g.state === 'final'){ endedAt.set(key, Date.now()); endedNow.add(key); }
+    lastStates.set(key, g.state);
+  });
   const inScope = all.filter(gameMatchesScope);
   const liveCount = inScope.filter(g => g.state === 'live').length;
+  const onLiveTab = g => g.state === 'live' || (g.state === 'final' && justEnded(g));
 
   if(!filterPicked){
-    filterKey = liveCount ? 'live'
+    filterKey = inScope.some(onLiveTab) ? 'live'
       : inScope.some(g => g.state === 'pre') ? 'upcoming'
       : 'completed';
   }
@@ -568,7 +580,7 @@ export async function renderLiveNow(){
   refreshTodayScopeChrome();
 
   let shown = inScope;
-  if(filterKey === 'live') shown = shown.filter(g => g.state === 'live');
+  if(filterKey === 'live') shown = shown.filter(onLiveTab);
   if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
   if(filterKey === 'completed') shown = shown.filter(g => g.state === 'final');
 
@@ -585,13 +597,32 @@ export async function renderLiveNow(){
 
   listEl.innerHTML = html.join('');
   scoresPrimed = true;
-  if(reducedMotion() || !listEl.querySelector('[data-scored]')) return;
-  // Two frames: the strips have to paint on the old digit before moving.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    listEl.querySelectorAll('.odo-strip[data-to]').forEach(s => s.style.setProperty('--n', s.dataset.to));
-    listEl.querySelectorAll('.tg-score[data-scored]').forEach(s => {
-      const card = s.closest('.tg-card');
-      if(card){ card.classList.remove('just-scored'); void card.offsetWidth; card.classList.add('just-scored'); }
-    });
-  }));
+  playScoreEffects(listEl, shown.filter(g => endedNow.has(`${g.day}:${g.id}`)));
+}
+
+// ---- Live effects (docs/motion-plan.md, Phase 2) ----
+// Played on the freshly written list. Each ends on what the plain render
+// already shows, so with motion off (or the page hidden) nothing is lost.
+function playScoreEffects(listEl, ended){
+  if(!fxOn()) return;
+  // Goal: the digits roll, the card flashes a gold ring, and a "+N" floats
+  // off the score. Two frames: the strips have to paint on the old digit
+  // before moving.
+  if(listEl.querySelector('[data-scored]')){
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      listEl.querySelectorAll('.odo-strip[data-to]').forEach(s => s.style.setProperty('--n', s.dataset.to));
+      listEl.querySelectorAll('.tg-score[data-scored]').forEach(s => {
+        playClass(s.closest('.tg-card'), 'just-scored');
+        if(s.dataset.delta) floatUp(s.closest('.tg-side'), scoreBumpHtml({ n: s.dataset.delta }), { delay: 50 });
+      });
+    }));
+  }
+  // Final whistle: the live tint drains off the card, the rail and node lose
+  // their red, the loser dims, and the winner's W chip pops in.
+  ended.forEach(game => {
+    const row = listEl.querySelector(`.tg-row[data-game="${CSS.escape(String(game.id))}"]`);
+    if(!row) return;
+    playClass(row, 'fx-final');
+    pop(row.querySelector('.status-tag.win'), { from: 0.4, duration: 460, delay: 200 });
+  });
 }

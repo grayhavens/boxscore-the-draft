@@ -34,6 +34,11 @@ Testing: `node tools/rehearse-draft.mjs` against `wrangler dev`, plus a mock roo
 
 ## Phase 2: Scores (`js/live-now.js`)
 
+**Status: done**, together with the Scores cards' move to `gameCardHtml` / `gameSectionHtml` in `js/ui.js`. Notes from building it:
+- **Goal:** the odometer and the gold ring already existed. The `+N` (`scoreBumpHtml`, through `floatUp` in `js/motion-fx.js`) floats off the side that scored, only when the score went up by a whole number.
+- **Final whistle:** a game seen going from live to final stays on the Live tab for 2 minutes (`ENDED_LINGER_MS`), with the winner's W chip (`tagHtml`, the design system's `Tag` `win`; the app's first `.status-tag`). Otherwise it would vanish from Live on the next refresh, and the moment would never be seen there. The loser's line carries an invisible copy of the chip so both scores keep one right edge. A draw gets no chip. The tint, rail, node and loser fade are CSS keyframes (`.fx-final`).
+- **No replay:** a tab coming back from the background re-primes instead of replaying what changed while it was away.
+
 - **Goal flash +1.** Builds on the existing `data-scored` and odometer path around line 588. Add a `+N` badge that floats up off the side that scored.
 - **Final whistle.** Signal: game status goes from live to final, using the same per-game cache that stores previous scores. Fade out the live tint, stop the node's ring, dim the loser, and pop a W chip for the winner.
 

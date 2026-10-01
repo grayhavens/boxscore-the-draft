@@ -3850,6 +3850,25 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    openTeamModal) — same accent-soft/accent-border "callout" recipe
    .prior-season-note/.ob-sim-banner already use, shaped into a
    full-width button instead of a text banner. */
+/* Tag (tagHtml in js/ui.js): one shape for every status pill. Blue =
+   provisional, gold = locked/leader, green = positive, red = at risk. */
+.status-tag{
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  font-family: var(--font-ui); font-size: var(--fs-10); font-weight: 800; line-height: 1;
+  letter-spacing: var(--track-tag); text-transform: uppercase; white-space: nowrap; vertical-align: middle;
+  border-radius: var(--r-xs); padding: 4px 6px;
+  color: var(--text-sub); background: var(--fill-soft);
+}
+.status-tag.live{ color: var(--provisional); background: var(--provisional-soft); box-shadow: inset 0 0 0 1px var(--provisional-border); }
+.status-tag.locked{ color: var(--accent); background: var(--accent-soft); }
+.status-tag.lock-in{ color: var(--on-accent); background: var(--accent-fill); }
+.status-tag.risk{ color: var(--loss); background: var(--loss-soft); }
+.status-tag.win{ color: var(--win); background: var(--win-soft); }
+.status-tag.pre{ color: var(--provisional); background: var(--provisional-soft); }
+.status-tag.post{ color: var(--accent); background: var(--accent-soft); }
+.status-tag.complete{ color: var(--record); background: var(--record-soft); }
+.status-tag.on-live{ color: var(--on-live); background: var(--live); }
+
 .modal-cta{
   display: flex;
   align-items: center;
@@ -5650,6 +5669,40 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   box-shadow: var(--shadow-tip); pointer-events: none;
 }
 .dm-top > .float-pill{ top: calc(100% + 8px); right: 16px; }
+
+/* Scores: the loser's invisible copy of the winner's W chip on a game that
+   just ended, so both scores keep one right edge. */
+.tg-tag-space{ display: inline-flex; flex: none; visibility: hidden; }
+
+/* Scores: a goal's "+N" floating off the score (scoreBumpHtml in js/ui.js). */
+.score-bump{
+  position: absolute; right: 2px; top: -6px;
+  font-family: var(--font-display); font-size: var(--fs-12); font-weight: 800; color: var(--accent);
+  pointer-events: none; opacity: 0;
+}
+
+/* Scores: the final whistle (js/live-now.js). The card's live tint drains,
+   the rail and node lose their red, and the loser dims, all from the live
+   look to the card's own final styles. */
+@media (prefers-reduced-motion: no-preference){
+  .tg-row.fx-final{ animation: fx-hold 700ms; }
+  .tg-row.fx-final .tg-card{ position: relative; isolation: isolate; animation: tg-final-card 700ms var(--ease-out) backwards; }
+  .tg-row.fx-final .tg-card::before{
+    content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(120% 140% at 50% -20%, var(--live-soft), transparent 62%);
+    animation: tg-final-tint 700ms var(--ease-out) forwards;
+  }
+  .tg-row.fx-final .tg-node{ animation: tg-final-node 300ms var(--ease-out) backwards; }
+  .tg-row.fx-final .tg-rail-top{ animation: tg-final-rail 300ms var(--ease-out) backwards; }
+  .tg-row.fx-final .tg-name.dim,
+  .tg-row.fx-final .tg-score.dim{ animation: tg-final-dim 300ms var(--ease-out) backwards; }
+}
+@keyframes fx-hold{ from{ opacity: 1; } to{ opacity: 1; } }
+@keyframes tg-final-card{ from{ border-color: var(--live-border); } }
+@keyframes tg-final-tint{ from{ opacity: 1; } to{ opacity: 0; } }
+@keyframes tg-final-node{ from{ background-color: var(--live); } }
+@keyframes tg-final-rail{ from{ color: var(--live); } }
+@keyframes tg-final-dim{ from{ color: var(--text); } }
 
 /* Draft room: a league whose roster slots are all filled shows its count in
    green (the sheen that plays when it fills ends here). */
