@@ -146,6 +146,10 @@
       one on the admin page fills the spot, and /roster serves the
       confirmed names to the app and landing page (worker/roster.js).
 
+   12. SPORTS — /sports is a group's sports: which it shows scores for
+      and which it drafts, with how many picks (worker/sports.js, set on
+      the Commissioner page with the commissioner password).
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -197,9 +201,11 @@ import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
+import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
+import { logAdminAction, commissionerNote } from './admin-log.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -702,6 +708,7 @@ async function handleKvBlob(request, url, env, group, leagueKey, headers, kvKeyP
       return new Response('Expected a JSON object', { status: 400, headers });
     }
     await env.LEAGUE_FACTS.put(kvKey, JSON.stringify(body));
+    await logCommissionerWrite(env, group, url, kvKeyPrefix);
     return json(body, 200, headers);
   }
 
@@ -862,6 +869,15 @@ async function handleDraftStatus(request, url, env, group, headers, ctx){
   return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
+// A Commissioner page write that says what it did (?note=, written by
+// js/admin.js and the modules it calls) goes in the system admin page's
+// log for that group. Writes without one (a lock's snapshot backfill)
+// aren't logged. The note is only read after the password check passed.
+async function logCommissionerWrite(env, group, url, what){
+  const text = commissionerNote(url.searchParams.get('note'));
+  if(text) await logAdminAction(env, { who: 'Commissioner', group, action: `commissioner-${what}`, text });
+}
+
 // The live draft's scheduled start, set from the Commissioner page
 // (js/admin.js). Same password gate as facts; the room stores it and
 // hands it back on /draft/status. Drops this room's edge-cached status so
@@ -871,7 +887,9 @@ async function handleDraftSchedule(request, url, env, group, headers){
   if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
   const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
-  return putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
+  const res = await putToDraftRoom(stub, url, '/schedule', await request.text(), headers);
+  if(res.ok) await logCommissionerWrite(env, group, url, 'schedule');
+  return res;
 }
 
 // A write to the room that changes what /draft/status says: forwards it
@@ -892,7 +910,9 @@ async function handleDraftPoll(request, url, env, group, headers){
   if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
   const stub = draftRoomStub(url, env, group);
   if(!stub) return new Response('Bad room', { status: 400, headers });
-  return putToDraftRoom(stub, url, '/poll', await request.text(), headers);
+  const res = await putToDraftRoom(stub, url, '/poll', await request.text(), headers);
+  if(res.ok) await logCommissionerWrite(env, group, url, 'poll');
+  return res;
 }
 
 // A drafter's answer to that poll, from Home's draft card. Same no-auth
@@ -1122,13 +1142,13 @@ async function route(request, env, ctx){
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
-    url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+    url.pathname === '/sports' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
   // The group's invite code (worker/access-code.js). Left open on purpose:
-  // the check itself, the claim form and roster (the landing page and boot
+  // the check itself, the claim form, roster and sports (the landing page and boot
   // need them before anyone has a code), and the password-only verify.
-  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/admin/verify'].includes(url.pathname);
+  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/sports', '/admin/verify'].includes(url.pathname);
   if(isGated){
     const denied = await gateRequest(env, group, url, headers);
     if(denied) return denied;
@@ -1172,6 +1192,8 @@ async function route(request, env, ctx){
   if(url.pathname === '/claim') return handleClaim(request, env, group, headers, { isAllowedOrigin, json, waitUntil: p => ctx.waitUntil(p) });
 
   if(url.pathname === '/roster') return handleRoster(request, env, group, headers, { json });
+
+  if(url.pathname === '/sports') return handleSports(request, url, env, group, headers, { json, isAuthorized, draftRoomStub });
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
   if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);

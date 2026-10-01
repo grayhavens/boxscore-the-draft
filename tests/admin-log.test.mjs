@@ -1,7 +1,7 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addEntry, logAdminAction, loadAdminLog, ADMIN_LOG_MAX, ADMIN_LOG_KEY } from '../worker/admin-log.js';
+import { addEntry, logAdminAction, loadAdminLog, commissionerNote, ADMIN_LOG_MAX, ADMIN_LOG_KEY } from '../worker/admin-log.js';
 import { deviceId, pushService } from '../worker/web-push.js';
 
 test('addEntry puts the newest first, caps the log and the text', () => {
@@ -36,4 +36,11 @@ test('devices get a stable short id and a readable push service', async () => {
   assert.equal(pushService('https://fcm.googleapis.com/fcm/send/x'), 'Chrome');
   assert.equal(pushService('https://updates.push.services.mozilla.com/wpush/v2/x'), 'Firefox');
   assert.equal(pushService('https://push.example.org/x'), 'push.example.org');
+});
+
+test('commissionerNote makes one plain line, or nothing', () => {
+  assert.equal(commissionerNote(null), '');
+  assert.equal(commissionerNote('   '), '');
+  assert.equal(commissionerNote('Marked Lions\n\tfor  Division title'), 'Marked Lions for Division title');
+  assert.equal(commissionerNote('x'.repeat(999)).length, 300);
 });

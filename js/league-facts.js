@@ -31,7 +31,8 @@
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, findCfbTeamKeyByLocation, draftOwnerName, escapeHtml } from './utils.js';
+import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, withNote, findCfbTeamKeyByLocation, draftOwnerName, escapeHtml } from './utils.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withScopeQuery } from './season.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
@@ -270,10 +271,16 @@ async function fetchLeagueFacts(leagueKey){
 // controls behind a verified password — loadAdminPassword() here is
 // just reading what that page already confirmed. Resolves to whether it
 // reached the shared store, so the admin page can say when it didn't.
-function persistLeagueFacts(leagueKey, facts){
+// "NFL", "CFB": how a league reads in a log line.
+const leagueShort = leagueKey => FILTER_CHIP_LABELS[leagueKey] || leagueKey.toUpperCase();
+// "Lions (Josh)"
+const teamWithOwner = teamKey => `${TEAM_META[teamKey].name} (${draftOwnerName(teamKey)})`;
+
+// `note` says what changed, for the system admin page's log (withNote).
+function persistLeagueFacts(leagueKey, facts, note){
   saveLocalLeagueFacts(leagueKey, facts);
   if(!DASHBOARD_WORKER_BASE) return Promise.resolve(true);
-  return putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), loadAdminPassword(), facts)
+  return putAuthedJSON(withNote(withScopeQuery(`${DASHBOARD_WORKER_BASE}/facts/${leagueKey}`), note), loadAdminPassword(), facts)
     .then(({ ok }) => {
       if(!ok) console.warn('[League Facts]', leagueKey, 'failed to sync to shared store');
       return ok;
@@ -327,10 +334,10 @@ async function fetchLeagueAdjustments(leagueKey){
   }
 }
 
-function persistLeagueAdjustments(leagueKey, adjustments){
+function persistLeagueAdjustments(leagueKey, adjustments, note){
   saveLocalLeagueAdjustments(leagueKey, adjustments);
   if(!DASHBOARD_WORKER_BASE) return Promise.resolve(true);
-  return putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), loadAdminPassword(), adjustments)
+  return putAuthedJSON(withNote(withScopeQuery(`${DASHBOARD_WORKER_BASE}/adjustments/${leagueKey}`), note), loadAdminPassword(), adjustments)
     .then(({ ok }) => {
       if(!ok) console.warn('[League Adjustments]', leagueKey, 'failed to sync to shared store');
       return ok;
@@ -341,17 +348,27 @@ function persistLeagueAdjustments(leagueKey, adjustments){
 // adjustment. Only ever called from the admin page. Resolves to whether
 // the shared store took it.
 export function setTeamAdjustment(teamKey, pts, note){
-  const meta = TEAM_META[teamKey];
-  if(!meta) return Promise.resolve(false);
-  const leagueKey = meta.leagueKey;
+  return setTeamAdjustments([{ teamKey, pts, note }]);
+}
+window.setTeamAdjustment = setTeamAdjustment;
+
+// Several at once, all in one league: one write, so the store can't end up
+// with an earlier, partial copy landing last.
+export function setTeamAdjustments(changes){
+  const valid = changes.filter(c => TEAM_META[c.teamKey]);
+  if(!valid.length) return Promise.resolve(false);
+  const leagueKey = TEAM_META[valid[0].teamKey].leagueKey;
   const cache = adjustmentsCacheFor(leagueKey);
   const adjustments = cache.data || (cache.data = currentLeagueAdjustments(leagueKey));
-  if(!pts && !note){
-    delete adjustments[teamKey];
-  } else {
+  const lines = valid.map(({ teamKey, pts, note }) => {
+    if(!pts && !note){
+      delete adjustments[teamKey];
+      return `cleared ${teamWithOwner(teamKey)}`;
+    }
     adjustments[teamKey] = { pts: pts || 0, note: note || '' };
-  }
-  const synced = persistLeagueAdjustments(leagueKey, adjustments);
+    return `${teamWithOwner(teamKey)} ${pts > 0 ? '+' : ''}${pts || 0}${note ? ` “${note}”` : ''}`;
+  });
+  const synced = persistLeagueAdjustments(leagueKey, adjustments, `${leagueShort(leagueKey)} adjustment: ${lines.join('; ')}`);
   renderAdminPage();
   return synced;
 }
@@ -444,7 +461,7 @@ export function addLeagueFact(leagueKey, ruleLabel, teamKey){
     const list = facts[ruleLabel] || (facts[ruleLabel] = []);
     if(!list.includes(teamKey)) list.push(teamKey);
   }
-  const synced = persistLeagueFacts(leagueKey, facts);
+  const synced = persistLeagueFacts(leagueKey, facts, `${leagueShort(leagueKey)}: marked ${teamWithOwner(teamKey)} for ${ruleLabel}`);
   renderAdminPage();
   return synced;
 }
@@ -457,7 +474,7 @@ export function removeLeagueFact(leagueKey, ruleLabel, teamKey){
   const idx = list.indexOf(teamKey);
   if(idx === -1) return Promise.resolve(false);
   list.splice(idx, 1);
-  const synced = persistLeagueFacts(leagueKey, facts);
+  const synced = persistLeagueFacts(leagueKey, facts, `${leagueShort(leagueKey)}: removed ${teamWithOwner(teamKey)} from ${ruleLabel}`);
   renderAdminPage();
   return synced;
 }

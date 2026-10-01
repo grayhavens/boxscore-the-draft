@@ -29,6 +29,27 @@ export function isMockRoom(room){
   return typeof room === 'string' && /^mock(-|$)/.test(room);
 }
 
+// Auto-draft (state.autoDraft): a drafter who turns it on, in any room,
+// is drafted for this long after going on the clock. Long enough to see
+// it coming and take the pick yourself, short enough not to hold anyone up.
+export const AUTO_DRAFT_SECONDS = 5;
+
+// How long after `owner` goes on the clock the room drafts for them, in
+// ms, or null when nobody will: the soonest of auto-draft (any room), a
+// mock room's bot delay, and a mock room's expired clock. The real
+// room's clock is soft, so only auto-draft ever picks there.
+export function autoPickLimitMs(state, owner, mock){
+  const { config } = state;
+  const limits = [];
+  if((state.autoDraft || []).includes(owner)) limits.push(AUTO_DRAFT_SECONDS);
+  if(mock){
+    // A room saved before bots existed has no botSeconds.
+    if((config.bots || []).includes(owner)) limits.push(config.botSeconds || DEFAULT_BOT_SECONDS);
+    limits.push(config.clockSeconds);
+  }
+  return limits.length ? Math.min(...limits) * 1000 : null;
+}
+
 // Leagues whose pool is only pre-loaded with the top schools; any other
 // school can be added on the fly as a "write-in".
 export const WRITE_IN_LEAGUES = ['cfb', 'mcbb'];
@@ -152,7 +173,8 @@ export function swapSlots(order, overrides, slotA, slotB){
 }
 
 // ---- Clock ----
-// A soft clock: it never auto-picks, it just counts. `clock` is
+// A soft clock: it never picks by itself, it just counts (the worker's
+// auto-pick reads it through autoPickLimitMs). `clock` is
 // { running, startedAt (ms epoch of the current running stretch),
 //   banked (ms accumulated before it) } so pausing and resuming keeps
 // the elapsed time, and it is computed from timestamps rather than

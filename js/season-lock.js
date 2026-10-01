@@ -46,7 +46,8 @@
    using live data exactly as before.
    ============================================================ */
 import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { fetchJSON, loadAdminPassword, putAuthedJSON } from './utils.js';
+import { fetchJSON, loadAdminPassword, putAuthedJSON, withNote } from './utils.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withScopeQuery, ACTIVE_SEASON_ID } from './season.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
@@ -179,12 +180,14 @@ export function lockedAtFor(leagueKey){
   return lock ? lock.lockedAt : null;
 }
 
-function persistLock(leagueKey, lock){
+// `note` says what changed, for the system admin page's log (withNote in
+// js/utils.js); the snapshot backfill sends none.
+function persistLock(leagueKey, lock, note){
   const cache = lockCacheFor(leagueKey);
   cache.data = lock;
   saveLocalLock(leagueKey, lock);
   if(DASHBOARD_WORKER_BASE){
-    putAuthedJSON(withScopeQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`), loadAdminPassword(), lock)
+    putAuthedJSON(withNote(withScopeQuery(`${DASHBOARD_WORKER_BASE}/lock/${leagueKey}`), note), loadAdminPassword(), lock)
       .then(({ ok }) => { if(!ok) console.warn('[Season Lock]', leagueKey, 'failed to sync to shared store'); });
   }
   renderStandings();
@@ -200,7 +203,7 @@ function persistLock(leagueKey, lock){
 // unchecked entry point from the admin page, and locking in MLB/WNBA's
 // current (non-counting, last season's) table would be a real mistake
 // even with an undo available, not just a premature one.
-function lockLeague(leagueKey){
+function lockLeague(leagueKey, note){
   const scoring = LEAGUE_SCORING[leagueKey];
   if(!scoring || PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return;
   // A class that isn't the newest has no live table for its own season
@@ -215,7 +218,7 @@ function lockLeague(leagueKey){
   if(bonus !== undefined) lock.bonus = bonus;
   const standings = snapshotLeagueCaches(leagueKey);
   if(standings) lock.standings = standings;
-  persistLock(leagueKey, lock);
+  persistLock(leagueKey, lock, note);
 }
 
 // Locks written before snapshots (or bonus freezing) existed have rules
@@ -256,8 +259,10 @@ export async function primeFrozenSnapshots(){
   });
 }
 
+const leagueShort = leagueKey => FILTER_CHIP_LABELS[leagueKey] || leagueKey.toUpperCase();
+
 export function forceLockLeague(leagueKey){
-  lockLeague(leagueKey);
+  lockLeague(leagueKey, `${leagueShort(leagueKey)}: force-locked the regular season`);
 }
 window.forceLockLeague = forceLockLeague;
 
@@ -271,7 +276,7 @@ window.forceLockLeague = forceLockLeague;
 // write in this app already follows (see handleSeasonLock in
 // worker/rundown-proxy.js).
 export function unlockLeague(leagueKey){
-  persistLock(leagueKey, {});
+  persistLock(leagueKey, {}, `${leagueShort(leagueKey)}: unlocked the regular season`);
 }
 window.unlockLeague = unlockLeague;
 
@@ -318,6 +323,6 @@ export async function checkSeasonLocks(){
       over = isRegularSeasonOver(leagueKey);
     }
     // The bonus holder is frozen into the lock, so its tables must be in.
-    if(over){ await loadBonusInputs(); lockLeague(leagueKey); }
+    if(over){ await loadBonusInputs(); lockLeague(leagueKey, `${leagueShort(leagueKey)}: regular season locked automatically (ESPN has it over)`); }
   }
 }

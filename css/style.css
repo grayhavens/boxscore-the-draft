@@ -201,6 +201,8 @@ html{ background: var(--bg); }
   --race-mini: rgba(var(--ink-rgb), 0.12);
   --on-accent: #0A0B0D;
   --hover: rgba(var(--ink-rgb), 0.04);
+  /* The two desktop consoles' sidebars (Commissioner, system admin). */
+  --console-rail: color-mix(in srgb, var(--surface) 18%, var(--bg));
   --press: rgba(var(--ink-rgb), 0.07);
   --live-soft: rgba(229, 72, 77, 0.12);
   --live-border: rgba(229, 72, 77, 0.36);
@@ -2623,6 +2625,7 @@ body{
 }
 .admin-adj-save.end{ margin-left: auto; }
 .admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
+.admin-adj-save:disabled{ opacity: 0.4; cursor: default; pointer-events: none; }
 
 /* Draft section: the live room's status as label/value rows. */
 #admin-content .seg{ margin-bottom: 16px; }
@@ -2671,11 +2674,13 @@ body{
    the light theme follows. */
 #view-admin.admin-desk-on{
   position: fixed;
-  left: 0; right: 0; top: 0;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  inset: 0;
   z-index: 190;
   background: var(--bg);
 }
+/* The phone tab bar has no place under a desktop console: the sidebar's
+   "Settings" is the way back into the app. */
+body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 #view-admin.admin-desk-on > .page-header{ display: none; }
 #view-admin.admin-desk-on #admin-content{ height: 100%; }
 
@@ -2694,13 +2699,13 @@ body{
   gap: 22px;
   padding: 24px 14px;
   border-right: 1px solid var(--hairline);
-  background: var(--bg);
+  background: var(--console-rail);
   overflow-y: auto;
 }
 .admin-desk-brand{ display: flex; flex-direction: column; gap: 4px; padding: 0 10px; }
 .admin-desk-brand-row{
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-display); font-size: var(--fs-22); font-weight: 700; letter-spacing: -0.01em;
+  font-family: var(--font-display); font-size: var(--fs-22); font-weight: 700; letter-spacing: var(--track-snug);
   color: var(--text);
 }
 .admin-desk-brand-row img{ width: 22px; height: 22px; object-fit: contain; }
@@ -2730,8 +2735,9 @@ body{
 .admin-desk-dot{ flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-mute); }
 .admin-desk-dot.lg{ width: 10px; height: 10px; }
 .admin-desk-dot[data-state="ok"]{ background: var(--win); }
-.admin-desk-dot[data-state="warn"]{ background: var(--accent); }
+.admin-desk-dot[data-state="warn"]{ background: var(--accent-fill); }
 .admin-desk-dot[data-state="live"]{ background: var(--live); }
+.admin-desk-flag{ flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-fill); }
 .admin-desk-locked{ flex: none; font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--win); }
 .admin-desk-foot{
   margin-top: auto;
@@ -2755,7 +2761,7 @@ body{
 .admin-desk-titles{ display: flex; flex-direction: column; gap: 6px; }
 .admin-desk-titles h1{
   margin: 0;
-  font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: -0.02em;
+  font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: var(--track-tight); line-height: 1.1;
   color: var(--text);
 }
 .admin-desk-eyebrow, .admin-desk-label, .admin-desk-stat-label, .admin-desk-field-label{
@@ -2763,8 +2769,8 @@ body{
   color: var(--text-mute);
 }
 .admin-desk-eyebrow{ display: flex; align-items: center; gap: 8px; }
-.admin-desk-stat-label{ letter-spacing: 0.08em; }
-.admin-desk-field-label{ letter-spacing: 0.06em; }
+.admin-desk-stat-label{ letter-spacing: var(--track-label); }
+.admin-desk-field-label{ letter-spacing: var(--track-tag); }
 .admin-desk-lede{ max-width: 640px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
 
 .admin-desk-section{ display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -2780,18 +2786,19 @@ body{
 /* Buttons: ghost (gold-soft, the default), solid gold, outline. */
 .admin-desk-btn{
   flex: none;
-  padding: 9px 18px;
+  padding: 8px 16px;
   border: 1px solid var(--accent-border);
   border-radius: var(--r-pill);
   background: var(--accent-soft);
   color: var(--accent);
   font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 .admin-desk-btn.solid{ border-color: var(--accent-fill); background: var(--accent-fill); color: var(--on-accent); font-weight: 800; }
 .admin-desk-btn.outline{ border-color: var(--hairline-strong); background: transparent; color: var(--text-sub); }
 .admin-desk-btn.lg{ padding: 12px 24px; font-size: var(--fs-14); }
-.admin-desk-btn.sm{ padding: 6px 14px; font-size: var(--fs-12); }
+.admin-desk-btn.sm{ padding: 6px 12px; font-size: var(--fs-12); }
 .admin-desk-btn:disabled{ opacity: 0.5; cursor: default; }
 .admin-desk-btns{ display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -2823,15 +2830,15 @@ body{
   background: var(--surface);
   overflow: hidden;
 }
-.admin-desk-stat{ display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-right: 1px solid var(--hairline); }
-.admin-desk-stat-value{ font-family: var(--font-display); font-size: var(--fs-20); font-weight: 600; color: var(--text); }
+.admin-desk-stat{ display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; box-shadow: 1px 0 0 var(--hairline), 0 1px 0 var(--hairline); }
+.admin-desk-stat-value{ font-family: var(--font-display); font-size: var(--fs-22); font-weight: 600; color: var(--text); }
 .admin-desk-stat-value[data-state="ok"]{ color: var(--win); }
 .admin-desk-stat-value[data-state="warn"]{ color: var(--accent); }
 .admin-desk-stat-value[data-state="live"]{ color: var(--live); }
-.admin-desk-stat-sub{ font-size: var(--fs-12); color: var(--text-sub); }
+.admin-desk-stat-sub{ font-size: var(--fs-12); line-height: 1.4; color: var(--text-sub); text-wrap: pretty; }
 
 .admin-desk-pair{ display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; align-items: start; }
-.admin-desk-poll{ display: flex; flex-direction: column; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+.admin-desk-poll{ display: flex; flex-direction: column; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; }
 .admin-desk-poll-row{ display: flex; align-items: center; gap: 14px; padding: 12px 14px; }
 .admin-desk-poll-row + .admin-desk-poll-row{ border-top: 1px solid var(--hairline); }
 .admin-desk-poll-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -2853,6 +2860,11 @@ body{
 .admin-desk-when{ display: flex; flex-direction: column; gap: 2px; }
 .admin-desk-when-time{ font-family: var(--font-display); font-size: var(--fs-22); font-weight: 600; }
 .admin-desk-when-sub{ font-size: var(--fs-12); font-weight: 700; color: var(--win); }
+.admin-desk-when-sub[data-state="warn"]{ color: var(--accent); }
+
+/* Draft: Needs attention. */
+.admin-desk-attn{ padding: 0; border: 1px solid var(--accent-border); overflow: hidden; }
+.admin-desk-attn .admin-desk-poll-row{ padding: 14px 18px; }
 
 /* League: lock banner. */
 .admin-desk-lock{ display: flex; align-items: center; gap: 16px; padding: 16px 18px; }
@@ -2933,11 +2945,11 @@ body{
 .admin-desk-adj{ flex: 1 1 360px; min-width: 0; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 10px; }
 .admin-desk-adj-card{
   display: flex; flex-direction: column;
-  max-height: calc(100vh - var(--nav-h) - env(safe-area-inset-bottom) - 100px);
+  max-height: calc(100vh - 100px);
   padding: 0;
   overflow: hidden;
 }
-.admin-desk-adj-tools{ display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
+.admin-desk-adj-tools{ display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
 .admin-desk-toggle{
   flex: none;
   padding: 8px 12px;
@@ -2999,22 +3011,72 @@ body{
 .admin-desk-back{ align-self: center; }
 
 /* The corner confirmation after a write (desktop only). */
+/* Commissioner → Sports (js/admin.js): one row per sport, Off / Scores /
+   Draft plus a picks stepper. Shared by the phone column and the desktop
+   screen; the controls wrap under the name on a narrow screen. */
+.admin-sports-list{ display: flex; flex-direction: column; margin-top: 12px; }
+.admin-sports-card{ padding: 4px 0 0; }
+.admin-sports-card .admin-sports-list{ margin-top: 0; }
+.admin-sports-row{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+}
+.admin-sports-card .admin-sports-row{ padding: 12px 18px; }
+.admin-sports-row + .admin-sports-row{ border-top: 1px solid var(--hairline); }
+.admin-sports-name{ flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.admin-sports-text{ min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-sports-label{ font-size: var(--fs-14); font-weight: 700; color: var(--text); }
+.admin-sports-row.off .admin-sports-label{ color: var(--text-mute); }
+.admin-sports-note{ font-size: var(--fs-12); color: var(--text-sub); text-wrap: pretty; }
+.admin-sports-controls{ flex: 0 1 auto; display: flex; align-items: center; gap: 12px; }
+.admin-sports-seg{ width: 210px; }
+.admin-sports-seg .seg{ margin-bottom: 0; }
+.admin-sports-seg .seg-btn{ min-height: 30px; padding: 4px 0; font-size: var(--fs-12); }
+.admin-sports-stepper{ width: 112px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.admin-sports-stepper button{
+  width: 30px; height: 30px; flex: none;
+  border: 1px solid var(--hairline-strong); border-radius: 50%;
+  background: transparent; color: var(--text);
+  font-family: var(--font-ui); font-size: var(--fs-16); font-weight: 700; line-height: 1;
+  cursor: pointer;
+}
+.admin-sports-stepper button:disabled{ opacity: 0.35; cursor: default; }
+.admin-sports-picks{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 600; color: var(--text); white-space: nowrap; }
+.admin-sports-picks span{ font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.admin-sports-foot{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--hairline);
+}
+.admin-sports-card .admin-sports-foot{ padding: 14px 18px 18px; }
+.admin-sports-summary{ font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
+.admin-sports-saved{ color: var(--win); font-weight: 700; }
+@media (max-width: 480px){
+  .admin-sports-controls{ flex: 1 1 100%; justify-content: space-between; }
+  .admin-sports-seg{ flex: 1; width: auto; }
+}
+
 .admin-toast{
   position: fixed;
   right: 24px;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
+  bottom: 24px;
   z-index: 400;
   max-width: 380px;
   padding: 14px 18px;
   border: 1px solid var(--hairline-strong);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--surface-2);
   box-shadow: var(--shadow-pop);
   color: var(--text);
-  font-family: var(--font-ui); font-size: var(--fs-14); font-weight: 600;
+  font-family: var(--font-ui); font-size: var(--fs-14); font-weight: 600; line-height: 1.4;
+  cursor: pointer;
+  animation: console-toast-in var(--dur-ui) var(--ease-out);
 }
 .admin-toast[hidden]{ display: none; }
 .admin-toast.error{ border-color: color-mix(in srgb, var(--loss) 45%, transparent); }
+@keyframes console-toast-in{ from{ opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce){ .admin-toast, .sysadmin-toast{ animation: none; } }
 
 /* ---- Live data additions ---- */
 
@@ -5216,6 +5278,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-card-head h3{ margin: 0; font-size: var(--fs-17); font-weight: 700; }
 .dr-order-row{ display: grid; grid-template-columns: 44px 1fr auto; align-items: center; min-height: 48px; padding: 0 18px; transition: background 0.3s; border-bottom: 1px solid var(--hairline); }
 .dr-order-row:last-child{ border-bottom: 0; }
+/* The live room's auto-draft switches: no pick-number column. */
+.dr-order-row.dr-auto-row{ grid-template-columns: 1fr auto; }
 .dr-order-row.shown{ background: var(--seg-track); }
 .dr-order-row.me{ background: var(--accent-soft); }
 .dr-order-n{ font-size: var(--fs-18); font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -5465,7 +5529,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-tip b{ font-size: var(--fs-13); font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dr-tip span{ font-size: var(--fs-11); color: var(--text-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dr-roster-n{ font-size: var(--fs-12); color: var(--text-mute); font-variant-numeric: tabular-nums; }
-.dr-queue-head{ margin-top: 22px; }
+.dr-roster-head{ margin-top: 22px; }
 .dr-empty{ margin-top: 10px; padding: 14px; border: 1px dashed var(--hairline-strong); border-radius: var(--r-md); font-size: var(--fs-12); line-height: 1.45; color: var(--text-mute); }
 .dr-q{ margin-top: 8px; padding: 6px 8px 6px 4px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--hairline); }
 .dr-q:focus-visible{ outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -5510,6 +5574,21 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-proxy-btn{ margin-top: 10px; height: 32px; }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
+/* Auto-draft: my switch (under My queue, and the lobby), the note on
+   the clock card when it's about to pick for me, and the board tag. */
+.dr-auto{ display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 12px; border-radius: var(--r-sm); background: var(--seg-track); border: 1px solid transparent; }
+.dr-auto.on{ background: var(--accent-soft); border-color: var(--accent-border); }
+.dr-auto-main{ flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dr-auto-main b{ font-size: var(--fs-13); color: var(--text); }
+.dr-auto.on .dr-auto-main b{ color: var(--accent); }
+.dr-auto-main span{ font-size: var(--fs-12); color: var(--text-sub); line-height: 1.35; }
+.dr-auto .switch{ flex: 0 0 auto; }
+.dr-lobby .dr-auto{ margin: 0; }
+.dr-auto.compact{ padding: 8px 12px; margin: 14px 0 0; }
+.dr-auto.compact .dr-auto-main span{ font-size: var(--fs-11); }
+.dr-auto-note button{ font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+/* A dot rather than a word: board columns are too narrow for a tag. */
+.dr-auto-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: middle; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }
 /* The draft room's modals ride the shared .modal-overlay/.modal sheet
    (a bottom sheet on phones); this only lifts it over the draft view
@@ -5670,6 +5749,8 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 }
 .dr-caret:hover{ background: var(--seg-thumb); color: var(--text); }
 .dr-col-head .dr-caret{ margin-left: 4px; }
+/* Folding a side panel is a desktop/tablet thing; the phone shell has tabs. */
+.dm .dr-col-head .dr-caret{ display: none; }
 .dr-col-head .dr-dim{ margin-left: auto; }
 
 .dr-rail{
@@ -6073,6 +6154,26 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-claim-msg{ margin: 0; font-size: var(--fs-13); color: var(--text-sub); }
 .landing-claim-msg:empty{ display: none; }
 .landing-foot{ margin: 18px 0 0; font-size: var(--fs-13); line-height: 1.45; color: var(--text-mute); }
+/* FAQ (landing.html): native <details>, one card each, a chevron that turns. */
+.landing-faq{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.landing-faq-item{ border-radius: var(--r-md); background: var(--surface); }
+.landing-faq-item summary{
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px; cursor: pointer; list-style: none;
+  font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--text);
+}
+.landing-faq-item summary::-webkit-details-marker{ display: none; }
+.landing-faq-item summary::after{
+  content: ''; flex: none; width: 8px; height: 8px; margin-right: 2px;
+  border-right: 2px solid var(--text-mute); border-bottom: 2px solid var(--text-mute);
+  transform: translateY(-2px) rotate(45deg); transition: transform 0.2s ease;
+}
+.landing-faq-item[open] summary::after{ transform: translateY(2px) rotate(-135deg); }
+.landing-faq-body{ padding: 0 14px 14px; }
+.landing-faq-body p{ margin: 0; font-size: var(--fs-14); line-height: 1.5; color: var(--text-sub); }
+.landing-faq-body p + p{ margin-top: 8px; }
+.landing-contact a{ color: var(--accent); font-weight: 700; text-decoration: none; }
+@media (prefers-reduced-motion: reduce){ .landing-faq-item summary::after{ transition: none; } }
 
 /* Group-open handoff (js/landing.js): the launch splash's mark, already
    built, over the splash ground. Dark on purpose: a group app with no
@@ -6223,6 +6324,83 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .hiw-total{ text-align: right; font-size: var(--fs-17); color: var(--lb-ink-3); }
 .hiw-lrow.first .hiw-total{ color: var(--lb-ink-strong); }
 
+/* The finale: your bar fills solid gold with a shine sweep, then the
+   trophy drops onto its end with a ring and a burst of sparks while the
+   rest of the ladder steps back. Reduced motion shows the end state. */
+.hiw-lrow{ transition: top 560ms var(--ease-out), opacity 400ms ease, box-shadow 500ms ease; }
+.hiw-bar-wrap{ position: relative; display: flex; align-items: center; min-width: 0; }
+.hiw-bar-wrap .split-bar{ flex: 1; position: relative; }
+.hiw-lrow.gold .split-bar{ --split-h: 10px; }
+.hiw-lrow.gold .split-bar .lk{
+  background: linear-gradient(90deg, #B8862B, #F6D985 45%, #E2B84A 70%, #C7952F);
+  transition: width 700ms var(--ease-out);
+}
+.hiw-lrow.gold .split-bar::after{
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.85) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: hiw-shine 900ms 450ms ease-in-out both;
+}
+/* A second sweep as the trophy lands (its own name, so it restarts). */
+.hiw-lrow.crowned .split-bar::after{ animation: hiw-shine-2 900ms 250ms ease-in-out both; }
+.hiw-lrow.gold .hiw-total{ color: var(--accent); }
+.hiw-lrow.crowned{
+  box-shadow: inset 0 0 0 1px var(--accent-border), 0 8px 26px -10px rgba(217,180,91,0.7);
+}
+.hiw-board.crowned .hiw-lrow:not(.crowned){ opacity: 0.5; }
+.hiw-champ{ opacity: 0; transform: translateY(4px) scale(0.9); transition: opacity 260ms ease, transform 420ms var(--ease-spring); }
+.hiw-board.crowned .hiw-champ{ opacity: 1; transform: none; }
+
+.hiw-cup{
+  position: absolute; right: -9px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface); color: var(--accent-fill);
+  box-shadow: 0 0 0 1.5px var(--accent-fill), 0 3px 10px -2px rgba(0,0,0,0.35);
+  opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg);
+  pointer-events: none;
+}
+.hiw-trophy{ width: 18px; height: 18px; }
+.hiw-lrow.crowned .hiw-cup{ opacity: 1; transform: none; animation: hiw-cup-drop 700ms var(--ease-spring) both; }
+/* A ring flashes out from where the trophy lands. */
+.hiw-cup::before{
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--accent-fill); opacity: 0;
+}
+.hiw-lrow.crowned .hiw-cup::before{ animation: hiw-ring 800ms 280ms var(--ease-out) both; }
+.hiw-sparks{ position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.hiw-sparks > i{
+  position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 1px;
+  background: var(--accent-fill); opacity: 0;
+}
+.hiw-sparks > i:nth-child(even){ width: 3px; height: 3px; left: -1.5px; top: -1.5px; background: #F6D985; }
+.hiw-sparks > i:nth-child(1){ --a: 8deg; --d: 28px; }
+.hiw-sparks > i:nth-child(2){ --a: 44deg; --d: 35px; }
+.hiw-sparks > i:nth-child(3){ --a: 80deg; --d: 42px; }
+.hiw-sparks > i:nth-child(4){ --a: 116deg; --d: 28px; }
+.hiw-sparks > i:nth-child(5){ --a: 152deg; --d: 35px; }
+.hiw-sparks > i:nth-child(6){ --a: 188deg; --d: 42px; }
+.hiw-sparks > i:nth-child(7){ --a: 224deg; --d: 28px; }
+.hiw-sparks > i:nth-child(8){ --a: 260deg; --d: 35px; }
+.hiw-sparks > i:nth-child(9){ --a: 296deg; --d: 42px; }
+.hiw-sparks > i:nth-child(10){ --a: 332deg; --d: 28px; }
+.hiw-lrow.crowned .hiw-sparks > i{ animation: hiw-spark 760ms 260ms var(--ease-out) both; }
+@keyframes hiw-shine{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
+@keyframes hiw-shine-2{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
+@keyframes hiw-cup-drop{
+  0%{ opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg); }
+  55%{ opacity: 1; transform: translateY(0) scale(1.25) rotate(8deg); }
+  100%{ opacity: 1; transform: none; }
+}
+@keyframes hiw-ring{
+  0%{ opacity: 0.9; transform: scale(1); }
+  100%{ opacity: 0; transform: scale(2.4); }
+}
+@keyframes hiw-spark{
+  0%{ opacity: 1; transform: rotate(var(--a)) translateY(-15px) scale(1) rotate(45deg); }
+  100%{ opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.3) rotate(45deg); }
+}
+.hiw.still .hiw-lrow *, .hiw.still .hiw-lrow *::before, .hiw.still .hiw-lrow *::after{ animation: none !important; }
+
 /* 3 · Scores: the Scores tab's own timeline (.tg-*), with the node's
    cut-out ring matched to this card. */
 .hiw-scores{ gap: 4px; }
@@ -6290,7 +6468,6 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
    ============================================================ */
 body.sysadmin-page{ padding: 0; }
 .sysadmin{
-  --sysadmin-rail: color-mix(in srgb, var(--surface) 18%, var(--bg));
   --sysadmin-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
@@ -6299,14 +6476,13 @@ body.sysadmin-page{ padding: 0; }
 .sysadmin a{ color: var(--accent); text-decoration: none; }
 .sysadmin a:hover{ text-decoration: underline; }
 .sysadmin code{ font-family: var(--sysadmin-mono); font-size: var(--fs-12); }
-.sysadmin :focus-visible{ outline: none; box-shadow: var(--focus-ring); }
 
 /* -- Sidebar -- */
 .sysadmin-side{
   position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; gap: 22px;
   padding: 24px 14px;
-  background: var(--sysadmin-rail);
+  background: var(--console-rail);
   border-right: 1px solid var(--hairline);
   overflow-y: auto;
 }
@@ -6429,6 +6605,12 @@ body.sysadmin-page{ padding: 0; }
 .sysadmin-field{ flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
 .sysadmin-field-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }
 .sysadmin-edit-meta{ display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; font-size: var(--fs-13); color: var(--text-sub); }
+/* A second list inside a card (the Draft section's poll), and the roster's
+   email editor. */
+.sysadmin-sublist{ border-top: 1px solid var(--hairline); }
+.sysadmin-sublabel{ padding: 14px 18px 4px; font-size: var(--fs-11); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute); }
+.sysadmin-input.cell{ padding: 6px 10px; font-size: var(--fs-13); }
+.sysadmin-card > .sysadmin-scroll + .sysadmin-emails-foot{ align-items: center; border-top: 1px solid var(--hairline); }
 .sysadmin-check{ display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; cursor: pointer; }
 .sysadmin-check input{ width: 16px; height: 16px; margin: 0; accent-color: var(--accent-fill); }
 
@@ -6483,7 +6665,7 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 .sysadmin-preview-cap{ display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-12); color: var(--text-sub); }
 .sysadmin-preview-subject{ font-size: var(--fs-15); font-weight: 700; }
 /* The email is dark in every theme (js/welcome-template.js). */
-.sysadmin-preview{ flex: 1; width: 100%; min-height: 560px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--brand-dark); }
+.sysadmin-preview{ flex: 1; width: 100%; min-height: 560px; border: 1px solid var(--hairline); border-radius: var(--r-sm); background: var(--brand-dark); }
 
 /* Buttons and pills */
 .sysadmin-btn{
@@ -6508,16 +6690,14 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 /* Each action's result */
 .sysadmin-toast{
   position: fixed; right: 24px; bottom: 24px; z-index: 50; max-width: 380px;
-  padding: 14px 18px; border: 1px solid var(--hairline-strong); border-radius: 12px;
+  padding: 14px 18px; border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
   background: var(--surface-2); color: var(--text);
   font-size: var(--fs-14); font-weight: 600; line-height: 1.4;
   box-shadow: var(--shadow-pop);
   cursor: pointer;
-  animation: sysadmin-toast-in var(--dur-ui) var(--ease-out);
+  animation: console-toast-in var(--dur-ui) var(--ease-out);
 }
 .sysadmin-toast[hidden]{ display: none; }
-@keyframes sysadmin-toast-in{ from{ opacity: 0; transform: translateY(8px); } }
-@media (prefers-reduced-motion: reduce){ .sysadmin-toast{ animation: none; } }
 
 @media (max-width: 900px){
   .sysadmin{ grid-template-columns: minmax(0, 1fr); }

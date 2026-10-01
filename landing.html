@@ -53,6 +53,47 @@
   <div class="set-label landing-label" id="landing-groups-label">Groups</div>
   <nav class="landing-groups" id="landing-groups" aria-label="Groups"></nav>
   <p class="landing-foot" id="landing-foot">Each group is its own app. Open yours, then add it to your Home Screen.</p>
+  <!-- Questions prospects ask before claiming a spot. Native <details>, so
+       each one opens and closes with no script. -->
+  <div class="set-label landing-label">FAQ</div>
+  <section class="landing-faq" aria-label="Frequently asked questions">
+    <details class="landing-faq-item">
+      <summary>Some seasons are already underway. How does that work?</summary>
+      <div class="landing-faq-body">
+        <p>Each league counts one season. If it's already going (NFL, college football, the Premier League), this season counts, games already played included. Points come from where a team finishes, so you just get to draft with a few weeks of results to go on.</p>
+        <p>If a league is in its playoffs or done (MLB, WNBA), you're drafting for its next season. The app still shows this year's results, marked as not counting. Golf counts the FedEx Cup season that starts in January.</p>
+      </div>
+    </details>
+    <details class="landing-faq-item">
+      <summary>Do I set lineups each week?</summary>
+      <div class="landing-faq-body">
+        <p>Nope. Once the draft is done, there's nothing to manage. You just cheer your teams on through the end of their seasons, and every team you drafted earns you points.</p>
+      </div>
+    </details>
+    <details class="landing-faq-item">
+      <summary>How does the draft work?</summary>
+      <div class="landing-faq-body">
+        <p>Everyone drafts together, live in Boxscore, from a phone, iPad or computer. It's a snake draft: the order flips each round, so whoever picks last in one round picks first in the next.</p>
+        <p>Can't stay for the whole thing? Auto draft will make your picks for you. Want to practice first? Run a Mock Draft any time before the real one.</p>
+      </div>
+    </details>
+    <details class="landing-faq-item">
+      <summary>When is the draft?</summary>
+      <div class="landing-faq-body">
+        <p>Once the group is full, the commissioner posts a poll in the app with a few possible times. Everyone marks the ones they can make, and the time that works best becomes the draft. The app shows it on Home and can send you an alert.</p>
+      </div>
+    </details>
+    <details class="landing-faq-item">
+      <summary>Does it cost anything?</summary>
+      <div class="landing-faq-body">
+        <p>This year's buy-in is $20 per person, and you can pay it at the end of the season.</p>
+      </div>
+    </details>
+  </section>
+  <!-- admin@boxscore.space only receives mail through Cloudflare Email
+       Routing, which forwards it to the platform admin's own inbox, so that
+       address never appears on this public page. -->
+  <p class="landing-foot landing-contact">Any other questions? Email <a href="mailto:admin@boxscore.space">admin@boxscore.space</a>.</p>
 </main>
 <!-- Opening a group: the logo above flies to the center and becomes the
      launch splash's built mark (same geometry as index.html #launch-splash),

@@ -399,7 +399,7 @@ export function pgaStandingsBodyHtml(){
     return golfStore.error ? '<div class="no-live-note">No data available.</div>' : skeletonRowsHtml();
   }
   loadGolf(); // quietly refreshes when stale
-  const toggle = standingsToggleHtml([{ key: 'table', label: 'FedEx Cup' }, { key: 'byDrafter', label: 'Drafted' }], pgaStandingsMode, 'setPgaStandingsMode');
+  const toggle = standingsToggleHtml([{ key: 'table', label: 'FedEx Cup' }, { key: 'byDrafter', label: 'Drafted' }], pgaStandingsMode, 'setPgaStandingsMode', 'pga');
   const note = priorSeasonNoteHtml();
   if(pgaStandingsMode === 'byDrafter' && !PRE_DRAFT) return note + toggle + computePgaDrafterCombined().map(renderPgaByDrafterRow).join('');
   const rows = Object.values(golfStore.fedex || {})
@@ -424,7 +424,7 @@ function renderPgaStandingsRow(r){
       ${teamBadgeHtml(meta)}
       <div class="team-main">
         <div class="team-name">${esc(meta.name)}</div>
-        ${teamKey ? standingsOwnerHtml(TEAM_META[teamKey].favoriteOnly ? null : teamKey) : ''}
+        ${teamKey ? standingsOwnerHtml(TEAM_META[teamKey].favoriteOnly ? null : teamKey, 'pga') : ''}
       </div>
       <div class="person-record-chip"><span class="person-record-primary">${fmtPts(r.points)}</span><span class="person-record-secondary">${wins ? `${wins} win${wins === 1 ? '' : 's'}` : 'pts'}</span></div>
     </div>`;

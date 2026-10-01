@@ -342,7 +342,9 @@ function obDrafterAwards(draftTeamId, bonuses){
 // `confirmedTotal` (locked) is the floor shown beside it.
 function obBuildRow(d, bonuses){
   const awards = obDrafterAwards(d.id, bonuses);
-  const leagues = LEAGUES.map(l => {
+  // Scoring leagues only: one shown without being drafted (js/sports.js)
+  // has no rules and nothing to score.
+  const leagues = LEAGUES.filter(l => LEAGUE_SCORING[l.key]).map(l => {
     const mine = awards.filter(a => a.leagueKey === l.key);
     const pts = mine.reduce((s, a) => s + a.pts, 0);
     const provisional = mine.reduce((s, a) => s + (a.provisional ? a.pts : 0), 0);

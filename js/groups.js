@@ -113,8 +113,19 @@ export function drafterIdsFor(groupId){
 // still in the lobby (syncCaps in js/draft-engine.js), and a pre-draft
 // group's league tabs are this list (js/seasons/index.js). Once a group
 // has drafted, its class file's LEAGUES decides what it shows.
+//
+// The Commissioner page can change both without a deploy (js/sports.js,
+// the sports@<group> KV record): the worker reads it itself
+// (worker/sports.js) and the app writes it onto GROUPS at boot
+// (js/group-sports.js), so this and groupShown see it.
 export function groupCaps(groupId){
   return (isKnownGroup(groupId) && GROUPS[groupId].caps) || null;
+}
+
+// The sports a group shows scores for without drafting them (league
+// keys), from the Commissioner page's Sports screen. Empty unless set.
+export function groupShown(groupId){
+  return (isKnownGroup(groupId) && GROUPS[groupId].shown) || [];
 }
 
 // <id>.boxscore.space -> id, for a known group only. Anything else

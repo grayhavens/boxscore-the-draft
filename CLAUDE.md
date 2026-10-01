@@ -81,9 +81,22 @@ stripped and every team `favoriteOnly`, so Scores, Standings and team pages work
 hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). A group's
 optional `caps` in `js/groups.js` (`groupCaps`) picks its sports and picks per sport: its draft rooms take them while
 in the lobby (`syncCaps`), and its pre-draft class shows only those leagues (standings modules read leagues through
-`leagueOf` in `js/data.js`, so a missing one is empty). The Draft has none and keeps `DEFAULT_CAPS`. PGA Tour golfers
+`leagueOf` in `js/data.js`, so a missing one is empty). The Draft has none and keeps `DEFAULT_CAPS`.
+The commissioner can change both on Commissioner → Sports with no deploy (see **Group sports** below). PGA Tour golfers
 for Season Ticket are planned in `docs/golf-plan.md`. The ESPN
 data and proxy edge cache are shared by every group.
+
+**Group sports** (`js/sports.js`, `worker/sports.js`, `js/group-sports.js`): Commissioner → Sports (`js/admin.js`) sets
+each sport to Off, Scores (shown on every tab with nobody owning a team: no picks, no scoring rules, no "Drafted"
+toggle, and on Home only once you favorite something) or Draft with 1 to 5 picks each. Stored as `sports@<group>` in KV
+(`{ sports: { <league>: 0 | n }, at }`), `PUT /sports` with the commissioner password, `GET /sports` public like
+`/roster`. Drafted sports are the group's caps for its next draft room: a room in the lobby reads them on every connect,
+and a save also pushes them to the `main` and `mock-1` rooms at once (`at` stops a lagging KV read from undoing a
+newer save). The app writes them onto the `GROUPS` entry at boot (`caps` and `shown`, read by `groupCaps` /
+`groupShown`), the roster's localStorage-first pattern, so a change shows from the next launch. A pre-draft class shows
+drafted and scores-only sports (`preDraftClass(caps, shown)`); a drafted class keeps every league it drafted, since
+they still score, and gets scores-only leagues added from the catalog (`withScoresOnly`, marked `scoresOnly` on the
+`LEAGUES` entry, `isScoresOnly` in `js/data.js`). No record means `js/groups.js` decides. **Deploy the worker first.**
 
 **Group invite code** (`worker/access-code.js`, `js/access.js`): a light gate that keeps outsiders out of a group's own
 state (chat, draft room, activity, favorites, facts, points history, push), with no accounts. One shared code per group
@@ -228,12 +241,23 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
 room signs its socket in with the password saved there. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
-league, the `desk*` functions); under that it keeps the phone column with a Draft/Scoring switch and league chips. See
+league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Draft screen leads with
+a "Needs attention" list (a paused draft, a passed or near draft time with the lobby unready, a poll everyone answered,
+a locked league with postseason rules nobody is marked for), flagged in the sidebar too. Under 900px it keeps the phone
+column with a Draft/Scoring switch and league chips. Its writes (marks, adjustments, locks, the draft time and poll) carry
+a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker adds that to the system admin log as
+`Commissioner`; a write with no note isn't logged. **Deploy the worker first** (an old one ignores the note). See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
 Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
+**Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
+`AUTO_DRAFT_SECONDS` (5s) after they go on the clock, from their queue or else the best team that fits, through the
+same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
+(`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
+room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
+clock" alert. Picks it makes carry `auto: true`. **Deploy the worker first:** an old worker rejects `setAutoDraft`.
 **Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
 (`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time plus Mock Draft / Live Draft buttons, and hides
 the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's
@@ -275,8 +299,10 @@ mints a 12-hour token signed with that group's own password (`worker/commissione
 the `#commissioner=` URL fragment (`js/admin.js`) and stores it in place of a typed password, and every commissioner
 check accepts either. Rotating a group's password cancels its tokens. It's the one desktop-first page: a sidebar
 picks Platform (health tiles, a "Needs attention" queue, every group in a table, the admin log) or one group (summary
-strip, claims, one Roster table of every spot, invite code, announcement, welcome email with a live preview, alert
-devices, chat moderation, that group's log); under 900px the sidebar becomes a top bar with a picker. Action results
+strip, claims, the live draft's setup and time poll answers, one Roster table of every spot with an Edit emails mode for
+the named spots, invite code, announcement, welcome email with a live preview, alert devices, chat moderation, that
+group's log, commissioner writes included); the screen is `?group=<id>` (`platform` for Platform), so Back and reloads
+work; under 900px the sidebar becomes a top bar with a picker. Action results
 show as a toast, and it refreshes itself every minute while nothing is being typed. The Roster adds a person to an
 open spot with no claim, edits a confirmed spot's name or email, and welcomes one person. **`APP_VERSION` lives in
 `js/version.js`** (bump it there), which the worker imports too, so `/status` reports the version the worker was

@@ -3,7 +3,7 @@
    fetch, formatting, team-name matching, and
    the small badge/icon markup every view reuses.
    ============================================================ */
-import { LEAGUES, leagueOf, TEAM_META, DRAFT_TEAMS, PRE_DRAFT } from './data.js';
+import { LEAGUES, leagueOf, TEAM_META, DRAFT_TEAMS, PRE_DRAFT, isScoresOnly } from './data.js';
 import { reducedMotion } from './sheet.js';
 
 // Sheets and the scroll lock live in js/sheet.js (no group data, so the
@@ -111,6 +111,14 @@ export async function fetchAuthedJSON(url, password){
 
 // PUT with the admin password attached and a JSON body — the write
 // counterpart to fetchAuthedJSON, used for every facts/adjustments save.
+// `url` with ?note=<text>: what a commissioner write did, in words, for
+// the system admin page's log (logCommissionerWrite in
+// worker/rundown-proxy.js). No note, no log line.
+export function withNote(url, note){
+  if(!note) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}note=${encodeURIComponent(note)}`;
+}
+
 export async function putAuthedJSON(url, password, body){
   const { signal, clear } = withTimeoutSignal();
   try {
@@ -254,16 +262,18 @@ export function draftOwnerName(teamKey){
 }
 
 // A standings row's owner line: who drafted the team, or "Undrafted".
-// Before the group's first draft nobody owns anything, so no line at all.
-export function standingsOwnerHtml(teamKey){
-  if(PRE_DRAFT) return '';
+// Before the group's first draft nobody owns anything, and nobody drafts
+// a scores-only league (isScoresOnly), so no line at all.
+export function standingsOwnerHtml(teamKey, leagueKey){
+  if(PRE_DRAFT || (leagueKey && isScoresOnly(leagueKey))) return '';
   return `<div class="team-sub">${(teamKey && draftOwnerName(teamKey)) || 'Undrafted'}</div>`;
 }
 
 // A Standings league's mode toggle. Its "Drafted" segment is left out
-// before the first draft, and a toggle down to one segment isn't shown.
-export function standingsToggleHtml(segments, active, handlerName){
-  const shown = PRE_DRAFT ? segments.filter(s => s.key !== 'byDrafter') : segments;
+// before the first draft and for a league nobody drafted (isScoresOnly),
+// and a toggle down to one segment isn't shown.
+export function standingsToggleHtml(segments, active, handlerName, leagueKey){
+  const shown = PRE_DRAFT || (leagueKey && isScoresOnly(leagueKey)) ? segments.filter(s => s.key !== 'byDrafter') : segments;
   if(shown.length < 2) return '';
   return `
     <div class="standings-toggle">

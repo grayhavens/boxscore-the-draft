@@ -7,8 +7,8 @@
    imports, so client and server can't disagree about the rules) and the
    resulting state is persisted, then broadcast to everyone. The pick
    clock is a set of timestamps inside the state (see js/draft-rules.js),
-   so the real room never ticks: its clock is soft and nothing
-   auto-picks.
+   so the real room never ticks: its clock is soft, and the only
+   auto-pick there is auto-draft (below).
 
    One instance per room name (`?room=`, default "main"), so throwaway
    mock drafts run on their own rooms before the real one. See
@@ -21,6 +21,11 @@
      the clock — a bot (config.bots) after config.botSeconds, anyone
      else once config.clockSeconds runs out — and picks from their queue,
      else the best-ranked team that fits (autoPickTeam).
+   Auto-draft (state.autoDraft, the setAutoDraft action) works in every
+   room, the real one included: a drafter who turns it on is picked for
+   the same way, AUTO_DRAFT_SECONDS after going on the clock, and gets no
+   "You're on the clock" alert. autoPickLimitMs (js/draft-rules.js)
+   decides the delay for both kinds of room.
    The room learns its own name and group (js/groups.js) from the
    WebSocket URL on first connect (kv 'room' / 'group'); a Durable Object
    isn't told the name it was created by. The group picks the default
@@ -77,14 +82,19 @@
    (js/draft-poll.js), which rides along on the status: the commissioner's
    candidate times (PUT .../poll, password-checked by the worker) and each
    drafter's answer (PUT .../vote, no-auth like a pick).
+
+   Sports: a room in the lobby takes its group's drafted sports as its
+   caps (worker/sports.js), read on every connect, and PUT .../caps hands
+   a Commissioner page save straight to an open lobby.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
+import { liveGroupCaps } from './sports.js';
 import { pushToDrafters } from './web-push.js';
 import { draftTimeAlert } from './draft-time-alert.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
@@ -97,7 +107,8 @@ const RATE_MAX_FRAMES = 30;
 const MAX_AUTH_FAILURES = 5;
 
 // A fresh room's state: the group's drafters, and its own sports and
-// pick counts when js/groups.js gives it some.
+// pick counts when js/groups.js gives it some. A Commissioner page
+// change (worker/sports.js) follows on the first connect.
 function newRoomState(group){
   const caps = groupCaps(group);
   return createState(drafterIdsFor(group), caps ? { caps: { ...caps } } : {});
@@ -139,6 +150,8 @@ export class DraftRoom extends DurableObject {
       this.scheduledAt = scheduled ? Number(scheduled.v) : null;
       const poll = this.sql.exec("SELECT v FROM kv WHERE k = 'poll'").toArray()[0];
       this.poll = poll ? JSON.parse(poll.v) : null;
+      const capsAt = this.sql.exec("SELECT v FROM kv WHERE k = 'capsAt'").toArray()[0];
+      this.capsAt = capsAt ? Number(capsAt.v) : 0;
     });
   }
 
@@ -159,7 +172,7 @@ export class DraftRoom extends DurableObject {
         const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
         if(!saved) this.state = newRoomState(this.group);
       }
-      this.syncGroupCaps();
+      await this.syncGroupCaps();
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
       this.ctx.acceptWebSocket(server);
@@ -179,6 +192,9 @@ export class DraftRoom extends DurableObject {
     }
     if(new URL(request.url).pathname.endsWith('/vote') && request.method === 'PUT'){
       return this.votePoll(request);
+    }
+    if(new URL(request.url).pathname.endsWith('/caps') && request.method === 'PUT'){
+      return this.pushCaps(request);
     }
     if(new URL(request.url).pathname.endsWith('/status')){
       return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
@@ -288,6 +304,7 @@ export class DraftRoom extends DurableObject {
         drafter: p.by,
         team: teamById(state.pool, p.team),
         ...(p.proxy ? { proxy: true } : {}),
+        ...(p.auto ? { auto: true } : {}),
         ...(p.edited ? { edited: true } : {})
       };
     });
@@ -301,16 +318,48 @@ export class DraftRoom extends DurableObject {
     };
   }
 
-  // A group's sports or pick counts changed in js/groups.js since this
-  // room was made: apply them while it's still in the lobby.
-  syncGroupCaps(){
-    const caps = groupCaps(this.group);
-    const next = caps && syncCaps(this.state, caps);
+  // A group's sports or pick counts changed since this room was made (on
+  // the Commissioner page, or in js/groups.js): apply them while it's
+  // still in the lobby. `pushed` is a save handed over by the worker;
+  // otherwise they're read from KV, which can lag a save, so a record
+  // older than the last one applied here is ignored.
+  async syncGroupCaps(pushed){
+    const live = pushed || await liveGroupCaps(this.env, this.group);
+    if(live.at < this.capsAt) return;
+    if(live.at > this.capsAt){
+      this.capsAt = live.at;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('capsAt', ?)", String(live.at));
+    }
+    const next = live.caps && syncCaps(this.state, live.caps);
     if(!next) return;
     this.state = next;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
     this.broadcast({ type: 'pool', pool: this.state.pool });
     this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
+  }
+
+  // { caps, at } from the worker's PUT /sports, which has already checked
+  // the commissioner password. A room nobody has opened yet learns its
+  // group from the request, as pushDraftTime does.
+  async pushCaps(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    const caps = body && body.caps;
+    if(!caps || typeof caps !== 'object' || !Number.isSafeInteger(body.at)) return new Response('Expected { caps, at }', { status: 400 });
+    const params = new URL(request.url).searchParams;
+    if(this.room === null){
+      this.room = params.get('room') || 'main';
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('room', ?)", this.room);
+    }
+    if(this.group === null){
+      const asked = params.get('group');
+      this.group = isKnownGroup(asked) ? asked : LEGACY_GROUP_ID;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('group', ?)", this.group);
+      const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
+      if(!saved) this.state = newRoomState(this.group);
+    }
+    await this.syncGroupCaps({ caps, at: body.at });
+    return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
   }
 
   send(ws, payload){
@@ -379,7 +428,7 @@ export class DraftRoom extends DurableObject {
   }
 
   // Persists an accepted state, logs the action, tells everyone, and
-  // re-arms the mock room's auto-pick for whoever is now on the clock.
+  // re-arms the auto-pick for whoever is now on the clock.
   async commit(before, state, actor, commissioner, action){
     this.state = state;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
@@ -405,6 +454,8 @@ export class DraftRoom extends DurableObject {
     const was = onTheClock(before);
     const now = onTheClock(this.state);
     if(!now || (was && was.slot === now.slot && was.owner === now.owner)) return;
+    // Auto-draft is about to pick for them; nothing for them to do.
+    if((this.state.autoDraft || []).includes(now.owner)) return;
     const group = this.group || LEGACY_GROUP_ID;
     const roster = await effectiveDrafters(this.env, group); // confirmed spots' real names (worker/roster.js)
     const nameOf = id => (roster.find(d => d.id === id) || { name: id }).name;
@@ -422,18 +473,17 @@ export class DraftRoom extends DurableObject {
     }, { ttl: 10 * 60, urgency: 'high', topic: 'draft-clock' });
   }
 
-  // ---- Mock-room auto-pick ----
+  // ---- Auto-pick (auto-draft, and mock rooms' bots and timeouts) ----
 
   // When the pick on the clock is due to be made for its owner, or null
-  // when nothing should auto-pick (the real room, paused, lobby, done).
+  // when nothing should auto-pick (the real room for anyone not on
+  // auto-draft, paused, lobby, done).
   autoPickDue(){
-    if(!isMockRoom(this.room)) return null;
     const { state } = this;
     const clock = onTheClock(state);
     if(!clock || !state.clock.running) return null;
-    const { config } = state;
-    // A room saved before bots existed has no botSeconds.
-    const limitMs = ((config.bots || []).includes(clock.owner) ? (config.botSeconds || DEFAULT_BOT_SECONDS) : config.clockSeconds) * 1000;
+    const limitMs = autoPickLimitMs(state, clock.owner, isMockRoom(this.room));
+    if(limitMs === null) return null;
     return Date.now() + Math.max(0, limitMs - clockElapsedMs(state.clock, Date.now()));
   }
 

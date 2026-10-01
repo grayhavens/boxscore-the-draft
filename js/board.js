@@ -299,12 +299,16 @@ export function renderBoard(){
 
   renderDraftHome();
 
-  chipsEl.innerHTML = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
+  // A league shown without being drafted (js/sports.js) has nothing of
+  // yours on Home until you favorite something in it.
+  const boardLeagues = LEAGUES.filter(l => !l.scoresOnly || teamsForCurrentDraftTeam(l).length);
+  if(boardFilterKey !== 'all' && !boardLeagues.some(l => l.key === boardFilterKey)) boardFilterKey = 'all';
+  chipsEl.innerHTML = ['all'].concat(boardLeagues.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
     return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
   }).join('');
 
-  let shownLeagues = boardFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === boardFilterKey);
+  let shownLeagues = boardFilterKey === 'all' ? boardLeagues : boardLeagues.filter(l => l.key === boardFilterKey);
   // Pre-draft, only leagues a favorite put something in are worth a
   // section; the rest would be empty headers under the draft card.
   if(ACTIVE_SEASON.preDraft){
@@ -774,6 +778,7 @@ function showView(view){
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
   if(view === 'admin') showAdminPage();
+  else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
   if(view === 'guide') renderGuidePage();
 }

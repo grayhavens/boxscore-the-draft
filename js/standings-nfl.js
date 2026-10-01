@@ -336,7 +336,7 @@ export function renderNflStandingsRow(row, rank){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = standingsOwnerHtml(teamKey);
+  const ownerHtml = standingsOwnerHtml(teamKey, 'nfl');
   const recordLabel = `${row.wins}-${row.losses}${row.ties ? '-' + row.ties : ''}`;
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderNflByDrafterRow
@@ -389,7 +389,7 @@ export function nflStandingsToggleHtml(){
     { key: 'nfc', label: 'NFC' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  const topRow = standingsToggleHtml(topSegments, nflStandingsMode, 'setNflStandingsMode');
+  const topRow = standingsToggleHtml(topSegments, nflStandingsMode, 'setNflStandingsMode', 'nfl');
   if(nflStandingsMode === 'byDrafter') return topRow;
 
   const subSegments = [

@@ -147,7 +147,7 @@ export function renderStandingsRow(leagueKey, row){
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };
-  const ownerHtml = standingsOwnerHtml(teamKey);
+  const ownerHtml = standingsOwnerHtml(teamKey, 'epl');
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderEplByDrafterRow
   // below) — the real W-D-L record as the bold line, league points
@@ -244,5 +244,5 @@ export function eplStandingsToggleHtml(){
     { key: 'table', label: 'League' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return standingsToggleHtml(segments, eplStandingsMode, 'setEplStandingsMode');
+  return standingsToggleHtml(segments, eplStandingsMode, 'setEplStandingsMode', 'epl');
 }
