@@ -5,7 +5,9 @@
    breakdown, and for a few weeks after a season is recorded, as a card
    on Home.
 
-   The commissioner records seasons (js/admin.js, History); the worker
+   Nothing shows until the first season is recorded. The commissioner
+   records seasons (js/admin.js, History, which appears once every league
+   is locked); the worker
    stores them (worker/champions.js, GET /champions). The shapes and
    math are js/champions.js. A copy is mirrored to localStorage so the
    tab paints before the network answers.
@@ -40,6 +42,11 @@ function save(){
 
 export function historySeasons(){
   return seasons;
+}
+
+// Points shows History only once a season has been recorded.
+export function hasHistory(){
+  return !PRE_DRAFT && seasons.length > 0;
 }
 
 // The worker's answer to a write (js/admin.js) or a read.

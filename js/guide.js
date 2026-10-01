@@ -98,8 +98,7 @@ const GUIDE = [
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
       'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
-      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.',
-      'History has every finished season’s champion and final standings, and the all-time table.'
+      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.'
     ],
     go: ['Go to Points', "switchView('overall')"]
   },

@@ -29,7 +29,7 @@ import { raceHtml, raceMount, raceUnmount } from './race.js';
 import { currentProfileId } from './identity.js';
 import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink, leagueTileHtml } from './activity.js';
 import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js';
-import { historyPanelHtml, drafterTitlesHtml, loadHistory } from './history.js';
+import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
@@ -560,7 +560,8 @@ export function obTableHtml(rows, opts = {}){
 
 function obSegments(badge){
   return [{ key: 'standings', label: 'Standings' }, { key: 'activity', label: 'Activity', badge }]
-    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }, { key: 'history', label: 'History' }]);
+    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }])
+    .concat(hasHistory() ? [{ key: 'history', label: 'History' }] : []);
 }
 const obSegmentKeys = () => obSegments(0).map(s => s.key);
 

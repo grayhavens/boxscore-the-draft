@@ -352,9 +352,10 @@ ignore tiebreakers. Only for a league whose season is under way and not locked.
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
-finish). The commissioner records seasons on Commissioner → History: the class being played, from today's Points
-ranking (do it once every league is locked and its postseason marked), or an earlier season typed in (year and top
-three, points optional). `champions[@<group>]:seasons` in KV, `GET`/`PUT`/`DELETE /champions` (writes need the
+finish). It's hidden until the first season is recorded. The commissioner records the class being played, from today's
+Points ranking, on Commissioner → History, which only appears once every league is locked (or a season is already
+recorded). There's no form for seasons before the app (neither group wanted one); the worker and `js/champions.js`
+still accept `source: 'manual'` if that comes back. `champions[@<group>]:seasons` in KV, `GET`/`PUT`/`DELETE /champions` (writes need the
 commissioner password). Recording the app's season the first time alerts the whole group (every device with alerts
 on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
