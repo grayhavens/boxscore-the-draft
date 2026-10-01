@@ -51,6 +51,7 @@ import {
   nflverseInjuriesCache, nflverseDepthChartCache
 } from './nflverse.js';
 
+import { backLinkHtml } from './ui.js';
 // Every league with a verified roster/team-stats source (see this
 // file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
 // here still gets a real page + Overview tab, just a placeholder
@@ -553,10 +554,7 @@ function renderTeamPage(){
   el.dataset.activeTeam = teamKey;
   el.innerHTML = `
     <div class="team-page-nav">
-      <button class="team-page-back" onclick="backFromTeamPage()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
-        ${state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home')}
-      </button>
+      ${backLinkHtml({ label: state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home'), onclick: 'backFromTeamPage()' })}
       <div class="team-page-actions">${favoriteStarHtml(teamKey)}</div>
     </div>
     ${heroHtml(teamKey, meta)}
@@ -1588,10 +1586,7 @@ function renderFullSchedule(filter){
 
   el.innerHTML = `
     <div class="team-page-nav">
-      <button class="team-page-back" onclick="backFromFullScreen()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
-        ${meta.name}
-      </button>
+      ${backLinkHtml({ label: meta.name, onclick: 'backFromFullScreen()' })}
     </div>
     <div class="page-header compact">
       <h1>Schedule</h1>
@@ -1638,10 +1633,7 @@ function renderFullSquad(filter){
 
   el.innerHTML = `
     <div class="team-page-nav">
-      <button class="team-page-back" onclick="backFromFullScreen()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
-        ${meta.name}
-      </button>
+      ${backLinkHtml({ label: meta.name, onclick: 'backFromFullScreen()' })}
     </div>
     <div class="page-header compact">
       <h1>Squad</h1>

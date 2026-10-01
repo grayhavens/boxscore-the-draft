@@ -52,10 +52,6 @@ After deploying, `DASHBOARD_WORKER_BASE` in `js/worker-base.js` must point at th
 
 ## Architecture
 
-**Design tokens:** every color, type, radius, spacing, shadow and motion custom property lives in `css/tokens.css`
-(loaded before `css/style.css` on every page), never in `style.css`. The spec it follows is `docs/design-system/`, and
-the adoption plan, in step with `docs/motion-plan.md`, is `docs/design-system-plan.md`.
-
 **Single source of truth for content:** `js/data.js` holds `DRAFT_TEAMS` (the active group's 10 people, from `js/groups.js`),
 `TEAM_META` (every team's display info, league, owner, and the IDs used to pull live data),
 `LEAGUES` (which teams appear under each league tab and in what order), `LEAGUE_SCORING` (each
@@ -391,3 +387,25 @@ still opens offline) exist because this runs installed on iOS. `index.html`'s `.
 div exists because the installed PWA's translucent status bar shows real page content through it —
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.
+
+## Design system
+
+Boxscore's UI comes from the Boxscore design system. The spec is in `docs/design-system/`
+(`components/*.types.ts.txt` for options, `*.prompt.md` for usage, `components.css` for the reference recipes), and
+the adoption plan, in step with `docs/motion-plan.md`, is `docs/design-system-plan.md`.
+
+- Tokens live only in `css/tokens.css` (loaded before `css/style.css` on every page). Use `var(--…)`. Never write raw
+  hex/rgb colors anywhere else, and never define a `:root` custom property in `style.css`.
+  `tests/design-tokens.test.mjs` enforces both. Its allowlist is today's exceptions (team and league data, the welcome
+  email, the theme-color meta) and can only shrink: moving one to a token means lowering its count. The test also
+  checks that the JS easing constants in `js/utils.js` match the `--ease-*` tokens.
+- Build UI with the helpers in `js/ui.js` (`buttonHtml`, `backLinkHtml`, `iconHtml`, `switchHtml`, …). Don't hand-write
+  markup for something a helper covers, and don't add a one-off variant of an existing component. Helpers arrive with
+  the first screen that uses them, so a component without one yet gets it when its screen moves over.
+- `js/ui.js` is a leaf module (it imports only `js/escape.js` and `js/icons.js`), because `js/access.js` uses it at boot,
+  before `js/data.js` can load. Keep it that way.
+- If you need something the system doesn't have, add it to `js/ui.js` and `css/style.css` with a matching class recipe,
+  and note it in the PR so the design system can add the component.
+- Motion follows `docs/motion-plan.md`. Gate everything with `canAnimateLive()` (`fxOn()` in `js/motion-fx.js`).
+- Meaning colors: gold (`--accent`) means you or locked points, blue (`--provisional`) means live points that can still
+  change, red (`--live`) means a game in progress, and team colors appear only on the team page hero and crests.

@@ -57,11 +57,7 @@ export function retryPending(cache){
   return !!cache.failedAt && (Date.now() - cache.failedAt) < FAILED_FETCH_RETRY_MS;
 }
 
-// For any text that didn't come from this repo (chat, the shared activity
-// feed, admin notes, upstream names) before it goes into innerHTML.
-export function escapeHtml(s){
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+export { escapeHtml } from './escape.js';
 
 // ---- Admin password (scoring adjustments gate) ----
 // Cached client-side once verified against the worker's /admin/verify

@@ -20,8 +20,9 @@
 import { ACTIVE_GROUP } from './group.js';
 import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
-import { CHEVRON_LEFT_SVG } from './utils.js';
+import {  } from './utils.js';
 
+import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
 const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 // The first five match the tab bar's icons (index.html).
@@ -216,7 +217,7 @@ function tourCardBody(card){
       <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title]) => `
         <button type="button" class="set-row" role="switch" aria-checked="${prefs[kind]}" onclick="guideTogglePush('${kind}')">
           <span class="set-row-text"><span class="set-row-title">${title}</span></span>
-          <span class="switch ${prefs[kind] ? 'on' : ''}" aria-hidden="true"></span>
+          ${switchHtml({ on: prefs[kind] })}
         </button>`).join('')}</div>
       ${tour.note ? `<div class="welcome-note">${tour.note}</div>` : ''}`;
   }
@@ -239,8 +240,8 @@ function paintTour(){
     <div class="guide-foot">
       <div class="guide-dots" aria-hidden="true">${cards.map((_, j) => `<span class="${j === i ? 'on' : ''}"></span>`).join('')}</div>
       <div class="welcome-actions guide-actions">
-        ${i > 0 ? `<button type="button" class="modal-cta secondary" onclick="guideTourStep(-1)">Back</button>` : ''}
-        <button type="button" class="modal-cta" onclick="${last ? 'guideTourDone()' : 'guideTourStep(1)'}">${last ? 'Done' : 'Next'}</button>
+        ${i > 0 ? buttonHtml({ label: 'Back', variant: 'secondary', onclick: 'guideTourStep(-1)' }) : ''}
+        ${buttonHtml({ label: last ? 'Done' : 'Next', onclick: last ? 'guideTourDone()' : 'guideTourStep(1)' })}
       </div>
       ${last ? '' : '<button type="button" class="welcome-skip" onclick="guideTourDone()">Skip the tour</button>'}
     </div>
@@ -320,7 +321,7 @@ export function renderGuidePage(){
           : `Everything Boxscore does for ${ACTIVE_GROUP.name}, and where to find it.`}</div>
       </div>
       <div class="ob-back-row">
-        <button type="button" class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>
+        ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()' })}
       </div>
     </div>
     ${entries().map(g => `

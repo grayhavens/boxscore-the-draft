@@ -26,7 +26,7 @@ import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
 import { GROUP_DOMAIN } from './groups.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
-import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, CHEVRON_LEFT_SVG } from './utils.js';
+import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
@@ -34,6 +34,7 @@ import { APP_VERSION } from './version.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
 import { startTour, endTour } from './guide.js';
 
+import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
 const PROFILE_KEY = 'teamDashboardProfileId';
 
 function loadProfileId(){
@@ -96,7 +97,7 @@ function switchRowHtml(key, title, sub, on, onclick){
   return `
     <button type="button" class="set-row" data-switch="${key}" role="switch" aria-checked="${on}" onclick="${onclick}">
       <span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span>
-      <span class="switch ${on ? 'on' : ''}" aria-hidden="true"></span>
+      ${switchHtml({ on })}
     </button>`;
 }
 
@@ -119,7 +120,7 @@ export function renderSettingsPage(backLabel = 'Back'){
         <div class="page-header-top">${LOGO_HTML}<h1>Settings</h1></div>
       </div>
       <div class="ob-back-row">
-        <button type="button" class="ob-back" onclick="closeSettings()">${CHEVRON_LEFT_SVG}${backLabel}</button>
+        ${backLinkHtml({ label: backLabel, onclick: 'closeSettings()' })}
       </div>
     </div>
     <button type="button" class="set-identity" onclick="openProfileSwitcher()">
@@ -467,7 +468,7 @@ function renderWelcomeInstall(platform, firstRun){
     <li><span class="welcome-step-num">${i + 1}</span><span class="welcome-step-text">${html}</span></li>
   `).join('');
   const installBtn = platform === 'android' && deferredInstallPrompt
-    ? '<button class="modal-cta" onclick="runInstallPrompt()">Install now</button>'
+    ? buttonHtml({ label: 'Install now', onclick: 'runInstallPrompt()' })
     : '';
   el.innerHTML = `
     <div class="welcome-head">
@@ -480,7 +481,7 @@ function renderWelcomeInstall(platform, firstRun){
     <div class="welcome-actions">
       ${firstRun
         ? '<button class="welcome-skip" onclick="skipInstall()">Continue in browser</button>'
-        : '<button class="modal-cta" onclick="closeWelcome()">Done</button>'}
+        : buttonHtml({ label: 'Done', onclick: 'closeWelcome()' })}
     </div>
   `;
   el.scrollTop = 0;

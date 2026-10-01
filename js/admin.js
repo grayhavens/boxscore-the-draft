@@ -38,7 +38,7 @@
    scattered per-league Results chips and unsynced per-team checklists.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, TEAM_META, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, CHEVRON_LEFT_SVG, escapeHtml, draftOwnerName, updateUrlParam, withNote } from './utils.js';
+import { loadAdminPassword, saveAdminPassword, clearAdminPassword, fetchAuthedJSON, putAuthedJSON, fetchJSON, formatDateShort, segmentedControlHtml, escapeHtml, draftOwnerName, updateUrlParam, withNote } from './utils.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery, ACTIVE_GROUP, ACTIVE_GROUP_ID } from './group.js';
 import { groupCaps, groupShown } from './groups.js';
@@ -58,6 +58,7 @@ import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
 
+import { backLinkHtml } from './ui.js';
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
 
@@ -304,7 +305,7 @@ window.saveTeamAdjustment = function(teamKey){
 };
 
 function gateHtml(){
-  const backHtml = `<button class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>`;
+  const backHtml = `${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()' })}`;
   if(verifying){
     return `${backHtml}<div class="admin-gate"><div class="admin-gate-title">Checking password…</div></div>`;
   }
@@ -903,7 +904,7 @@ function unlockedHtml(){
   const section = ['draft', 'sports', 'history'].includes(selected) ? selected : 'scoring';
   return `
     <div class="admin-toolbar">
-      <button class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>
+      ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()' })}
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
     ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'sports', label: 'Sports' }, { key: 'scoring', label: 'Scoring' }].concat(historyOpen() ? [{ key: 'history', label: 'History' }] : []), section, 'setAdminSection')}
@@ -1538,7 +1539,7 @@ function deskGateHtml(){
         <div class="admin-desk-gate">
           ${deskBrandHtml(false)}
           <div class="admin-desk-card admin-desk-gate-card">${body}</div>
-          <button type="button" class="admin-desk-back" onclick="backToSettings()">‹ Settings</button>
+          ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()', cls: 'admin-desk-back' })}
         </div>
       </main>
     </div>`;

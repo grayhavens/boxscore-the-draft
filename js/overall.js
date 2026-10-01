@@ -21,7 +21,7 @@
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, segmentedControlHtml, CHEVRON_LEFT_SVG, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 import { assignRank } from './rank.js';
@@ -32,6 +32,7 @@ import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js'
 import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
+import { buttonHtml, iconHtml, backLinkHtml } from './ui.js';
 // League color for the per-league card's accent bar. Deliberately NOT
 // each league's real modal accent (LEAGUE_SCORING[key].accent) — those
 // are brand colors picked to sit on a light badge, and half of them are
@@ -578,10 +579,7 @@ function obListHtml(rows){
     ${me && obSegment !== 'history' ? obHeroHtml(rows, me) : ''}
     <div class="ob-seg">${seg}</div>
     ${body}
-    <button type="button" class="modal-cta secondary ob-scoring-btn" onclick="openScoringSheet()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
-      How scoring works
-    </button>
+    ${buttonHtml({ label: 'How scoring works', variant: 'secondary', iconSvg: iconHtml('scoring', { size: 15 }), onclick: 'openScoringSheet()' })}
   `;
 }
 
@@ -704,8 +702,8 @@ function obSheetHtml(rows, row){
     </div>
     <div class="ob-sheet-leagues">${leaguesHtml}</div>
     <div class="ob-sheet-actions">
-      <button type="button" class="modal-cta secondary" onclick="obSheetCompare('${row.id}')">${own || !me ? 'Compare&hellip;' : 'Compare with you'}</button>
-      <button type="button" class="modal-cta" onclick="obSheetFull('${row.id}')">Full breakdown</button>
+      ${buttonHtml({ label: own || !me ? 'Compare…' : 'Compare with you', variant: 'secondary', onclick: `obSheetCompare('${row.id}')` })}
+      ${buttonHtml({ label: 'Full breakdown', onclick: `obSheetFull('${row.id}')` })}
     </div>
   `;
 }
@@ -835,7 +833,7 @@ function obDetailHtml(row){
 
   return `
     <div class="ob-back-row">
-      <button type="button" class="ob-back" onclick="obCloseDetail()">${CHEVRON_LEFT_SVG}Points</button>
+      ${backLinkHtml({ label: 'Points', onclick: 'obCloseDetail()' })}
       <button type="button" class="cmp-btn" onclick="obOpenComparePicker()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h12"></path><path d="M16 3l4 4-4 4"></path><path d="M16 17H4"></path><path d="M8 13l-4 4 4 4"></path></svg>
         Compare

@@ -1485,25 +1485,9 @@ body{
 
 .gd-head.with-back{ padding-left: 50px; }
 
-.gd-back{
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-pill);
-  background: var(--fill-soft);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-sub);
-  cursor: pointer;
-  padding: 0;
-}
-.gd-back svg{ width: 16px; height: 16px; }
-
-.gd-back:hover{ color: var(--text); background: rgba(var(--ink-rgb),0.1); }
+/* Game Details' back: the design system's IconButton (.icon-btn), pinned
+   to the header's top-left corner. */
+.gd-back{ position: absolute; top: 16px; left: 16px; }
 
 .gd-title{
   font-family: var(--font-display);
@@ -2508,13 +2492,13 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   padding: 14px 12px 0;
   border-top: 1px solid var(--hairline);
 }
-.admin-desk-foot button, .admin-desk-back{
+.admin-desk-foot button{
   padding: 0; border: none; background: none;
   color: var(--text-sub);
   font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700;
   cursor: pointer;
 }
-.admin-desk-foot button:hover, .admin-desk-back:hover{ color: var(--text); }
+.admin-desk-foot button:hover{ color: var(--text); }
 
 .admin-desk-main{ min-width: 0; overflow-y: auto; padding: 32px 40px 64px; }
 .admin-desk-inner{ max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
@@ -3036,7 +3020,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    docs/points-ux-plan.md. */
 
 /* -- Sub row under the Points header. The Scoring entry point is the
-   full-width button at the bottom of the page (.ob-scoring-btn). -- */
+   full-width "How scoring works" button at the bottom of the page. -- */
 .page-sub-row{
   display: flex;
   align-items: center;
@@ -3376,6 +3360,18 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 
 /* -- Detail -- */
+/* IconButton (iconButtonHtml in js/ui.js): a round icon-only control. Its
+   transition and 0.92 press live with the other press states below. */
+.icon-btn{
+  width: 30px; height: 30px; flex: none; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: var(--r-pill);
+  background: var(--fill-soft); color: var(--text-sub);
+  cursor: pointer;
+}
+.icon-btn svg{ width: 14px; height: 14px; }
+.icon-btn:hover{ color: var(--text); background: rgba(var(--ink-rgb), 0.1); }
+
 .ob-back{
   display: flex;
   align-items: center;
@@ -3652,23 +3648,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   justify-content: space-between;
   padding: 2px 16px 10px;
 }
-.team-page-back{
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: none;
-  color: var(--text-sub);
-  font-family: var(--font-ui);
-  font-size: var(--fs-13);
-  font-weight: 700;
-  cursor: pointer;
-  min-height: 44px;
-  padding: 6px 8px 6px 2px;
-  border-radius: var(--r-sm);
-}
-.team-page-back:hover{ color: var(--text); }
-.team-page-back svg{ width: 17px; height: 17px; }
 .team-page-actions{ display: flex; align-items: center; gap: 6px; }
 
 .team-hero{
@@ -3872,7 +3851,10 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    .prior-season-note/.ob-sim-banner already use, shaped into a
    full-width button instead of a text banner. */
 .modal-cta{
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   min-height: 44px;
   margin-top: 18px;
@@ -3890,14 +3872,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   border-color: var(--hairline-strong);
   color: var(--text);
 }
-/* Points tab: the way into the Scoring sheet, under the table. */
-.ob-scoring-btn{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.ob-scoring-btn svg{ color: var(--accent); }
+.modal-cta.secondary svg{ color: var(--accent); }
 .modal-cta-note{
   text-align: center;
   font-size: var(--fs-11);
@@ -4204,13 +4179,7 @@ html.chat-kb .tab-bar{ display: none; }
 
 /* Game Details' way into the above (see shareGameDetailToChat in
    js/live-data.js). */
-.modal-cta.gd-share{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 0 0 16px;
-}
+.modal-cta.gd-share{ margin: 0 0 16px; }
 
 /* ---- Reactions (js/chat.js) ---- */
 
@@ -4599,13 +4568,13 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .standings-row.clickable:active, .sheet-row:active, .ob-card-head:active{ background-color: var(--press); }
 
 .modal-cta, .admin-gate-btn, .ob-detail-link, .admin-adj-save, .chat-send,
-.scope-chip, .ob-back, .team-page-back, .gd-back, .modal-close, .seg-btn{
+.scope-chip, .ob-back, .icon-btn, .modal-close, .seg-btn{
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
 .chat-send:active, .peek-banner button:active{ transform: scale(0.97); }
-.scope-chip:active, .ob-back:active, .team-page-back:active{ background-color: var(--press); }
-.gd-back:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
+.scope-chip:active, .ob-back:active{ background-color: var(--press); }
+.icon-btn:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
 .tab-btn:active .tab-icon{ transform: scale(0.94); }
 
 /* Keyboard focus (R4) */
@@ -4660,7 +4629,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   .skel-dot{ animation: none; }
   .news-card:active, .tg-row.clickable:active .tg-card,
   .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
-  .chat-send:active, .peek-banner button:active, .gd-back:active, .modal-close:active,
+  .chat-send:active, .peek-banner button:active, .icon-btn:active, .modal-close:active,
   .picker-hit:active .settings-icon, .tab-btn:active .tab-icon{ transform: none; }
 }
 
@@ -4808,8 +4777,6 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700;
 }
 .cmp-sticky.show{ opacity: 1; pointer-events: auto; }
-.cmp-sticky-back{ background: none; border: none; color: var(--text-sub); padding: 0 4px 0 0; display: flex; }
-.cmp-sticky-back svg{ width: 17px; height: 17px; }
 .cmp-sticky-a{ color: var(--accent); }
 .cmp-sticky-b{ color: var(--lb-ink-2); }
 .cmp-sticky-gap{ font-size: var(--fs-12); }
