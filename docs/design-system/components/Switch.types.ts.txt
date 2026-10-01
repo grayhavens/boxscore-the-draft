@@ -1,0 +1,7 @@
+export interface SwitchProps {
+  on?: boolean;
+  onChange?: (on: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+}
+export function Switch(props: SwitchProps): JSX.Element;

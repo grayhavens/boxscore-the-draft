@@ -1,0 +1,10 @@
+export interface PointsRow { rank: number; name: string; locked: number; live: number; current?: boolean; move?: number; }
+/**
+ * @startingPoint section="Data" subtitle="Drafter leaderboard: Lock · Live · Proj" viewport="420x420"
+ */
+export interface PointsTableProps {
+  rows: PointsRow[];
+  onRowClick?: (row: PointsRow) => void;
+  style?: React.CSSProperties;
+}
+export function PointsTable(props: PointsTableProps): JSX.Element;

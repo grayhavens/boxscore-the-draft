@@ -1,0 +1,10 @@
+import type { IconName } from './Icon';
+export interface IconButtonProps {
+  icon?: IconName;
+  /** filled — 30px round fill-soft (sheet close ×). ghost — 28px transparent until hover (header settings gear). */
+  variant?: 'filled' | 'ghost';
+  label?: string;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}
+export function IconButton(props: IconButtonProps): JSX.Element;

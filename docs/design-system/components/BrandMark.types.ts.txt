@@ -1,0 +1,10 @@
+export interface BrandMarkProps {
+  /** Play the launch-splash build: dot pulses into the orange square, brackets draw from their corners, mark half-turns, wordmark rises letter by letter. */
+  animate?: boolean;
+  /** Show the "Boxscore" wordmark under the mark. */
+  word?: boolean;
+  loop?: boolean;
+  scale?: number;
+  style?: React.CSSProperties;
+}
+export function BrandMark(props: BrandMarkProps): JSX.Element;

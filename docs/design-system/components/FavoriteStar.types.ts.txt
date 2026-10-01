@@ -1,0 +1,7 @@
+export interface FavoriteStarProps {
+  active?: boolean;
+  onToggle?: (active: boolean) => void;
+  /** sm — 22px for the compact Scores row. */
+  size?: 'md' | 'sm';
+}
+export function FavoriteStar(props: FavoriteStarProps): JSX.Element;

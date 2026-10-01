@@ -1,0 +1,9 @@
+export interface SettingsRowProps {
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  /** Trailing control: Switch, chevron, value. */
+  right?: React.ReactNode;
+  onClick?: () => void;
+}
+export function SettingsRow(props: SettingsRowProps): JSX.Element;
+export function SettingsLabel(props: { children?: React.ReactNode }): JSX.Element;

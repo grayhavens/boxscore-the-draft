@@ -1,0 +1,10 @@
+export interface ChatComposerProps {
+  value?: string;
+  onChange?: (v: string) => void;
+  onSend?: (v: string) => void;
+  showGif?: boolean;
+  gifActive?: boolean;
+  onGif?: () => void;
+  placeholder?: string;
+}
+export function ChatComposer(props: ChatComposerProps): JSX.Element;

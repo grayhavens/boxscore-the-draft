@@ -1,0 +1,11 @@
+export interface BannerProps {
+  /** accent — gold callout (peek, prior-season, sim). live — red (Draft is live). prov — blue. */
+  tone?: 'accent' | 'live' | 'prov';
+  /** Smaller 12px text, left-aligned (inline note). */
+  note?: boolean;
+  children?: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
+  style?: React.CSSProperties;
+}
+export function Banner(props: BannerProps): JSX.Element;

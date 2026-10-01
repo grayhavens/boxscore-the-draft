@@ -1,0 +1,18 @@
+/**
+ * @startingPoint section="Feedback" subtitle="Bottom sheet with title, close and staggered rows" viewport="420x480"
+ */
+export interface SheetProps {
+  open?: boolean;
+  title?: React.ReactNode;
+  sub?: React.ReactNode;
+  onClose?: () => void;
+  /** bottom — phone sheet (radius 28 top, grabber, springs up). center — desktop modal (radius 20, max 400). */
+  position?: 'bottom' | 'center';
+  /** position:absolute inside a phone frame instead of fixed to the viewport. */
+  contained?: boolean;
+  /** Overlay fade + sheet spring + 45ms-staggered row entrance. */
+  animate?: boolean;
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+}
+export function Sheet(props: SheetProps): JSX.Element | null;

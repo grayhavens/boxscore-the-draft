@@ -1,0 +1,5 @@
+export interface CountBadgeProps {
+  count: number;
+  style?: React.CSSProperties;
+}
+export function CountBadge(props: CountBadgeProps): JSX.Element | null;

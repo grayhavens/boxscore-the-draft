@@ -1,0 +1,19 @@
+import type { IconName } from '../core/Icon';
+export interface TabDef { id: string; label: string; icon: IconName; }
+/**
+ * @startingPoint section="Navigation" subtitle="Five-tab bottom bar with springing gold pill" viewport="420x140"
+ */
+export interface TabBarProps {
+  /** Defaults to Home · Scores · Chat · Standings · Points. */
+  tabs?: TabDef[];
+  active: string;
+  onChange?: (id: string) => void;
+  /** Unread counts keyed by tab id, e.g. { chat: 3 }. */
+  badges?: Record<string, number>;
+  /** position: fixed to the viewport bottom. */
+  fixed?: boolean;
+  /** Hide the pill (when a pushed screen has no tab). */
+  hidePill?: boolean;
+  style?: React.CSSProperties;
+}
+export function TabBar(props: TabBarProps): JSX.Element;

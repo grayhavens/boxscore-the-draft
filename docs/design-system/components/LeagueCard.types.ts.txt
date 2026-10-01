@@ -1,0 +1,12 @@
+export interface LeagueCardProps {
+  /** League label: "Premier League", "NFL". */
+  title: string;
+  /** Right-side count/season: "3 teams", "2025–26". */
+  count?: React.ReactNode;
+  /** League chart color dot (var(--league-epl) etc). */
+  color?: string;
+  right?: React.ReactNode;
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+}
+export function LeagueCard(props: LeagueCardProps): JSX.Element;

@@ -1,0 +1,12 @@
+export type IconName = 'home'|'scores'|'chat'|'standings'|'points'|'draft'|'bell'|'settings'|'gear'|'chevron-down'|'chevron-left'|'chevron-right'|'close'|'send'|'check'|'scoring'|'star'|'star-filled'|'ball';
+export interface IconProps {
+  /** Glyph name — the app's own inline stroke icons (24×24 grid, round caps). */
+  name: IconName;
+  /** Pixel size. Tab bar 19, header settings 20, chips 12, close 14. */
+  size?: number;
+  /** Override stroke. Defaults per glyph: 1.8 nav glyphs, 2.2 chevrons/close/send. */
+  strokeWidth?: number;
+  style?: React.CSSProperties;
+  className?: string;
+}
+export function Icon(props: IconProps): JSX.Element;
