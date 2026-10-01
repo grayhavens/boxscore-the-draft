@@ -344,9 +344,9 @@ function gifBubbleHtml(m, mine){
 }
 
 // Pressing and holding a message opens its picker (an in-flow row of the
-// emoji, with the ones you've already used highlighted, plus Copy for a
-// text message), like iOS Messages; a tap elsewhere closes it. Tapping an
-// emoji there, or a pill under the message, toggles that reaction for you.
+// emoji, with the ones you've already used highlighted), like iOS Messages;
+// a tap elsewhere closes it. Tapping an emoji there, or a pill under the
+// message, toggles that reaction for you. A tap on a text bubble copies it.
 // Both carry
 // data-react/data-mid and are handled by one delegated listener (see
 // onListClick) since renderList rebuilds the list's innerHTML.
@@ -371,11 +371,7 @@ function pickerHtml(m, mine){
     const on = (reactions[e] || []).includes(currentProfileId);
     return reactionButtonHtml(`chat-react-opt${on ? ' on' : ''}`, m, e, e, `React ${e}`);
   }).join('');
-  // Selecting a bubble's text is off (the long press is this picker), so
-  // its text is copied from here.
-  const copy = m.text && !m.game
-    ? `<button type="button" class="chat-react-copy" data-copy="${m.id}">${copiedId === m.id ? 'Copied' : 'Copy'}</button>` : '';
-  return `<div class="chat-react-bar ${mine ? 'mine' : ''}">${buttons}${copy}</div>`;
+  return `<div class="chat-react-bar ${mine ? 'mine' : ''}">${buttons}</div>`;
 }
 
 // The list's rows as [key, html] pairs, in order. Keys are stable per
@@ -499,19 +495,26 @@ function playPendingBurst(){
   burst(pill);
 }
 
-// Copy a text message from its picker, then show "Copied" for a moment.
-let copiedId = null;
-function copyMessage(messageId){
-  const m = messages.find(x => x.id === messageId);
+// A tap on a text bubble copies it (selecting a bubble's text is off: the
+// long press is the picker's). A "Copied" note rises off the bubble.
+function copyBubble(bubble){
+  const m = messages.find(x => x.id === Number(bubble.dataset.msg));
   if(!m || !m.text) return;
-  const done = () => {
-    copiedId = messageId;
-    renderList('follow');
-    setTimeout(() => {
-      copiedId = null;
-      if(pickerId === messageId) pickerId = null;
-      renderList('follow');
-    }, 700);
+  const note = () => {
+    const el = document.createElement('span');
+    el.className = 'chat-copied';
+    el.setAttribute('role', 'status');
+    el.textContent = 'Copied';
+    bubble.classList.add('fx-host');
+    bubble.appendChild(el);
+    const anim = play(el, [
+      { opacity: 0, transform: 'translate(-50%, 4px)' },
+      { opacity: 1, transform: 'translate(-50%, -4px)', offset: 0.2 },
+      { opacity: 1, transform: 'translate(-50%, -4px)', offset: 0.75 },
+      { opacity: 0, transform: 'translate(-50%, -10px)' }
+    ], { duration: 1200, fill: 'both' });
+    const end = () => { el.remove(); bubble.classList.remove('fx-host'); };
+    if(anim) anim.finished.then(end, end); else setTimeout(end, 1200);
   };
   const fallback = () => {
     const area = document.createElement('textarea');
@@ -520,11 +523,12 @@ function copyMessage(messageId){
     area.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
     document.body.appendChild(area);
     area.select();
-    try { document.execCommand('copy'); } catch (e){}
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e){}
     area.remove();
-    done();
+    if(ok) note();
   };
-  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m.text).then(done, fallback);
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m.text).then(note, fallback);
   else fallback();
 }
 
@@ -542,24 +546,22 @@ function onListClick(event){
     }
     return;
   }
-  const copy = target.closest('[data-copy]');
-  if(copy){
-    copyMessage(Number(copy.dataset.copy));
-    return;
-  }
   if(target.closest('.chat-react-bar')) return;
   // The long press that just opened a picker ends in a click too.
   if(longPressed){
     longPressed = false;
     return;
   }
-  // A shared game opens its box score.
-  if(openSharedGame(target)) return;
-  // Anything else closes an open picker.
+  // With a picker open, a tap anywhere else just closes it.
   if(pickerId !== null){
     pickerId = null;
     renderList('follow');
+    return;
   }
+  // A shared game opens its box score; a text bubble copies.
+  if(openSharedGame(target)) return;
+  const bubble = target.closest('.chat-bubble[data-msg]');
+  if(bubble) copyBubble(bubble);
 }
 
 // Reactions are a press and hold on any message (bubble, GIF, shared game),

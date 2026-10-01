@@ -68,7 +68,7 @@ Testing: `node tools/rehearse-draft.mjs` against `wrangler dev`, plus a mock roo
 ## Phase 5: Chat & app-wide
 
 - **Reaction burst** (`js/chat.js`). Runs on your own reaction only. Swell the emoji, tick the count up, and burst six dots.
-  **Done**, together with a gesture change asked for in review: reactions open with a long press (450ms) on any message, or a right-click, like iOS Messages, instead of a tap. While the finger is down the message eases to 0.97, and moving it cancels (a scroll). A tap elsewhere closes the bar. Bubbles aren't selectable any more, so the bar has Copy for a text message. The burst: the emoji swells in the bar before it closes, then the new pill pops and six gold dots burst off it (`burst` in `js/motion-fx.js`) once the room sends the reaction back.
+  **Done**, together with a gesture change asked for in review: reactions open with a long press (450ms) on any message, or a right-click, like iOS Messages, instead of a tap. While the finger is down the message eases to 0.97, and moving it cancels (a scroll). A tap elsewhere closes the bar. Bubbles aren't selectable any more, so a tap on a text bubble copies it (a "Copied" note rises off it); a tap on a shared game still opens it. The burst: the emoji swells in the bar before it closes, then the new pill pops and six gold dots burst off it (`burst` in `js/motion-fx.js`) once the room sends the reaction back.
 - **Pull to refresh.** This is new: iOS standalone PWAs have no native pull-to-refresh. Add touch handlers on each view's scroller and draw the brand mark from `launch-splash.js` as you pull. On release, refresh the data, then flash the rows that changed. This one is the riskiest because it competes with scrolling, so do it last.
 
 ## Fitting the design system

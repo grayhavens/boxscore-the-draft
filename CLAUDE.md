@@ -185,8 +185,8 @@ Chat tab ships pointing at a room that doesn't exist yet.
 
 **Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (or right-clicking it), like iOS Messages, opens a
 row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and
-`worker/chat-room.js`, and the worker rejects anything not in its copy), plus Copy on a text message, since a
-bubble's text isn't selectable (the long press is the picker's); a tap elsewhere closes it; tapping a pill under a
+`worker/chat-room.js`, and the worker rejects anything not in its copy); a tap elsewhere closes it. A bubble's text isn't
+selectable (the long press is the picker's), so a tap on a text bubble copies it; tapping a pill under a
 message toggles your own. The client sends `{type:'react', from, messageId, emoji}` and the room
 answers everyone with that message's full reaction set. Reactions live in their own SQLite table (not
 on the message) since they change after it's sent, so the `history` frame always carries a snapshot

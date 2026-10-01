@@ -115,7 +115,7 @@ const GUIDE = [
     id: 'chat', icon: 'chat', tour: true, title: 'Chat',
     lead: `A group chat for ${ACTIVE_GROUP.name}, the button in the middle of the tab bar.`,
     points: [
-      'Press and hold a message to react to it, or to copy it.',
+      'Press and hold a message to react to it. Tap one to copy it.',
       'Use the GIF button to send a GIF.',
       'Share to chat in a game’s box score posts the score as it stands. Its live line catches up once the game moves on.',
       'The Chat tab shows how many messages you haven’t read.'

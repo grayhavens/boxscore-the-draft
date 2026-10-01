@@ -4206,7 +4206,7 @@ html.chat-kb .tab-bar{ display: none; }
    like iOS Messages. iOS only fires click on a plain div that says it's
    clickable (a tap closes an open picker), the tap flash would otherwise
    paint over the bubble, and the long press is the picker's, so no text
-   selection or callout menu on a message (the picker has Copy). */
+   selection or callout menu on a message (a tap on a text bubble copies it). */
 .chat-bubble[data-msg],
 .chat-gif[data-msg]{
   cursor: pointer;
@@ -4216,22 +4216,13 @@ html.chat-kb .tab-bar{ display: none; }
   user-select: none;
 }
 .chat-gif[data-msg] img{ -webkit-user-drag: none; -webkit-touch-callout: none; }
-.chat-react-copy{
-  height: 36px;
-  padding: 0 12px;
-  margin-left: 2px;
-  border: 0;
-  border-left: 1px solid var(--hairline);
-  border-radius: 0 var(--r-pill) var(--r-pill) 0;
-  background: transparent;
-  color: var(--text-sub);
-  font-family: var(--font-ui);
-  font-size: var(--fs-13);
-  font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+.chat-copied{
+  position: absolute; left: 50%; bottom: calc(100% + 4px);
+  padding: 4px 8px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--hairline-strong); box-shadow: var(--shadow-tip);
+  color: var(--text); font-family: var(--font-ui); font-size: var(--fs-11); font-weight: 700; white-space: nowrap;
+  transform: translateX(-50%); pointer-events: none;
 }
-.chat-react-copy:hover{ color: var(--text); }
 /* Your own reaction landing: dots burst off its pill (burst in js/motion-fx.js). */
 .fx-burst-dot{ position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--accent); pointer-events: none; }
 @media (prefers-reduced-motion: no-preference){
