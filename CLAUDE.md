@@ -52,6 +52,10 @@ After deploying, `DASHBOARD_WORKER_BASE` in `js/worker-base.js` must point at th
 
 ## Architecture
 
+**Design tokens:** every color, type, radius, spacing, shadow and motion custom property lives in `css/tokens.css`
+(loaded before `css/style.css` on every page), never in `style.css`. The spec it follows is `docs/design-system/`, and
+the adoption plan, in step with `docs/motion-plan.md`, is `docs/design-system-plan.md`.
+
 **Single source of truth for content:** `js/data.js` holds `DRAFT_TEAMS` (the active group's 10 people, from `js/groups.js`),
 `TEAM_META` (every team's display info, league, owner, and the IDs used to pull live data),
 `LEAGUES` (which teams appear under each league tab and in what order), `LEAGUE_SCORING` (each

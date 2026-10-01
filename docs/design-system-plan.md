@@ -90,6 +90,12 @@ Boxscore's UI comes from the Boxscore design system. The spec is in `docs/design
   `--type-*`, `--league-*`, `--fill-soft`, `--knob`, `--hit-min`, and the semantic aliases. `css/tokens.css` is
   then the existing tokens moved over unchanged, plus these as new definitions. Nothing has to use the new
   ones in Step 1. Screens pick them up as they move over in Step 3.
+  **Done:** `css/tokens.css` holds `style.css`'s token blocks moved over exactly, plus an "Added from the
+  design system" block. By then the style pass (#190) had already added `--fill-soft`, `--shadow-*`, `--knob`
+  and some others, so the block has only what was still missing. Computed tokens and element styles on Home,
+  landing and admin match `main` at phone and desktop widths in both themes. App tokens the design system
+  doesn't list yet (`--card-yellow`, `--card-ring`, `--race-*`, `--console-rail`) stay, and the design system
+  should pick them up on its next sync.
 - **Some classes are new.** `.status-tag` and `.icon-btn` don't exist in `style.css` yet. `.seg` here has an
   absolutely positioned `.seg-thumb`, while the app's segmented controls (`segmentedControlHtml` in `utils.js`,
   plus `ob-seg` and `hiw-seg`) don't. Before swapping a screen's markup, diff its recipe in
