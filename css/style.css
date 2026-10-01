@@ -5704,6 +5704,16 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes tg-final-rail{ from{ color: var(--live); } }
 @keyframes tg-final-dim{ from{ color: var(--text); } }
 
+/* Points: a row climbing the board rides over the rows it passes. */
+.fx-rise{ position: relative; z-index: 2; }
+
+/* Points: locking in (js/overall.js, obPlayLockIn). The newly locked stretch
+   of the hero's bar shows its blue hatch again, then solid ink sweeps
+   across it; "Locked +N" lands centered on the legend. */
+.fx-lock{ position: absolute; top: 0; bottom: 0; background: var(--live-stripe); pointer-events: none; }
+.fx-lock-solid{ position: absolute; inset: 0; background: var(--text); transform-origin: 0 50%; }
+.lock-stamp{ position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
 /* Draft room: a league whose roster slots are all filled shows its count in
    green (the sheen that plays when it fills ends here). */
 .dr-roster-row.full .dr-roster-n{ color: var(--win); font-weight: 800; }

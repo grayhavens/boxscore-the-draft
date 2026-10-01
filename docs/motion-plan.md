@@ -44,6 +44,11 @@ Testing: `node tools/rehearse-draft.mjs` against `wrangler dev`, plus a mock roo
 
 ## Phase 3: Points (`js/overall.js`, `js/season-lock.js`)
 
+**Status: done**, together with the Points screens' move to `pointsTableHtml`, `splitBarHtml` and `activityRowHtml` in `js/ui.js`. Notes from building it:
+- **Rank shuffle:** a climber springs up (620ms, `--ease-spring`), lifted over the rows it passes (`.fx-rise`), under a gold wash (`flashTint` with `--accent-soft`) that rides along with it. The rows it passed slide down plainly (480ms). The old JS `backgroundColor` animation is gone.
+- **Points lock in:** the signal is the hero's locked total going up between renders (`data-locked`), which covers a season locking too, since that's when locked points rise. The newly locked stretch of the bar shows its hatch and solid ink sweeps across it. A "Locked +N" stamp (`lockStampHtml`, the `Tag` `lock-in` variant) lands on the legend and leaves after about 2.6s, the locked count rolls up, and the total pops. Once per device per locked total.
+- **No false triggers:** switching between real and simulated data is a fresh render, so it plays neither the shuffle nor the lock-in.
+
 - **Rank shuffle.** Mostly built already: `obPlayFlip` (line 600) handles the FLIP, the green wash, `countUp` and the chip pop. Still to do: move the wash to the gold leader colour so it follows the climber, and use the spring curve when a row moves up.
 - **Points lock in.** Signal: a team's locked points go up, or the season locks. Swap the hatch for solid ink, land the Locked stamp, and roll the total.
 

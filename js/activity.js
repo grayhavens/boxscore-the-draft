@@ -67,6 +67,7 @@ import { eplStandingsCache, fetchEplStandingsTable } from './standings-epl.js';
 import { espnCfbRecordsCache, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-cbb.js';
 
+import { activityRowHtml } from './ui.js';
 const FEED_KEY = 'teamDashboardActivityFeed';
 const SEEN_KEY = 'teamDashboardActivitySeen';
 const HOME_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -586,18 +587,15 @@ function rowHtml(e, mine){
   const detail = mine
     ? (othersLine(e) ? `<span class="act-sub">${othersLine(e)}</span>` : '')
     : `${e.sub ? `<span class="act-sub">${escapeHtml(e.sub)}</span>` : ''}<span class="act-chips">${chipsHtml(e)}</span>`;
-  return `
-    <button type="button" class="act-row ${e.type === 'lock' ? 'lock' : ''}" onclick="${eventAction(e)}">
-      ${tileHtml(e)}
-      <span class="act-body">
-        ${kindTagHtml(e)}
-        <span class="act-title">${escapeHtml(e.title)}</span>
-        ${mine && e.sub && e.type === 'lock' ? `<span class="act-sub">${escapeHtml(e.sub)}</span>` : ''}
-        ${detail}
-      </span>
-      <span class="act-right">${right}</span>
-    </button>
-  `;
+  return activityRowHtml({
+    tileHtml: tileHtml(e),
+    kindHtml: kindTagHtml(e),
+    title: e.title,
+    bodyHtml: `${mine && e.sub && e.type === 'lock' ? `<span class="act-sub">${escapeHtml(e.sub)}</span>` : ''}${detail}`,
+    rightHtml: right,
+    onclick: eventAction(e),
+    lock: e.type === 'lock'
+  });
 }
 
 function sectionHtml(label, note, items, mine){
@@ -663,16 +661,13 @@ export function activityRecentHtml(drafterId){
   if(!items.length) return '';
   return `<div class="ob-card act-group">${items.map(e => {
     const d = deltaFor(e, drafterId);
-    return `
-      <div class="act-row compact">
-        ${tileHtml(e)}
-        <span class="act-body">
-          <span class="act-title">${escapeHtml(e.title)}</span>
-          <span class="act-time">${timeText(e.ts)}${e.type === 'lock' ? ' &middot; locked in' : ''}</span>
-        </span>
-        <span class="act-right"><span class="act-delta ${d.cls}">${d.html}</span></span>
-      </div>
-    `;
+    return activityRowHtml({
+      compact: true,
+      tileHtml: tileHtml(e),
+      title: e.title,
+      bodyHtml: `<span class="act-time">${timeText(e.ts)}${e.type === 'lock' ? ' &middot; locked in' : ''}</span>`,
+      rightHtml: `<span class="act-delta ${d.cls}">${d.html}</span>`
+    });
   }).join('')}</div>`;
 }
 

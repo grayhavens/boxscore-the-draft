@@ -21,7 +21,7 @@
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, segmentedControlHtml, reducedMotion, EASE_OUT, EASE_SPRING, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
+import { updateUrlParam, segmentedControlHtml, reducedMotion, EASE_OUT, EASE_SPRING, EASE_IN_OUT, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
 import { getLeagueRuleTeams, getTeamAdjustment, isRuleProvisional, leagueInputsSettled } from './league-facts.js';
 import { currentDraftTeamId } from './board.js';
 import { assignRank } from './rank.js';
@@ -32,7 +32,8 @@ import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js'
 import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
-import { buttonHtml, iconHtml, backLinkHtml } from './ui.js';
+import { buttonHtml, iconHtml, backLinkHtml, splitBarHtml, pointsTableHtml, lockStampHtml } from './ui.js';
+import { fxOn, play, pop, flashTint, once } from './motion-fx.js';
 // League color for the per-league card's accent bar. Deliberately NOT
 // each league's real modal accent (LEAGUE_SCORING[key].accent) — those
 // are brand colors picked to sit on a light badge, and half of them are
@@ -450,18 +451,6 @@ function obMoveHtml(move, withSince){
   return `<span class="ob-move ${move > 0 ? 'up' : 'down'}">${move > 0 ? '&#9650;' : '&#9660;'}${Math.abs(move)}${since}</span>`;
 }
 
-// ---- Shared split bar (solid Locked + striped Live) ----
-//
-// scaleMax is the value a full-width bar stands for. Negative Live shows
-// as the red "risk" stripe: its width is |live| and the locked segment
-// shrinks to the projected total, so the two still add up to Locked.
-export function splitBarHtml(locked, live, scaleMax, cls){
-  const scale = Math.max(1, scaleMax);
-  const pct = n => Math.max(0, Math.min(100, (n / scale) * 100)).toFixed(1) + '%';
-  const lockedPart = live < 0 ? locked + live : locked;
-  return `<span class="split-bar ${cls || ''}"><span class="lk" style="width:${pct(Math.max(0, lockedPart))}"></span><span class="lv ${live < 0 ? 'risk' : ''}" style="width:${pct(Math.abs(live))}"></span></span>`;
-}
-
 function obBarScale(locked, live){
   return Math.max(locked, locked + live, Math.abs(live));
 }
@@ -487,7 +476,7 @@ function obHeroHtml(rows, me){
       <button type="button" class="ob-ladder-row ${mine ? 'me' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="obOpenSheet('${r.id}')">
         <span class="ob-ladder-rank">${r.rankLabel}</span>
         <span class="ob-ladder-name">${r.name}</span>
-        ${splitBarHtml(r.confirmedTotal, r.provisionalTotal, scale, 'sm')}
+        ${splitBarHtml({ locked: r.confirmedTotal, live: r.provisionalTotal, max: scale, size: 'sm' })}
         <span class="ob-ladder-total">${obPts(r.total)}</span>
         <span class="ob-ladder-gap">${gapHtml}</span>
       </button>
@@ -496,7 +485,7 @@ function obHeroHtml(rows, me){
   const live = me.provisionalTotal;
   const you = me.id === currentProfileId ? ' &middot; You' : '';
   return `
-    <div class="ob-hero">
+    <div class="ob-hero" data-locked="${me.confirmedTotal}" data-live="${live}">
       <div class="ob-hero-top">
         <div class="ob-hero-left">
           <span class="ob-detail-eyebrow mute">${me.name}${you}</span>
@@ -508,9 +497,9 @@ function obHeroHtml(rows, me){
         </div>
       </div>
       <div class="ob-split">
-        ${splitBarHtml(me.confirmedTotal, live, obBarScale(me.confirmedTotal, live), 'lg')}
+        ${splitBarHtml({ locked: me.confirmedTotal, live, max: obBarScale(me.confirmedTotal, live), size: 'lg' })}
         <div class="ob-split-legend">
-          <span><span class="split-swatch lk"></span>${me.confirmedTotal} locked</span>
+          <span><span class="split-swatch lk"></span><span><span class="ob-split-locked">${me.confirmedTotal}</span> locked</span></span>
           <span class="${live < 0 ? 'risk' : 'lv'}"><span class="split-swatch lv ${live < 0 ? 'risk' : ''}"></span>${obSignedPts(live)} live</span>
         </div>
       </div>
@@ -535,28 +524,23 @@ export function obTableHtml(rows, opts = {}){
   const leaderCount = rows.filter(r => r.rank === 1).length;
   const hasLeader = leaderCount > 0 && leaderCount < rows.length;
   const me = obYouId();
-  const body = rows.map(r => {
-    const isTop = hasLeader && r.rank === 1;
-    const tier = isTop ? 'rank-1' : (hasLeader && r.rank <= 3 ? 'rank-mid' : '');
-    const live = r.provisionalTotal;
-    return `
-      <button type="button" class="ob-table-row ${isTop ? 'leader' : ''} ${r.id === me ? 'current' : ''} ${r.id === opts.focus ? 'focus' : ''}" data-id="${r.id}" data-total="${r.total}" onclick="${opts.tap || 'obOpenSheet'}('${r.id}')">
-        <span class="ob-rank ${tier}">${r.rankLabel}</span>
-        <span class="ob-table-name"><span class="ob-table-name-text">${r.name}</span>${opts.noMoves ? '' : obMoveHtml(obRankMove(r), false)}</span>
-        <span class="ob-table-locked">${obPts(r.confirmedTotal)}</span>
-        <span class="ob-table-live ${live === 0 ? 'zero' : (live < 0 ? 'neg' : '')}">${obSignedPts(live)}</span>
-        <span class="ob-table-proj">${obPts(r.total)}</span>
-      </button>
-    `;
-  }).join('');
-  return `
-    <div class="ob-table">
-      <div class="ob-table-row head">
-        <span></span><span>${opts.head || 'Ranked by projected'}</span><span>Locked</span><span class="lv">Live</span><span class="pj">Proj</span>
-      </div>
-      ${body}
-    </div>
-  `;
+  return pointsTableHtml({
+    head: opts.head || 'Ranked by projected',
+    tap: opts.tap || 'obOpenSheet',
+    rows: rows.map(r => {
+      const isTop = hasLeader && r.rank === 1;
+      const live = r.provisionalTotal;
+      return {
+        id: r.id, name: r.name, rank: r.rankLabel, total: r.total,
+        tier: isTop ? 'rank-1' : (hasLeader && r.rank <= 3 ? 'rank-mid' : ''),
+        leader: isTop, current: r.id === me, focus: !!opts.focus && r.id === opts.focus,
+        moveHtml: opts.noMoves ? '' : obMoveHtml(obRankMove(r), false),
+        locked: obPts(r.confirmedTotal),
+        live: obSignedPts(live), liveCls: live === 0 ? 'zero' : (live < 0 ? 'neg' : ''),
+        proj: obPts(r.total)
+      };
+    })
+  });
 }
 
 function obSegments(badge){
@@ -593,28 +577,35 @@ const OB_ROW_SEL = '.ob-table-row[data-id], .ob-ladder-row[data-id]';
 const obRowKey = el => (el.classList.contains('ob-ladder-row') ? 'L:' : 'T:') + el.dataset.id;
 
 function obSnapshot(container){
-  const snap = { hero: null, rows: {} };
+  const snap = { hero: null, locked: null, rows: {} };
   container.querySelectorAll(OB_ROW_SEL).forEach(el => {
     const chip = el.querySelector('.ob-move');
     snap.rows[obRowKey(el)] = { top: el.getBoundingClientRect().top, total: Number(el.dataset.total), chip: chip ? chip.textContent : '' };
   });
   const me = container.querySelector('.ob-ladder-row.me');
   if(me) snap.hero = Number(me.dataset.total);
+  const hero = container.querySelector('.ob-hero[data-locked]');
+  if(hero) snap.locked = Number(hero.dataset.locked);
   return snap;
 }
 
+// Rank shuffle (docs/motion-plan.md, Phase 3): a row that climbed springs
+// up into place, lifted over the rows it passed, under a gold wash that
+// rides along with it; the rows it passed slide down plainly.
 function obPlayFlip(container, before, rows){
-  if(reducedMotion()) return;
+  if(!fxOn()) return;
   container.querySelectorAll(OB_ROW_SEL).forEach(el => {
     const old = before.rows[obRowKey(el)];
     if(!old) return;
     const dy = old.top - el.getBoundingClientRect().top;
     if(Math.abs(dy) > 1){
-      el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 700, easing: EASE_OUT });
-      if(dy > 0){
-        const rest = getComputedStyle(el).backgroundColor;
-        const winSoft = getComputedStyle(document.documentElement).getPropertyValue('--win-soft').trim();
-        el.animate([{ backgroundColor: winSoft }, { backgroundColor: rest }], { duration: 1400, easing: 'ease-out' });
+      const up = dy > 0;
+      const glide = play(el, [{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: up ? 620 : 480, easing: up ? EASE_SPRING : EASE_OUT });
+      if(up && glide){
+        el.classList.add('fx-rise');
+        const settle = () => el.classList.remove('fx-rise');
+        glide.finished.then(settle, settle);
+        flashTint(el, { tint: 'var(--accent-soft)', from: 1, duration: 1400 });
       }
     }
     const total = Number(el.dataset.total);
@@ -623,11 +614,11 @@ function obPlayFlip(container, before, rows){
     }
     const chip = el.querySelector('.ob-move');
     if(chip && chip.textContent !== old.chip){
-      chip.animate([
+      play(chip, [
         { transform: 'scale(0.6)', opacity: 0 },
         { transform: 'scale(1.08)', opacity: 1, offset: 0.6 },
         { transform: 'scale(1)', opacity: 1 }
-      ], { duration: 320, easing: EASE_SPRING, delay: 450, fill: 'backwards' });
+      ], { duration: 320, easing: EASE_SPRING, delay: 450 });
     }
   });
   // The hero's own total, unless the entry build is still counting it.
@@ -635,6 +626,54 @@ function obPlayFlip(container, before, rows){
   if(me && before.hero !== null && before.hero !== me.total && performance.now() - obGrowStart >= OB_COUNT_MS){
     countUp(container.querySelector('.ob-hero-total'), before.hero, me.total, obPts);
   }
+  obPlayLockIn(container, before);
+}
+
+// Points lock in (docs/motion-plan.md, Phase 3): your locked points went
+// up (a season ended, a playoff round finished). On the hero's bar the
+// newly locked stretch shows its blue hatch again and solid ink sweeps
+// across it, a "Locked +N" stamp lands on the legend, the locked count
+// rolls up and the total pops. Once per device for each new locked total.
+function obPlayLockIn(container, before){
+  const hero = container.querySelector('.ob-hero[data-locked]');
+  if(!hero || before.locked === null) return;
+  const was = before.locked, now = Number(hero.dataset.locked);
+  if(!(now > was) || !once(`lock:${obYouId()}:${now}`)) return;
+  // The solid segment draws Locked, or Locked + Live when Live is negative
+  // (splitBarHtml); the newly locked points are its last stretch.
+  const lk = hero.querySelector('.ob-split .split-bar .lk');
+  const width = lk ? lk.getBoundingClientRect().width : 0;
+  const live = Number(hero.dataset.live) || 0;
+  const drawn = live < 0 ? now + live : now;
+  if(lk && width > 0 && drawn > 0){
+    const bar = lk.parentElement;
+    const keep = Math.max(0, drawn - (now - was)) / drawn;
+    const region = document.createElement('span');
+    region.className = 'fx-lock';
+    region.setAttribute('aria-hidden', 'true');
+    region.style.left = `${width * keep}px`;
+    region.style.width = `${width * (1 - keep)}px`;
+    region.innerHTML = '<span class="fx-lock-solid"></span>';
+    bar.classList.add('fx-host');
+    bar.appendChild(region);
+    const sweep = play(region.firstElementChild, [{ transform: 'scaleX(0)' }, { transform: 'none' }], { duration: 420, delay: 300, easing: EASE_IN_OUT });
+    const end = () => { region.remove(); bar.classList.remove('fx-host'); };
+    if(sweep) sweep.finished.then(end, end); else end();
+  }
+  const legend = hero.querySelector('.ob-split-legend');
+  if(legend){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = lockStampHtml({ n: now - was });
+    const stamp = wrap.firstElementChild;
+    legend.classList.add('fx-host');
+    legend.appendChild(stamp);
+    play(stamp.firstElementChild, [{ opacity: 0, transform: 'scale(1.6) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { duration: 380, delay: 700, easing: EASE_SPRING });
+    const out = play(stamp, [{ opacity: 1 }, { opacity: 0 }], { duration: 300, delay: 2600, fill: 'forwards' });
+    const end = () => { stamp.remove(); legend.classList.remove('fx-host'); };
+    if(out) out.finished.then(end, end); else end();
+  }
+  countUp(hero.querySelector('.ob-split-locked'), was, now, n => String(n));
+  pop(hero.querySelector('.ob-hero-total'), { scale: 1.08, delay: 700 });
 }
 
 // Tag split bars to fill from zero, staggered by --row (60ms each). `skip`
@@ -680,7 +719,7 @@ function obSheetHtml(rows, row){
     ? leagues.map(x => `
         <div class="ob-sheet-league">
           <span class="ob-sheet-league-name">${obLeagueFullName(x.league.key)}</span>
-          ${splitBarHtml(x.confirmed, x.provisional, scale, 'xs')}
+          ${splitBarHtml({ locked: x.confirmed, live: x.provisional, max: scale, size: 'xs' })}
           <span class="ob-sheet-league-pts ${x.pts < 0 ? 'neg' : ''}">${obPts(x.pts)}</span>
         </div>
       `).join('')
@@ -801,7 +840,7 @@ function obCardHtml(x, scale){
           <div class="ob-card-sub">${obSplitText(x.confirmed, x.provisional)}</div>
         </div>
         <div class="ob-card-right">
-          ${splitBarHtml(x.confirmed, x.provisional, scale, 'xs ob-card-bar')}
+          ${splitBarHtml({ locked: x.confirmed, live: x.provisional, max: scale, size: 'xs ob-card-bar' })}
           <svg class="ob-card-chevron" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
         </div>
       </button>
@@ -851,7 +890,7 @@ function obDetailHtml(row){
       </div>
     </div>
     <div class="ob-split ob-detail-split">
-      ${splitBarHtml(row.confirmedTotal, live, obBarScale(row.confirmedTotal, live), 'lg')}
+      ${splitBarHtml({ locked: row.confirmedTotal, live, max: obBarScale(row.confirmedTotal, live), size: 'lg' })}
       <div class="ob-stat-row">
         <div class="stat-tile"><div class="lbl">Locked</div><div class="num">${row.confirmedTotal}</div></div>
         <div class="stat-tile"><div class="lbl">Live</div><div class="num ${live < 0 ? 'neg' : 'lv'}">${obSignedPts(live)}</div></div>
@@ -1042,8 +1081,9 @@ export function renderOverallStandings(opts){
   // and badge repaint without re-entering this render.
   if(obSegment === 'activity' && unseenCount() > 0) markActivitySeen(true);
   // Re-rank: only a re-render of the same list glides (never entering
-  // the tab, a push back from a detail, or a segment switch).
-  const surface = 'list:' + obSegment;
+  // the tab, a push back from a detail, a segment switch, or switching
+  // between real and simulated data).
+  const surface = `list:${obSegment}:${obMode}`;
   const before = !growNow && !push && container.dataset.obSurface === surface ? obSnapshot(container) : null;
   const prevHeroTotal = container.querySelector('.ob-hero-total');
   container.innerHTML = simBanner + obListHtml(rows);
