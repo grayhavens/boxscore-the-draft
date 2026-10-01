@@ -4023,6 +4023,44 @@ html.chat-kb .tab-bar{ display: none; }
   padding: 7px 11px;
 }
 
+/* ---- Mentions (js/chat.js, js/chat-mentions.js) ---- */
+/* Mention: a tag in a message. Gold when it tags you (`.me`). */
+.mention{ font-weight: 800; }
+.mention.me{ color: var(--accent); }
+/* A message that tags you: outlined in gold, since gold means you. */
+.chat-bubble.tags-me{ border: 1px solid var(--accent-border); padding: 7px 11px; }
+/* MentionList: names offered above the composer while an "@" is typed,
+   taking its height out of the message list's like the GIF panel. */
+.mention-list{
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1) max(12px, calc((100% - 720px) / 2));
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+}
+.mention-list[hidden]{ display: none; }
+.mention-opt{
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  font: var(--type-body);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mention-opt.active{ background: var(--surface-2); }
+.mention-opt-sub{ font: var(--type-meta); color: var(--text-mute); }
+
 .chat-composer{
   flex: 0 0 auto;
   display: flex;

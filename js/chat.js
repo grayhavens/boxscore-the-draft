@@ -12,6 +12,13 @@
    The socket opens at boot (not on first open of the screen) so the
    tab bar's unread badge is live everywhere. Who "you" are comes from
    js/identity.js — same no-auth trust tier as favorites.
+
+   Mentions (js/chat-mentions.js): typing "@" opens a list of the group
+   above the composer, and a sent message carries the ids its text tags.
+   A message that tags you is outlined in gold, and while one is unread
+   the tab bar's badge reads "@". The commissioner (a device with the
+   password saved) can also tag @everyone, sent with the password so the
+   worker can check it.
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
@@ -20,7 +27,9 @@ import { currentProfileId } from './identity.js';
 import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
-import { escapeHtml as esc } from './utils.js';
+import { escapeHtml as esc, loadAdminPassword } from './utils.js';
+import { EVERYONE, EVERYONE_NAME, findMentions, mentionSegments, mentionsMe, activeMentionQuery, mentionOptions } from './chat-mentions.js';
+import { mentionHtml, mentionListHtml } from './ui.js';
 import { clearAlerts } from './push.js';
 import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
 import { fxOn, play, pop, burst } from './motion-fx.js';
@@ -94,6 +103,19 @@ function lastId(){
 function drafterName(id){
   const d = DRAFT_TEAMS.find(t => t.id === id);
   return d ? d.name : id;
+}
+
+// Everyone a message can tag, for highlighting: the group's spots (an
+// open one keeps its placeholder name) and @everyone.
+function mentionCandidates(){
+  return [...DRAFT_TEAMS.map(d => ({ id: d.id, name: d.name })), { id: EVERYONE, name: EVERYONE_NAME }];
+}
+
+// Who you can tag from the composer: filled spots but your own, and
+// @everyone only on the commissioner's devices.
+function composerCandidates(){
+  const people = DRAFT_TEAMS.filter(d => !d.open && d.id !== currentProfileId).map(d => ({ id: d.id, name: d.name }));
+  return loadAdminPassword() ? [...people, { id: EVERYONE, name: EVERYONE_NAME, sub: 'Alerts the whole group' }] : people;
 }
 
 // ---- Connection ----
@@ -275,9 +297,9 @@ window.addEventListener('online', reconnectNow);
 
 window.addEventListener('boxscore:settings', e => { if(e.detail.key === 'chatBadge') paintBadges(); });
 
-function unreadCount(){
-  if(seenId === null) return 0;
-  return messages.filter(m => m.id > seenId && m.from !== currentProfileId).length;
+function unreadMessages(){
+  if(seenId === null) return [];
+  return messages.filter(m => m.id > seenId && m.from !== currentProfileId);
 }
 
 // Tab bar Chat button badge (see index.html), mirrored onto the Home
@@ -286,21 +308,25 @@ function unreadCount(){
 // own messages (and presence names the drafter, so it's re-sent then).
 export function paintBadges(){
   sendPresence();
-  const n = getSettings().chatBadge ? unreadCount() : 0;
+  const unread = getSettings().chatBadge ? unreadMessages() : [];
+  const n = unread.length;
+  // An unread message that tags you turns the badge into "@".
+  const tagged = unread.some(m => mentionsMe(m.mentions, currentProfileId));
   if('setAppBadge' in navigator){
     (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
   }
   document.querySelectorAll('.chat-badge').forEach(el => {
-    el.textContent = n > 9 ? '9+' : String(n);
+    el.textContent = tagged ? '@' : (n > 9 ? '9+' : String(n));
     el.classList.toggle('show', n > 0);
   });
   document.querySelectorAll('.chat-hit').forEach(el => {
-    el.setAttribute('aria-label', n > 0 ? `Chat, ${n} unread` : 'Chat');
+    el.setAttribute('aria-label', n > 0 ? `Chat, ${n} unread${tagged ? ', you were mentioned' : ''}` : 'Chat');
   });
 }
 
 function markSeen(){
   clearAlerts('chat');
+  clearAlerts('mention');
   const id = lastId();
   if(seenId !== null && id <= seenId) return;
   seenId = id;
@@ -341,6 +367,16 @@ function timeLabel(ts){
 // — the worker only ever stores hosts it recognizes (worker/chat-room.js).
 function gifBubbleHtml(m, mine){
   return `<div class="chat-gif ${mine ? 'mine' : ''}" data-msg="${m.id}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async" draggable="false"></div>`;
+}
+
+// A text message, its mentions as tags. One that tags you (and isn't
+// yours) is outlined in gold.
+function textBubbleHtml(m, mine){
+  const body = mentionSegments(m.text, m.mentions, mentionCandidates())
+    .map(seg => seg.id ? mentionHtml({ label: seg.text, me: seg.id === currentProfileId || seg.id === EVERYONE }) : esc(seg.text))
+    .join('');
+  const tagsMe = !mine && mentionsMe(m.mentions, currentProfileId);
+  return `<div class="chat-bubble${mine ? ' mine' : ''}${tagsMe ? ' tags-me' : ''}" data-msg="${m.id}">${body}</div>`;
 }
 
 // Pressing and holding a message opens its picker (an in-flow row of the
@@ -394,7 +430,7 @@ function listRows(){
     if(m.game) rows.push([`game-${m.id}`, gameCardHtml(m, mine, timeLabel(m.ts))]);
     // A GIF's text is an optional caption (the picker never sends one, but
     // the worker accepts one) — shown under it rather than silently dropped.
-    if(m.text && !m.game) rows.push([`text-${m.id}`, `<div class="chat-bubble ${mine ? 'mine' : ''}" data-msg="${m.id}">${esc(m.text)}</div>`]);
+    if(m.text && !m.game) rows.push([`text-${m.id}`, textBubbleHtml(m, mine)]);
     if(pickerId === m.id) rows.push([`picker-${m.id}`, pickerHtml(m, mine)]);
     const reactions = reactionsHtml(m, mine);
     if(reactions) rows.push([`react-${m.id}`, reactions]);
@@ -712,9 +748,9 @@ function guardTouchScroll(screen){
     const target = event.target;
     if(target.closest && target.closest('#chat-input, #gif-search')) return;
 
-    // The message list and (while open) the GIF picker's grid are the
-    // only things that scroll; each is guarded at its own edges.
-    const list = target.closest && target.closest('#chat-list, #gif-grid');
+    // The message list and (while open) the GIF picker's grid and the
+    // mention list are the only things that scroll; each is guarded at its own edges.
+    const list = target.closest && target.closest('#chat-list, #gif-grid, #chat-mention-list');
     if(!list){
       event.preventDefault();
       return;
@@ -750,6 +786,7 @@ export function setChatActive(active){
     gameLineTimer = null;
     closeGifPicker();
     pickerId = null;
+    closeMentionList();
     inputEl().blur();
     document.documentElement.classList.remove('chat-kb');
     el.classList.remove('kb-open');
@@ -774,10 +811,82 @@ function sendMessage(){
     reconnectNow();
     return;
   }
-  socket.send(JSON.stringify({ type: 'send', from: currentProfileId, text }));
+  const frame = { type: 'send', from: currentProfileId, text };
+  // Tags are whatever "@Name" the text still holds when it's sent, picked
+  // from the list or typed out.
+  const mentions = findMentions(text, composerCandidates());
+  if(mentions.length) frame.mentions = mentions;
+  if(mentions.includes(EVERYONE)) frame.auth = loadAdminPassword();
+  socket.send(JSON.stringify(frame));
   input.value = '';
   autoGrow();
+  closeMentionList();
   input.focus();
+}
+
+// ---- Mention list ----
+// Shown above the composer while an "@" is being typed, filtered by
+// what follows it. Tapping a name (or Enter/Tab on the highlighted one)
+// writes "@Name " in place of what was typed.
+const mentionListEl = () => document.getElementById('chat-mention-list');
+let mentionState = null;   // { start, end, options, active } while the list is showing
+
+function updateMentionList(){
+  const input = inputEl(), list = mentionListEl();
+  if(!input || !list) return;
+  const caret = input.selectionStart;
+  const found = input.selectionStart === input.selectionEnd ? activeMentionQuery(input.value, caret) : null;
+  const options = found ? mentionOptions(found.query, composerCandidates()) : [];
+  if(!options.length){
+    closeMentionList();
+    return;
+  }
+  const keep = mentionState && mentionState.start === found.start ? Math.min(mentionState.active, options.length - 1) : 0;
+  mentionState = { start: found.start, end: caret, options, active: keep };
+  list.innerHTML = mentionListHtml({ options, active: keep });
+  list.hidden = false;
+}
+
+function closeMentionList(){
+  mentionState = null;
+  const list = mentionListEl();
+  if(list){
+    list.hidden = true;
+    list.innerHTML = '';
+  }
+}
+
+function pickMention(id){
+  const input = inputEl();
+  const option = mentionState && mentionState.options.find(o => o.id === id);
+  if(!input || !option) return;
+  const { start, end } = mentionState;
+  const insert = `@${option.name} `;
+  input.value = input.value.slice(0, start) + insert + input.value.slice(end).replace(/^ /, '');
+  const caret = start + insert.length;
+  input.setSelectionRange(caret, caret);
+  closeMentionList();
+  autoGrow();
+  input.focus();
+}
+
+// Arrow keys move the highlight, Enter or Tab picks it, Escape closes.
+// Returns true when the key was the list's.
+function mentionKey(event){
+  if(!mentionState) return false;
+  const n = mentionState.options.length;
+  if(event.key === 'ArrowDown' || event.key === 'ArrowUp'){
+    mentionState.active = (mentionState.active + (event.key === 'ArrowDown' ? 1 : n - 1)) % n;
+    mentionListEl().innerHTML = mentionListHtml({ options: mentionState.options, active: mentionState.active });
+  } else if(event.key === 'Enter' || event.key === 'Tab'){
+    pickMention(mentionState.options[mentionState.active].id);
+  } else if(event.key === 'Escape'){
+    closeMentionList();
+  } else {
+    return false;
+  }
+  event.preventDefault();
+  return true;
 }
 window.sendChatMessage = sendMessage;
 
@@ -822,10 +931,15 @@ async function setUpGifs(){
 export function initChat(){
   const input = inputEl();
   if(input){
-    input.addEventListener('input', autoGrow);
+    input.addEventListener('input', () => { autoGrow(); updateMentionList(); });
+    // Moving the caret (a tap, arrow keys) can land in or out of an "@".
+    input.addEventListener('click', updateMentionList);
+    input.addEventListener('keyup', event => { if(event.key === 'ArrowLeft' || event.key === 'ArrowRight') updateMentionList(); });
+    input.addEventListener('blur', () => setTimeout(() => { if(document.activeElement !== input) closeMentionList(); }, 150));
     // Enter sends on desktop; on a touch keyboard Enter stays a newline
     // (the send button is right there) — matching how phone chat apps behave.
     input.addEventListener('keydown', event => {
+      if(mentionKey(event)) return;
       if(event.key === 'Enter' && !event.shiftKey && window.matchMedia('(pointer: fine)').matches){
         event.preventDefault();
         sendMessage();
@@ -839,6 +953,16 @@ export function initChat(){
     // flash the tab bar back in between.
     screenEl().addEventListener('focusin', syncViewport);
     screenEl().addEventListener('focusout', () => setTimeout(syncViewport, 60));
+  }
+  const mentionList = mentionListEl();
+  if(mentionList){
+    // Keep the keyboard up: the tap mustn't take focus from the textarea.
+    mentionList.addEventListener('pointerdown', event => event.preventDefault());
+    mentionList.addEventListener('mousedown', event => event.preventDefault());
+    mentionList.addEventListener('click', event => {
+      const opt = event.target.closest('[data-mention]');
+      if(opt) pickMention(opt.dataset.mention);
+    });
   }
   if(listEl()){
     listEl().addEventListener('click', onListClick);
