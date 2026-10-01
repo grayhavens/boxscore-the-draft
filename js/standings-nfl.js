@@ -34,7 +34,7 @@
    for the expensive division fetch every time.
    ============================================================ */
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
+import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -332,7 +332,7 @@ export function renderNflStandingsRow(row, rank){
   // TEAM_META.name is styled (mascot-only) across this app.
   const meta = teamKey ? TEAM_META[teamKey] : {
     name: row.teamNickname || row.teamName,
-    badgeStyle: 'background: rgba(255,255,255,0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
+    badgeStyle: NEUTRAL_BADGE_STYLE,
     badgeText: row.abbreviation || abbrFromName(row.teamName),
     badgeUrl: row.logoUrl || null
   };

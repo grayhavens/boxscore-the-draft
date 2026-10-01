@@ -396,6 +396,10 @@ export function crestSrc(meta){
   return meta.badgeUrlDark || meta.badgeUrl;
 }
 
+// Monogram colors for a team nobody drafted (no TEAM_META entry): a faint
+// ink wash, so it reads in both themes.
+export const NEUTRAL_BADGE_STYLE = 'background: rgba(var(--ink-rgb),0.08); color: var(--text-sub); border-color: var(--hairline-strong);';
+
 // Renders a team's badge: the real crest image when meta.badgeUrl is
 // set, layered over the same colored-monogram box every team already
 // has — that box stays as the fallback (onerror removes the img,

@@ -349,14 +349,14 @@ function lockStatusHtml(league){
     return `
       <div class="prior-season-note">
         🔒 Regular season locked in${at ? ` — ${formatDateShort(at)}` : ''}. Standings-based rules below are frozen, not live.
-        <button class="admin-adj-save" style="margin-left: auto;" onclick="unlockLeague('${league.key}')">Unlock</button>
+        <button class="admin-adj-save end" onclick="unlockLeague('${league.key}')">Unlock</button>
       </div>
     `;
   }
   return `
     <div class="prior-season-note">
       Standings-based rules below are still live — they'll lock automatically once ESPN confirms the regular season is over.
-      <button class="admin-adj-save" style="margin-left: auto;" onclick="forceLockLeague('${league.key}')">Force Lock</button>
+      <button class="admin-adj-save end" onclick="forceLockLeague('${league.key}')">Force Lock</button>
     </div>
   `;
 }
@@ -375,7 +375,7 @@ function leagueSectionHtml(league){
       ${lockStatusHtml(league)}
       <div class="modal-section-title">Scoring rules</div>
       <div class="league-facts-list">${rulesHtml}</div>
-      <div class="modal-section-title" style="margin-top: 18px;">Point adjustments</div>
+      <div class="modal-section-title spaced">Point adjustments</div>
       <div class="admin-adj-list">${adjRowsHtml}</div>
     </div>
   `;
@@ -496,9 +496,9 @@ function pollEditorHtml(poll, scheduledAt){
       : 'Open on everyone’s Home. Use sets that time as the draft time and closes the poll. Changing a time drops the answers that only named it.';
   }
   return `
-    <div class="modal-section-title" style="margin-top: 18px;">Draft time poll</div>
+    <div class="modal-section-title spaced">Draft time poll</div>
     ${poll ? pollResultsHtml(poll, scheduledAt) : ''}
-    <div class="admin-schedule"${poll ? ' style="margin-top: 10px;"' : ''}>
+    <div class="admin-schedule${poll ? ' spaced' : ''}">
       ${inputs.join('')}
       <div class="admin-schedule-actions">
         <button class="admin-adj-save" onclick="saveAdminDraftPoll()"${pollSaving ? ' disabled' : ''}>${pollSaving ? 'Saving…' : (poll ? 'Save times' : 'Start poll')}</button>
@@ -514,7 +514,7 @@ function pollEditorHtml(poll, scheduledAt){
 // device's time zone; each drafter sees it in their own.
 function scheduleEditorHtml(scheduledAt){
   return `
-    <div class="modal-section-title" style="margin-top: 18px;">Draft time</div>
+    <div class="modal-section-title spaced">Draft time</div>
     <div class="admin-schedule">
       <input type="datetime-local" id="admin-draft-when" class="admin-gate-input" value="${scheduledAt ? toLocalInputValue(scheduledAt) : ''}">
       <div class="admin-schedule-actions">

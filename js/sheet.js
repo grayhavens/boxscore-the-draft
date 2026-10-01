@@ -161,7 +161,7 @@ export function enableSheetSwipeToDismiss(sheetEl, closeFn){
   const setDrag = (delta) => {
     const p = Math.min(1, delta / sheetHeight);
     sheetEl.style.transform = delta > 0 ? `translateY(${delta}px)` : '';
-    if(overlay) overlay.style.backgroundColor = `rgba(6,7,9,${(OVERLAY_DIM * (1 - p)).toFixed(3)})`;
+    if(overlay) overlay.style.backgroundColor = `rgba(var(--overlay-rgb), ${(OVERLAY_DIM * (1 - p)).toFixed(3)})`;
   };
 
   const endDrag = () => {

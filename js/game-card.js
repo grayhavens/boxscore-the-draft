@@ -19,7 +19,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { GAME_DETAIL_LEAGUES, FLAT_SCHEDULE_LEAGUES, openGameDetail } from './live-data.js';
-import { teamBadgeHtml, draftOwnerName, escapeHtml as esc } from './utils.js';
+import { teamBadgeHtml, draftOwnerName, escapeHtml as esc, NEUTRAL_BADGE_STYLE } from './utils.js';
 
 const LIVE_LINE_EVERY_MS = 60 * 1000;
 // A game that still isn't final this long after it started was
@@ -40,7 +40,7 @@ function sideHtml(side, league, lost){
   // An undrafted opponent: the same plain monogram Game Details gives one.
   const badge = teamBadgeHtml(meta || {
     name: side.name,
-    badgeStyle: 'background: rgba(var(--ink-rgb),0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
+    badgeStyle: NEUTRAL_BADGE_STYLE,
     badgeText: esc(side.abbr)
   });
   const owner = meta && !PRE_DRAFT ? draftOwnerName(side.team) : '';

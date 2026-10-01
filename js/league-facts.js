@@ -56,7 +56,7 @@ import {
   espnMlbStandingsCache, espnMlbDivisionCache, mlbConferences,
   computeMlbConferenceStandings, computeMlbDivisionStandings
 } from './standings-mlb.js';
-import { renderStandings, standingsDataChanged } from './board.js';
+import { standingsDataChanged } from './board.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
