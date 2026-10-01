@@ -48,7 +48,10 @@ import { DEFAULT_CAPS } from './draft-rules.js';
 import { PGA_ACCENT } from './seasons/pga.js';
 import { leagueFactRowHtml, currentLeagueAdjustments, setTeamAdjustment, setTeamAdjustments, getLeagueRuleTeams, addLeagueFact, removeLeagueFact, ruleAutoNote, ruleDataPending, leagueDrafterPoints } from './league-facts.js';
 import { LEAGUE_FULL_LABELS } from './board.js';
-import { obLeagueColor } from './overall.js';
+import { obLeagueColor, obRankedRows } from './overall.js';
+import { loadBonusInputs } from './compare.js';
+import { historySeasons, applyHistory, loadHistory, seasonFromRows, isSeasonRecorded } from './history.js';
+import { rankStandings, placeLabel, championsOf, namesText } from './champions.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './season-lock.js';
 import { NEXT_DRAFT_LABEL } from './seasons/index.js';
@@ -96,7 +99,7 @@ let lastLeague = SCORING_LEAGUES[0].key;
 // ?view=admin&screen=<league|sports> opens on that screen (Draft has no param),
 // so a reload or a shared link keeps the place. js/board.js drops the
 // param when another view opens.
-const isScreen = key => key === 'draft' || key === 'sports' || SCORING_LEAGUES.some(l => l.key === key);
+const isScreen = key => key === 'draft' || key === 'sports' || key === 'history' || SCORING_LEAGUES.some(l => l.key === key);
 try {
   const screen = new URLSearchParams(window.location.search).get('screen');
   if(screen === 'sports') selected = screen;
@@ -131,6 +134,8 @@ window.selectAdmin = function(key){
   } else if(key === 'sports'){
     loadSportsSetting();
     loadDraftStatus();
+  } else if(key === 'history'){
+    loadHistoryScreen();
   } else {
     lastLeague = key;
     adjFilter = '';
@@ -712,7 +717,7 @@ function sportsSectionHtml(){
   return `
     <div class="admin-league">
       <h3 class="admin-league-title">Sports</h3>
-      <div class="admin-status-note" style="margin-top: 0;">${SPORTS_LEDE}</div>
+      <div class="admin-status-note lede">${SPORTS_LEDE}</div>
       <div class="admin-sports-list">${SPORT_KEYS.map(sportRowHtml).join('')}</div>
       ${sportsActionsHtml(false)}
       <div class="admin-status-note">${[sportsDraftNote(), 'Everyone sees shown sports from the next time they open the app.'].filter(Boolean).join(' ')}</div>
@@ -738,18 +743,222 @@ function deskSportsHtml(){
     </section>`;
 }
 
+// ---- History screen: record the finished season, add earlier ones ----
+// Seasons live in the worker (worker/champions.js); the Points tab's
+// History reads them (js/history.js). Final standings are the Points
+// ranking, so they wait on the league bonus inputs like Points does.
+
+let historySaving = false;
+let historyError = '';
+let historyFormError = '';
+
+function loadHistoryScreen(){
+  loadHistory().then(() => { if(isActive() && selected === 'history') renderAdminPage(); });
+  loadBonusInputs().then(() => { if(isActive() && selected === 'history') renderAdminPage(); });
+}
+
+const unlockedLeagues = () => SCORING_LEAGUES.filter(l => !isLeagueLocked(l.key));
+
+async function writeHistory(body, method, query, done){
+  historySaving = true;
+  historyError = '';
+  renderAdminPage();
+  const url = withGroupQuery(`${chatWorkerBase()}/champions${query || ''}`);
+  const { ok, status, data } = await putAuthedJSON(url, loadAdminPassword(), body, method);
+  historySaving = false;
+  if(ok && data){
+    applyHistory(data.seasons);
+    toast(done);
+  } else {
+    historyError = status === 401 ? 'Not signed in as commissioner' : "Couldn't save. Try again.";
+  }
+  renderAdminPage();
+}
+
+window.adminRecordSeason = function(){
+  const season = seasonFromRows(obRankedRows());
+  if(historySaving || !season) return;
+  const open = unlockedLeagues();
+  const again = isSeasonRecorded(season.id);
+  const ask = open.length
+    ? `${open.map(leagueChip).join(', ')} ${open.length === 1 ? 'isn’t' : 'aren’t'} locked yet, so their live points are counted as they stand. Record the ${season.label} anyway?`
+    : again ? `Replace the recorded ${season.label} with today’s standings?` : '';
+  if(ask && !window.confirm(ask)) return;
+  writeHistory({ season }, 'PUT', '', again ? 'Final standings updated.' : `${season.label} recorded. Everyone with alerts on hears who won.`);
+};
+
+window.adminAddPastSeason = function(){
+  if(historySaving) return;
+  const val = id => (document.getElementById(id) || {}).value || '';
+  const year = val('admin-history-year').trim();
+  const standings = [1, 2, 3].map(n => {
+    const id = val(`admin-history-${n}`);
+    const ptsRaw = val(`admin-history-pts-${n}`).trim();
+    const drafter = DRAFT_TEAMS.find(d => d.id === id);
+    return drafter ? { id, name: drafter.name, pts: ptsRaw === '' ? null : Number(ptsRaw) } : null;
+  }).filter(Boolean);
+  historyFormError = '';
+  if(!/^\d{4}$/.test(year)) historyFormError = 'Enter the season’s year, like 2025.';
+  else if(!standings.length) historyFormError = 'Pick at least the champion.';
+  else if(new Set(standings.map(s => s.id)).size !== standings.length) historyFormError = 'Pick a different drafter for each place.';
+  else if(standings.some(s => s.pts !== null && !Number.isInteger(s.pts))) historyFormError = 'Points are whole numbers.';
+  if(historyFormError){ renderAdminPage(); return; }
+  if(isSeasonRecorded(year) && !window.confirm(`Replace the recorded ${year} season?`)) return;
+  writeHistory({ season: { id: year, label: `${year} Draft`, source: 'manual', standings } }, 'PUT', '', `${year} season saved.`);
+};
+
+window.adminRemoveSeason = function(id){
+  const season = historySeasons().find(s => s.id === id);
+  if(historySaving || !season || !window.confirm(`Remove the ${season.label} from History?`)) return;
+  writeHistory(undefined, 'DELETE', `?id=${encodeURIComponent(id)}`, `${season.label} removed.`);
+};
+
+function historyNavSub(){
+  const n = historySeasons().length;
+  const current = seasonFromRows([]);
+  const pending = current && !isSeasonRecorded(current.id) ? `${current.id} in progress` : '';
+  return [n ? `${n} season${n === 1 ? '' : 's'}` : 'Nothing recorded', pending].filter(Boolean).join(' · ');
+}
+
+const HISTORY_LEDE = 'Each finished season’s champion and final standings, on everyone’s Points tab under History. Record the season once every league is locked and its postseason is marked.';
+
+// The class being played: its final standings as Points ranks them today.
+function historyCurrentHtml(desk){
+  const season = seasonFromRows(obRankedRows());
+  if(!season) return '';
+  const ranked = rankStandings(season.standings);
+  const recorded = historySeasons().find(s => s.id === season.id);
+  const open = unlockedLeagues();
+  const lockNote = open.length
+    ? `${SCORING_LEAGUES.length - open.length} of ${SCORING_LEAGUES.length} leagues locked. Still live: ${open.map(leagueChip).join(', ')}.`
+    : 'Every league is locked.';
+  const status = recorded ? `Recorded ${scheduleDateLabel(recorded.at)}. ${namesText(championsOf(recorded).map(s => escapeHtml(s.name)))} 1st.` : 'Not recorded yet.';
+  const pts = n => `${n < 0 ? '−' + Math.abs(n) : n} pts`;
+  const rows = ranked.map(s => desk ? `
+      <div class="admin-desk-poll-row">
+        <span class="admin-desk-poll-text"><span class="admin-desk-poll-name">${placeLabel(s, ranked)}. ${escapeHtml(s.name)}</span></span>
+        <span class="admin-desk-pill"${s.rank === 1 ? ' data-state="ok"' : ''}>${pts(s.pts)}</span>
+      </div>` : `
+      <div class="admin-status-row"><span class="admin-status-label">${placeLabel(s, ranked)}. ${escapeHtml(s.name)}</span><span class="admin-status-value">${pts(s.pts)}</span></div>`).join('');
+  const label = historySaving ? 'Saving…' : recorded ? 'Update final standings' : 'Record final standings';
+  if(desk){
+    return `
+      <section class="admin-desk-section">
+        ${deskLabelRow(escapeHtml(season.label), recorded ? 'Recorded' : open.length ? `${open.length} still live` : 'Ready to record')}
+        <div class="admin-desk-card admin-desk-stack">
+          <div class="admin-desk-poll">${rows}</div>
+          <div class="admin-desk-btns"><button type="button" class="admin-desk-btn solid" onclick="adminRecordSeason()"${historySaving ? ' disabled' : ''}>${label}</button></div>
+          <span class="admin-desk-note">${status} ${lockNote}</span>
+        </div>
+      </section>`;
+  }
+  return `
+    <div class="modal-section-title spaced">${escapeHtml(season.label)}</div>
+    ${rows}
+    <div class="admin-schedule spaced">
+      <div class="admin-schedule-actions"><button class="admin-adj-save" onclick="adminRecordSeason()"${historySaving ? ' disabled' : ''}>${label}</button></div>
+    </div>
+    <div class="admin-status-note">${status} ${lockNote}</div>`;
+}
+
+function historyFormHtml(desk){
+  const options = `<option value="">Nobody</option>${DRAFT_TEAMS.filter(d => !d.open).map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`).join('')}`;
+  const place = n => ['1st (champion)', '2nd', '3rd'][n - 1];
+  const note = 'For seasons before Boxscore. The top three is enough; points are optional.';
+  if(desk){
+    return `
+      <section class="admin-desk-section">
+        ${deskLabelRow('Add an earlier season')}
+        <div class="admin-desk-card admin-desk-stack">
+          <div class="admin-desk-fields">
+            <label class="admin-desk-field"><span class="admin-desk-field-label">Year</span><input type="number" inputmode="numeric" id="admin-history-year" class="admin-desk-input" placeholder="2025"></label>
+          </div>
+          ${[1, 2, 3].map(n => `
+          <div class="admin-desk-fields">
+            <label class="admin-desk-field"><span class="admin-desk-field-label">${place(n)}</span><select id="admin-history-${n}" class="admin-desk-select">${options}</select></label>
+            <label class="admin-desk-field"><span class="admin-desk-field-label">Points</span><input type="number" inputmode="numeric" id="admin-history-pts-${n}" class="admin-desk-input" placeholder="Optional"></label>
+          </div>`).join('')}
+          <div class="admin-desk-btns"><button type="button" class="admin-desk-btn solid" onclick="adminAddPastSeason()"${historySaving ? ' disabled' : ''}>Save season</button></div>
+          <span class="admin-desk-note">${note}</span>
+        </div>
+        ${historyFormError ? `<div class="admin-gate-error">${historyFormError}</div>` : ''}
+      </section>`;
+  }
+  return `
+    <div class="modal-section-title spaced">Add an earlier season</div>
+    <div class="admin-schedule">
+      <input type="number" inputmode="numeric" id="admin-history-year" class="admin-gate-input" placeholder="Year, like 2025" aria-label="Year">
+      ${[1, 2, 3].map(n => `
+      <select id="admin-history-${n}" class="fact-picker" aria-label="${place(n)}">${options.replace('Nobody', place(n))}</select>
+      <input type="number" inputmode="numeric" id="admin-history-pts-${n}" class="admin-gate-input" placeholder="${place(n)} points (optional)" aria-label="${place(n)} points">`).join('')}
+      <div class="admin-schedule-actions"><button class="admin-adj-save" onclick="adminAddPastSeason()"${historySaving ? ' disabled' : ''}>Save season</button></div>
+    </div>
+    ${historyFormError ? `<div class="admin-gate-error">${historyFormError}</div>` : ''}
+    <div class="admin-status-note">${note}</div>`;
+}
+
+function historyListHtml(desk){
+  const seasons = historySeasons();
+  if(!seasons.length) return '';
+  const rows = seasons.map(s => {
+    const who = `${namesText(championsOf(s).map(c => escapeHtml(c.name)))} 1st · ${s.source === 'app' ? 'from Boxscore' : 'typed in'}`;
+    return desk ? `
+      <div class="admin-desk-poll-row">
+        <span class="admin-desk-poll-text"><span class="admin-desk-poll-name">${escapeHtml(s.label)}</span><span class="admin-desk-poll-who">${who}</span></span>
+        <button type="button" class="admin-desk-btn sm outline" onclick="adminRemoveSeason('${s.id}')"${historySaving ? ' disabled' : ''}>Remove</button>
+      </div>` : `
+      <div class="admin-status-row">
+        <span class="admin-status-label">${escapeHtml(s.label)}<span class="admin-poll-who">${who}</span></span>
+        <button class="admin-adj-save end" onclick="adminRemoveSeason('${s.id}')"${historySaving ? ' disabled' : ''}>Remove</button>
+      </div>`;
+  }).join('');
+  return desk ? `
+    <section class="admin-desk-section">
+      ${deskLabelRow('Recorded seasons', `${seasons.length}`)}
+      <div class="admin-desk-card"><div class="admin-desk-poll">${rows}</div></div>
+    </section>` : `<div class="modal-section-title spaced">Recorded seasons</div>${rows}`;
+}
+
+function historySectionHtml(){
+  return `
+    <div class="admin-league">
+      <h3 class="admin-league-title">History</h3>
+      <div class="admin-status-note lede">${HISTORY_LEDE}</div>
+      ${historyCurrentHtml(false)}
+      ${historyListHtml(false)}
+      ${historyFormHtml(false)}
+      ${historyError ? `<div class="admin-gate-error">${historyError}</div>` : ''}
+    </div>`;
+}
+
+function deskHistoryHtml(){
+  return `
+    <div class="admin-desk-head">
+      <div class="admin-desk-titles">
+        <div class="admin-desk-eyebrow">Setup</div>
+        <h1>History</h1>
+        <div class="admin-desk-lede">${HISTORY_LEDE}</div>
+      </div>
+    </div>
+    ${historyError ? `<div class="admin-gate-error">${historyError}</div>` : ''}
+    ${historyCurrentHtml(true)}
+    ${historyListHtml(true)}
+    ${historyFormHtml(true)}`;
+}
+
 function unlockedHtml(){
   const shownLeague = SCORING_LEAGUES.find(l => l.key === lastLeague) || SCORING_LEAGUES[0];
   const body = selected === 'draft' ? draftSectionHtml()
     : selected === 'sports' ? sportsSectionHtml()
+    : selected === 'history' ? historySectionHtml()
     : `${filterChipsHtml()}${leagueSectionHtml(shownLeague)}`;
-  const section = selected === 'draft' || selected === 'sports' ? selected : 'scoring';
+  const section = ['draft', 'sports', 'history'].includes(selected) ? selected : 'scoring';
   return `
     <div class="admin-toolbar">
       <button class="ob-back" onclick="backToSettings()">${CHEVRON_LEFT_SVG}Settings</button>
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
-    ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'sports', label: 'Sports' }, { key: 'scoring', label: 'Scoring' }], section, 'setAdminSection')}
+    ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'sports', label: 'Sports' }, { key: 'scoring', label: 'Scoring' }].concat(PRE_DRAFT ? [] : [{ key: 'history', label: 'History' }]), section, 'setAdminSection')}
     ${body}
   `;
 }
@@ -1039,6 +1248,14 @@ function deskSideHtml(){
             <span class="admin-desk-item-sub">${sportsNavSub()}</span>
           </span>
         </button>
+        ${PRE_DRAFT ? '' : `
+        <button type="button" class="admin-desk-item${selected === 'history' ? ' on' : ''}" onclick="selectAdmin('history')">
+          <span class="admin-desk-dot" data-state="ok"></span>
+          <span class="admin-desk-item-text">
+            <span class="admin-desk-item-title">History</span>
+            <span class="admin-desk-item-sub">${historyNavSub()}</span>
+          </span>
+        </button>`}
       </nav>
       <nav class="admin-desk-nav">
         <div class="admin-desk-label admin-desk-nav-label">Scoring</div>
@@ -1381,7 +1598,7 @@ function deskGateHtml(){
 
 function deskHtml(){
   const league = SCORING_LEAGUES.find(l => l.key === selected);
-  const screen = league ? deskLeagueHtml(league) : selected === 'sports' ? deskSportsHtml() : deskDraftHtml();
+  const screen = league ? deskLeagueHtml(league) : selected === 'sports' ? deskSportsHtml() : selected === 'history' ? deskHistoryHtml() : deskDraftHtml();
   return `
     <div class="admin-desk">
       ${deskSideHtml()}
@@ -1447,5 +1664,6 @@ export function showAdminPage(){
   // does the sidebar's Draft line, whichever screen is showing.
   if(unlocked) loadDraftStatus();
   if(unlocked && selected === 'sports') loadSportsSetting();
+  if(unlocked && selected === 'history') loadHistoryScreen();
   renderAdminPage();
 }

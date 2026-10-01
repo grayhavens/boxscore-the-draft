@@ -43,7 +43,7 @@ const GUIDE = [
     id: 'home', icon: 'home', tour: true, title: 'Your teams',
     lead: 'Home is your board: every team you drafted, grouped by league, with its latest form and next game.',
     points: [
-      'Tap any team for its page: schedule, news, squad and stats.',
+      'Tap any team for its page: schedule, news, squad and stats. On the line shows how close it is to each scoring line, like 1 game behind for the division.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
       'Tap a drafter on Points to see their board.'
     ],
@@ -98,7 +98,8 @@ const GUIDE = [
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
       'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
-      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved.'
+      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.',
+      'History has every finished season’s champion and final standings, and the all-time table.'
     ],
     go: ['Go to Points', "switchView('overall')"]
   },

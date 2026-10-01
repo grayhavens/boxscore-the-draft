@@ -2666,6 +2666,7 @@ body{
   color: var(--text-mute);
   line-height: 1.45;
 }
+.admin-status-note.lede{ margin-top: 0; }
 
 /* ---- Commissioner page, desktop (js/admin.js's desk* functions) ----
    At 900px and up the page is a full-screen shell like the draft room:
@@ -3416,6 +3417,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   cursor: pointer;
 }
 .ob-table-row:last-child{ border-bottom: none; }
+.ob-table-row.static{ cursor: default; }
 .ob-table-row.head{
   padding: 9px 14px;
   border-bottom-color: var(--hairline-strong);
@@ -3677,6 +3679,9 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    texture (hatch), not just hue, so it reads before color is parsed. */
 
 .ob-cards{ display: flex; flex-direction: column; gap: 6px; }
+/* A section after a card list or an idle note (Points -> History) gets the
+   same 14px .act-group leaves under itself. */
+.ob-cards + .ob-section-title, .ob-idle-block + .ob-section-title{ margin-top: 14px; }
 .ob-card{
   background: var(--surface);
   border: 1px solid var(--hairline);

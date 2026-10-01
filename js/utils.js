@@ -111,6 +111,7 @@ export async function fetchAuthedJSON(url, password){
 
 // PUT with the admin password attached and a JSON body — the write
 // counterpart to fetchAuthedJSON, used for every facts/adjustments save.
+// `method` sends a DELETE (no body) the same way.
 // `url` with ?note=<text>: what a commissioner write did, in words, for
 // the system admin page's log (logCommissionerWrite in
 // worker/rundown-proxy.js). No note, no log line.
@@ -119,13 +120,13 @@ export function withNote(url, note){
   return `${url}${url.includes('?') ? '&' : '?'}note=${encodeURIComponent(note)}`;
 }
 
-export async function putAuthedJSON(url, password, body){
+export async function putAuthedJSON(url, password, body, method = 'PUT'){
   const { signal, clear } = withTimeoutSignal();
   try {
     const res = await fetch(url, {
-      method: 'PUT',
+      method,
       headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-      body: JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal
     });
     return { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };

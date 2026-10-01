@@ -150,6 +150,10 @@
       and which it drafts, with how many picks (worker/sports.js, set on
       the Commissioner page with the commissioner password).
 
+   13. HISTORY — /champions is a group's finished seasons, their final
+      standings (worker/champions.js), recorded on the Commissioner page
+      and shown on Points -> History.
+
    GROUPS — every friend-group league (js/groups.js, "The Draft" and the
    ones after it, each on its own <id>.boxscore.space subdomain) shares
    this one worker. Group-owned state — League Facts/adjustments/locks,
@@ -198,6 +202,7 @@ export { DraftRoom } from './draft-room.js';
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush, pushToDrafters } from './web-push.js';
 import { pointsAlerts } from './points-alert.js';
+import { handleChampions } from './champions.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
@@ -1151,7 +1156,7 @@ async function route(request, env, ctx){
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
-    url.pathname === '/sports' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+    url.pathname === '/sports' || url.pathname === '/champions' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
   // The group's invite code (worker/access-code.js). Left open on purpose:
@@ -1203,6 +1208,17 @@ async function route(request, env, ctx){
   if(url.pathname === '/roster') return handleRoster(request, env, group, headers, { json });
 
   if(url.pathname === '/sports') return handleSports(request, url, env, group, headers, { json, isAuthorized, draftRoomStub });
+
+  if(url.pathname === '/champions'){
+    return handleChampions(request, url, env, group, headers, {
+      json, isAuthorized,
+      drafterIds: drafterIdsFor(group),
+      prefix: kvGroupPrefix('champions', group),
+      // Every device with alerts on, whichever switches (like the draft time).
+      push: payload => ctx.waitUntil(pushToDrafters(env, group, drafterIdsFor(group), null, payload, { ttl: 24 * 60 * 60, topic: 'champion' })),
+      log: text => ctx.waitUntil(logAdminAction(env, { who: 'Commissioner', group, action: 'commissioner-history', text }))
+    });
+  }
 
   const factsMatch = url.pathname.match(/^\/facts\/([a-z]+)$/);
   if(factsMatch) return handleLeagueFacts(request, url, env, group, factsMatch[1], headers);

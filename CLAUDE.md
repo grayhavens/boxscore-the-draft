@@ -208,8 +208,10 @@ before the static site:** an old worker rejects a message with no text.
 
 **Push alerts** (`js/push.js`, `worker/web-push.js`, the `push`/`notificationclick` handlers in `sw.js`):
 Settings → Alerts lets each device opt into "My draft pick" (you went on the clock in a real, non-mock
-draft room) and "Chat messages" (skipped for anyone with the app on screen: `js/chat.js` sends a
-`presence` frame the chat room tracks per socket). Standard Web Push with VAPID and aes128gcm written
+draft room), "My points" and "Chat messages" (skipped for anyone with the app on screen: `js/chat.js` sends a
+`presence` frame the chat room tracks per socket). "My points" (`worker/points-alert.js`, hidden before a group's
+first draft) rides on the Activity PUT: once it lands, each drafter its new events touched gets one alert for the batch
+(rank moves only for 1st place), opening Points → Activity. Standard Web Push with VAPID and aes128gcm written
 on WebCrypto, no dependencies; subscriptions live in `LEAGUE_FACTS` KV per drafter (`push:<drafter>`,
 `push@<group>:<drafter>` for other groups). Needs the worker secrets `VAPID_PUBLIC_KEY` /
 `VAPID_PRIVATE_KEY` (`node tools/vapid-keys.mjs` makes a pair; never rotate it casually, since that
@@ -339,6 +341,22 @@ locked points, for the Points tab's Race segment (`js/race.js` draws it, `js/rac
 `docs/points-race-plan.md`). Scoring only exists in the browser, so
 the sample rides on the Activity PUT (`js/activity.js`) and the worker only validates and stores it
 (`history[@<group>]:<season>` in KV, served by `GET /points/history`). A day nobody opens the app has no entry.
+**Deploy the worker first.**
+
+**On the line** (`js/lines.js`, pure math in `js/lines-math.js`): how close each drafted team is to every placement
+rule that scores ("1 game behind Vikings" for Division title, "2 pts clear of the drop"), in games behind for record
+leagues and table points for EPL/NHL. It reads the same ranked tables the rules score from (`rankAutoRowTables` in
+`js/league-facts.js`), so it always agrees with Live points. The team page's Overview has a section for the team, and a
+drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
+ignore tiebreakers. Only for a league whose season is under way and not locked.
+
+**League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
+champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
+finish). The commissioner records seasons on Commissioner → History: the class being played, from today's Points
+ranking (do it once every league is locked and its postseason marked), or an earlier season typed in (year and top
+three, points optional). `champions[@<group>]:seasons` in KV, `GET`/`PUT`/`DELETE /champions` (writes need the
+commissioner password). Recording the app's season the first time alerts the whole group (every device with alerts
+on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
