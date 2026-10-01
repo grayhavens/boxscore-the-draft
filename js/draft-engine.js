@@ -27,8 +27,14 @@
      picks             { [slot]: { team, by, at, n, proxy?, auto?, edited? } }
                        `by` is the roster the team lands on (the slot's
                        owner); `proxy` marks a commissioner picking for them,
-                       `auto` the mock room's bot/timeout auto-pick
+                       `auto` the worker's auto-pick (auto-draft, or a mock
+                       room's bot/timeout)
      overrides         { [slot]: drafterId } — traded slots
+     autoDraft         [drafterId] — drafters the worker picks for once
+                       they're on the clock (AUTO_DRAFT_SECONDS), in any
+                       room; set by each drafter for themselves, or by the
+                       commissioner for anyone (setAutoDraft). Missing on
+                       states saved before it existed.
      pool              [{ id, name, league, abbr, color, custom?, ... }]
                        in rank order; write-ins are appended with custom:true
      clock             see draft-rules.js
@@ -70,6 +76,7 @@ export function createState(drafters, overrides = {}){
     order: null,
     picks: {},
     overrides: {},
+    autoDraft: [],
     pool: [],
     clock: stoppedClock(),
     pickSeq: 0
@@ -152,6 +159,7 @@ export function reduce(prev, action, ctx){
     case 'resume': return resume(state, ctx);
     case 'reset': return reset(state);
     case 'addWriteIn': return addWriteIn(state, action, ctx);
+    case 'setAutoDraft': return setAutoDraft(state, action, ctx);
     default: return fail('bad_input');
   }
 }
@@ -191,6 +199,7 @@ function setConfig(state, a){
   }
   // States saved before bots existed have neither field.
   state.config.bots = (state.config.bots || []).filter(b => state.config.drafters.includes(b));
+  state.autoDraft = (state.autoDraft || []).filter(id => state.config.drafters.includes(id));
   if(state.config.botSeconds === undefined) state.config.botSeconds = DEFAULT_BOT_SECONDS;
   if(structural){
     // The lottery order and any pool built against the old shape no
@@ -297,7 +306,7 @@ function pick(state, a, ctx){
 
   state.pickSeq += 1;
   const record = { team: team.id, by: owner, at: ctx.now, n: state.pickSeq };
-  // `auto` is the worker's own mock-room auto-pick (it acts as
+  // `auto` is the worker's own auto-pick (it acts as
   // commissioner); anything else made for someone else is a proxy.
   if(a.auto === true && ctx.isCommissioner) record.auto = true;
   else if(ctx.actor !== owner) record.proxy = true;
@@ -369,6 +378,23 @@ function resume(state, ctx){
   if(state.phase !== 'draft') return fail('bad_phase');
   if(state.clock.running) return fail('unchanged');
   state.clock = resumeClock(state.clock, ctx.now);
+  return done(state);
+}
+
+// ---- Auto-draft ----
+
+// { drafter, on }: a drafter switches their own auto-draft, and the
+// commissioner anyone's (someone who couldn't make it). Allowed until
+// the draft is done, so it can be set in the lobby ahead of time. Turned
+// on for whoever is already on the clock, it picks as soon as the worker
+// re-arms, once AUTO_DRAFT_SECONDS of their clock has gone.
+function setAutoDraft(state, a, ctx){
+  if(state.phase === 'done') return fail('bad_phase');
+  if(!state.config.drafters.includes(a.drafter) || typeof a.on !== 'boolean') return fail('bad_input');
+  if(!ctx.isCommissioner && ctx.actor !== a.drafter) return fail('forbidden');
+  const list = state.autoDraft || [];
+  if(list.includes(a.drafter) === a.on) return fail('unchanged');
+  state.autoDraft = a.on ? list.concat(a.drafter) : list.filter(id => id !== a.drafter);
   return done(state);
 }
 

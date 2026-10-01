@@ -53,8 +53,10 @@ drafts can run on a throwaway room.
 
 - Owns phase (`lobby | draft | done`), lottery order, picks, trade overrides, write-in teams, clock
   start/pause, and each drafter's queue (server-side so it follows you across devices).
-- Soft clock, no auto-pick, so no alarms in the real room: clients render the countdown from a server
-  timestamp. Mock rooms (`mock`, `mock-*`) are the exception: they're self-serve (every socket is
+- Soft clock in the real room: clients render the countdown from a server timestamp, and the only
+  auto-pick is **auto-draft** — drafters who switch it on (`state.autoDraft`, the `setAutoDraft` action;
+  the commissioner can switch anyone's) are picked for `AUTO_DRAFT_SECONDS` after going on the clock, by
+  the same alarm mock rooms use, in any room. `autoPickLimitMs` in `js/draft-rules.js` sets the delay. Mock rooms (`mock`, `mock-*`) are the exception: they're self-serve (every socket is
   commissioner) and a Durable Object alarm auto-picks for bots (`config.bots`, after `config.botSeconds`)
   and for anyone whose clock runs out, from their queue or else the best-ranked team that fits
   (`autoPickTeam` in `js/draft-rules.js`). Set up from the mock lobby's Draft order table, which draws itself on arrival (re-run any time) and carries each seat's bot switch.
@@ -95,7 +97,7 @@ light theme works.
   `js/draft-pool.js` (pool from the active season's `TEAM_META` ranked by `js/draft-ranks.js`, the design's
   consensus order), and `js/draft.js` (the view). Reached from Settings -> Draft room or `?view=draft`
   (`&room=<name>` for a rehearsal room); the socket only opens while the view is on screen.
-- Built: lobby (order card with the bottom-up lottery reveal, commissioner sign-in, Load team pool, clock
+- Built: lobby (order card with the bottom-up lottery reveal, Load team pool, clock
   length, Run lottery, Start draft), and the live room (Available pool with search, league chips, top-60
   toggle, one-tap Draft, star queue and write-in card; a one-line on-the-clock strip with the soft clock;
   the snake board; My roster and My queue with top-fit Draft). Under 1180px the roster/queue column shares
@@ -107,10 +109,9 @@ light theme works.
 ### As built (Phase E)
 
 - Commissioner bar (every screen size, live and mock rooms, signed in): Pause/Resume, Undo pick, Trade,
-  Clock (Bots & clock in a mock room, mid-draft too), Download board, Reset (confirm modal). Off the lobby,
-  a live-room visitor who isn't signed in sees a "Commissioner sign-in" button there instead. That button
-  (and the lobby's) opens the Settings → Commissioner page (`js/admin.js`), the only place the password is
-  typed; the room signs in with the password saved there, and that page's Draft section shows the live
+  Clock & auto-draft (Bots & clock in a mock room, mid-draft too), Download board, Reset (confirm modal).
+  Nobody who isn't signed in sees a bar, or any sign-in button: Settings → Commissioner (`js/admin.js`)
+  is the only place the password is typed; the room signs in with the password saved there, and that page's Draft section shows the live
   room's status (`GET /draft/status`, which also carries `ordered` and `poolSize`).
   "Pick for {name}" on the on-the-clock card turns the pool's Draft buttons into a proxy pick for whoever is
   on the clock (caps checked against them); clicking any filled board cell opens "Change this pick"
