@@ -23,6 +23,8 @@ import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js'
 import { escapeHtml as esc } from './utils.js';
 import { clearAlerts } from './push.js';
 import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
+import { fxOn, play, pop, burst } from './motion-fx.js';
+import { EASE_SPRING } from './utils.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -228,7 +230,10 @@ function applyReactions(messageId, reactions){
   if(Object.keys(reactions).length) m.reactions = reactions;
   else delete m.reactions;
   saveCachedMessages();
-  if(open) renderList('follow');
+  if(open){
+    renderList('follow');
+    playPendingBurst();
+  }
 }
 
 // Ping loop: keeps the connection warm through idle-timeouts and
@@ -335,12 +340,14 @@ function timeLabel(ts){
 // position) as each one arrives. The URL is used exactly as KLIPY gave it
 // — the worker only ever stores hosts it recognizes (worker/chat-room.js).
 function gifBubbleHtml(m, mine){
-  return `<div class="chat-gif ${mine ? 'mine' : ''}" data-msg="${m.id}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async"></div>`;
+  return `<div class="chat-gif ${mine ? 'mine' : ''}" data-msg="${m.id}" style="aspect-ratio:${m.gif.w} / ${m.gif.h}"><img src="${esc(m.gif.url)}" width="${m.gif.w}" height="${m.gif.h}" alt="GIF" loading="lazy" decoding="async" draggable="false"></div>`;
 }
 
-// Tapping a message toggles its picker (an in-flow row of the six emoji,
-// with the ones you've already used highlighted); tapping an emoji there,
-// or a pill under the message, toggles that reaction for you. Both carry
+// Pressing and holding a message opens its picker (an in-flow row of the
+// emoji, with the ones you've already used highlighted), like iOS Messages;
+// a tap elsewhere closes it. Tapping an emoji there, or a pill under the
+// message, toggles that reaction for you. A tap on a text bubble copies it.
+// Both carry
 // data-react/data-mid and are handled by one delegated listener (see
 // onListClick) since renderList rebuilds the list's innerHTML.
 function reactionButtonHtml(cls, m, emoji, inner, label, extraAttrs = ''){
@@ -461,76 +468,150 @@ function toggleReaction(messageId, emoji){
   }
   socket.send(JSON.stringify({ type: 'react', from: currentProfileId, messageId, emoji }));
   // The new state arrives back over the socket like everyone else's
-  // (the room broadcasts to the sender too) — nothing to apply here.
+  // (the room broadcasts to the sender too) — nothing to apply here,
+  // except noting a reaction you added so it bursts when it lands.
+  const m = messages.find(x => x.id === messageId);
+  const adding = !(m && m.reactions && (m.reactions[emoji] || []).includes(currentProfileId));
+  pendingBurst = adding ? { messageId, emoji, at: Date.now() } : null;
   if(pickerId !== null){
     pickerId = null;
     renderList('follow');
   }
 }
 
+// ---- Reaction motion (docs/motion-plan.md, Phase 5) ----
+// Your own reaction only: the emoji swells in the picker before it closes,
+// then, once the room sends the new state back, its pill pops and six dots
+// burst out of it.
+let pendingBurst = null;  // { messageId, emoji, at } for a reaction you just added
+function playPendingBurst(){
+  if(!pendingBurst) return;
+  const { messageId, emoji, at } = pendingBurst;
+  if(Date.now() - at > 4000){ pendingBurst = null; return; }
+  const pill = [...document.querySelectorAll(`.chat-react-pill.on[data-mid="${messageId}"]`)].find(p => p.dataset.react === emoji);
+  if(!pill) return;
+  pendingBurst = null;
+  pop(pill, { scale: 1.25, duration: 420 });
+  burst(pill);
+}
+
+// A tap on a text bubble copies it (selecting a bubble's text is off: the
+// long press is the picker's). A "Copied" note rises off the bubble.
+function copyBubble(bubble){
+  const m = messages.find(x => x.id === Number(bubble.dataset.msg));
+  if(!m || !m.text) return;
+  const note = () => {
+    const el = document.createElement('span');
+    el.className = 'chat-copied';
+    el.setAttribute('role', 'status');
+    el.textContent = 'Copied';
+    bubble.classList.add('fx-host');
+    bubble.appendChild(el);
+    const anim = play(el, [
+      { opacity: 0, transform: 'translate(-50%, 4px)' },
+      { opacity: 1, transform: 'translate(-50%, -4px)', offset: 0.2 },
+      { opacity: 1, transform: 'translate(-50%, -4px)', offset: 0.75 },
+      { opacity: 0, transform: 'translate(-50%, -10px)' }
+    ], { duration: 1200, fill: 'both' });
+    const end = () => { el.remove(); bubble.classList.remove('fx-host'); };
+    if(anim) anim.finished.then(end, end); else setTimeout(end, 1200);
+  };
+  const fallback = () => {
+    const area = document.createElement('textarea');
+    area.value = m.text;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e){}
+    area.remove();
+    if(ok) note();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(m.text).then(note, fallback);
+  else fallback();
+}
+
 function onListClick(event){
   const target = event.target;
   const button = target.closest('[data-react]');
   if(button){
-    toggleReaction(Number(button.dataset.mid), button.dataset.react);
+    const mid = Number(button.dataset.mid), emoji = button.dataset.react;
+    // From the picker: the emoji swells, then the picker closes.
+    if(button.classList.contains('chat-react-opt') && fxOn()){
+      play(button, [{ transform: 'scale(1)' }, { transform: 'scale(1.45)' }, { transform: 'scale(1)' }], { duration: 360, easing: EASE_SPRING });
+      setTimeout(() => toggleReaction(mid, emoji), 180);
+    } else {
+      toggleReaction(mid, emoji);
+    }
     return;
   }
   if(target.closest('.chat-react-bar')) return;
-  // Finishing a text selection (long-press, drag) ends in a click too.
-  if(window.getSelection().toString()) return;
-  // The long press that just opened a card's picker ends in a click too.
+  // The long press that just opened a picker ends in a click too.
   if(longPressed){
     longPressed = false;
     return;
   }
-  // A shared game opens its box score; its reactions are a long press.
+  // With a picker open, a tap anywhere else just closes it.
+  if(pickerId !== null){
+    pickerId = null;
+    renderList('follow');
+    return;
+  }
+  // A shared game opens its box score; a text bubble copies.
   if(openSharedGame(target)) return;
-
-  const message = target.closest('[data-msg]');
-  const next = message && Number(message.dataset.msg) !== pickerId ? Number(message.dataset.msg) : null;
-  if(next === pickerId) return;
-  pickerId = next;
-  renderList('follow');
+  const bubble = target.closest('.chat-bubble[data-msg]');
+  if(bubble) copyBubble(bubble);
 }
 
-// A shared game card's tap opens the box score, so its reaction picker
-// is a long press instead (or a right-click on desktop).
+// Reactions are a press and hold on any message (bubble, GIF, shared game),
+// or a right-click with a mouse. While the finger is down the message eases
+// in a little (.pressing); moving it (a scroll) cancels.
 let longPressed = false;
-function openPickerFor(card){
-  const id = Number(card.dataset.msg);
+function openPickerFor(msg){
+  const id = Number(msg.dataset.msg);
   if(pickerId === id) return;
   pickerId = id;
   renderList('follow');
+  if(navigator.vibrate) navigator.vibrate(10);
+  play(msg, [{ transform: 'scale(0.97)' }, { transform: 'scale(1)' }], { duration: 260, easing: EASE_SPRING });
 }
 
 function watchLongPress(list){
-  let timer = null;
+  let timer = null, pressed = null;
   let startX = 0, startY = 0;
-  const cancel = () => { clearTimeout(timer); timer = null; };
-  list.addEventListener('touchstart', event => {
-    const card = event.target.closest && event.target.closest('.chat-game');
+  const cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+    if(pressed){ pressed.classList.remove('pressing'); pressed = null; }
+  };
+  list.addEventListener('pointerdown', event => {
     longPressed = false;
-    if(!card || event.touches.length !== 1) return;
-    startX = event.touches[0].clientX;
-    startY = event.touches[0].clientY;
+    if(event.pointerType === 'mouse' && event.button !== 0) return;
+    const msg = event.target.closest && event.target.closest('[data-msg]');
+    if(!msg || !event.isPrimary) return;
+    cancel();
+    startX = event.clientX;
+    startY = event.clientY;
+    pressed = msg;
+    msg.classList.add('pressing');
     timer = setTimeout(() => {
       timer = null;
       longPressed = true;
-      openPickerFor(card);
+      msg.classList.remove('pressing');
+      pressed = null;
+      openPickerFor(msg);
     }, LONG_PRESS_MS);
-  }, { passive: true });
-  list.addEventListener('touchmove', event => {
-    if(!timer) return;
-    const t = event.touches[0];
-    if(Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cancel();
-  }, { passive: true });
-  list.addEventListener('touchend', cancel);
-  list.addEventListener('touchcancel', cancel);
+  });
+  list.addEventListener('pointermove', event => {
+    if(timer && (Math.abs(event.clientX - startX) > 10 || Math.abs(event.clientY - startY) > 10)) cancel();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => list.addEventListener(type, cancel));
   list.addEventListener('contextmenu', event => {
-    const card = event.target.closest('.chat-game');
-    if(!card) return;
+    const msg = event.target.closest('[data-msg]');
+    if(!msg) return;
     event.preventDefault();
-    openPickerFor(card);
+    if(!longPressed) openPickerFor(msg);
   });
 }
 

@@ -183,9 +183,10 @@ worker, so local testing can't post into the real room. The first deploy after a
 `[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
 Chat tab ships pointing at a room that doesn't exist yet.
 
-**Chat reactions** (Slack-style: several per person, one of each emoji): tapping a message opens a
+**Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (or right-clicking it), like iOS Messages, opens a
 row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and
-`worker/chat-room.js`, and the worker rejects anything not in its copy); tapping a pill under a
+`worker/chat-room.js`, and the worker rejects anything not in its copy); a tap elsewhere closes it. A bubble's text isn't
+selectable (the long press is the picker's), so a tap on a text bubble copies it; tapping a pill under a
 message toggles your own. The client sends `{type:'react', from, messageId, emoji}` and the room
 answers everyone with that message's full reaction set. Reactions live in their own SQLite table (not
 on the message) since they change after it's sent, so the `history` frame always carries a snapshot
@@ -203,7 +204,7 @@ never changes. A small live line under it shows the game now, but only once the 
 reads "Final" at the end and then stops. It's looked up from ESPN only while the Chat tab is open, at most once a minute
 per game, and cached on the message (`m.gameNow`). The worker validates the snapshot (`parseGame`) and writes the
 message's text itself (`gameText`), which older app versions show instead of the card and which is the alert body.
-Tapping a card opens its Game Details; long-press (right-click on desktop) opens its reactions. **Deploy the worker
+Tapping a card opens its Game Details; like any message, a long press (right-click on desktop) opens its reactions. **Deploy the worker
 before the static site:** an old worker rejects a message with no text.
 
 **Push alerts** (`js/push.js`, `worker/web-push.js`, the `push`/`notificationclick` handlers in `sw.js`):
