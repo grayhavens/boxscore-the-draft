@@ -108,8 +108,12 @@ export function riseLetters(el, { delay = 0, step = 55, duration = 560 } = {}){
 }
 
 // Roll every whole number in `el`'s text up from 0 (a stat strip's "6th",
-// "9", "2-3-0"). Text with decimals or times (".750", "7:40") is left
-// alone. Stops if something else rewrites the element meanwhile.
+// "9", "2-3-0"). An ordinal rolls up from 1st with its suffix kept right
+// (1st, 2nd, 3rd … 6th), never "0th" or "1nd". Text with decimals or times
+// (".750", "7:40") is left alone. Stops if something else rewrites the
+// element meanwhile.
+const ORDINAL = /^(st|nd|rd|th)\b/;
+const ordinalSuffix = n => (n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th';
 export function rollNumbers(el, { duration = 700, delay = 0 } = {}){
   if(!el || !fxOn()) return;
   const text = el.textContent;
@@ -119,7 +123,14 @@ export function rollNumbers(el, { duration = 700, delay = 0 } = {}){
   let shown = null;
   const paint = k => {
     const e = 1 - Math.pow(1 - k, 3);
-    shown = parts.map((p, i) => (i % 2 ? String(Math.round(Number(p) * e)) : p)).join('');
+    const out = parts.slice();
+    for(let i = 1; i < parts.length; i += 2){
+      const ordinal = ORDINAL.test(parts[i + 1]);
+      const n = Math.max(ordinal ? 1 : 0, Math.round(Number(parts[i]) * e));
+      out[i] = String(n);
+      if(ordinal) out[i + 1] = parts[i + 1].replace(ORDINAL, ordinalSuffix(n));
+    }
+    shown = out.join('');
     el.textContent = shown;
   };
   paint(0);

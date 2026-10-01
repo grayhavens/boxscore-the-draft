@@ -388,7 +388,7 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
     fx.remove();
     rowMotion = null;
     onDone();
-    if(pendingRender){ pendingRender = false; renderTeamPage(); }
+    if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
   };
   rowMotion = { finish };
   // Whatever happens to the animations, always land the navigation.
@@ -530,7 +530,7 @@ function ensureBundle(teamKey){
     // Mid-transition the page's pieces are being animated; replacing
     // them now would pop them in. Render once it lands instead.
     if(rowMotion) pendingRender = true;
-    else renderTeamPage();
+    else renderTeamPage({ refresh: true });
   });
 }
 
@@ -545,11 +545,22 @@ window.setTeamPageTab = tabKey => setTeamPageTab(tabKey);
 
 // ---- Team Page ----
 
-function heroHtml(teamKey, meta){
+// The line under the hero name. Its status pill needs the bundle, so a
+// refresh rewrites just this (renderTeamPage).
+function heroMetaHtml(teamKey, meta){
   const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
   const league = LEAGUES.find(l => l.key === meta.leagueKey);
   const bundle = liveDataCache[teamKey];
   const status = bundle ? seasonStatus(meta, bundle) : null;
+  return `
+    ${PRE_DRAFT ? '' : `<span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
+    <span>&middot;</span>`}
+    <span>${league ? league.label : ''}</span>
+    ${status ? `<span class="status-pill">${status.label}</span>` : ''}
+  `;
+}
+
+function heroHtml(teamKey, meta){
   const accent = meta.accent || '#D9B45B';
   const hex = accent.replace('#', '');
   const rgb = [0, 2, 4].map(i => parseInt(hex.substring(i, i + 2), 16) || 0).join(',');
@@ -562,12 +573,7 @@ function heroHtml(teamKey, meta){
         ${meta.badgeUrl ? `<img class="crest-bare" src="${crestSrc(meta)}" alt="${meta.name}">` : teamBadgeHtml(meta)}
         <div>
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
-          <div class="team-hero-meta">
-            ${PRE_DRAFT ? '' : `<span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
-            <span>&middot;</span>`}
-            <span>${league ? league.label : ''}</span>
-            ${status ? `<span class="status-pill">${status.label}</span>` : ''}
-          </div>
+          <div class="team-hero-meta"></div>
         </div>
       </div>
     </div>
@@ -579,7 +585,33 @@ function gameCardHtml(teamKey, bundle){
   return `<div class="game-card ${isLive ? 'live' : 'upcoming'}" id="team-page-game-card"><div class="next-match" id="team-page-next"></div></div>`;
 }
 
-function renderTeamPage(){
+// What each section of the page was last written with. A refresh rewrites
+// only the sections whose markup changed, so one that lands mid-entrance
+// leaves whatever is still playing (the hero bloom, the stat roll, the
+// form cascade) alone instead of replacing it halfway through.
+const written = new WeakMap();
+function writeHtml(el, html){
+  if(!el || written.get(el) === html) return false;
+  el.innerHTML = html;
+  written.set(el, html);
+  return true;
+}
+// js/live-data.js's renderers write into an element by id: run one into a
+// scratch element first, so its markup can go through writeHtml.
+function writeRendered(el, render){
+  if(!el) return false;
+  const scratch = document.createElement('div');
+  scratch.id = `${el.id}-scratch`;
+  scratch.hidden = true;
+  document.body.appendChild(scratch);
+  try{ render(scratch.id); } finally { scratch.remove(); }
+  return writeHtml(el, scratch.innerHTML);
+}
+
+// `refresh`: new data for the page already on screen (a fetch landing),
+// rather than an open. The nav, hero and tabs stay put; only what the data
+// drives is rewritten, and only where it changed.
+function renderTeamPage({ refresh = false } = {}){
   const el = document.getElementById('team-page-content');
   if(!el) return;
   const teamKey = state.teamKey;
@@ -588,22 +620,29 @@ function renderTeamPage(){
   const bundle = liveDataCache[teamKey];
   const tabs = tabsFor(meta.leagueKey);
 
-  el.dataset.activeTeam = teamKey;
-  el.innerHTML = `
-    <div class="team-page-nav">
-      ${backLinkHtml({ label: state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home'), onclick: 'backFromTeamPage()' })}
-      <div class="team-page-actions">${favoriteStarHtml(teamKey)}</div>
-    </div>
-    ${heroHtml(teamKey, meta)}
-    <div class="stat-strip" id="team-page-stats">${bundle ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
-    ${gameCardHtml(teamKey, bundle)}
-    <div class="team-page-tabs" id="team-page-tabs">${segmentedControlHtml(tabs, state.activeTab, 'setTeamPageTab')}</div>
-    <div class="tab-body" id="team-page-tab-body"></div>
-  `;
+  if(!(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.team-hero'))){
+    el.dataset.activeTeam = teamKey;
+    el.innerHTML = `
+      <div class="team-page-nav">
+        ${backLinkHtml({ label: state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home'), onclick: 'backFromTeamPage()' })}
+        <div class="team-page-actions">${favoriteStarHtml(teamKey)}</div>
+      </div>
+      ${heroHtml(teamKey, meta)}
+      <div class="stat-strip" id="team-page-stats">${bundle ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
+      ${gameCardHtml(teamKey, bundle)}
+      <div class="team-page-tabs" id="team-page-tabs">${segmentedControlHtml(tabs, state.activeTab, 'setTeamPageTab')}</div>
+      <div class="tab-body" id="team-page-tab-body"></div>
+    `;
+  }
 
+  writeHtml(el.querySelector('.team-hero-meta'), heroMetaHtml(teamKey, meta));
   if(bundle){
-    renderStats(meta, bundle, 'team-page-stats');
-    renderNext(teamKey, meta, bundle, 'team-page-next');
+    const card = document.getElementById('team-page-game-card');
+    const isLive = !!(bundle.espnLive && bundle.espnLive.isLive);
+    card.classList.toggle('live', isLive);
+    card.classList.toggle('upcoming', !isLive);
+    writeRendered(document.getElementById('team-page-stats'), id => renderStats(meta, bundle, id));
+    writeRendered(document.getElementById('team-page-next'), id => renderNext(teamKey, meta, bundle, id));
   }
   renderTabBody();
   playHeroOpen();
@@ -618,9 +657,18 @@ function renderTabBody(){
   if(!meta) return;
   const bundle = liveDataCache[teamKey];
   const fullFeature = FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey);
+  // Overview is laid out once per open and then filled section by section,
+  // so news or a refetched bundle landing doesn't redraw Recent form.
+  const shows = state.activeTab === 'schedule' ? `schedule:${teamKey}` : '';
+  const same = shows && el.dataset.shows === shows;
+  el.dataset.shows = shows;
 
   if(state.activeTab === 'schedule'){
-    el.innerHTML = scheduleTabHtml(teamKey, meta, bundle);
+    if(!same) el.innerHTML = scheduleTabHtml(teamKey);
+    writeHtml(document.getElementById('form-section'), recentFormHtml(teamKey, bundle));
+    writeHtml(document.getElementById('lines-section'), teamLinesSectionHtml(teamKey));
+    writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
+    writeHtml(document.getElementById('tracker-section'), trackerSectionHtml(teamKey));
     playFormCascade();
     playLineChanges(teamKey);
     ensureNews(teamKey);
@@ -702,7 +750,7 @@ function upcomingRowHtml(evt){
   `;
 }
 
-function scheduleTabHtml(teamKey, meta, bundle){
+function recentFormHtml(teamKey, bundle){
   const sched = bundle && bundle.espnSchedule;
   let scheduleHtml;
   if(!bundle){
@@ -725,18 +773,22 @@ function scheduleTabHtml(teamKey, meta, bundle){
       </div>
     `;
   }
+  return scheduleHtml;
+}
 
-  // News used to be its own tab — it's a section here now, below the
-  // schedule content, so it still shows even while schedule/bundle data
-  // is loading or unavailable rather than being gated on it. Draft Points
-  // (js/league-facts.js) closes out the tab for every team; it used to sit
-  // at the bottom of Stats, which some leagues don't have.
+// The Overview tab's sections, empty: renderTabBody fills each one.
+// News used to be its own tab — it's a section here now, below the
+// schedule content, so it still shows even while schedule/bundle data
+// is loading or unavailable rather than being gated on it. Draft Points
+// (js/league-facts.js) closes out the tab for every team; it used to sit
+// at the bottom of Stats, which some leagues don't have.
+function scheduleTabHtml(teamKey){
   return `
-    ${scheduleHtml}
-    <div id="lines-section" data-team="${teamKey}">${teamLinesSectionHtml(teamKey)}</div>
+    <div id="form-section"></div>
+    <div id="lines-section" data-team="${teamKey}"></div>
     <div class="modal-section-title spaced">News</div>
-    ${newsTabHtml(teamKey)}
-    <div id="tracker-section">${trackerSectionHtml(teamKey)}</div>
+    <div id="news-section"></div>
+    <div id="tracker-section"></div>
   `;
 }
 
@@ -747,10 +799,7 @@ function scheduleTabHtml(teamKey, meta, bundle){
 function ensureLines(teamKey){
   loadLineInputs([TEAM_META[teamKey].leagueKey]).then(() => {
     const el = document.getElementById('lines-section');
-    if(el && el.dataset.team === teamKey){
-      el.innerHTML = teamLinesSectionHtml(teamKey);
-      playLineChanges(teamKey);
-    }
+    if(el && el.dataset.team === teamKey && writeHtml(el, teamLinesSectionHtml(teamKey))) playLineChanges(teamKey);
   });
 }
 

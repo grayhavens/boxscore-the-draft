@@ -476,7 +476,7 @@ body{
   justify-content: center;
   cursor: pointer;
   color: var(--star-idle);
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s var(--ease-spring);
 }
 
 .favorite-star svg{ width: 18px; height: 18px; }
@@ -660,7 +660,7 @@ body{
   border-radius: 8px;
   background: var(--seg-thumb);
   box-shadow: var(--seg-thumb-shadow);
-  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.34s var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -3095,7 +3095,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ob-hero-rankline{ display: flex; align-items: baseline; gap: 8px; }
 .ob-hero-rank, .ob-hero-total{
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: var(--fs-hero);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -3639,7 +3639,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   from{ transform: translateX(34px); opacity: 0; }
   to{ transform: translateX(0); opacity: 1; }
 }
-.view-push-in{ animation: view-push-in 0.34s cubic-bezier(0.22, 0.7, 0.25, 1); }
+.view-push-in{ animation: view-push-in 0.34s var(--ease-push); }
 @media (prefers-reduced-motion: reduce){ .view-push-in{ animation: none; } }
 
 .team-page-nav{
@@ -5590,10 +5590,10 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   html[data-nav="back"]::view-transition-old(root){ animation-name: vt-out-right; animation-duration: 240ms; }
   html[data-nav="back"]::view-transition-new(root){ animation-name: vt-in-left; }
 
-  html[data-nav="push"]::view-transition-old(root){ animation: vt-push-old 400ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
-  html[data-nav="push"]::view-transition-new(root){ animation: vt-push-new 400ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
-  html[data-nav="pop"]::view-transition-old(root){ animation: vt-pop-old 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; z-index: 1; }
-  html[data-nav="pop"]::view-transition-new(root){ animation: vt-pop-new 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
+  html[data-nav="push"]::view-transition-old(root){ animation: vt-push-old 400ms var(--ease-push) both; }
+  html[data-nav="push"]::view-transition-new(root){ animation: vt-push-new 400ms var(--ease-push) both; }
+  html[data-nav="pop"]::view-transition-old(root){ animation: vt-pop-old 340ms var(--ease-push) both; z-index: 1; }
+  html[data-nav="pop"]::view-transition-new(root){ animation: vt-pop-new 340ms var(--ease-push) both; }
 
   /* Where View Transitions exist they replace the tab fade (R5) and the
      team views' slide-in (.view-push-in) — both would otherwise play a
@@ -5733,7 +5733,7 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
    (view-transition-name tp-crest / tp-name), on the push's own timing. */
 @media (prefers-reduced-motion: no-preference){
   ::view-transition-group(tp-crest),
-  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: cubic-bezier(0.22, 0.7, 0.25, 1); }
+  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: var(--ease-push); }
 }
 
 /* Points: a row climbing the board rides over the rows it passes. */
@@ -5835,7 +5835,7 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   .modal-overlay.open{ animation: overlay-in 380ms ease backwards; }
   .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }
   .modal-overlay.closing{ animation: overlay-out 280ms ease forwards; }
-  .modal-overlay.closing .modal{ animation: sheet-down 280ms cubic-bezier(0.32, 0, 0.67, 0) forwards; }
+  .modal-overlay.closing .modal{ animation: sheet-down 280ms var(--ease-in) forwards; }
 
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }
@@ -6040,7 +6040,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-faq-item summary{
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px; cursor: pointer; list-style: none;
-  font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--text);
+  font-size: var(--fs-15); font-weight: 700; line-height: 1.35; color: var(--text);
 }
 .landing-faq-item summary::-webkit-details-marker{ display: none; }
 .landing-faq-item summary::after{
