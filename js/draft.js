@@ -22,11 +22,15 @@
    in the live room and mock rooms alike): pause/resume, undo, trade,
    draft settings (clock; bots too in a mock room), download, reset, tap
    a filled board cell/row to change that pick, and "Pick for {name}" to
-   draft for whoever is on the clock. A live-room visitor who isn't signed
-   in gets a "Commissioner sign-in" button (there, or in the lobby) that
-   opens the Commissioner page (js/admin.js) — the only place the password
-   is typed; this room signs in with the one saved there.
+   draft for whoever is on the clock. Signing in happens only on Settings →
+   Commissioner (js/admin.js), the one place the password is typed; this
+   room signs in with the one saved there, and shows nothing about it to
+   anyone who isn't signed in.
    Mock rooms sign everyone in automatically (worker/draft-room.js).
+   Auto-draft (both rooms): each drafter's own switch under My
+   queue, in the right column or the My team tab on phones (and in the lobby), has the worker draft for them a few seconds
+   after they go on the clock; the commissioner can switch it on for
+   anyone from the live room's settings.
    Phones (<=700px) get their own shell — a compact clock over Pick /
    Board / My team tabs — instead of the three-column layout; the bar
    scrolls sideways there. See docs/draft-room-plan.md.
@@ -46,7 +50,8 @@ import { DRAFT_OUTLOOKS } from './draft-outlooks.js';
 import { STAR_FILLED_SVG, STAR_OUTLINE_SVG } from './favorites.js';
 import {
   totalPicks, totalRounds, ownerOf, pickLabel, teamById, takenTeamIds,
-  leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS
+  leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, DEFAULT_BOT_SECONDS, AUTO_DRAFT_SECONDS,
+  autoPickLimitMs
 } from './draft-rules.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
@@ -112,6 +117,7 @@ const ERROR_TEXT = {
   taken: 'That team was just taken.',
   league_full: 'Your roster is full for that league.',
   exists: 'That school is already on the board.',
+  unchanged: 'Nothing to change.',
   nothing_to_undo: 'Nothing to undo.'
 };
 
@@ -223,6 +229,42 @@ function teamFits(d, team, counts){
   return ((counts || d.actorCounts)[team.league] || 0) < (d.s.config.caps[team.league] || 0);
 }
 
+// Is the worker drafting for `id` when they're up? (state.autoDraft is
+// missing on rooms saved before auto-draft existed.)
+const autoDraftOn = (d, id) => (d.s.autoDraft || []).includes(id);
+
+// ---- Auto-draft ----
+
+// My own switch: in the right column (the My team tab on phones),
+// between My queue and Roster, and in the lobby so it can be set before the
+// draft starts. `compact` is the room's one-line version. Nothing for a
+// visitor who isn't drafting.
+function autoDraftHtml(d, compact){
+  if(!d.s.config.drafters.includes(d.me) || d.s.phase === 'done') return '';
+  const on = autoDraftOn(d, d.me);
+  const sub = compact
+    ? (on ? `On: picks for you ${AUTO_DRAFT_SECONDS}s after you're up.` : 'Picks for you from your queue, then the best left.')
+    : (on
+      ? `On. When you're up, your top queued team that fits is drafted after ${AUTO_DRAFT_SECONDS}s, or the best one left. You can still pick first.`
+      : "Can't make it, or stepping away? The room drafts for you from your queue, then the best team left.");
+  return `<div class="dr-auto${on ? ' on' : ''}${compact ? ' compact' : ''}">
+    <div class="dr-auto-main"><b>Auto-draft</b><span>${sub}</span></div>
+    <button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Auto-draft for me" onclick="draftToggleAuto('${esc(d.me)}')"></button>
+  </div>`;
+}
+
+// Commissioner, live room: one switch per drafter, for anyone who can't
+// make it. (A mock room has bots for that.)
+function autoDraftRowsHtml(d){
+  return (d.s.order || d.s.config.drafters).map(id => {
+    const on = autoDraftOn(d, id);
+    return `<div class="dr-order-row dr-auto-row${id === d.me ? ' me' : ''}">
+      <span class="dr-order-name">${esc(drafterName(id))}${id === d.me ? ' <span class="dr-you">YOU</span>' : ''}${on ? ' <span class="dr-bot-tag">AUTO</span>' : ''}</span>
+      <button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Auto-draft for ${esc(drafterName(id))}" onclick="draftToggleAuto('${esc(id)}')"></button>
+    </div>`;
+  }).join('');
+}
+
 // ---- Tiles ----
 
 function tileFg(hex){
@@ -327,8 +369,7 @@ function lobbyHtml(d){
     // A mock room signs every socket in on connect; this is the moment before.
     actions = '<div class="dr-wait">Connecting…</div>';
   } else {
-    actions = `<div class="dr-wait">${drawn ? 'Waiting for the commissioner to start the draft.' : 'Waiting for the commissioner to run the lottery.'}</div>
-      <div class="dr-actions dr-actions-sub">${commSignInHtml()}</div>`;
+    actions = `<div class="dr-wait">${drawn ? 'Waiting for the commissioner to start the draft.' : 'Waiting for the commissioner to run the lottery.'}</div>`;
   }
 
   return `
@@ -344,6 +385,7 @@ function lobbyHtml(d){
         ${mock && draftStore.commissioner ? botActionsHtml(d) : ''}
       </div>
       ${firstPicks}
+      ${autoDraftHtml(d)}
       ${actions}
     </div>`;
 }
@@ -412,8 +454,9 @@ function shellHtml(){
       </section>
       <aside class="dr-col dr-right">
         <button class="dr-rail" onclick="draftTogglePanel('right')" aria-label="Expand My roster and queue" aria-expanded="false"><span class="dr-caret" aria-hidden="true">${ICON.chevL}</span><span class="dr-rail-label">My roster</span><span class="dr-rail-count" id="dr-rail-right-count"></span></button>
-        <div id="dr-roster"></div>
         <div id="dr-queue"></div>
+        <div id="dr-autodraft"></div>
+        <div id="dr-roster"></div>
       </aside>
     </div>`;
 }
@@ -672,10 +715,15 @@ function clockCardHtml(d){
   const highest = Math.max(-1, ...Object.keys(s.picks).map(Number));
   const makeUp = info.slot < highest;
   const round = Math.floor(info.slot / d.n) + 1;
-  const eyebrow = `${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? `<span class="dr-badge">${phone ? 'MAKE-UP PICK' : 'MAKE-UP'}</span>` : ''}`;
+  const auto = autoDraftOn(d, info.owner);
+  const eyebrow = `${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? `<span class="dr-badge">${phone ? 'MAKE-UP PICK' : 'MAKE-UP'}</span>` : ''}${auto ? '<span class="dr-badge">AUTO-DRAFT</span>' : ''}`;
+  // The desktop strip already names who's up right beside the button, so
+  // it just says Pick there; the phone's button sits apart from the name.
+  const proxyLabel = d.proxy ? 'Cancel' : (phone ? `Pick for ${esc(drafterName(info.owner))}` : 'Pick');
   const proxyBtn = draftStore.commissioner && !d.myTurn && d.running
-    ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()">${d.proxy ? 'Cancel' : `Pick for ${esc(drafterName(info.owner))}`}</button>` : '';
+    ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()" aria-label="${d.proxy ? 'Cancel picking' : `Pick for ${esc(drafterName(info.owner))}`}">${proxyLabel}</button>` : '';
   const banners = `${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
+    ${mine && auto ? `<div class="dr-proxy-note dr-auto-note">Auto-draft is on: your pick goes in by itself in a few seconds. Draft now to choose it yourself, or <button type="button" onclick="draftToggleAuto('${esc(d.me)}')">turn it off</button>.</div>` : ''}
     ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
   if(phone){
     return `
@@ -714,7 +762,7 @@ function boardHtml(d){
   const { s, n } = d;
   const order = s.order;
   const cur = d.clockInfo ? d.clockInfo.slot : -1;
-  const head = order.map(id => `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}">${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`).join('');
+  const head = order.map(id => `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`).join('');
   const rows = [];
   for(let r = 0; r < d.rounds; r++){
     const cells = [];
@@ -784,7 +832,7 @@ function rosterHtml(d){
   if(railCount) railCount.textContent = `${rosterPicks(d, d.me).length}/${d.rounds}`;
   const options = (s.order || s.config.drafters).map(id =>
     `<option value="${esc(id)}"${id === who ? ' selected' : ''}>${esc(drafterName(id))}${id === d.me ? ' (Yours)' : ''}</option>`).join('');
-  return `<div class="dr-col-head"><h2>Roster</h2><label class="dr-roster-pick"><select onchange="draftViewRoster(this.value)" aria-label="Whose roster to show">${options}</select>${ICON.chevD}</label><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">${ICON.chevR}</button></div>${rows}`;
+  return `<div class="dr-col-head dr-roster-head"><h2>Roster</h2><label class="dr-roster-pick"><select onchange="draftViewRoster(this.value)" aria-label="Whose roster to show">${options}</select>${ICON.chevD}</label></div>${rows}`;
 }
 
 function queueTeams(d){
@@ -814,19 +862,15 @@ function queueHtml(d){
       </div>`;
     }).join('');
   }
-  return `<div class="dr-col-head dr-queue-head"><h2>My queue</h2><span class="dr-dim">${list.length} ranked</span></div>${body}`;
+  return `<div class="dr-col-head dr-queue-head"><h2>My queue</h2><span class="dr-dim">${list.length} ranked</span><button class="dr-caret" onclick="draftTogglePanel('right')" aria-label="Collapse My roster and queue" aria-expanded="true">${ICON.chevR}</button></div>${body}`;
 }
 
 // ---- Commissioner bar + modals ----
 
-// The password is only ever entered on the Commissioner page (js/admin.js);
-// once it's saved there, this room signs in with it (resumeCommissioner).
-function commSignInHtml(){
-  return `<button class="dr-btn" onclick="switchView('admin')">Commissioner sign-in</button>`;
-}
-
+// The password is only ever entered on Settings → Commissioner
+// (js/admin.js); once it's saved there, this room signs in with it
+// (resumeCommissioner) and the bar appears. Nobody else sees one.
 function commBarHtml(d){
-  if(!draftStore.commissioner) return commSignInHtml();
   const anyPicks = Object.keys(d.s.picks).length > 0;
   const live = d.s.phase === 'draft';
   const mock = isMockRoom(draftStore.room);
@@ -834,18 +878,17 @@ function commBarHtml(d){
     ${live ? `<button class="dr-btn" onclick="${d.s.clock.running ? 'draftPause' : 'draftResume'}()">${d.s.clock.running ? 'Pause' : 'Resume'}</button>` : ''}
     <button class="dr-btn"${anyPicks ? '' : ' disabled'} onclick="draftUndo()">Undo pick</button>
     ${d.s.order && d.s.phase !== 'done' ? '<button class="dr-btn" onclick="draftOpenTrade()">Trade</button>' : ''}
-    ${live ? `<button class="dr-btn" onclick="draftOpenSettings()">${mock ? 'Bots &amp; clock' : 'Clock'}</button>` : ''}
+    ${live ? `<button class="dr-btn" onclick="draftOpenSettings()">${mock ? 'Bots &amp; clock' : 'Clock &amp; auto-draft'}</button>` : ''}
     <button class="dr-btn" onclick="draftDownload()" title="Everything so far, including who owns each remaining pick">Download board</button>
     <button class="dr-btn dr-btn-ghost" onclick="draftOpenReset()">Reset</button>`;
 }
 
-// Off the lobby (which has its own sign-in form), in every room. A mock
-// room's visitors are signed in on connect, so only the live room ever
-// shows the sign-in button here.
+// Off the lobby, in every room, for the signed-in commissioner only (a
+// mock room signs everyone in on connect).
 function renderCommBar(d){
   const el = document.getElementById('draft-comm');
   if(!el) return;
-  const show = !!d && d.s.phase !== 'lobby' && (draftStore.commissioner || !isMockRoom(draftStore.room));
+  const show = !!d && d.s.phase !== 'lobby' && draftStore.commissioner;
   el.hidden = !show;
   if(show && regionHtml.get('draft-comm') !== commBarHtml(d)){
     const html = commBarHtml(d);
@@ -901,10 +944,10 @@ function modalBody(d){
   if(ui.modal === 'settings'){
     if(!draftStore.commissioner) return null;
     const mock = isMockRoom(draftStore.room);
-    return `<h3>${mock ? 'Bots &amp; clock' : 'Clock'}</h3>
-      <p>${mock ? 'Takes effect from the pick on the clock now. Bots pick on their own; anyone else is auto-picked when the clock runs out.' : 'The clock is soft: it counts up in red when time runs out, and nothing auto-picks.'}</p>
+    return `<h3>${mock ? 'Bots &amp; clock' : 'Clock &amp; auto-draft'}</h3>
+      <p>${mock ? 'Takes effect from the pick on the clock now. Bots pick on their own; anyone else is auto-picked when the clock runs out.' : `The clock is soft: it counts up in red when time runs out. Only drafters on auto-draft are picked for, ${AUTO_DRAFT_SECONDS}s after they go on the clock. Switch it on for anyone who can't make it.`}</p>
       <div class="dr-actions dr-actions-sub">${clockSelectHtml(d)}</div>
-      ${mock ? `<div class="dr-card dr-modal-card">${botControlsHtml(d)}</div>` : ''}
+      <div class="dr-card dr-modal-card">${mock ? botControlsHtml(d) : autoDraftRowsHtml(d)}</div>
       <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Done</button></div>`;
   }
   if(ui.modal === 'reset'){
@@ -1106,7 +1149,7 @@ function phoneShellHtml(){
         <div id="dr-pool" class="dr-pool"></div>
       </section>
       <section class="dm-pane" data-pane="board"><div id="dm-board"></div></section>
-      <section class="dm-pane" data-pane="team"><div id="dr-roster"></div><div id="dr-queue"></div></section>
+      <section class="dm-pane" data-pane="team"><div id="dr-queue"></div><div id="dr-autodraft"></div><div id="dr-roster"></div></section>
     </div>`;
 }
 
@@ -1151,6 +1194,7 @@ function renderPhone(d){
   shell.querySelectorAll('.dm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.mobileTab));
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
+  setRegion('dr-autodraft', autoDraftHtml(d, true));
   setRegion('dm-queue-top', phoneQueueHtml(d));
   setRegion('dm-board', phoneBoardHtml(d));
   setRegion('dr-roster', rosterHtml(d));
@@ -1179,6 +1223,7 @@ function renderLive(d){
   }
   updateTabs();
   renderPool(d);
+  setRegion('dr-autodraft', autoDraftHtml(d, true));
   setRegion('dr-clock', clockCardHtml(d));
   const hadBoard = regionHtml.has('dr-board');
   setRegion('dr-board', boardHtml(d));
@@ -1295,7 +1340,10 @@ function updateClock(){
   const timer = document.getElementById('dr-timer');
   const d = derive();
   if(!timer || !d || d.s.phase !== 'draft') return;
-  const limit = d.s.config.clockSeconds * 1000;
+  // Counts down to whenever the room will pick for them (auto-draft, a
+  // mock room's bot or timeout), else the soft clock.
+  const owner = d.clockInfo && d.clockInfo.owner;
+  const limit = (owner && autoPickLimitMs(d.s, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
   const elapsed = clockElapsedMs(d.s.clock, serverNow());
   const left = limit - elapsed;
   const over = left < 0;
@@ -1461,6 +1509,14 @@ function applyPendingSelect(d){
 window.draftRunLottery = () => run({ type: 'runLottery' }, null);
 window.draftStart = () => run({ type: 'startDraft' }, null);
 window.draftSetClock = value => run({ type: 'setConfig', clockSeconds: Number(value) }, null);
+// Mine goes as me (no password needed); anyone else's as the commissioner.
+window.draftToggleAuto = id => {
+  const s = draftStore.state;
+  if(!s) return;
+  const on = !(s.autoDraft || []).includes(id);
+  run({ type: 'setAutoDraft', drafter: id, on }, id === currentProfileId ? id : null)
+    .then(r => { if(r.ok) toast(on ? (id === currentProfileId ? 'Auto-draft is on.' : `Auto-draft on for ${drafterName(id)}.`) : 'Auto-draft is off.'); });
+};
 window.draftSetBotSeconds = value => run({ type: 'setConfig', botSeconds: Number(value) }, null);
 window.draftToggleBot = id => {
   const bots = draftStore.state.config.bots || [];

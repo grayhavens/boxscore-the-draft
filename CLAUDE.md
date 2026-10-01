@@ -252,6 +252,12 @@ Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). M
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
+**Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
+`AUTO_DRAFT_SECONDS` (5s) after they go on the clock, from their queue or else the best team that fits, through the
+same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
+(`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
+room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
+clock" alert. Picks it makes carry `auto: true`. **Deploy the worker first:** an old worker rejects `setAutoDraft`.
 **Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
 (`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time plus Mock Draft / Live Draft buttons, and hides
 the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's

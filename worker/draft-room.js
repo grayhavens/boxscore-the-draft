@@ -7,8 +7,8 @@
    imports, so client and server can't disagree about the rules) and the
    resulting state is persisted, then broadcast to everyone. The pick
    clock is a set of timestamps inside the state (see js/draft-rules.js),
-   so the real room never ticks: its clock is soft and nothing
-   auto-picks.
+   so the real room never ticks: its clock is soft, and the only
+   auto-pick there is auto-draft (below).
 
    One instance per room name (`?room=`, default "main"), so throwaway
    mock drafts run on their own rooms before the real one. See
@@ -21,6 +21,11 @@
      the clock — a bot (config.bots) after config.botSeconds, anyone
      else once config.clockSeconds runs out — and picks from their queue,
      else the best-ranked team that fits (autoPickTeam).
+   Auto-draft (state.autoDraft, the setAutoDraft action) works in every
+   room, the real one included: a drafter who turns it on is picked for
+   the same way, AUTO_DRAFT_SECONDS after going on the clock, and gets no
+   "You're on the clock" alert. autoPickLimitMs (js/draft-rules.js)
+   decides the delay for both kinds of room.
    The room learns its own name and group (js/groups.js) from the
    WebSocket URL on first connect (kv 'room' / 'group'); a Durable Object
    isn't told the name it was created by. The group picks the default
@@ -84,7 +89,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, DEFAULT_BOT_SECONDS } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
@@ -299,6 +304,7 @@ export class DraftRoom extends DurableObject {
         drafter: p.by,
         team: teamById(state.pool, p.team),
         ...(p.proxy ? { proxy: true } : {}),
+        ...(p.auto ? { auto: true } : {}),
         ...(p.edited ? { edited: true } : {})
       };
     });
@@ -422,7 +428,7 @@ export class DraftRoom extends DurableObject {
   }
 
   // Persists an accepted state, logs the action, tells everyone, and
-  // re-arms the mock room's auto-pick for whoever is now on the clock.
+  // re-arms the auto-pick for whoever is now on the clock.
   async commit(before, state, actor, commissioner, action){
     this.state = state;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
@@ -448,6 +454,8 @@ export class DraftRoom extends DurableObject {
     const was = onTheClock(before);
     const now = onTheClock(this.state);
     if(!now || (was && was.slot === now.slot && was.owner === now.owner)) return;
+    // Auto-draft is about to pick for them; nothing for them to do.
+    if((this.state.autoDraft || []).includes(now.owner)) return;
     const group = this.group || LEGACY_GROUP_ID;
     const roster = await effectiveDrafters(this.env, group); // confirmed spots' real names (worker/roster.js)
     const nameOf = id => (roster.find(d => d.id === id) || { name: id }).name;
@@ -465,18 +473,17 @@ export class DraftRoom extends DurableObject {
     }, { ttl: 10 * 60, urgency: 'high', topic: 'draft-clock' });
   }
 
-  // ---- Mock-room auto-pick ----
+  // ---- Auto-pick (auto-draft, and mock rooms' bots and timeouts) ----
 
   // When the pick on the clock is due to be made for its owner, or null
-  // when nothing should auto-pick (the real room, paused, lobby, done).
+  // when nothing should auto-pick (the real room for anyone not on
+  // auto-draft, paused, lobby, done).
   autoPickDue(){
-    if(!isMockRoom(this.room)) return null;
     const { state } = this;
     const clock = onTheClock(state);
     if(!clock || !state.clock.running) return null;
-    const { config } = state;
-    // A room saved before bots existed has no botSeconds.
-    const limitMs = ((config.bots || []).includes(clock.owner) ? (config.botSeconds || DEFAULT_BOT_SECONDS) : config.clockSeconds) * 1000;
+    const limitMs = autoPickLimitMs(state, clock.owner, isMockRoom(this.room));
+    if(limitMs === null) return null;
     return Date.now() + Math.max(0, limitMs - clockElapsedMs(state.clock, Date.now()));
   }
 

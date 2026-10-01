@@ -60,13 +60,14 @@ to the lobby; or just use a new room name.
 ## 2. Draft-day setup (about 15 minutes before)
 
 1. Run the preflight above.
-2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the lobby's
-   "Commissioner sign-in" button goes there too), then "Open draft lobby". The Draft section there shows
+2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the
+   draft room has no sign-in button of its own), then "Open draft lobby". The Draft section there shows
    whether the pool is loaded and the lottery has run.
 3. **Load team pool.** It should say 258 teams. If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
-4. Set the clock length (90s default; the clock is soft — it counts up in red, nothing auto-picks. Only
-   mock rooms auto-pick).
+4. Set the clock length (90s default; the clock is soft — it counts up in red, and nobody is auto-picked
+   unless they're on auto-draft). Anyone who can't make it: switch on their auto-draft in **Clock &
+   auto-draft**, ideally after they've starred a queue.
 5. **Run lottery.** Everyone watching the lobby sees the order revealed from pick 10 up to pick 1. Re-run
    is available until you start.
 6. **Start draft** when everyone is in. The header pill reads "Live · Round 1 · Pick 1 of 210".
@@ -75,7 +76,7 @@ to the lobby; or just use a new room name.
 
 | Situation | What to do |
 |---|---|
-| Someone's clock runs out | Nothing happens automatically. Wait, or **Pick for {name}** on the on-the-clock card (draft as them). |
+| Someone's clock runs out | Nothing happens automatically. Wait, **Pick for {name}** on the on-the-clock card (draft as them), or switch on their auto-draft in **Clock & auto-draft** if they've gone for good. |
 | Someone is disconnected | They reconnect on their own when they reopen the app; the room keeps everything. Meanwhile **Pick for** works, or **Pause**. |
 | A wrong pick | Click the pick on the board → **Change this pick**: *remove and pick for {owner}* or *remove and let {owner} re-pick*. It becomes a make-up pick, then the draft resumes where it was. |
 | The last pick was a mistake | **Undo pick** removes the most recent one. |

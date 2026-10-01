@@ -5,7 +5,7 @@ import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/dr
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
-  autoPickTeam, isMockRoom
+  autoPickTeam, isMockRoom, autoPickLimitMs, AUTO_DRAFT_SECONDS
 } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
@@ -398,6 +398,54 @@ test('autoPickTeam: queue first, then best rank across leagues, never an illegal
   s = draftOne(s, 'n3');
   const pick = autoPickTeam(s, ownerNow(s), []);
   assert.equal(s.pool.find(t => t.id === pick).league, 'epl');
+});
+
+test('auto-draft: each drafter sets their own, the commissioner anyone\'s, until the draft is done', () => {
+  let s = lobby();
+  assert.deepEqual(s.autoDraft, []);
+  s = ok(s, { type: 'setAutoDraft', drafter: 'b', on: true }, as('b'));
+  assert.deepEqual(s.autoDraft, ['b'], 'can be set in the lobby ahead of time');
+  err(s, { type: 'setAutoDraft', drafter: 'c', on: true }, as('b'), 'forbidden');
+  err(s, { type: 'setAutoDraft', drafter: 'b', on: true }, as('b'), 'unchanged');
+  err(s, { type: 'setAutoDraft', drafter: 'zz', on: true }, COMM, 'bad_input');
+  err(s, { type: 'setAutoDraft', drafter: 'c', on: 'yes' }, COMM, 'bad_input');
+  s = ok(s, { type: 'setAutoDraft', drafter: 'c', on: true }, COMM);
+  assert.deepEqual(s.autoDraft, ['b', 'c']);
+  s = ok(s, { type: 'setConfig', drafters: ['a', 'b', 'd'] }, COMM);
+  assert.deepEqual(s.autoDraft, ['b'], 'a drafter who leaves comes off auto-draft');
+  s = ok(s, { type: 'setAutoDraft', drafter: 'b', on: false }, as('b'));
+  assert.deepEqual(s.autoDraft, []);
+
+  let l = live();
+  l = ok(l, { type: 'setAutoDraft', drafter: ownerNow(l), on: true }, as(ownerNow(l)));
+  assert.ok(l.clock.running, 'switching it on mid-draft leaves the clock alone');
+  const r = ok(l, { type: 'reset' }, COMM);
+  assert.deepEqual(r.autoDraft, l.autoDraft, 'a lobby reset keeps everyone\'s setting');
+  let done = l;
+  while(onTheClock(done)) done = ok(done, { type: 'pick', team: autoPickTeam(done, ownerNow(done), []), auto: true }, COMM);
+  assert.equal(done.phase, 'done');
+  err(done, { type: 'setAutoDraft', drafter: 'a', on: false }, COMM, 'bad_phase');
+
+  const old = lobby();
+  delete old.autoDraft;
+  assert.deepEqual(ok(old, { type: 'setAutoDraft', drafter: 'a', on: true }, as('a')).autoDraft, ['a'], 'a room saved before auto-draft');
+});
+
+test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms only', () => {
+  let s = live();
+  s = ok(s, { type: 'setConfig', bots: ['b'], botSeconds: 2, clockSeconds: 30 }, COMM);
+  s = ok(s, { type: 'setAutoDraft', drafter: 'c', on: true }, COMM);
+  assert.equal(autoPickLimitMs(s, 'a', false), null, 'the real room\'s clock is soft');
+  assert.equal(autoPickLimitMs(s, 'b', false), null, 'bots are a mock-room thing');
+  assert.equal(autoPickLimitMs(s, 'c', false), AUTO_DRAFT_SECONDS * 1000);
+  assert.equal(autoPickLimitMs(s, 'a', true), 30000);
+  assert.equal(autoPickLimitMs(s, 'b', true), 2000);
+  assert.equal(autoPickLimitMs(s, 'c', true), AUTO_DRAFT_SECONDS * 1000);
+  s = ok(s, { type: 'setAutoDraft', drafter: 'b', on: true }, COMM);
+  assert.equal(autoPickLimitMs(s, 'b', true), 2000, 'whichever comes first');
+  const old = live();
+  delete old.autoDraft;
+  assert.equal(autoPickLimitMs(old, 'a', false), null);
 });
 
 test('mock rooms are the mock-* names only', () => {
