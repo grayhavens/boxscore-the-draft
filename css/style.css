@@ -5657,6 +5657,51 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .tab-bar.no-pill .tab-pill{ opacity: 0; }
 @media (prefers-reduced-motion: reduce){ .tab-pill{ transition: none; } }
 
+/* ---- Live effects (js/motion-fx.js, docs/motion-plan.md) ----
+   Throwaway layers the helpers add for an effect and remove after it. JS
+   only moves them (transform/opacity); their color comes from here. A
+   layer's tint is --fx-tint when the caller passes one, gold otherwise. */
+.fx-host{ position: relative; }
+.fx-host.fx-clip{ overflow: hidden; }
+.fx-layer{ position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; }
+.fx-flash{ background: var(--fx-tint, var(--accent)); opacity: 0; }
+.fx-ring{ border: 2px solid var(--accent); opacity: 0; }
+.fx-sheen{ inset: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--fx-tint, var(--accent)) 18%, transparent), transparent); transform: translateX(-100%); }
+.fx-fly{ position: fixed; margin: 0; z-index: 450; pointer-events: none; transform-origin: 0 0; }
+.fx-letter{ display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 2px; margin-bottom: -2px; }
+.fx-letter > span{ display: inline-block; }
+.fx-uline{ position: absolute; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; transform-origin: 0 0; }
+.dr-bh.fx-uline-off{ border-bottom-color: transparent; }
+
+/* Small solid-gold pill floating over a panel for a moment (floatPillHtml in
+   js/ui.js): the draft board's "Round 2 · order flips". */
+.float-pill{
+  position: absolute; right: 18px; top: 50%; z-index: 5;
+  padding: 6px 11px; border-radius: var(--r-pill);
+  background: var(--accent-fill); color: var(--on-accent);
+  font-family: var(--font-ui); font-size: var(--fs-11); font-weight: 800; line-height: 1; white-space: nowrap;
+  box-shadow: var(--shadow-tip); pointer-events: none;
+}
+.dm-top > .float-pill{ top: calc(100% + 8px); right: 16px; }
+
+/* Draft room: a league whose roster slots are all filled shows its count in
+   green (the sheen that plays when it fills ends here). */
+.dr-roster-row.full .dr-roster-n{ color: var(--win); font-weight: 800; }
+
+@media (prefers-reduced-motion: no-preference){
+  /* You're on the clock: the card fills gold from the plain surface. */
+  .dr-clock-card.mine.fx-arrive{ animation: dr-clock-arrive 600ms var(--ease-out) backwards; }
+  /* The last 5 seconds of your own clock: the gold wash breathes. */
+  .dr-clock-card.urgent{ position: relative; isolation: isolate; }
+  .dr-clock-card.urgent::after{
+    content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit;
+    background: var(--accent-soft); pointer-events: none;
+    animation: dr-breathe 480ms ease-in-out infinite alternate;
+  }
+}
+@keyframes dr-clock-arrive{ from{ background-color: var(--surface); border-color: var(--hairline); } }
+@keyframes dr-breathe{ from{ opacity: 0.55; } to{ opacity: 1; } }
+
 /* ---- Launch splash (js/launch-splash.js) ----
    Geometry is the 512px app icon scaled to a 200px box. Colors follow the
    theme the inline <head> script sets on <html> (data-theme="light" |

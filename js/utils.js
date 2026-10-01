@@ -203,8 +203,12 @@ export function updateUrlParam(key, value){
 }
 
 // ---- Motion helpers ----
+// Mirrors of the motion tokens in css/tokens.css (--ease-*), for the Web
+// Animations API, which can't read a CSS variable.
 export const EASE_OUT = 'cubic-bezier(0.22,1,0.36,1)';
 export const EASE_SPRING = 'cubic-bezier(0.34,1.56,0.64,1)';
+export const EASE_IN_OUT = 'cubic-bezier(0.65,0,0.35,1)';
+export const EASE_PUSH = 'cubic-bezier(0.22,0.7,0.25,1)';
 
 // Tween a number inside `el` from `from` to `to` (cubic ease-out); `fmt`
 // builds the HTML for each frame. Lands on `to` exactly. A later call on

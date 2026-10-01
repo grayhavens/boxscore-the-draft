@@ -57,7 +57,9 @@ import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
-import { escapeHtml as esc } from './utils.js';
+import { escapeHtml as esc, EASE_SPRING } from './utils.js';
+import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, riseLetters, nudge, playClass, flyTo, once, setMotionSpeed } from './motion-fx.js';
+import { floatPillHtml } from './ui.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -516,7 +518,7 @@ function poolRowHtml(d, team){
     const label = inLeague ? (g.div || g.conf) : teamGroupLabel(team);
     parts.push(`<button class="dr-row-group" title="Show only this group" onclick="draftSetScope('${team.league}', '${esc(g.conf)}', '${esc(g.div || '')}')">${esc(label)}</button>`);
   }
-  return `<div class="dr-row${fits ? '' : ' dim'}" onclick="draftRowOpen(event, '${team.id}')">
+  return `<div class="dr-row${fits ? '' : ' dim'}" data-team="${team.id}" onclick="draftRowOpen(event, '${team.id}')">
     ${tileHtml(team, 'md')}
     <div class="dr-row-main">
       <button type="button" class="dr-row-name dr-open" onclick="draftOpenTeam('${team.id}')">${esc(team.name)}</button>
@@ -762,7 +764,7 @@ function boardHtml(d){
   const { s, n } = d;
   const order = s.order;
   const cur = d.clockInfo ? d.clockInfo.slot : -1;
-  const head = order.map(id => `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`).join('');
+  const head = order.map(id => `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}" data-id="${esc(id)}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`).join('');
   const rows = [];
   for(let r = 0; r < d.rounds; r++){
     const cells = [];
@@ -777,11 +779,11 @@ function boardHtml(d){
         const team = teamById(s.pool, pick.team);
         const lg = team ? leagueUi(team.league) : { label: '', color: '#94969E' };
         const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
-        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}${open ? ' editable' : ''}"${open}><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
+        cells.push(`<div class="dr-cell filled${mine ? ' mine' : ''}${open ? ' editable' : ''}" data-slot="${slot}"${open}><div class="dr-cell-top"><span>${label}</span><span style="color:${lg.color}">${lg.label}</span></div><div class="dr-cell-team">${team ? tileHtml(team, 'xs') : ''}<span>${team ? esc(team.name) : '—'}</span></div></div>`);
       } else if(slot === cur){
-        cells.push(`<div class="dr-cell current" data-current="1"><div class="dr-cell-top"><span>${label}</span></div><div class="dr-cell-clock">On the clock</div></div>`);
+        cells.push(`<div class="dr-cell current" data-current="1" data-slot="${slot}"><div class="dr-cell-top"><span>${label}</span></div><div class="dr-cell-clock">On the clock</div></div>`);
       } else {
-        cells.push(`<div class="dr-cell empty${mine ? ' mine' : ''}"><div class="dr-cell-top"><span>${label}</span></div>${traded ? `<div class="dr-cell-traded">→ ${esc(drafterName(owner))}</div>` : ''}</div>`);
+        cells.push(`<div class="dr-cell empty${mine ? ' mine' : ''}" data-slot="${slot}"><div class="dr-cell-top"><span>${label}</span></div>${traded ? `<div class="dr-cell-traded">→ ${esc(drafterName(owner))}</div>` : ''}</div>`);
       }
     }
     rows.push(`<div class="dr-round"><div class="dr-round-n">${r + 1}<small>${r % 2 === 0 ? '→' : '←'}</small></div>${cells.join('')}</div>`);
@@ -826,7 +828,7 @@ function rosterHtml(d){
     const have = mine.filter(t => t.league === k);
     const slots = Array.from({ length: cap }, (_, i) => have[i] ? rosterTileHtml(d, have[i]) : '<span class="dr-slot"></span>').join('');
     const lg = leagueUi(k);
-    return `<div class="dr-roster-row${have.length >= cap ? ' full' : ''}"><span class="dr-roster-lg" style="color:${lg.color}">${lg.label}</span><span class="dr-slots">${slots}</span><span class="dr-roster-n">${have.length}/${cap}</span></div>`;
+    return `<div class="dr-roster-row${have.length >= cap ? ' full' : ''}" data-league="${k}"><span class="dr-roster-lg" style="color:${lg.color}">${lg.label}</span><span class="dr-slots">${slots}</span><span class="dr-roster-n">${have.length}/${cap}</span></div>`;
   }).join('');
   const railCount = document.getElementById('dr-rail-right-count');
   if(railCount) railCount.textContent = `${rosterPicks(d, d.me).length}/${d.rounds}`;
@@ -1159,7 +1161,7 @@ function phoneQueueHtml(d){
   const fits = queueTeams(d).filter(t => teamFits(d, t, d.myCounts)).slice(0, 3);
   if(!fits.length) return '';
   return `<div class="dm-from-queue"><div class="dr-eyebrow gold">FROM YOUR QUEUE</div>${fits.map(t => {
-    return `<div class="dm-qrow" onclick="draftRowOpen(event, '${t.id}')">${tileHtml(t, 'md')}<div class="dr-row-main"><button type="button" class="dr-row-name dr-open" onclick="draftOpenTeam('${t.id}')">${esc(t.name)}</button><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
+    return `<div class="dm-qrow" data-team="${t.id}" onclick="draftRowOpen(event, '${t.id}')">${tileHtml(t, 'md')}<div class="dr-row-main"><button type="button" class="dr-row-name dr-open" onclick="draftOpenTeam('${t.id}')">${esc(t.name)}</button><div class="dr-row-meta">${leagueUi(t.league).label}</div></div>
       <button class="dr-draft-btn mine" onclick="draftClick('${t.id}')">Draft</button></div>`;
   }).join('')}</div>`;
 }
@@ -1178,7 +1180,7 @@ function phoneBoardHtml(d){
       ? `${tileHtml(team, 'sm')}<span class="dm-b-name">${esc(team.name)}</span><span class="dm-b-lg" style="color:${leagueUi(team.league).color}">${leagueUi(team.league).label}</span>`
       : (cur ? '<span class="dm-b-clock">On the clock</span>' : '<span class="dr-dim">—</span>');
     const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
-    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
+    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}" data-slot="${slot}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
   }
   return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
 }
@@ -1268,6 +1270,8 @@ function render(){
   }
   maybeStartReveal(d);
   maybeAutoDraw(d);
+  setMotionSpeed(isMockRoom(draftStore.room) ? 2 : 1);
+  const events = draftEvents(d);
   if(d.s.phase === 'lobby'){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
@@ -1278,6 +1282,7 @@ function render(){
   }
   if(ui.shell === 'lobby') ui.shell = null;
   if(isPhone()) renderPhone(d); else renderLive(d);
+  playDraftEvents(d, events);
   renderCommBar(d);
   renderModal(d);
   renderTeamSheet(d);
@@ -1329,6 +1334,204 @@ function maybeAutoDraw(d){
   sendDraftAction(currentProfileId, { type: 'runLottery', ifUndrawn: true });
 }
 
+// ---- Live effects (docs/motion-plan.md, Phase 1) ----
+//
+// render() rebuilds regions from state, so effects come from comparing the
+// state it last saw with this one (draftEvents) and play on the new DOM
+// once it's written (playDraftEvents). As with the lottery reveal, the
+// first render, a reconnect, or joining late shows the settled room with
+// no effects. A burst of picks between two renders (a commissioner catching
+// up, auto-picks) collapses to the newest one.
+
+const fx = {
+  prev: null,          // snapshot from the last render, null until the next one is a first look
+  stale: undefined,    // the state seen while disconnected; the first newer one is a first look
+  sent: null,          // { team, slot, rect, ghost, at }: my pick in flight, measured before the re-render
+  lastSec: null,       // last whole second the urgent timer popped on
+  nudged: null         // clock slot the time's-up nudge already played for
+};
+
+function fxSnapshot(d){
+  return {
+    room: draftStore.room,
+    order: d.s.order ? d.s.order.join(',') : '',
+    phase: d.s.phase,
+    slots: new Set(Object.keys(d.s.picks).map(Number)),
+    myTurn: d.myTurn,
+    clockOwner: d.clockInfo ? d.clockInfo.owner : null,
+    myCounts: { ...d.myCounts }
+  };
+}
+
+function draftEvents(d){
+  if(draftStore.status !== 'open'){
+    fx.prev = null;
+    fx.stale = draftStore.state;
+    return [];
+  }
+  if(fx.stale !== undefined){
+    if(draftStore.state === fx.stale) return [];
+    fx.stale = undefined;
+  }
+  const prev = fx.prev, cur = fxSnapshot(d);
+  fx.prev = cur;
+  if(!prev || prev.room !== cur.room || prev.order !== cur.order || document.hidden) return [];
+  const events = [];
+  if(cur.myTurn && !prev.myTurn) events.push({ type: 'clock', from: prev.clockOwner });
+  const added = [...cur.slots].filter(slot => !prev.slots.has(slot));
+  if(added.length){
+    const slot = Math.max(...added);
+    const pick = d.s.picks[slot];
+    const owner = ownerOf(slot, d.s.order, d.s.overrides);
+    const sent = fx.sent && fx.sent.slot === slot && fx.sent.team === pick.team && Date.now() - fx.sent.at < 15000 ? fx.sent : null;
+    fx.sent = null;
+    // Mine: a pick for my own roster, or one I just made for someone (proxy).
+    events.push({ type: 'pick', slot, team: pick.team, owner, sent, mine: !!sent || owner === d.me });
+    if(cur.phase === 'draft' && cur.slots.size % d.n === 0) events.push({ type: 'snake', round: cur.slots.size / d.n + 1 });
+    Object.keys(cur.myCounts).forEach(league => {
+      if((cur.myCounts[league] || 0) > (prev.myCounts[league] || 0)) events.push({ type: 'slot', league, count: cur.myCounts[league] });
+    });
+  }
+  if(prev.phase === 'draft' && cur.phase === 'done') events.push({ type: 'done' });
+  return events;
+}
+
+// A short id for this draft (room + drawn order), for once-per-device keys.
+function draftFxKey(d){
+  const text = `${draftStore.room}:${d.s.order ? d.s.order.join(',') : ''}`;
+  let h = 0;
+  for(let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+  return `${draftStore.room}:${(h >>> 0).toString(36)}`;
+}
+
+function playDraftEvents(d, events){
+  if(!events.length || !fxOn()) return;
+  const key = draftFxKey(d);
+  for(const e of events){
+    if(e.type === 'clock') fxOnTheClock(e);
+    else if(e.type === 'pick') fxPick(d, e, key);
+    else if(e.type === 'snake') fxSnake(e);
+    else if(e.type === 'slot') fxSlot(d, e);
+    else if(e.type === 'done') fxDone(d, key);
+  }
+}
+
+// You're on the clock: the card fills gold, the eyebrow and your name rise
+// in, a gold ring pulses twice, the timer slides in, and the board's
+// underline slides over to your column.
+function fxOnTheClock(e){
+  const card = document.querySelector('#dr-clock .dr-clock-card.mine');
+  if(card){
+    playClass(card, 'fx-arrive');
+    play(card.querySelector('.dr-eyebrow'), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 100 });
+    riseLetters(card.querySelector('.dr-clock-name'), { delay: 200 });
+    ringPulse(card, { delay: 450 });
+    play(card.querySelector('.dr-timer-box, .dr-strip-timer'), [{ opacity: 0, transform: 'translateX(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 650 });
+  }
+  const head = document.querySelector('.dr-grid-head');
+  const to = head && head.querySelector('.dr-bh.clock');
+  const from = head && e.from && [...head.querySelectorAll('.dr-bh')].find(el => el.dataset.id === e.from);
+  if(!to || !from || from === to) return;
+  const h = head.getBoundingClientRect(), a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
+  const bar = document.createElement('span');
+  bar.className = 'fx-uline';
+  Object.assign(bar.style, { left: `${b.left - h.left}px`, top: `${b.bottom - h.top - 2}px`, width: `${b.width}px` });
+  head.appendChild(bar);
+  to.classList.add('fx-uline-off');
+  const anim = play(bar, [
+    { transform: `translateX(${a.left - b.left}px) scaleX(${a.width / b.width})` },
+    { transform: `translateX(${a.left - b.left}px) scaleX(${a.width / b.width})`, offset: 0.3 },
+    { transform: 'none' }
+  ], { duration: 1100, easing: EASE_SPRING });
+  const end = () => { bar.remove(); to.classList.remove('fx-uline-off'); };
+  if(anim) anim.finished.then(end, end); else end();
+}
+
+// A pick lands. Yours (or one you made for someone): the crest flies from
+// the row you tapped into its board cell, the cell flashes gold and pops,
+// and a toast confirms it, once per device. Anyone else's: just the cell
+// flashing in its league's color.
+function fxPick(d, e, key){
+  const team = teamById(d.s.pool, e.team);
+  const cell = document.querySelector(`.dr-cell[data-slot="${e.slot}"], .dm-brow[data-slot="${e.slot}"]`);
+  if(!e.mine){
+    if(cell && team) flashTint(cell, { tint: leagueUi(team.league).color });
+    return;
+  }
+  if(!once(`pick:${key}:${e.slot}`)) return;
+  const dest = cell && cell.querySelector('.dr-tile');
+  const land = (e.sent && flyTo(e.sent.ghost, e.sent.rect, dest)) || 0;
+  if(cell){
+    flashTint(cell, { delay: land });
+    pop(cell, { delay: land });
+  }
+  if(team){
+    const message = e.owner === d.me ? `Drafted ${team.name}` : `Drafted ${team.name} for ${drafterName(e.owner)}`;
+    later(land + 200, () => toast(message));
+  }
+}
+
+// The snake turns: a gold pill says the order flips for the next round.
+function fxSnake(e){
+  const host = document.querySelector('.dr-center') || document.querySelector('.dm-top');
+  if(!host) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = floatPillHtml({ label: `Round ${e.round} · order flips` });
+  const pill = wrap.firstElementChild;
+  const lift = getComputedStyle(host).position === 'static';
+  if(lift) host.classList.add('fx-host');
+  host.appendChild(pill);
+  play(pill, [{ opacity: 0, transform: 'scale(0.6)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 120, easing: EASE_SPRING });
+  const out = play(pill, [{ opacity: 1 }, { opacity: 0 }], { duration: 300, delay: 1500, fill: 'forwards' });
+  const end = () => { pill.remove(); if(lift) host.classList.remove('fx-host'); };
+  if(out) out.finished.then(end, end); else end();
+}
+
+// A roster slot fills: it pops in. When it's the league's last slot, a
+// sheen in the league's color sweeps the row and the count (now green) pops.
+function fxSlot(d, e){
+  if(rosterOwner(d) !== d.me) return;
+  const row = document.querySelector(`.dr-roster-row[data-league="${e.league}"]`);
+  if(!row) return;
+  pop(row.querySelector(`.dr-slots > :nth-child(${e.count})`), { from: 0.5 });
+  if(e.count >= (d.s.config.caps[e.league] || 0)){
+    sheen(row, { tint: leagueUi(e.league).color, delay: 200 });
+    pop(row.querySelector('.dr-roster-n'), { scale: 1.25, delay: 400 });
+  }
+}
+
+// The last pick is in: the board ripples corner to corner, dims for a
+// moment, and the "Draft complete" card rises in. Once per device.
+function fxDone(d, key){
+  if(!once(`done:${key}`)) return;
+  const ripple = [{ opacity: 0.25, transform: 'scale(0.9)' }, { opacity: 1, transform: 'scale(1.08)', offset: 0.4 }, { opacity: 1, transform: 'scale(1)' }];
+  const rows = [...document.querySelectorAll('.dr-grid .dr-round')];
+  rows.forEach((row, r) => row.querySelectorAll('.dr-cell').forEach((cell, c) => play(cell, ripple, { duration: 520, delay: (r + c) * 30 })));
+  const phoneRows = [...document.querySelectorAll('#dm-board .dm-brow')];
+  stagger(phoneRows, ripple, { step: 30, duration: 520 });
+  const end = rows.length ? (rows.length + d.n) * 30 + 520 : phoneRows.length * 30 + 520;
+  play(document.querySelector('.dr-grid'), [{ opacity: 1 }, { opacity: 0.5, offset: 0.3 }, { opacity: 0.5, offset: 0.7 }, { opacity: 1 }], { duration: 1400, delay: end - 400 });
+  const card = document.querySelector('#dr-clock .dr-clock-card.done');
+  if(card) stagger(card.querySelectorAll('.dr-eyebrow, .dr-done-title, .dr-clock-sub, .dr-download-btn'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { step: 130, delay: end - 300, duration: 500 });
+}
+
+// The last 5 seconds of your own clock: the timer ticks gold with a pop
+// each second while the card's wash breathes, and at zero the card nudges
+// once. Runs off the clock tick (updateClock), not render().
+function fxUrgency(d, timer, left){
+  const card = timer.closest('.dr-clock-card');
+  const urgent = d.myTurn && left > 0 && left <= 5000 && fxOn();
+  if(card) card.classList.toggle('urgent', urgent);
+  const sec = Math.ceil(left / 1000);
+  if(urgent && sec !== fx.lastSec) pop(timer, { scale: 1.14, duration: 320 });
+  fx.lastSec = urgent ? sec : null;
+  // Only right as it hits zero: opening the room already over time doesn't nudge.
+  if(d.myTurn && left <= 0 && fx.nudged !== d.clockInfo.slot){
+    fx.nudged = d.clockInfo.slot;
+    if(left > -1000) nudge(card);
+  }
+}
+
 // ---- Clock ----
 
 function fmt(ms){
@@ -1349,6 +1552,7 @@ function updateClock(){
   const over = left < 0;
   timer.textContent = (over ? '+' : '') + fmt(left);
   timer.className = 'dr-timer' + (over ? ' over' : (left <= 15000 ? ' low' : ''));
+  fxUrgency(d, timer, left);
   const bar = document.getElementById('dr-bar');
   if(bar) bar.style.width = `${Math.max(0, Math.min(100, (left / limit) * 100))}%`;
 }
@@ -1470,6 +1674,10 @@ window.draftClick = async id => {
   if(!d || !d.canAct || ui.picking) return;
   ui.picking = true;
   const proxying = d.proxy;
+  // Measure the tapped crest now: by the time the pick lands, the row is gone.
+  const tile = [...document.querySelectorAll(`[data-team="${id}"] .dr-tile, .dr-q[data-id="${id}"] .dr-tile`)]
+    .find(el => el.getBoundingClientRect().width > 0);
+  fx.sent = { team: id, slot: d.clockInfo.slot, rect: tile ? tile.getBoundingClientRect() : null, ghost: tile ? tile.cloneNode(true) : null, at: Date.now() };
   const result = await run({ type: 'pick', team: id, slot: d.clockInfo.slot }, proxying ? null : undefined);
   ui.picking = false;
   if(result.ok && proxying) ui.proxySlot = null;
@@ -1718,6 +1926,7 @@ export function setDraftActive(on){
     clearInterval(clockTimer);
     clockTimer = setInterval(updateClock, 250);
     ui.lastOrderKey = undefined;
+    fx.prev = null; fx.stale = undefined; fx.sent = null;
     scheduleRender();
   } else {
     hideTip();
