@@ -117,6 +117,27 @@ The two plans share tokens and screens, so they run as one sequence:
    for the design system, as the CLAUDE.md snippet above says.
 3. **DS Step 2, `js/ui.js`,** plus the token test and the CLAUDE.md section. Move buttons and back links
    over as a first proof.
+   **Done.** Notes:
+   - **What `js/ui.js` has:** only helpers checked against markup the app already renders, each moved over
+     everywhere it's used: `buttonHtml` (every `.modal-cta` built in JS), `backLinkHtml` (every `.ob-back`, plus
+     the team page's identical `.team-page-back`, whose CSS is gone), `iconHtml` (the icon set, now
+     `js/icons.js`) and `switchHtml`. The other core helpers (chips, scope chip, tag, icon button, live dot,
+     count badge, segmented) arrive with their first screen, so no helper ships as untested markup.
+     `segmentedControlHtml` in `js/utils.js` already renders the `.seg` recipe.
+   - **What changed in the CSS:** `.modal-cta` takes the recipe's flex layout (`display: flex`, centered, 8px
+     gap), which makes `.ob-scoring-btn` and `.gd-share`'s own flex rules redundant. Icons keep their own size
+     attributes, because a blanket 15px `.modal-cta svg` rule would shrink Share to chat's 17px icon.
+     Screenshots-equivalent check: every converted button and back link has the same box, label, icon
+     position and computed styles as on `main`. The only differences are `display: flex` and an explicit
+     `type="button"`.
+   - **Leaf module:** `js/ui.js` must stay a leaf (`js/escape.js` holds `escapeHtml` now, re-exported from
+     `js/utils.js`). `js/access.js` uses it at boot, and importing `js/utils.js` there would cycle through
+     `js/data.js` back to `js/group.js`.
+   - **Three back buttons not merged (they would look different):** `gd-back` (Game Details, a round
+     icon-only button, really the `IconButton` filled variant with a 16px rather than 14px chevron),
+     `cmp-sticky-back` (icon-only chevron in Compare's sticky header) and `admin-desk-back` (a bare
+     "‹ Settings" text link in the desktop Commissioner sidebar). Decide whether each becomes `BackLink`,
+     `IconButton` or a new variant before its screen moves over.
 4. **Each later motion phase goes with its screen's move to `ui.js`,** in the same change, so each screen's
    markup only gets rewritten once:
    - Motion Phase 2 (Scores) with `gameCardHtml`.

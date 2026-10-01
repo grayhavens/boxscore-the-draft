@@ -22,6 +22,7 @@ import { favoriteStarHtml } from './favorites.js';
 import { openGolfer } from './golf-view.js';
 import { getSeasonPhaseLabel } from './season-phase.js';
 
+import { buttonHtml } from './ui.js';
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
 // than TheSportsDB — see the "EPL/NBA/NHL/MLB/WNBA" branch in
@@ -1164,7 +1165,7 @@ export function openTeamModal(teamKey){
   // comment) and stays on this modal alone, so it gets no hand-off CTA.
   const hasTeamPage = !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
   const ctaHtml = hasTeamPage ? `
-    <button class="modal-cta" onclick="closeTeamModal(); openTeamPage('${teamKey}', 'board');">View team page &rsaquo;</button>
+    ${buttonHtml({ label: 'View team page ›', onclick: `closeTeamModal(); openTeamPage('${teamKey}', 'board');` })}
     <div class="modal-cta-note">News, season splits and the full squad live there</div>
   ` : '';
 
@@ -1633,7 +1634,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
       </div>
     </div>
     <div class="modal-body">
-      <button class="modal-cta gd-share" onclick="shareGameDetailToChat()">${SHARE_TO_CHAT_SVG}Share to chat</button>
+      ${buttonHtml({ label: 'Share to chat', iconSvg: SHARE_TO_CHAT_SVG, cls: 'gd-share', onclick: 'shareGameDetailToChat()' })}
       ${mediaHtml}
       ${topPlayHtml}
       ${situationHtml}

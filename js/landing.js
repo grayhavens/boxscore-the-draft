@@ -12,6 +12,7 @@ import { preDraftClass } from './seasons/pre-draft.js';
 import { loadRoster } from './roster.js';
 import { chatWorkerBase } from './worker-base.js';
 
+import { buttonHtml } from './ui.js';
 const host = window.location.hostname;
 
 initExplainer(document.getElementById('hiw'));
@@ -59,7 +60,7 @@ groupsEl.innerHTML = shown.map(g => {
       <p class="landing-claim-lead">Want in? Send your name and email and the commissioner will reach out before the draft.</p>
       <input name="name" type="text" maxlength="40" autocomplete="name" placeholder="Your name" required>
       <input name="email" type="email" maxlength="80" autocomplete="email" inputmode="email" placeholder="Email" required>
-      <button type="submit" class="modal-cta">Claim a spot</button>
+      ${buttonHtml({ label: 'Claim a spot', type: 'submit' })}
       <p class="landing-claim-msg" role="status"></p>
     </form>
     <p class="landing-claim-done" hidden><strong>Spot claimed.</strong> The commissioner will be in touch.</p>

@@ -16,6 +16,7 @@
 import { DASHBOARD_WORKER_BASE } from './worker-base.js';
 import { LEGACY_GROUP_ID } from './groups.js';
 
+import { buttonHtml } from './ui.js';
 const FIRST_CHECK_WAIT_MS = 3000;
 const codeKey = groupId => `bx-access@${groupId}`;
 const openKey = groupId => `bx-access-open@${groupId}`;
@@ -77,7 +78,7 @@ function showGate(groupId, groupName){
         <p class="access-sub">Enter the invite code from your invite link or welcome email.</p>
         <input class="access-input" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="40" placeholder="maple-river-42" aria-label="Invite code">
         <p class="access-error" role="alert"></p>
-        <button class="modal-cta" type="submit">Continue</button>
+        ${buttonHtml({ label: 'Continue', type: 'submit' })}
       </form>`;
     el.querySelector('.access-title').textContent = groupName;
     const form = el.querySelector('form');

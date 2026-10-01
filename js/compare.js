@@ -43,6 +43,7 @@ import {
 } from './standings-nhl.js';
 import { obLeagueColor, obLeagueFullName } from './overall.js';
 
+import { backLinkHtml } from './ui.js';
 // Only leagues that score today. MLB and WNBA are deliberately absent:
 // they're on prior-season data (PRIOR_SEASON_DISPLAY_LEAGUES in
 // js/data.js) and a bonus race there would be scoring a season that
@@ -296,7 +297,7 @@ export function compareHtml(rows, aId, bId){
       <span class="cmp-sticky-b">${b.total} ${b.name}</span>
       <button type="button" class="cmp-change" onclick="obOpenComparePicker()">Change</button>
     </div>
-    <button type="button" class="ob-back" onclick="obCloseCompare()">${CHEVRON_LEFT_SVG}${a.name}</button>
+    ${backLinkHtml({ label: a.name, onclick: 'obCloseCompare()' })}
     <div class="ob-detail-eyebrow cmp-eyebrow">Head to head</div>
     <div class="ob-card cmp-head" id="cmp-head">
       <div class="cmp-head-grid">

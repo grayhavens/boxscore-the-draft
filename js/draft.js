@@ -59,7 +59,7 @@ import {
 } from './draft-client.js';
 import { escapeHtml as esc, EASE_SPRING } from './utils.js';
 import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, riseLetters, nudge, playClass, flyTo, once, setMotionSpeed } from './motion-fx.js';
-import { floatPillHtml } from './ui.js';
+import { floatPillHtml, buttonHtml, switchHtml } from './ui.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -251,7 +251,7 @@ function autoDraftHtml(d, compact){
       : "Can't make it, or stepping away? The room drafts for you from your queue, then the best team left.");
   return `<div class="dr-auto${on ? ' on' : ''}${compact ? ' compact' : ''}">
     <div class="dr-auto-main"><b>Auto-draft</b><span>${sub}</span></div>
-    <button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Auto-draft for me" onclick="draftToggleAuto('${esc(d.me)}')"></button>
+    ${switchHtml({ on, label: 'Auto-draft for me', onclick: `draftToggleAuto('${esc(d.me)}')` })}
   </div>`;
 }
 
@@ -262,7 +262,7 @@ function autoDraftRowsHtml(d){
     const on = autoDraftOn(d, id);
     return `<div class="dr-order-row dr-auto-row${id === d.me ? ' me' : ''}">
       <span class="dr-order-name">${esc(drafterName(id))}${id === d.me ? ' <span class="dr-you">YOU</span>' : ''}${on ? ' <span class="dr-bot-tag">AUTO</span>' : ''}</span>
-      <button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="Auto-draft for ${esc(drafterName(id))}" onclick="draftToggleAuto('${esc(id)}')"></button>
+      ${switchHtml({ on, label: `Auto-draft for ${drafterName(id)}`, onclick: `draftToggleAuto('${esc(id)}')` })}
     </div>`;
   }).join('');
 }
@@ -406,7 +406,7 @@ function mockOrderRowsHtml(d){
     return `<div class="dr-order-row dr-bot-row${isMe ? ' me' : ''}">
       <span class="dr-order-n">${order ? pos + 1 : '<span class="dr-dim">—</span>'}</span>
       <span class="dr-order-name">${esc(drafterName(id))}${isMe ? ' <span class="dr-you">YOU</span>' : ''}${on ? ' <span class="dr-bot-tag">BOT</span>' : ''}</span>
-      ${canEdit ? `<button type="button" class="switch ${on ? 'on' : ''}" role="switch" aria-checked="${on}" aria-label="${esc(drafterName(id))} is a bot" onclick="draftToggleBot('${id}')"></button>` : ''}
+      ${canEdit ? switchHtml({ on, label: `${drafterName(id)} is a bot`, onclick: `draftToggleBot('${id}')` }) : ''}
     </div>`;
   }).join('');
 }
@@ -1062,7 +1062,7 @@ function sheetActionsHtml(d, team, pickSlot){
   if(pickSlot != null){
     const owner = ownerOf(pickSlot, d.s.order, d.s.overrides);
     const edit = draftStore.commissioner
-      ? `<button class="modal-cta secondary" onclick="draftSheetEditPick(${pickSlot})">Edit pick</button>` : '';
+      ? buttonHtml({ label: 'Edit pick', variant: 'secondary', onclick: `draftSheetEditPick(${pickSlot})` }) : '';
     return `${edit}<div class="modal-cta-note">Drafted by ${esc(owner === d.me ? 'you' : drafterName(owner))} · Pick ${pickLabel(pickSlot, d.n)}</div>`;
   }
   if(d.s.phase !== 'draft') return '';
@@ -1072,7 +1072,7 @@ function sheetActionsHtml(d, team, pickSlot){
   }
   if(d.canAct){
     const label = d.proxy ? `Draft ${team.name} for ${drafterName(d.actor)}` : `Draft ${team.name}`;
-    return `<button class="modal-cta" onclick="draftSheetPick('${team.id}')">${esc(label)}</button>`;
+    return buttonHtml({ label, onclick: `draftSheetPick('${team.id}')` });
   }
   return d.s.config.drafters.includes(d.me) ? `<div class="modal-cta-note">You can draft when you're on the clock</div>` : '';
 }
