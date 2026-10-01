@@ -479,12 +479,17 @@ export async function runActivityDetection(force){
 
 const LEAGUE_ABBR = { epl: 'EPL', nfl: 'NFL', nba: 'NBA', nhl: 'NHL', mlb: 'MLB', wnba: 'WNBA', cfb: 'CFB', mcbb: 'CBB' };
 
+// A league's tile in its chart color (js/lines.js uses it too).
+export function leagueTileHtml(leagueKey){
+  const color = obLeagueColor(leagueKey);
+  return `<span class="act-tile" style="color:${color}; background:color-mix(in srgb, ${color} 16%, transparent);">${LEAGUE_ABBR[leagueKey] || ''}</span>`;
+}
+
 function tileHtml(e){
   if(e.type === 'rank'){
     return `<span class="act-tile rank">&#9650;</span>`;
   }
-  const color = obLeagueColor(e.league);
-  return `<span class="act-tile" style="color:${color}; background:color-mix(in srgb, ${color} 16%, transparent);">${LEAGUE_ABBR[e.league] || ''}</span>`;
+  return leagueTileHtml(e.league);
 }
 
 function kindTagHtml(e){

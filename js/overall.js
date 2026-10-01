@@ -27,7 +27,8 @@ import { currentDraftTeamId } from './board.js';
 import { assignRank } from './rank.js';
 import { raceHtml, raceMount, raceUnmount } from './race.js';
 import { currentProfileId } from './identity.js';
-import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink } from './activity.js';
+import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink, leagueTileHtml } from './activity.js';
+import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
@@ -822,6 +823,7 @@ function obDetailHtml(row){
     : '';
 
   const recent = activityRecentHtml(row.id);
+  const lines = drafterLinesHtml(row.id, leagueTileHtml);
 
   return `
     <div class="ob-back-row">
@@ -850,6 +852,7 @@ function obDetailHtml(row){
       </div>
     </div>
     ${recent ? `<div class="ob-section-title">Recent changes</div>${recent}` : ''}
+    ${lines ? `<div class="ob-section-title">On the line</div>${lines}` : ''}
     <div class="ob-section-title">Where the points come from</div>
     <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, scale)).join('')}</div>
     ${idleHtml}
@@ -884,6 +887,11 @@ export function obOpenDetail(id, opts){
   obCompareId = null;
   window.scrollTo(0, 0);
   renderOverallStandings(opts);
+  // "On the line" reads every table this drafter's teams sit in,
+  // division ones too, which nothing else on Points loads.
+  loadLineInputs(drafterLeagueKeys(id)).then(() => {
+    if(obDetailId === id && !obCompareId) renderOverallStandings();
+  });
 }
 window.obOpenDetail = obOpenDetail;
 

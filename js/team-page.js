@@ -44,6 +44,7 @@ import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { trackerSectionHtml } from './league-facts.js';
+import { teamLinesSectionHtml, loadLineInputs } from './lines.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
   getTeamDepthChart, getTeamInjuries, nflverseInjuryStatus,
@@ -584,6 +585,7 @@ function renderTabBody(){
   if(state.activeTab === 'schedule'){
     el.innerHTML = scheduleTabHtml(teamKey, meta, bundle);
     ensureNews(teamKey);
+    ensureLines(teamKey);
     return;
   }
   if(state.activeTab === 'stats'){
@@ -692,10 +694,22 @@ function scheduleTabHtml(teamKey, meta, bundle){
   // at the bottom of Stats, which some leagues don't have.
   return `
     ${scheduleHtml}
+    <div id="lines-section" data-team="${teamKey}">${teamLinesSectionHtml(teamKey)}</div>
     <div class="modal-section-title spaced">News</div>
     ${newsTabHtml(teamKey)}
     <div id="tracker-section">${trackerSectionHtml(teamKey)}</div>
   `;
+}
+
+// ---- On the line (js/lines.js) ----
+
+// Its league's tables (division ones too) may not be loaded yet; the
+// section fills in once they are, if this team is still on screen.
+function ensureLines(teamKey){
+  loadLineInputs([TEAM_META[teamKey].leagueKey]).then(() => {
+    const el = document.getElementById('lines-section');
+    if(el && el.dataset.team === teamKey) el.innerHTML = teamLinesSectionHtml(teamKey);
+  });
 }
 
 // ---- News (a section on the Overview tab, not its own tab) ----

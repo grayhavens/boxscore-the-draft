@@ -84,31 +84,34 @@ const FLAT_RANK_AUTO_LEAGUES = {
 // rankAuto's ranked source tables for one league/scope — an array of
 // tables, each ranked independently top-to-bottom (one table total for
 // a 'league'-scoped rule; one per conference/division otherwise). A
-// table entry is the resolved teamKey (or null for an undrafted ESPN
-// team) at that position, so its INDEX still reflects the team's real
-// rank — filtering nulls out before ranking would shift every drafted
-// team's position for no reason. Returns [] while the underlying cache
-// hasn't loaded yet, same "Pending" state the admin page already shows
-// for a rankAuto rule with no data.
-function rankAutoTables(leagueKey, scope){
+// table entry is { teamKey, row }: the resolved teamKey (or null for an
+// undrafted ESPN team) and that team's standings row, at its position,
+// so its INDEX still reflects the team's real rank — filtering nulls out
+// before ranking would shift every drafted team's position for no
+// reason. Returns [] while the underlying cache hasn't loaded yet, same
+// "Pending" state the admin page already shows for a rankAuto rule with
+// no data. js/lines.js reads the rows to say how close each team is to
+// a line, so both always agree on the order.
+export function rankAutoRowTables(leagueKey, scope){
+  const entries = (rows, resolve) => rows.map(row => ({ teamKey: resolve(row), row }));
   if(leagueKey === 'epl'){
     return eplStandingsCache.table
-      ? [eplStandingsCache.table.map(row => findEplTeamKeyByEspnName(row.teamName))]
+      ? [entries(eplStandingsCache.table, row => findEplTeamKeyByEspnName(row.teamName))]
       : [];
   }
   if(leagueKey === 'wnba'){
     return espnWnbaStandingsCache.table
-      ? [espnWnbaStandingsCache.table.map(row => findFlatTeamKey('wnba', row.teamNickname))]
+      ? [entries(espnWnbaStandingsCache.table, row => findFlatTeamKey('wnba', row.teamNickname))]
       : [];
   }
   if(leagueKey === 'nfl'){
+    const nflKey = row => findNflTeamKeyByEspnAbbr(row.abbreviation);
     if(scope === 'division'){
       if(!espnNflDivisionCache.divisions) return [];
-      return ['AFC', 'NFC'].flatMap(abbr => computeNflDivisionStandings(abbr))
-        .map(div => div.teams.map(t => findNflTeamKeyByEspnAbbr(t.abbreviation)));
+      return ['AFC', 'NFC'].flatMap(abbr => computeNflDivisionStandings(abbr)).map(div => entries(div.teams, nflKey));
     }
     if(!espnNflStandingsCache.rows) return [];
-    return ['AFC', 'NFC'].map(abbr => computeNflConferenceStandings(abbr).map(row => findNflTeamKeyByEspnAbbr(row.abbreviation)));
+    return ['AFC', 'NFC'].map(abbr => entries(computeNflConferenceStandings(abbr), nflKey));
   }
   // CFB/mcbb have no fixed, hardcodable conference list the way NFL's
   // AFC/NFC or NBA's East/West are (10 real FBS conferences for CFB, 31
@@ -120,24 +123,28 @@ function rankAutoTables(leagueKey, scope){
     const rows = espnCfbRecordsCache.rows;
     if(!rows) return [];
     const conferences = [...new Set(rows.map(row => row.conference).filter(Boolean))];
-    return conferences.map(conf => computeCfbConferenceStandings(conf).map(row => findCfbTeamKeyByLocation(row.location)));
+    return conferences.map(conf => entries(computeCfbConferenceStandings(conf), row => findCfbTeamKeyByLocation(row.location)));
   }
   if(leagueKey === 'mcbb'){
     const rows = espnCbbStandingsCache.rows;
     if(!rows) return [];
     const conferences = [...new Set(rows.map(row => row.conferenceAbbr).filter(Boolean))];
-    return conferences.map(conf => computeCbbConferenceStandings(conf).map(row => findCbbTeamKeyByEspnId(row.id)));
+    return conferences.map(conf => entries(computeCbbConferenceStandings(conf), row => findCbbTeamKeyByEspnId(row.id)));
   }
   const api = FLAT_RANK_AUTO_LEAGUES[leagueKey];
   if(!api) return [];
+  const flatKey = row => findFlatTeamKey(leagueKey, row.teamNickname);
   const confAbbrs = api.conferences.map(c => c.abbr);
   if(scope === 'division'){
     if(!api.divisionCache.divisions) return [];
-    return confAbbrs.flatMap(abbr => api.computeDivisionStandings(abbr))
-      .map(div => div.teams.map(t => findFlatTeamKey(leagueKey, t.teamNickname)));
+    return confAbbrs.flatMap(abbr => api.computeDivisionStandings(abbr)).map(div => entries(div.teams, flatKey));
   }
   if(!api.cache.rows) return [];
-  return confAbbrs.map(abbr => api.computeConferenceStandings(abbr).map(row => findFlatTeamKey(leagueKey, row.teamNickname)));
+  return confAbbrs.map(abbr => entries(api.computeConferenceStandings(abbr), flatKey));
+}
+
+function rankAutoTables(leagueKey, scope){
+  return rankAutoRowTables(leagueKey, scope).map(table => table.map(entry => entry.teamKey));
 }
 
 // Whether a 1-based rank within a table of `total` teams satisfies a

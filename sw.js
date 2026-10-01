@@ -90,6 +90,8 @@ const SHELL_FILES = [
   './js/rank.js',
   './js/race.js',
   './js/race-math.js',
+  './js/lines.js',
+  './js/lines-math.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
