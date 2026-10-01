@@ -113,13 +113,38 @@ export function nudge(el){
 }
 
 // Add a class whose CSS animation does the work (color keyframes belong in
-// CSS), and take it off when the animation ends.
+// CSS), and take it off when `el`'s own animation ends (children's
+// animationend events bubble up and are ignored).
 export function playClass(el, cls){
   if(!el || !fxOn()) return;
   el.classList.remove(cls);
   void el.offsetWidth;
   el.classList.add(cls);
-  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+  const end = e => {
+    if(e.target !== el) return;
+    el.classList.remove(cls);
+    el.removeEventListener('animationend', end);
+  };
+  el.addEventListener('animationend', end);
+}
+
+// Float a transient element (`html`, e.g. a "+1") up and out of `host`,
+// then remove it.
+export function floatUp(host, html, { duration = 1100, delay = 0 } = {}){
+  if(!host || !fxOn()) return null;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  const el = wrap.firstElementChild;
+  const lift = getComputedStyle(host).position === 'static';
+  if(lift) host.classList.add('fx-host');
+  host.appendChild(el);
+  const anim = play(el, [
+    { opacity: 0, transform: 'translateY(4px)' },
+    { opacity: 1, transform: 'translateY(-10px)', offset: 0.3 },
+    { opacity: 0, transform: 'translateY(-26px)' }
+  ], { duration, delay, fill: 'both' });
+  done(anim, () => { el.remove(); if(lift) host.classList.remove('fx-host'); });
+  return anim;
 }
 
 const onScreen = r => r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;

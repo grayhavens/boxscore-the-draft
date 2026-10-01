@@ -371,8 +371,9 @@ it would read as if the current season counts.
 **Motion** (`js/motion.js`, `js/launch-splash.js`): tab switches slide toward the tapped tab and the team
 page pushes in and pops back out, both on same-document View Transitions (`navigate(kind, update)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the
 team page's open/back functions therefore apply their DOM change asynchronously, inside the transition.
-**Live effects** (`js/motion-fx.js`, `docs/motion-plan.md`): moments that react to data, starting with the draft room
-(`draftEvents` / `playDraftEvents` in `js/draft.js`). A view compares the state it last rendered with the new one, writes
+**Live effects** (`js/motion-fx.js`, `docs/motion-plan.md`): moments that react to data: the draft room
+(`draftEvents` / `playDraftEvents` in `js/draft.js`) and Scores (`playScoreEffects` in `js/live-now.js`: a goal's "+N",
+and the final whistle, after which a just-ended game stays on the Live tab for 2 minutes with a W chip). A view compares the state it last rendered with the new one, writes
 the DOM, then plays the effect. The first render, a reconnect and a hidden tab show the settled state with no effects,
 big moments play once per device (`once`), and every effect ends on exactly what the plain render shows. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in

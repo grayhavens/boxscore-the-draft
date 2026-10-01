@@ -139,7 +139,7 @@ The two plans share tokens and screens, so they run as one sequence:
      `BackLink`. Compare's sticky bar now reads "‹ Josh · Josh −7 …", matching the page's own back link.
 4. **Each later motion phase goes with its screen's move to `ui.js`,** in the same change, so each screen's
    markup only gets rewritten once:
-   - Motion Phase 2 (Scores) with `gameCardHtml`.
+   - Motion Phase 2 (Scores) with `gameCardHtml`. **Done:** `gameCardHtml`, `gameSectionHtml` and `tagHtml` (with the `.status-tag` recipe). The app keeps its `.tg-section-head` wrapper, which the recipe flattens. Golf cards (`js/golf-view.js`) aren't game cards and stay as they are.
    - Motion Phase 3 (Points) with `pointsTableHtml`, `splitBarHtml` and `activityRowHtml`.
    - Motion Phase 4 (team page) with `teamBadgeHtml` and `teamRowHtml`. The shared-element push flies
      the crest out of the row the helper renders.
