@@ -55,7 +55,7 @@ import {
   espnMlbStandingsCache, espnMlbDivisionCache, mlbConferences,
   computeMlbConferenceStandings, computeMlbDivisionStandings
 } from './standings-mlb.js';
-import { renderStandings, standingsDataChanged } from './board.js';
+import { standingsDataChanged } from './board.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -355,7 +355,6 @@ export function setTeamAdjustment(teamKey, pts, note){
   renderAdminPage();
   return synced;
 }
-window.setTeamAdjustment = setTeamAdjustment;
 
 // A team's current manual adjustment, or null if it has none — read by
 // teamPointsSplit below and by obDrafterAwards in js/overall.js.

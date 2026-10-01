@@ -5,7 +5,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, CHEVRON_LEFT_SVG, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -104,7 +104,7 @@ function resolveGameDetailSide(team, leagueKey){
     // College opponents show as the bare school, matching drafted
     // college teams (TEAM_META.name) and the Scores tab.
     name: (isCollege && team.location) || team.name || team.abbr || '',
-    badgeStyle: 'background: rgba(255,255,255,0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
+    badgeStyle: NEUTRAL_BADGE_STYLE,
     badgeText: team.abbr || abbrFromName(team.name),
     badgeUrl: team.logoUrl || null
   };
@@ -573,9 +573,9 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       const confRank = nflConferenceRank(meta);
       const divRank = nflDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${recordLabel}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nflDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num sm">${recordLabel}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num sm">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num sm">${nflDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -596,9 +596,9 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       const confRank = nbaConferenceRank(meta);
       const divRank = nbaDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nbaDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num sm">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num sm">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num sm">${nbaDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -611,10 +611,10 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       const confRank = nhlConferenceRank(meta);
       const divRank = nhlDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.wins}-${row.losses}-${row.otLosses || 0}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.points}</div><div class="lbl">Points</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${nhlDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num sm">${row.wins}-${row.losses}-${row.otLosses || 0}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num sm">${row.points}</div><div class="lbl">Points</div></div>
+        <div class="stat-cell"><div class="num sm">${row.conferenceAbbr || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num sm">${nhlDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -627,9 +627,9 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       const leagueRank = mlbConferenceRank(meta);
       const divRank = mlbDivisionRank(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}${leagueRank ? ` &middot; #${leagueRank}` : ''}</div><div class="lbl">League</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${mlbDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
+        <div class="stat-cell"><div class="num sm">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num sm">${row.conferenceAbbr || '—'}${leagueRank ? ` &middot; #${leagueRank}` : ''}</div><div class="lbl">League</div></div>
+        <div class="stat-cell"><div class="num sm">${mlbDivisionLabel(meta) || '—'}${divRank ? ` &middot; #${divRank}` : ''}</div><div class="lbl">Division</div></div>
       `;
       return;
     }
@@ -639,8 +639,8 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
     if(record){
       const row = findEspnWnbaRow(meta);
       el.innerHTML = `
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${record}</div><div class="lbl">Record</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num sm">${record}</div><div class="lbl">Record</div></div>
+        <div class="stat-cell"><div class="num sm">${row.conferenceAbbr || '—'}</div><div class="lbl">Conference</div></div>
       `;
       return;
     }
@@ -659,7 +659,7 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
       el.innerHTML = `
         <div class="stat-cell"><div class="num">${rec.wins}-${rec.losses}</div><div class="lbl">Record</div></div>
         <div class="stat-cell"><div class="num">${typeof rec.ranking === 'number' ? '#' + rec.ranking : 'NR'}</div><div class="lbl">AP Rank</div></div>
-        <div class="stat-cell"><div class="num" style="font-size:14px;">${(row && row.conferenceAbbr) || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
+        <div class="stat-cell"><div class="num sm">${(row && row.conferenceAbbr) || '—'}${confRank ? ` &middot; #${confRank}` : ''}</div><div class="lbl">Conference</div></div>
       `;
       return;
     }
@@ -670,14 +670,14 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
     el.innerHTML = `
       <div class="stat-cell"><div class="num">${team.strSport || '—'}</div><div class="lbl">Sport</div></div>
       <div class="stat-cell"><div class="num">${team.intFormedYear || '—'}</div><div class="lbl">Founded</div></div>
-      <div class="stat-cell"><div class="num" style="font-size:14px;">${team.strStadium || '—'}</div><div class="lbl">Home</div></div>
+      <div class="stat-cell"><div class="num sm">${team.strStadium || '—'}</div><div class="lbl">Home</div></div>
     `;
     return;
   }
 
   el.innerHTML = bundle.rundownOnly
-    ? `<div class="stat-cell" style="flex:1;"><div class="lbl">Team info isn't available from this data source</div></div>`
-    : `<div class="stat-cell" style="flex:1;"><div class="lbl">Live stats unavailable right now</div></div>`;
+    ? `<div class="stat-cell"><div class="lbl">Team info isn't available from this data source</div></div>`
+    : `<div class="stat-cell"><div class="lbl">Live stats unavailable right now</div></div>`;
 }
 
 // Last 5 results as a compact row of pills, oldest on the left ending
@@ -1182,7 +1182,7 @@ export function openTeamModal(teamKey){
       </div>
     </div>
     ${hasLive ? `
-      <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>'}</div>
+      <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
       <div class="modal-body">
         <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
         <div class="form-list" id="live-form">${cached ? '' : skeletonLinesHtml(3)}</div>
@@ -1277,7 +1277,7 @@ function hockeyGoalsHtml(goals, away, home){
     group.goals.push(g);
   });
   return `
-    <div class="modal-section-title" style="margin-top:14px;">Scoring</div>
+    <div class="modal-section-title spaced">Scoring</div>
     ${periods.map(p => `
       <div class="gd-goal-period">${p.label === 'SO' ? 'Shootout' : p.label}</div>
       ${p.goals.map(g => `
@@ -1326,10 +1326,10 @@ function boxGroupHtml(group){
     <tr><td class="name">${r.name}</td>${r.stats.map(s => `<td>${s}</td>`).join('')}</tr>
   `).join('');
   return `
-    <div class="modal-section-title" style="margin-top:14px;">${group.name}</div>
+    <div class="modal-section-title spaced">${group.name}</div>
     <div class="box-scroll">
       <table class="box-table">
-        <tr><th style="text-align:left;"></th>${headerCells}</tr>
+        <tr><th class="left"></th>${headerCells}</tr>
         ${rows}
       </table>
     </div>

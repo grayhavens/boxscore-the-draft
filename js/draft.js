@@ -662,8 +662,8 @@ function clockCardHtml(d){
   if(s.phase === 'done'){
     const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`;
     return phone
-      ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`
-      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow" style="color:var(--win)">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`;
+      ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow win">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`
+      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow win">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`;
   }
   const info = d.clockInfo;
   const mine = d.myTurn;
@@ -949,7 +949,7 @@ function ordinal(n){
 }
 
 function statCellHtml(value, label){
-  return `<div class="stat-cell"><div class="num" style="font-size:14px;">${esc(value)}</div><div class="lbl">${esc(label)}</div></div>`;
+  return `<div class="stat-cell"><div class="num sm">${esc(value)}</div><div class="lbl">${esc(label)}</div></div>`;
 }
 
 // One label/value line, in the Scoring sheet's row style.
@@ -975,7 +975,7 @@ function outlookHtml(team, sc){
 }
 
 function scoutStripHtml(sc){
-  if(sc.last === undefined) return '<div class="stat-strip"><div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div></div>';
+  if(sc.last === undefined) return '<div class="stat-strip"><div class="stat-cell"><div class="lbl">Loading…</div></div></div>';
   const cells = [];
   const last = sc.last;
   if(last && last.absent) cells.push(statCellHtml('—', `${sc.lastLabel} ${sc.recordLabel}`));

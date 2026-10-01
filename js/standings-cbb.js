@@ -41,7 +41,7 @@
    happen for any of today's 30 drafted teams.
    ============================================================ */
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
-import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending } from './utils.js';
+import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
@@ -249,7 +249,7 @@ export function renderCbbRankingRow(rank){
   // logoUrl covers the badge, same as CFB's renderCfbRankingRow.
   const meta = teamKey ? TEAM_META[teamKey] : {
     name: rank.location || rank.teamName,
-    badgeStyle: 'background: rgba(255,255,255,0.08); color: var(--text-sub); border-color: var(--hairline-strong);',
+    badgeStyle: NEUTRAL_BADGE_STYLE,
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };

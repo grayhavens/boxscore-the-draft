@@ -289,11 +289,11 @@ export function openDraftPicker(){
   setSheetTitle('Draft');
   sheetRows().innerHTML = `
     <button class="sheet-row" onclick="goToDraftRoom('${MOCK_DRAFT_ROOM}')">
-      <span class="sheet-row-text">Mock Draft<span class="sheet-desc" style="display:block">Practice room &middot; picks don&rsquo;t count</span></span>
+      <span class="sheet-row-text">Mock Draft<span class="sheet-desc block">Practice room &middot; picks don&rsquo;t count</span></span>
       <span class="set-chev">&rsaquo;</span>
     </button>
     <button class="sheet-row" onclick="goToDraftRoom('main')">
-      <span class="sheet-row-text">Live Draft<span class="sheet-desc" style="display:block">The real draft lobby</span></span>
+      <span class="sheet-row-text">Live Draft<span class="sheet-desc block">The real draft lobby</span></span>
       <span class="set-chev">&rsaquo;</span>
     </button>`;
   openSheetOverlay(document.getElementById('identity-sheet-overlay'));

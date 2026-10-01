@@ -516,7 +516,7 @@ function heroHtml(teamKey, meta){
   const rgb = [0, 2, 4].map(i => parseInt(hex.substring(i, i + 2), 16) || 0).join(',');
 
   return `
-    <div class="team-hero" style="background:linear-gradient(150deg, rgba(${rgb},0.45) 0%, rgba(${rgb},0.14) 46%, rgba(10,11,13,0) 100%);">
+    <div class="team-hero" style="background:linear-gradient(150deg, rgba(${rgb},0.45) 0%, rgba(${rgb},0.14) 46%, rgba(var(--hero-fade-rgb),0) 100%);">
       <div class="team-hero-orb" style="background:radial-gradient(circle at 50% 50%, rgba(${rgb},0.45) 0%, transparent 70%);"></div>
       <div class="team-hero-scrim"></div>
       <div class="team-hero-row">
@@ -559,9 +559,9 @@ function renderTeamPage(){
       <div class="team-page-actions">${favoriteStarHtml(teamKey)}</div>
     </div>
     ${heroHtml(teamKey, meta)}
-    <div class="stat-strip" id="team-page-stats">${bundle ? '' : '<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>'}</div>
+    <div class="stat-strip" id="team-page-stats">${bundle ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
     ${gameCardHtml(teamKey, bundle)}
-    <div style="margin: 16px 20px 0;" id="team-page-tabs">${segmentedControlHtml(tabs, state.activeTab, 'setTeamPageTab')}</div>
+    <div class="team-page-tabs" id="team-page-tabs">${segmentedControlHtml(tabs, state.activeTab, 'setTeamPageTab')}</div>
     <div class="tab-body" id="team-page-tab-body"></div>
   `;
 
@@ -649,12 +649,12 @@ function upcomingRowHtml(evt){
   const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `
     <div class="form-item">
-      <div class="form-detail" style="margin-left:0;">
+      <div class="form-detail">
         <span class="opp">${evt.isHome ? 'vs' : 'at'} ${evt.opponentName}</span>
         <span class="meta">${evt.venueName || ''}${evt.venueName ? ' · ' : ''}${dateLabel}</span>
       </div>
       <div class="form-right">
-        <div class="game-card-eyebrow" style="justify-content:flex-end;">${day}</div>
+        <div class="game-card-eyebrow end">${day}</div>
         <div class="form-score">${time}</div>
       </div>
     </div>
@@ -679,8 +679,8 @@ function scheduleTabHtml(teamKey, meta, bundle){
     scheduleHtml = `
       <div class="modal-section-title">Recent form</div>
       ${recentResults.map(evt => resultRowHtml(teamKey, evt)).join('') || '<div class="loading-note">No results yet.</div>'}
-      <div style="text-align:center; padding-top:14px;">
-        <span class="boxscore-link" style="justify-content:center;" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
+      <div class="more-link-row">
+        <span class="boxscore-link center" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
       </div>
     `;
   }
@@ -692,9 +692,9 @@ function scheduleTabHtml(teamKey, meta, bundle){
   // at the bottom of Stats, which some leagues don't have.
   return `
     ${scheduleHtml}
-    <div class="modal-section-title" style="margin-top:16px;">News</div>
+    <div class="modal-section-title spaced">News</div>
     ${newsTabHtml(teamKey)}
-    <div id="tracker-section" style="margin-top:16px;">${trackerSectionHtml(teamKey)}</div>
+    <div id="tracker-section">${trackerSectionHtml(teamKey)}</div>
   `;
 }
 
@@ -741,7 +741,7 @@ function newsTabHtml(teamKey){
   return entry.items.slice(0, 4).map(a => `
     <div class="news-card" onclick="window.open('${(a.link || '').replace(/'/g, '&#39;')}', '_blank')">
       <div class="headline">${a.headline}</div>
-      <div class="news-meta">ESPN <span style="color:#3A3B41;">·</span> ${timeAgo(a.published)}</div>
+      <div class="news-meta">ESPN <span class="news-dot">·</span> ${timeAgo(a.published)}</div>
     </div>
   `).join('') + `<div class="news-footer-note">Headlines via ESPN team news</div>`;
 }
@@ -886,7 +886,7 @@ function homeAwaySplitHtml(bundle){
   });
   const label = s => s.d ? `${s.w}-${s.d}-${s.l}` : `${s.w}-${s.l}`;
   return `
-    <div class="modal-section-title" style="margin-top:16px;">Home / away split</div>
+    <div class="modal-section-title spaced">Home / away split</div>
     <div class="split-card">
       <div class="split-row"><div class="split-label">Home</div><div class="split-values"><span class="split-record">${label(split.home)}</span></div></div>
       <div class="split-row"><div class="split-label">Away</div><div class="split-values"><span class="split-record">${label(split.away)}</span></div></div>
@@ -1101,7 +1101,7 @@ function playerStatsTabHtml(teamKey, meta, bundle){
     <div class="stat-grid">
       ${cfg.tiles(data.teamTotals).map(t => `<div class="stat-tile"><div class="num">${t.num}</div><div class="lbl">${t.lbl}</div></div>`).join('')}
     </div>
-    ${leadersHtml ? `<div class="modal-section-title" style="margin-top:16px;">Team leaders</div>${leadersHtml}` : ''}
+    ${leadersHtml ? `<div class="modal-section-title spaced">Team leaders</div>${leadersHtml}` : ''}
     <div class="news-footer-note">${data.seasonLabel ? data.seasonLabel + ' · ' : ''}Stats via ESPN</div>
     ${splitHtml}
   `;
@@ -1430,7 +1430,7 @@ function fullRosterHtml(entry, meta){
   // say which season they are when ESPN is serving last year's.
   const statsEntry = PLAYER_STATS_LEAGUES[meta.leagueKey] ? playerStatsCache[state.teamKey] : null;
   const statsData = statsEntry && statsEntry.data;
-  const footer = statsData ? `<div class="news-footer-note" style="margin-top:12px;">Stats: ${statsData.seasonLabel}${statsData.isPriorSeason ? ' (last season)' : ''}</div>` : '';
+  const footer = statsData ? `<div class="news-footer-note spaced">Stats: ${statsData.seasonLabel}${statsData.isPriorSeason ? ' (last season)' : ''}</div>` : '';
 
   // Basketball rosters (NBA/WNBA/College Basketball) aren't grouped at
   // all — ~15 players reads fine as one list, so no chips there.
@@ -1455,8 +1455,8 @@ function squadTabHtml(teamKey){
   return `
     <div class="modal-section-title">Key players</div>
     ${top.map(p => playerRowHtml(p, meta)).join('')}
-    <div style="text-align:center; padding-top:14px;">
-      <span class="boxscore-link" style="justify-content:center;" onclick="openFullSquad('${teamKey}')">Full squad <span class="chev">›</span></span>
+    <div class="more-link-row">
+      <span class="boxscore-link center" onclick="openFullSquad('${teamKey}')">Full squad <span class="chev">›</span></span>
     </div>
   `;
 }
@@ -1579,12 +1579,12 @@ function renderFullSchedule(filter){
         ${meta.name}
       </button>
     </div>
-    <div class="page-header" style="padding: 0 4px 4px;">
-      <h1 style="font-size:22px;">Schedule</h1>
+    <div class="page-header compact">
+      <h1>Schedule</h1>
       <div class="page-sub">${meta.name}</div>
     </div>
     <div class="filter-chips">${chips}</div>
-    <div class="tab-body" style="min-height:0;">${bodyHtml}</div>
+    <div class="tab-body fit">${bodyHtml}</div>
   `;
 }
 
@@ -1629,12 +1629,12 @@ function renderFullSquad(filter){
         ${meta.name}
       </button>
     </div>
-    <div class="page-header" style="padding: 0 4px 4px;">
-      <h1 style="font-size:22px;">Squad</h1>
+    <div class="page-header compact">
+      <h1>Squad</h1>
       <div class="page-sub">${meta.name}${entry && entry.items.length ? ` · ${entry.items.length} players` : ''}</div>
     </div>
     <div class="filter-chips">${chips}</div>
-    <div class="tab-body" style="min-height:0;">${bodyHtml}</div>
+    <div class="tab-body fit">${bodyHtml}</div>
   `;
   if(!entry) ensureRoster(teamKey);
 }

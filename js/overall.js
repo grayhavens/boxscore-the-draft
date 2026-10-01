@@ -606,7 +606,8 @@ function obPlayFlip(container, before, rows){
       el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], { duration: 700, easing: EASE_OUT });
       if(dy > 0){
         const rest = getComputedStyle(el).backgroundColor;
-        el.animate([{ backgroundColor: 'rgba(95,184,138,0.14)' }, { backgroundColor: rest }], { duration: 1400, easing: 'ease-out' });
+        const winSoft = getComputedStyle(document.documentElement).getPropertyValue('--win-soft').trim();
+        el.animate([{ backgroundColor: winSoft }, { backgroundColor: rest }], { duration: 1400, easing: 'ease-out' });
       }
     }
     const total = Number(el.dataset.total);

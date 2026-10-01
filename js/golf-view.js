@@ -278,7 +278,7 @@ function renderGolferSheet(id){
     <div class="stat-strip">
       ${line
         ? cell(line.rank ? '#' + line.rank : '—', 'FedEx') + cell(fmtPts(line.points), 'Points') + cell(line.wins, 'Wins') + cell(line.topTens, 'Top 10s')
-        : `<div class="stat-cell" style="flex:1;"><div class="lbl">Loading…</div></div>`}
+        : `<div class="stat-cell"><div class="lbl">Loading…</div></div>`}
     </div>
     <div class="modal-body">
       ${priorSeasonNoteHtml()}

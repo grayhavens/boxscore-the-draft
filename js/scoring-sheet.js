@@ -44,7 +44,7 @@ function rulesHtml(key){
   // Kept separate from `rules`: the league bonus is awarded once per
   // drafter, not per team.
   const bonus = data.bonus ? `
-    <div class="modal-section-title" style="margin-top: 18px;">League Bonus</div>
+    <div class="modal-section-title spaced">League Bonus</div>
     <div class="scoring-list">
       <div class="scoring-item">
         <div class="scoring-label">${data.bonus.label}</div>
