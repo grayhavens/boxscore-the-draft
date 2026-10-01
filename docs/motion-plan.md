@@ -13,6 +13,15 @@ This is a handoff for a Claude Code session in `boxscorethedraft`. For timings, 
 
 Hook in `js/draft.js` → `render()`. Compare the previous `derive()` result with the current one.
 
+**Status: done** ("Live effects" in `js/draft.js`, helpers in `js/motion-fx.js`). Notes from building it:
+- On the clock: the room has already re-rendered the card before the effect starts, so there's no previous name to slide out. The reference's ~1s lead-in for that is dropped. The rest keeps its order and durations: gold fill, eyebrow, letters, two rings, then the timer.
+- Your pick: the flight needs the tapped tile, so it plays only for a tap on this device. An auto-pick, or a pick seen on another device, gets the cell flash, the pop and the toast without the flight. The toast reuses the room's existing toast ("Drafted Liverpool", or "Drafted Liverpool for Drew" when proxying).
+- Time's up: the nudge plays only as the clock crosses zero. Opening the room already over time doesn't nudge.
+- `navigator.vibrate`: skipped, because push alerts don't buzz today.
+- `burst` waits for Phase 5 (reaction burst), its only user.
+- A full league's count is now green in the plain render too, so the sheen ends on the state the page already shows.
+- New markup: `floatPillHtml` in `js/ui.js` (the "order flips" pill). The design system doesn't have it yet.
+
 - **You're on the clock.** Signal: `d.myTurn` goes false → true. Effects: gold fill on the clock card, two ring pulses, the name staggering in, and the board underline sliding to your column. Add a `navigator.vibrate` here if push alerts already buzz.
 - **Timer urgency.** Signal: time remaining < 5s while `d.myTurn`. Run this off the clock tick, not `render()`. Toggle a class for the gold tick and the breathing, and do one nudge at 0.
 - **Your pick is in (big version, your pick only).** Signal: `s.picks.length` goes up and the new pick's owner is `d.me`, or `d.actor` when proxying. Effects: the crest flies from the tapped pool tile (measure it *before* the re-render) into its board cell, then the cell flashes and the toast appears.
