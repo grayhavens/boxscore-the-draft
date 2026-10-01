@@ -307,7 +307,7 @@ export function createFlatStandingsBoard(opts){
       badgeText: row.abbreviation || abbrFromName(row.teamNickname || row.teamName),
       badgeUrl: row.logoUrl || null
     };
-    const ownerHtml = standingsOwnerHtml(teamKey);
+    const ownerHtml = standingsOwnerHtml(teamKey, leagueKey);
     // Same two-tier record treatment as the Drafted view's row (see
     // .person-record-chip) — combinedLabel works unchanged on a single
     // ESPN row, not just an aggregated per-drafter bucket, since both
@@ -411,7 +411,7 @@ export function createFlatStandingsBoard(opts){
       ...conferences.map(c => ({ key: c.mode, label: c.label })),
       { key: 'byDrafter', label: 'Drafted' }
     ];
-    const topRow = standingsToggleHtml(topSegments, mode, setModeGlobalName);
+    const topRow = standingsToggleHtml(topSegments, mode, setModeGlobalName, leagueKey);
     if(!hasDivisions || mode === 'byDrafter') return topRow;
 
     const subSegments = [

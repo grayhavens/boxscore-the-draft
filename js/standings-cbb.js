@@ -253,7 +253,7 @@ export function renderCbbRankingRow(rank){
     badgeText: abbrFromName(rank.location || rank.teamName),
     badgeUrl: rank.logoUrl || null
   };
-  const ownerHtml = standingsOwnerHtml(teamKey);
+  const ownerHtml = standingsOwnerHtml(teamKey, 'mcbb');
   // Same two-tier record treatment as the Drafted view's row (see
   // .person-record-chip in css/style.css and renderCbbByDrafterRow
   // below).
@@ -291,7 +291,7 @@ export function cbbStandingsToggleHtml(){
     { key: 'ranking', label: 'AP Top 25' },
     { key: 'byDrafter', label: 'Drafted' }
   ];
-  return standingsToggleHtml(segments, cbbStandingsMode, 'setCbbStandingsMode');
+  return standingsToggleHtml(segments, cbbStandingsMode, 'setCbbStandingsMode', 'mcbb');
 }
 
 // Combined win percentage across each drafter's 3 mcbb teams — matches

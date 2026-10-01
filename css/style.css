@@ -2604,6 +2604,7 @@ body{
   cursor: pointer;
 }
 .admin-adj-save:hover{ border-color: var(--accent-border); background: var(--accent-soft); }
+.admin-adj-save:disabled{ opacity: 0.4; cursor: default; pointer-events: none; }
 
 /* Draft section: the live room's status as label/value rows. */
 #admin-content .seg{ margin-bottom: 16px; }
@@ -2988,6 +2989,52 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .admin-desk-back{ align-self: center; }
 
 /* The corner confirmation after a write (desktop only). */
+/* Commissioner → Sports (js/admin.js): one row per sport, Off / Scores /
+   Draft plus a picks stepper. Shared by the phone column and the desktop
+   screen; the controls wrap under the name on a narrow screen. */
+.admin-sports-list{ display: flex; flex-direction: column; margin-top: 12px; }
+.admin-sports-card{ padding: 4px 0 0; }
+.admin-sports-card .admin-sports-list{ margin-top: 0; }
+.admin-sports-row{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+}
+.admin-sports-card .admin-sports-row{ padding: 12px 18px; }
+.admin-sports-row + .admin-sports-row{ border-top: 1px solid var(--hairline); }
+.admin-sports-name{ flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.admin-sports-text{ min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.admin-sports-label{ font-size: 14px; font-weight: 700; color: var(--text); }
+.admin-sports-row.off .admin-sports-label{ color: var(--text-mute); }
+.admin-sports-note{ font-size: var(--fs-12); color: var(--text-sub); text-wrap: pretty; }
+.admin-sports-controls{ flex: 0 1 auto; display: flex; align-items: center; gap: 12px; }
+.admin-sports-seg{ width: 210px; }
+.admin-sports-seg .seg{ margin-bottom: 0; }
+.admin-sports-seg .seg-btn{ min-height: 30px; padding: 4px 0; font-size: var(--fs-12); }
+.admin-sports-stepper{ width: 112px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.admin-sports-stepper button{
+  width: 30px; height: 30px; flex: none;
+  border: 1px solid var(--hairline-strong); border-radius: 50%;
+  background: transparent; color: var(--text);
+  font-family: var(--font-ui); font-size: 16px; font-weight: 700; line-height: 1;
+  cursor: pointer;
+}
+.admin-sports-stepper button:disabled{ opacity: 0.35; cursor: default; }
+.admin-sports-picks{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 600; color: var(--text); white-space: nowrap; }
+.admin-sports-picks span{ font-family: var(--font-ui); font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.admin-sports-foot{
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--hairline);
+}
+.admin-sports-card .admin-sports-foot{ padding: 14px 18px 18px; }
+.admin-sports-summary{ font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
+.admin-sports-saved{ color: var(--win); font-weight: 700; }
+@media (max-width: 480px){
+  .admin-sports-controls{ flex: 1 1 100%; justify-content: space-between; }
+  .admin-sports-seg{ flex: 1; width: auto; }
+}
+
 .admin-toast{
   position: fixed;
   right: 24px;

@@ -8,6 +8,7 @@
    ============================================================ */
 import { GROUPS, LEGACY_GROUP_ID, chooseGroupId } from './groups.js';
 import { loadRoster } from './roster.js';
+import { loadSports } from './group-sports.js';
 import { ensureAccess, accessCode } from './access.js';
 
 function resolveActiveGroupId(){
@@ -27,10 +28,11 @@ export const ACTIVE_GROUP = GROUPS[ACTIVE_GROUP_ID];
 await ensureAccess(ACTIVE_GROUP_ID, ACTIVE_GROUP.name);
 
 // Real names for spots confirmed on the admin page, before anything reads
-// ACTIVE_GROUP.drafters. A no-op for a group with no open spots; otherwise
-// instant from the last copy seen, and only a device's first launch waits
-// on the network (briefly). See js/roster.js.
-await loadRoster(ACTIVE_GROUP_ID);
+// ACTIVE_GROUP.drafters, and the sports set on the Commissioner page,
+// before the draft classes are built from them. Both are instant from the
+// last copy seen, and only a device's first launch waits on the network
+// (briefly). See js/roster.js and js/group-sports.js.
+await Promise.all([loadRoster(ACTIVE_GROUP_ID), loadSports(ACTIVE_GROUP_ID)]);
 export const IS_LEGACY_GROUP = ACTIVE_GROUP_ID === LEGACY_GROUP_ID;
 
 // Adds ?group= to a worker URL for any group but The Draft, whose worker

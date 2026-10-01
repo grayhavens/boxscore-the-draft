@@ -12,17 +12,28 @@
    without knowing which group it is.
    ============================================================ */
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
-import { groupCaps } from '../groups.js';
+import { groupCaps, groupShown } from '../groups.js';
 import { THE_DRAFT_SEASONS, THE_DRAFT_LATEST } from './the-draft.js';
-import { preDraftClass } from './pre-draft.js';
+import { preDraftClass, withScoresOnly } from './pre-draft.js';
 
 // Every other group's classes, by group id. A group with none yet gets
 // its pre-draft class (js/seasons/pre-draft.js).
 const OTHER_GROUP_SEASONS = {};
 
-export const SEASONS = IS_LEGACY_GROUP
-  ? THE_DRAFT_SEASONS
-  : (OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID] || { [THE_DRAFT_LATEST.id]: preDraftClass(groupCaps(ACTIVE_GROUP_ID)) });
+const DRAFTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
+
+// The newest drafted class also shows the sports the group follows
+// without drafting them (js/sports.js, set on the Commissioner page).
+// Older classes stay as they were drafted.
+function withShown(seasons){
+  const ids = Object.keys(seasons);
+  const latest = ids[ids.length - 1];
+  return { ...seasons, [latest]: withScoresOnly(seasons[latest], groupShown(ACTIVE_GROUP_ID)) };
+}
+
+export const SEASONS = DRAFTED
+  ? withShown(DRAFTED)
+  : { [THE_DRAFT_LATEST.id]: preDraftClass(groupCaps(ACTIVE_GROUP_ID), groupShown(ACTIVE_GROUP_ID)) };
 
 export const SEASON_IDS = Object.keys(SEASONS);
 export const LATEST_SEASON_ID = SEASON_IDS[SEASON_IDS.length - 1];

@@ -81,9 +81,22 @@ stripped and every team `favoriteOnly`, so Scores, Standings and team pages work
 hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). A group's
 optional `caps` in `js/groups.js` (`groupCaps`) picks its sports and picks per sport: its draft rooms take them while
 in the lobby (`syncCaps`), and its pre-draft class shows only those leagues (standings modules read leagues through
-`leagueOf` in `js/data.js`, so a missing one is empty). The Draft has none and keeps `DEFAULT_CAPS`. PGA Tour golfers
+`leagueOf` in `js/data.js`, so a missing one is empty). The Draft has none and keeps `DEFAULT_CAPS`.
+The commissioner can change both on Commissioner → Sports with no deploy (see **Group sports** below). PGA Tour golfers
 for Season Ticket are planned in `docs/golf-plan.md`. The ESPN
 data and proxy edge cache are shared by every group.
+
+**Group sports** (`js/sports.js`, `worker/sports.js`, `js/group-sports.js`): Commissioner → Sports (`js/admin.js`) sets
+each sport to Off, Scores (shown on every tab with nobody owning a team: no picks, no scoring rules, no "Drafted"
+toggle, and on Home only once you favorite something) or Draft with 1 to 5 picks each. Stored as `sports@<group>` in KV
+(`{ sports: { <league>: 0 | n }, at }`), `PUT /sports` with the commissioner password, `GET /sports` public like
+`/roster`. Drafted sports are the group's caps for its next draft room: a room in the lobby reads them on every connect,
+and a save also pushes them to the `main` and `mock-1` rooms at once (`at` stops a lagging KV read from undoing a
+newer save). The app writes them onto the `GROUPS` entry at boot (`caps` and `shown`, read by `groupCaps` /
+`groupShown`), the roster's localStorage-first pattern, so a change shows from the next launch. A pre-draft class shows
+drafted and scores-only sports (`preDraftClass(caps, shown)`); a drafted class keeps every league it drafted, since
+they still score, and gets scores-only leagues added from the catalog (`withScoresOnly`, marked `scoresOnly` on the
+`LEAGUES` entry, `isScoresOnly` in `js/data.js`). No record means `js/groups.js` decides. **Deploy the worker first.**
 
 **Group invite code** (`worker/access-code.js`, `js/access.js`): a light gate that keeps outsiders out of a group's own
 state (chat, draft room, activity, favorites, facts, points history, push), with no accounts. One shared code per group
