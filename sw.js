@@ -6,7 +6,7 @@
    cache only when there's no connectivity — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v28';
+const CACHE_NAME = 'boxscore-v29';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -90,6 +90,10 @@ const SHELL_FILES = [
   './js/rank.js',
   './js/race.js',
   './js/race-math.js',
+  './js/lines.js',
+  './js/history.js',
+  './js/champions.js',
+  './js/lines-math.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -133,7 +137,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 /* ---- Push alerts (worker/web-push.js sends them, js/push.js opts in) ----
-   Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'test', title, body, url, tag }.
+   Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'points' | 'champion' | 'test', title, body, url, tag }.
    Every push must show a notification (iOS revokes a subscription that
    stays silent), so there's no "skip it" path here; the worker already
    leaves out whoever is looking at the app. */

@@ -150,6 +150,7 @@ async function groupStatus(env, id, deps){
       devices: devices.length,
       chat: devices.filter(x => x.prefs && x.prefs.chat).length,
       draft: devices.filter(x => x.prefs && x.prefs.draft).length,
+      points: devices.filter(x => x.prefs && x.prefs.points).length,
       lastRegistered: devices.reduce((m, x) => Math.max(m, x.at || 0), 0) || null,
       // Each device, by a hashed id: never its endpoint.
       deviceList: await Promise.all(devices.map(async x => ({
@@ -157,7 +158,8 @@ async function groupStatus(env, id, deps){
         service: pushService(x.endpoint),
         at: x.at || null,
         chat: !!(x.prefs && x.prefs.chat),
-        draft: !!(x.prefs && x.prefs.draft)
+        draft: !!(x.prefs && x.prefs.draft),
+        points: !!(x.prefs && x.prefs.points)
       })))
     };
   }));

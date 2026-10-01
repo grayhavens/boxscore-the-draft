@@ -27,7 +27,9 @@ import { currentDraftTeamId } from './board.js';
 import { assignRank } from './rank.js';
 import { raceHtml, raceMount, raceUnmount } from './race.js';
 import { currentProfileId } from './identity.js';
-import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink } from './activity.js';
+import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink, leagueTileHtml } from './activity.js';
+import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js';
+import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
 // League color for the per-league card's accent bar. Deliberately NOT
@@ -558,7 +560,8 @@ export function obTableHtml(rows, opts = {}){
 
 function obSegments(badge){
   return [{ key: 'standings', label: 'Standings' }, { key: 'activity', label: 'Activity', badge }]
-    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }]);
+    .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }])
+    .concat(hasHistory() ? [{ key: 'history', label: 'History' }] : []);
 }
 const obSegmentKeys = () => obSegments(0).map(s => s.key);
 
@@ -566,9 +569,13 @@ function obListHtml(rows){
   const me = rows.find(r => r.id === obYouId());
   const badge = obSegment === 'activity' ? 0 : unseenCount();
   const seg = segmentedControlHtml(obSegments(badge), obSegment, 'obSetSegment');
-  const body = obSegment === 'activity' ? activityPanelHtml() : obSegment === 'race' ? raceHtml(rows) : obTableHtml(rows);
+  const body = obSegment === 'activity' ? activityPanelHtml()
+    : obSegment === 'race' ? raceHtml(rows)
+    : obSegment === 'history' ? historyPanelHtml(obYouId())
+    : obTableHtml(rows);
+  // History leads with its own champion card instead of where you stand now.
   return `
-    ${me ? obHeroHtml(rows, me) : ''}
+    ${me && obSegment !== 'history' ? obHeroHtml(rows, me) : ''}
     <div class="ob-seg">${seg}</div>
     ${body}
     <button type="button" class="modal-cta secondary ob-scoring-btn" onclick="openScoringSheet()">
@@ -648,7 +655,8 @@ function obPlayGrow(container, rows, prevHeroTotal){
   const elapsed = performance.now() - obGrowStart;
   if(elapsed >= OB_GROW_MS || reducedMotion()) return;
   obGrowBars(container.querySelectorAll('.ob-split .split-bar, .ob-ladder-row .split-bar'), 0, Math.round(elapsed));
-  const heroTotal = container.querySelector('.ob-hero-total');
+  // History's hero is a past champion's final total, not yours.
+  const heroTotal = obSegment === 'history' ? null : container.querySelector('.ob-hero-total');
   const me = rows.find(r => r.id === obYouId());
   if(!heroTotal || !me || elapsed >= OB_COUNT_MS) return;
   // Resuming: carry on from the number the old hero was showing.
@@ -686,6 +694,7 @@ function obSheetHtml(rows, row){
         <div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>
         <div class="sheet-title ob-sheet-name">${row.name}</div>
         <div class="sheet-title-sub">${vsYou}</div>
+        ${drafterTitlesHtml(row.id)}
       </div>
       <div class="ob-sheet-total">
         <span class="ob-sheet-total-num">${obPts(row.total)}</span>
@@ -822,6 +831,7 @@ function obDetailHtml(row){
     : '';
 
   const recent = activityRecentHtml(row.id);
+  const lines = drafterLinesHtml(row.id, leagueTileHtml);
 
   return `
     <div class="ob-back-row">
@@ -835,6 +845,7 @@ function obDetailHtml(row){
       <div class="ob-detail-left">
         <div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>
         <h2 class="ob-detail-name ${row.id === obYouId() ? 'current' : ''}">${row.name}</h2>
+        ${drafterTitlesHtml(row.id)}
       </div>
       <div class="ob-detail-right">
         <div class="ob-detail-total">${obPts(row.total)}</div>
@@ -850,6 +861,7 @@ function obDetailHtml(row){
       </div>
     </div>
     ${recent ? `<div class="ob-section-title">Recent changes</div>${recent}` : ''}
+    ${lines ? `<div class="ob-section-title">On the line</div>${lines}` : ''}
     <div class="ob-section-title">Where the points come from</div>
     <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, scale)).join('')}</div>
     ${idleHtml}
@@ -875,6 +887,7 @@ export function obSetSegment(key){
   if(!obSegmentKeys().includes(key)) return;
   obSegment = key;
   renderOverallStandings();
+  if(key === 'history') loadHistory();
 }
 window.obSetSegment = obSetSegment;
 
@@ -884,6 +897,11 @@ export function obOpenDetail(id, opts){
   obCompareId = null;
   window.scrollTo(0, 0);
   renderOverallStandings(opts);
+  // "On the line" reads every table this drafter's teams sit in,
+  // division ones too, which nothing else on Points loads.
+  loadLineInputs(drafterLeagueKeys(id)).then(() => {
+    if(obDetailId === id && !obCompareId) renderOverallStandings();
+  });
 }
 window.obOpenDetail = obOpenDetail;
 
@@ -903,15 +921,23 @@ window.obToggleLeague = obToggleLeague;
 
 // ---- Activity ----
 
-// Every "go to Activity" (the Home link, a notification) lands here.
-export function obOpenActivity(){
-  obSegment = 'activity';
-  obSegmentNext = 'activity';
+// Every "go to Activity" or "go to History" (a Home card, an alert)
+// lands here.
+export function obOpenSegment(key){
+  if(!obSegmentKeys().includes(key)) key = 'standings';
+  obSegment = key;
+  obSegmentNext = key;
   obDetailId = null;
   obCompareId = null;
   obCloseSheet();
   window.switchView('overall');
   window.scrollTo(0, 0);
+  if(key === 'history') loadHistory();
+}
+window.obOpenSegment = obOpenSegment;
+
+export function obOpenActivity(){
+  obOpenSegment('activity');
 }
 window.obOpenActivity = obOpenActivity;
 window.renderOverallStandings = () => renderOverallStandings();

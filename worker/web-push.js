@@ -1,7 +1,7 @@
 /* ============================================================
-   WEB PUSH — draft "you're on the clock" and chat alerts that reach a
-   drafter's phone even when Boxscore isn't open (js/push.js subscribes,
-   sw.js shows them).
+   WEB PUSH — draft "you're on the clock", chat and "my points" alerts
+   (worker/points-alert.js) that reach a drafter's phone even when
+   Boxscore isn't open (js/push.js subscribes, sw.js shows them).
 
    Standard Web Push, written against WebCrypto with no dependencies
    (the worker has no package.json):
@@ -35,7 +35,7 @@ const RECORD_SIZE = 4096;
 // (Firefox) and Microsoft (Edge on Windows).
 const PUSH_HOSTS = [/^web\.push\.apple\.com$/, /^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /\.notify\.windows\.com$/];
 
-export const PUSH_KINDS = ['chat', 'draft'];
+export const PUSH_KINDS = ['chat', 'draft', 'points'];
 
 export function pushKvKey(group, drafterId){
   return `${group === LEGACY_GROUP_ID ? 'push' : `push@${group}`}:${drafterId}`;

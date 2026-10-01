@@ -2666,6 +2666,7 @@ body{
   color: var(--text-mute);
   line-height: 1.45;
 }
+.admin-status-note.lede{ margin-top: 0; }
 
 /* ---- Commissioner page, desktop (js/admin.js's desk* functions) ----
    At 900px and up the page is a full-screen shell like the draft room:
@@ -3325,6 +3326,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .pts-tag.locked{ color: var(--accent); background: var(--accent-soft); }
 .pts-tag.lock-in{ color: var(--on-accent); background: var(--accent-fill); }
 .pts-tag.rank{ color: var(--text-sub); background: var(--fill-soft); }
+.pts-tag.risk{ color: var(--loss); background: var(--loss-soft); }
 .tracker-label .pts-tag{ margin-left: 6px; }
 
 .ob-move{ display: inline-block; font-size: var(--fs-11); font-weight: 800; white-space: nowrap; } /* inline-block so the re-rank pop can scale it */
@@ -3415,6 +3417,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   cursor: pointer;
 }
 .ob-table-row:last-child{ border-bottom: none; }
+.ob-table-row.static{ cursor: default; }
 .ob-table-row.head{
   padding: 9px 14px;
   border-bottom-color: var(--hairline-strong);
@@ -3676,6 +3679,9 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    texture (hatch), not just hue, so it reads before color is parsed. */
 
 .ob-cards{ display: flex; flex-direction: column; gap: 6px; }
+/* A section after a card list or an idle note (Points -> History) gets the
+   same 14px .act-group leaves under itself. */
+.ob-cards + .ob-section-title, .ob-idle-block + .ob-section-title{ margin-top: 14px; }
 .ob-card{
   background: var(--surface);
   border: 1px solid var(--hairline);
@@ -3709,6 +3715,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ob-rule-pts{ font-size: var(--fs-15); text-align: right; }
 .ob-card-pts.neg, .ob-rule-pts.neg{ color: var(--loss); }
 .ob-rule-pts.live{ color: var(--provisional); }
+.ob-rule-pts.mute{ color: var(--text-mute); }
 
 .ob-card-main{ min-width: 0; }
 .ob-card-title{
@@ -3750,6 +3757,9 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   cursor: pointer;
 }
 .ob-rule:last-child{ border-bottom: none; }
+.ob-rule.static{ cursor: default; }
+/* The team page's "On the line" (js/lines.js): .ob-rule rows straight in a card. */
+.ob-lines{ padding: 2px 14px; }
 .ob-rule-main{ min-width: 0; }
 .ob-rule-label{
   font-size: var(--fs-13);
@@ -5191,6 +5201,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-delta.lock, .act-delta-inline.lock{ color: var(--accent); }
 .act-delta.up, .act-delta-inline.up{ color: var(--win); }
 .act-delta.down, .act-delta-inline.down{ color: var(--loss); }
+.act-delta.mute{ color: var(--text-mute); }
 .act-chip.locked{ color: var(--accent); background: var(--accent-soft); }
 .act-foot{ font-size: var(--fs-12); font-weight: 600; color: var(--text-mute); text-align: center; padding: 4px 0 8px; }
 

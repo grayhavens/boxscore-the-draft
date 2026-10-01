@@ -59,9 +59,10 @@ import {
   espnCbbRankingsCache, fetchEspnCbbRankingsCached, loadEspnCbbRankingsCache,
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
-import { renderOverallStandings, setObMode, obEnterView } from './overall.js';
+import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
 import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
 import { startActivity } from './activity.js';
+import { startHistory } from './history.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
@@ -897,6 +898,7 @@ applyUrlState();
 enableNavMotion();
 maybeShowWelcome();
 startActivity();
+startHistory();
 
 // Every standings/rankings/season-phase cache, kicked off regardless of
 // which tab is open. Each call is a no-op while its cache is fresh (or
@@ -1011,7 +1013,8 @@ if('serviceWorker' in navigator){
     const view = target.searchParams.get('view');
     const room = target.searchParams.get('room');
     const currentRoom = new URLSearchParams(location.search).get('room');
-    if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
+    if(view === 'overall' && target.searchParams.get('seg')) obOpenSegment(target.searchParams.get('seg'));
+    else if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
     else location.href = target.href;
   });
 }

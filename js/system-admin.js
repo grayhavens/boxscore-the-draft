@@ -601,7 +601,7 @@ function rosterHtml(g){
     const editingEmail = named && emailEdit && emailEdit.group === g.id;
     const state = conf ? pill('ok', 'Confirmed') : d.open ? pill('open', 'Open') : pill('neutral', 'Named');
     const welcomed = contact && contact.welcomedAt ? ago(contact.welcomedAt) : d.open ? '—' : email ? 'Not yet' : 'No email';
-    const alerts = d.devices ? `${plural(d.devices, 'device')} · chat ${d.chat} · draft ${d.draft}` : d.open ? '—' : 'Off';
+    const alerts = d.devices ? `${plural(d.devices, 'device')} · chat ${d.chat} · draft ${d.draft} · points ${d.points || 0}` : d.open ? '—' : 'Off';
     const actions = [
       contact && !contact.welcomedAt && secrets.email ? btn('Welcome', `sysadminWelcome('${g.id}', false, '${esc(d.id)}')`, { small: true }) : '',
       conf ? btn('Edit', `sysadminEditSpot('${g.id}', '${esc(d.id)}')`, { small: true }) : '',
@@ -791,7 +791,7 @@ function welcomeSection(g){
     </div>`, note);
 }
 
-const devicePrefs = x => [x.chat && 'Chat', x.draft && 'Draft picks'].filter(Boolean).join(', ') || 'Announcements only';
+const devicePrefs = x => [x.chat && 'Chat', x.draft && 'Draft picks', x.points && 'Points'].filter(Boolean).join(', ') || 'Announcements only';
 
 // Every registered device (worker/web-push.js), by drafter. A device still
 // in use signs itself back up within a day of opening the app (js/push.js),

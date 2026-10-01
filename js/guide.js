@@ -43,7 +43,7 @@ const GUIDE = [
     id: 'home', icon: 'home', tour: true, title: 'Your teams',
     lead: 'Home is your board: every team you drafted, grouped by league, with its latest form and next game.',
     points: [
-      'Tap any team for its page: schedule, news, squad and stats.',
+      'Tap any team for its page: schedule, news, squad and stats. On the line shows how close it is to each scoring line, like 1 game behind for the division.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
       'Tap a drafter on Points to see their board.'
     ],
@@ -98,7 +98,7 @@ const GUIDE = [
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
       'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
-      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved.'
+      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.'
     ],
     go: ['Go to Points', "switchView('overall')"]
   },
@@ -148,11 +148,19 @@ const GUIDE = [
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat, and when the draft’s time is set.',
+    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat, and when the draft’s time is set.',
     points: [
       'Turn them on in Settings, under Alerts. Each device is set up on its own.',
       'On iPhone, alerts only work in the app added to your Home Screen.'
     ],
+    pre: {
+      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat, and when the draft’s time is set.',
+      points: [
+        'Turn them on in Settings, under Alerts. Each device is set up on its own.',
+        'On iPhone, alerts only work in the app added to your Home Screen.',
+        'Once the season starts there’s one for your points too.'
+      ]
+    },
     go: ['Set up alerts', 'guideOpenAlerts()']
   },
   {
@@ -204,7 +212,7 @@ function tourCardBody(card){
     const prefs = pushPrefs();
     return `
       <div class="welcome-title">Turn on alerts</div>
-      <div class="welcome-sub">Know when you’re on the clock or someone posts. Change these, and find more help, in <b>Settings</b>.</div>
+      <div class="welcome-sub">Know when you’re on the clock${ACTIVE_SEASON.preDraft ? '' : ', your points move,'} or someone posts. Change these, and find more help, in <b>Settings</b>.</div>
       <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title]) => `
         <button type="button" class="set-row" role="switch" aria-checked="${prefs[kind]}" onclick="guideTogglePush('${kind}')">
           <span class="set-row-text"><span class="set-row-title">${title}</span></span>
