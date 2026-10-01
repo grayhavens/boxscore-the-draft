@@ -47,6 +47,7 @@ import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // ---- Full-roster records (all 30 drafted teams, one bulk ESPN call) ----
 
 const ESPN_CBB_STANDINGS_CACHE_KEY = 'teamDashboardEspnCbbStandingsCache';
@@ -58,7 +59,7 @@ export const espnCbbStandingsCache = { rows: null, error: false, loading: false,
 let espnCbbStandingsPromise = null;
 
 function espnCbbStandingsIsFresh(){
-  return !!espnCbbStandingsCache.rows && !!espnCbbStandingsCache.fetchedAt && (Date.now() - espnCbbStandingsCache.fetchedAt) < ESPN_CBB_STANDINGS_TTL_MS;
+  return !!espnCbbStandingsCache.rows && !!espnCbbStandingsCache.fetchedAt && isFreshAt(espnCbbStandingsCache.fetchedAt, ESPN_CBB_STANDINGS_TTL_MS);
 }
 
 function saveEspnCbbStandingsCache(){
@@ -188,7 +189,7 @@ export const espnCbbRankingsCache = { ranks: null, error: false, loading: false,
 let espnCbbRankingsPromise = null;
 
 function espnCbbRankingsIsFresh(){
-  return !!espnCbbRankingsCache.ranks && !!espnCbbRankingsCache.fetchedAt && (Date.now() - espnCbbRankingsCache.fetchedAt) < ESPN_CBB_RANKINGS_TTL_MS;
+  return !!espnCbbRankingsCache.ranks && !!espnCbbRankingsCache.fetchedAt && isFreshAt(espnCbbRankingsCache.fetchedAt, ESPN_CBB_RANKINGS_TTL_MS);
 }
 
 function saveEspnCbbRankingsCache(){

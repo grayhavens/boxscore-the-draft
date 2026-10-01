@@ -44,6 +44,7 @@ import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 export function findFlatTeamKey(leagueKey, realName){
   const target = normalizeTeamName(realName);
   const teams = leagueOf(leagueKey).teams;
@@ -75,7 +76,7 @@ export function createFlatStandingsBoard(opts){
   let promise = null;
 
   function isFresh(){
-    return !!cache.rows && !!cache.fetchedAt && (Date.now() - cache.fetchedAt) < ttlMs;
+    return !!cache.rows && !!cache.fetchedAt && isFreshAt(cache.fetchedAt, ttlMs);
   }
 
   function save(){
@@ -183,7 +184,7 @@ export function createFlatStandingsBoard(opts){
   let divisionPromise = null;
 
   function divisionIsFresh(){
-    return !!divisionCache.divisions && !!divisionCache.fetchedAt && (Date.now() - divisionCache.fetchedAt) < ttlMs;
+    return !!divisionCache.divisions && !!divisionCache.fetchedAt && isFreshAt(divisionCache.fetchedAt, ttlMs);
   }
 
   function saveDivisionCache(){

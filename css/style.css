@@ -5736,6 +5736,26 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: cubic-bezier(0.22, 0.7, 0.25, 1); }
 }
 
+/* Pull to refresh (js/pull-refresh.js): the launch splash's mark, 44px, in
+   the gap the page leaves as it's pulled down. Its geometry is the
+   splash's (#launch-splash .ls-*) at 22%, drawn finished here; the pull
+   scrubs a paused build toward this. */
+.ptr{
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); z-index: 5;
+  width: 44px; height: 44px; margin-left: -22px;
+  opacity: 0; pointer-events: none;
+  --ls-ink: var(--splash-ink); --ls-sq: var(--brand-square);
+}
+.ptr-mark{ position: absolute; left: 0; top: 0; width: 200px; height: 200px; transform: scale(0.22); transform-origin: 0 0; }
+.ptr .ls-logo{ position: absolute; inset: 0; transform-origin: 50% 50%; }
+.ptr .ls-tl, .ptr .ls-br{ position: absolute; width: 45px; height: 45px; overflow: hidden; }
+.ptr .ls-tl > i, .ptr .ls-br > i{ position: absolute; inset: 0; box-sizing: border-box; }
+.ptr .ls-tl{ left: 43px; top: 43px; }
+.ptr .ls-tl > i{ border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; }
+.ptr .ls-br{ left: 112px; top: 112px; }
+.ptr .ls-br > i{ border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; }
+.ptr .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); }
+
 /* Points: a row climbing the board rides over the rows it passes. */
 .fx-rise{ position: relative; z-index: 2; }
 
