@@ -61,12 +61,12 @@ export function pop(el, { scale = 1.06, from = null, duration = 420, delay = 0 }
   return play(el, keyframes, { duration, delay, easing: EASE_SPRING });
 }
 
-// A tint that flashes over `el` and fades out. `tint` is any CSS color,
-// var(--accent) by default.
-export function flashTint(el, { tint = null, duration = 700, delay = 0 } = {}){
+// A tint that flashes over `el` and fades out from `from` opacity. `tint`
+// is any CSS color, var(--accent) by default.
+export function flashTint(el, { tint = null, from = 0.55, duration = 700, delay = 0 } = {}){
   if(!el || !fxOn()) return null;
   const remove = layer(el, 'fx-flash', tint);
-  const anim = play(el.lastElementChild, [{ opacity: 0.55 }, { opacity: 0 }], { duration, delay, easing: 'ease-out' });
+  const anim = play(el.lastElementChild, [{ opacity: from }, { opacity: 0 }], { duration, delay, easing: 'ease-out' });
   done(anim, remove);
   return anim;
 }

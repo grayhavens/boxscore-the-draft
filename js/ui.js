@@ -95,6 +95,45 @@ export function gameSectionHtml({ label, html }){
   return `<div class="tg-section"><div class="tg-section-head"><span class="tg-section-label">${escapeHtml(label)}</span><span class="tg-section-rule"></span></div>${html}</div>`;
 }
 
+// SplitBar: Locked (solid ink) beside Live (blue hatch; red hatch when
+// negative), scaled so `max` is a full-width bar. Negative Live shows its
+// size as the risk stripe and shrinks the locked segment to the projected
+// total, so the two still add up to Locked. `size`: 'lg' | 'sm' | ''.
+export function splitBarHtml({ locked, live, max, size = '' }){
+  const scale = Math.max(1, max);
+  const pct = n => Math.max(0, Math.min(100, (n / scale) * 100)).toFixed(1) + '%';
+  const lockedPart = live < 0 ? locked + live : locked;
+  return `<span class="split-bar ${size}"><span class="lk" style="width:${pct(Math.max(0, lockedPart))}"></span><span class="lv ${live < 0 ? 'risk' : ''}" style="width:${pct(Math.abs(live))}"></span></span>`;
+}
+
+// PointsTable: the drafter leaderboard. `head` labels the drafter column;
+// each row is { id, rank, tier ('rank-1' | 'rank-mid' | ''), name,
+// moveHtml?, locked, live, liveCls ('zero' | 'neg' | ''), proj, total,
+// leader?, current?, focus? }, with the numbers already formatted, and
+// `tap` names the global function a row's tap calls with its id.
+export function pointsTableHtml({ rows, head = 'Ranked by projected', tap = 'obOpenSheet' }){
+  const body = rows.map(r => {
+    const classes = ['ob-table-row', r.leader ? 'leader' : '', r.current ? 'current' : '', r.focus ? 'focus' : ''].filter(Boolean).join(' ');
+    return `<button type="button" class="${classes}" data-id="${escapeHtml(r.id)}" data-total="${r.total}" onclick="${tap}('${escapeHtml(r.id)}')"><span class="ob-rank${r.tier ? ` ${r.tier}` : ''}">${r.rank}</span><span class="ob-table-name"><span class="ob-table-name-text">${escapeHtml(r.name)}</span>${r.moveHtml || ''}</span><span class="ob-table-locked">${r.locked}</span><span class="ob-table-live${r.liveCls ? ` ${r.liveCls}` : ''}">${r.live}</span><span class="ob-table-proj">${r.proj}</span></button>`;
+  }).join('');
+  return `<div class="ob-table"><div class="ob-table-row head"><span></span><span>${escapeHtml(head)}</span><span>Locked</span><span class="lv">Live</span><span class="pj">Proj</span></div>${body}</div>`;
+}
+
+// ActivityRow: one rule-change event. The tile, the kind tag and the right
+// column are trusted HTML the feed builds; `bodyHtml` is everything under
+// the title. A `compact` row (a drafter's recent changes) isn't a button.
+export function activityRowHtml({ tileHtml, kindHtml = '', title, bodyHtml = '', rightHtml, onclick = '', lock = false, compact = false }){
+  const inner = `${tileHtml}<span class="act-body">${kindHtml}<span class="act-title">${escapeHtml(title)}</span>${bodyHtml}</span><span class="act-right">${rightHtml}</span>`;
+  if(compact) return `<div class="act-row compact">${inner}</div>`;
+  return `<button type="button" class="act-row${lock ? ' lock' : ''}" onclick="${onclick}">${inner}</button>`;
+}
+
+// "Locked +6": the stamp that lands when points lock in (docs/motion-plan.md,
+// Phase 3). Lives only for the effect.
+export function lockStampHtml({ n }){
+  return `<span class="lock-stamp" aria-hidden="true">${tagHtml({ label: `Locked +${n}`, variant: 'lock-in' })}</span>`;
+}
+
 // "+1" that floats up off a score that just changed (docs/motion-plan.md,
 // Phase 2). Lives only for the effect. Not in the design system yet.
 export function scoreBumpHtml({ n }){
