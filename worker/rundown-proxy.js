@@ -196,7 +196,8 @@ export { ChatRoom } from './chat-room.js';
 export { DraftRoom } from './draft-room.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
-import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush } from './web-push.js';
+import { pushEnabled, parseSubscription, parsePrefs, saveDevice, removeDevice, loadDevices, sendPush, pushToDrafters } from './web-push.js';
+import { pointsAlerts } from './points-alert.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
@@ -1049,7 +1050,7 @@ function cleanActivityEvent(e, drafterIds){
   };
 }
 
-async function handleActivity(request, env, group, headers){
+async function handleActivity(request, env, group, headers, waitUntil){
   const key = activityKey(group);
   const drafterIds = drafterIdsFor(group);
   if(request.method === 'GET'){
@@ -1088,6 +1089,14 @@ async function handleActivity(request, env, group, headers){
       .slice(0, ACTIVITY_MAX_EVENTS);
     const next = { snapshot: snap, events };
     await env.LEAGUE_FACTS.put(key, JSON.stringify(next));
+    // "My points" alerts (worker/points-alert.js) for what this PUT added,
+    // after the response: an alert failing must never fail the write.
+    const added = incoming.filter(e => !seen.has(e.id));
+    if(added.length && pushEnabled(env)){
+      waitUntil(Promise.all(pointsAlerts(added, drafterIds).map(({ drafterId, payload }) =>
+        pushToDrafters(env, group, [drafterId], 'points', payload, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'points' })
+      )).catch(e => console.warn('[activity] points alerts failed', e)));
+    }
     // The day's Race chart sample (worker/points-history.js). Best effort:
     // the feed write above already landed.
     const sample = parseSample(body.sample, drafterIds);
@@ -1185,7 +1194,7 @@ async function route(request, env, ctx){
 
   if(url.pathname === '/push/test') return handlePushTest(request, env, group, headers);
 
-  if(url.pathname === '/activity') return handleActivity(request, env, group, headers);
+  if(url.pathname === '/activity') return handleActivity(request, env, group, headers, p => ctx.waitUntil(p));
 
   if(url.pathname === '/points/history') return handlePointsHistory(request, url, env, kvGroupPrefix('history', group), headers, { json });
 

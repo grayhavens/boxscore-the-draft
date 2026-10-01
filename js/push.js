@@ -1,7 +1,8 @@
 /* ============================================================
-   Push alerts: "You're on the clock" in the live draft, and new chat
-   messages, delivered to this device even when Boxscore is closed.
-   The worker sends them (worker/web-push.js); sw.js shows them.
+   Push alerts: "You're on the clock" in the live draft, new chat
+   messages, and changes to your points (worker/points-alert.js),
+   delivered to this device even when Boxscore is closed. The worker
+   sends them (worker/web-push.js); sw.js shows them.
 
    Per device, opt-in from Settings -> Alerts, one switch per kind. The
    device is registered under whichever drafter this device is
@@ -12,13 +13,16 @@
    ============================================================ */
 import { chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
+import { PRE_DRAFT } from './data.js';
 
 const KEY = 'bxPushDevice';                 // { drafter, endpoint, prefs, at }
 const RESYNC_MS = 24 * 60 * 60 * 1000;      // re-register once a day so the worker's copy stays fresh
+// Before a group's first draft nobody has points, so no points switch.
 export const PUSH_KINDS = [
   ['draft', 'My draft pick', 'When you go on the clock in the live draft'],
+  ['points', 'My points', 'When your teams gain or lose points'],
   ['chat', 'Chat messages', 'When someone posts while you’re away']
-];
+].filter(([kind]) => kind !== 'points' || !PRE_DRAFT);
 
 let publicKey = null;
 let configLoaded = null;
@@ -67,7 +71,7 @@ export function pushAvailability(){
 export function pushPrefs(){
   const saved = loadSaved();
   const on = saved && 'Notification' in window && Notification.permission === 'granted';
-  return { draft: !!(on && saved.prefs.draft), chat: !!(on && saved.prefs.chat) };
+  return { draft: !!(on && saved.prefs.draft), chat: !!(on && saved.prefs.chat), points: !!(on && saved.prefs.points) };
 }
 
 // Fetched once per page load, ahead of any tap: iOS only shows the

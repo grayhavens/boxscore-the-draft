@@ -59,7 +59,7 @@ import {
   espnCbbRankingsCache, fetchEspnCbbRankingsCached, loadEspnCbbRankingsCache,
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
-import { renderOverallStandings, setObMode, obEnterView } from './overall.js';
+import { renderOverallStandings, setObMode, obEnterView, obOpenActivity } from './overall.js';
 import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
@@ -1011,7 +1011,8 @@ if('serviceWorker' in navigator){
     const view = target.searchParams.get('view');
     const room = target.searchParams.get('room');
     const currentRoom = new URLSearchParams(location.search).get('room');
-    if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
+    if(view === 'overall' && target.searchParams.get('seg') === 'activity') obOpenActivity();
+    else if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
     else location.href = target.href;
   });
 }

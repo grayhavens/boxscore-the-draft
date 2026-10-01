@@ -135,7 +135,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 /* ---- Push alerts (worker/web-push.js sends them, js/push.js opts in) ----
-   Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'test', title, body, url, tag }.
+   Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'points' | 'test', title, body, url, tag }.
    Every push must show a notification (iOS revokes a subscription that
    stays silent), so there's no "skip it" path here; the worker already
    leaves out whoever is looking at the app. */
