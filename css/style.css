@@ -5704,6 +5704,19 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes tg-final-rail{ from{ color: var(--live); } }
 @keyframes tg-final-dim{ from{ color: var(--text); } }
 
+/* Team page: the hero bloom (js/team-page.js, playHeroOpen). A copy of the
+   hero's team-color background grows in at the back while the hero's own
+   is held off, so the two never stack. */
+.team-hero.fx-bloom{ background: none !important; }
+.team-hero-bloom{ position: absolute; inset: 0; transform-origin: 20% 50%; pointer-events: none; }
+
+/* Team page from the team modal: its crest and name morph into the hero's
+   (view-transition-name tp-crest / tp-name), on the push's own timing. */
+@media (prefers-reduced-motion: no-preference){
+  ::view-transition-group(tp-crest),
+  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: cubic-bezier(0.22, 0.7, 0.25, 1); }
+}
+
 /* Points: a row climbing the board rides over the rows it passes. */
 .fx-rise{ position: relative; z-index: 2; }
 

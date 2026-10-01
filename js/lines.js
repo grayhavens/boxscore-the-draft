@@ -157,7 +157,7 @@ export function teamLinesSectionHtml(teamKey){
   const rows = lines.map(line => {
     const s = STATUS[line.status];
     return `
-      <div class="ob-rule static">
+      <div class="ob-rule static" data-line="${escapeHtml(line.rule.label)}" data-status="${line.status}">
         <div class="ob-rule-main">
           <div class="ob-rule-label">${escapeHtml(line.rule.label)}</div>
           <div class="ob-rule-meta">

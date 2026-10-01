@@ -54,6 +54,12 @@ Testing: `node tools/rehearse-draft.mjs` against `wrangler dev`, plus a mock roo
 
 ## Phase 4: Team page (`js/team-page.js`, `js/live-data.js`)
 
+**Status: done**, together with `teamBadgeHtml` (every badge, through the adapter in `js/utils.js`) and `teamRowHtml` (Home's team rows) in `js/ui.js`. Notes from building it:
+- **Shared-element push:** the Standings row transition already flew the crest, name and owner, and it's unchanged. The new piece is the other way in, the team modal's "View team page" (where Home and Scores lead). Its crest and name share a `view-transition-name` (`tp-crest`, `tp-name`) with the hero's, so the push's View Transition morphs them. `navigate()` now returns its transition so the names can be cleared afterwards.
+- **Hero bloom:** a copy of the hero's team-color background grows from behind the crest, and the orb drifts in. On a plain push the crest, name and meta rise in too; the other two ways in bring the crest and name along themselves.
+- **Stat strip:** every whole number rolls up from 0 (`rollNumbers`). Recent form rows rise 70ms apart with their W/D/L pills popping. Both play once per open, within 8s of it, never on a data refresh or a tab switch.
+- **On the line:** each row carries `data-line` / `data-status`. A status that changed since the page last drew it pops its tag and its points.
+
 - **Shared-element push.** Extends the container transform that's already there (line 216). Measure the row's crest and name, and fly them into the hero during the push.
 - **Hero bloom.** On open, scale the team colour up from behind the crest and roll the stat strip with `countUp`.
 - **Recent form cascade.** In `renderForm`, stagger the rows 70ms apart. Run it once per page open, not on every data refresh.

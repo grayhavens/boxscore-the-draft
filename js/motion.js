@@ -27,9 +27,10 @@ export function canAnimateLive(){
 }
 
 // kind: 'fwd' | 'back' (tab slide), 'push' | 'pop' (team page), or null
-// for a plain crossfade.
+// for a plain crossfade. Returns the View Transition, or null when the
+// update ran instantly.
 export function navigate(kind, update){
-  if(!canAnimateNav()){ update(); return; }
+  if(!canAnimateNav()){ update(); return null; }
   const root = document.documentElement;
   if(kind) root.dataset.nav = kind; else delete root.dataset.nav;
   const vt = document.startViewTransition(update);
@@ -44,4 +45,5 @@ export function navigate(kind, update){
     if(current === vt){ delete root.dataset.nav; current = null; }
   };
   vt.finished.then(cleanup, cleanup);
+  return vt;
 }

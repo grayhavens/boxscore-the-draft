@@ -42,7 +42,9 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
-import { navigate, canAnimateLive } from './motion.js';
+import { navigate, canAnimateLive, canAnimateNav } from './motion.js';
+import { fxOn, play, pop, rollNumbers } from './motion-fx.js';
+import { EASE_SPRING } from './utils.js';
 import { trackerSectionHtml } from './league-facts.js';
 import { teamLinesSectionHtml, loadLineInputs } from './lines.js';
 import {
@@ -121,10 +123,45 @@ export function openTeamPage(teamKey, originView, rowEl){
   if(TEAM_META[teamKey].kind === 'golfer'){ window.openGolfer(TEAM_META[teamKey].espnAthleteId); return; }
   const origin = originView || 'board';
   if(rowEl && origin === 'standings' && canAnimateLive() && rowOnScreen(rowEl)){
+    fxBeginOpen('row');
     expandFromRow(teamKey, rowEl);
     return;
   }
-  navigate('push', () => openTeamPageNow(teamKey, origin));
+  // From the team modal ("View team page"), its crest and name become the
+  // hero's during the push: the same view-transition-name on both sides,
+  // so the browser morphs one into the other.
+  const shared = canAnimateNav() ? sharedFromModal(teamKey) : null;
+  if(shared) nameShared(shared);
+  const vt = navigate('push', () => {
+    if(shared) nameShared(shared, true);
+    fxBeginOpen(shared ? 'shared' : 'push');
+    openTeamPageNow(teamKey, origin);
+    if(shared) nameShared(heroShared());
+  });
+  if(vt && shared){
+    const clear = () => { const h = heroShared(); if(h) nameShared(h, true); };
+    vt.finished.then(clear, clear);
+  }
+}
+
+// The team modal's crest and name, while it's showing (or closing on its
+// way to this page) for this team.
+function sharedFromModal(teamKey){
+  const meta = TEAM_META[teamKey];
+  const head = document.querySelector('#modal-overlay .modal-head');
+  const crest = head && head.querySelector('.badge'), name = head && head.querySelector('h2');
+  if(!crest || !name || name.textContent.trim() !== (meta.fullName || meta.name)) return null;
+  return { crest, name };
+}
+function heroShared(){
+  const crest = document.querySelector('#team-page-content .team-hero-row > :first-child');
+  const name = document.querySelector('#team-page-content .team-hero-name');
+  return crest && name ? { crest, name } : null;
+}
+function nameShared(pair, clear){
+  if(!pair) return;
+  pair.crest.style.viewTransitionName = clear ? '' : 'tp-crest';
+  pair.name.style.viewTransitionName = clear ? '' : 'tp-name';
 }
 window.openTeamPage = openTeamPage;
 
@@ -569,6 +606,8 @@ function renderTeamPage(){
     renderNext(teamKey, meta, bundle, 'team-page-next');
   }
   renderTabBody();
+  playHeroOpen();
+  playStatsRoll();
 }
 
 function renderTabBody(){
@@ -582,6 +621,8 @@ function renderTabBody(){
 
   if(state.activeTab === 'schedule'){
     el.innerHTML = scheduleTabHtml(teamKey, meta, bundle);
+    playFormCascade();
+    playLineChanges(teamKey);
     ensureNews(teamKey);
     ensureLines(teamKey);
     return;
@@ -706,7 +747,94 @@ function scheduleTabHtml(teamKey, meta, bundle){
 function ensureLines(teamKey){
   loadLineInputs([TEAM_META[teamKey].leagueKey]).then(() => {
     const el = document.getElementById('lines-section');
-    if(el && el.dataset.team === teamKey) el.innerHTML = teamLinesSectionHtml(teamKey);
+    if(el && el.dataset.team === teamKey){
+      el.innerHTML = teamLinesSectionHtml(teamKey);
+      playLineChanges(teamKey);
+    }
+  });
+}
+
+// ---- Live effects (docs/motion-plan.md, Phase 4) ----
+// Each open of the page plays its entrance once: the hero bloom, the stat
+// strip rolling up, the recent-form cascade. A data refresh re-renders the
+// page but plays none of them again, and neither does anything that only
+// arrives well after the page opened. `fx.kind` is how the page arrived:
+// 'push' (plain), 'shared' (from the team modal, crest and name morphing
+// in) or 'row' (grown out of a Standings row, which flies those itself).
+const FX_OPEN_WINDOW_MS = 8000;
+const fx = { kind: null, at: 0, done: new Set(), lines: null };
+
+function fxBeginOpen(kind){
+  fx.kind = kind;
+  fx.at = Date.now();
+  fx.done = new Set();
+  fx.lines = null;
+}
+
+// True once per open for `key`, and only soon after the open.
+function fxFirst(key){
+  if(fx.done.has(key) || Date.now() - fx.at > FX_OPEN_WINDOW_MS) return false;
+  fx.done.add(key);
+  return true;
+}
+
+const rise = px => [{ opacity: 0, transform: `translateY(${px}px)` }, { opacity: 1, transform: 'none' }];
+
+// Hero bloom: the team's color grows out from behind the crest and the orb
+// drifts in. On a plain push the crest, name and meta rise in too; the
+// other two ways in bring the crest and name along themselves.
+function playHeroOpen(){
+  const hero = document.querySelector('#team-page-content .team-hero');
+  if(!hero || !fxOn() || !fxFirst('hero')) return;
+  const bloom = document.createElement('div');
+  bloom.className = 'team-hero-bloom';
+  bloom.setAttribute('aria-hidden', 'true');
+  bloom.style.background = hero.style.background;
+  hero.prepend(bloom);
+  hero.classList.add('fx-bloom');
+  const grow = play(bloom, [{ opacity: 0, transform: 'scale(0.35)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 150 });
+  const end = () => { bloom.remove(); hero.classList.remove('fx-bloom'); };
+  if(grow) grow.finished.then(end, end); else end();
+  play(hero.querySelector('.team-hero-orb'), [{ opacity: 0, transform: 'translate(30px, -20px) scale(0.6)' }, { opacity: 1, transform: 'none' }], { duration: 1100, delay: 250 });
+  if(fx.kind === 'push'){
+    play(hero.querySelector('.team-hero-row > :first-child'), [{ opacity: 0, transform: 'scale(0.7) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 200, easing: EASE_SPRING });
+    play(hero.querySelector('.team-hero-name'), rise(18), { duration: 520, delay: 380 });
+  }
+  if(fx.kind !== 'row') play(hero.querySelector('.team-hero-meta'), rise(10), { duration: 480, delay: 480 });
+}
+
+// The stat strip's numbers roll up from zero, once its numbers are in.
+function playStatsRoll(){
+  const nums = document.querySelectorAll('#team-page-stats .stat-cell .num');
+  if(!nums.length || !fxOn() || !fxFirst('stats')) return;
+  nums.forEach(el => rollNumbers(el, { duration: 700, delay: 300 }));
+}
+
+// Recent form: the result rows rise in 70ms apart, each W/D/L pill
+// popping as its row lands.
+function playFormCascade(){
+  const rows = [...document.querySelectorAll('#team-page-tab-body .form-item')].filter(r => r.querySelector('.form-pill'));
+  if(!rows.length || !fxOn() || !fxFirst('form')) return;
+  rows.forEach((row, i) => {
+    play(row, rise(14), { duration: 420, delay: 120 + i * 70 });
+    pop(row.querySelector('.form-pill'), { from: 0, duration: 460, delay: 260 + i * 70 });
+  });
+}
+
+// On the line: a line whose status changed since this page last drew it
+// (Chasing → Holding, say) pops its tag and its points.
+function playLineChanges(teamKey){
+  const rows = [...document.querySelectorAll('#lines-section [data-line]')];
+  const now = {};
+  rows.forEach(r => { now[r.dataset.line] = r.dataset.status; });
+  const prev = fx.lines && fx.lines.team === teamKey ? fx.lines.states : null;
+  fx.lines = { team: teamKey, states: now };
+  if(!prev || !fxOn()) return;
+  rows.forEach(r => {
+    const was = prev[r.dataset.line];
+    if(!was || was === r.dataset.status) return;
+    play(r.querySelector('.pts-tag'), [{ opacity: 0.4, transform: 'scale(1.25)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: EASE_SPRING });
+    pop(r.querySelector('.ob-rule-pts'), { scale: 1.35, duration: 480 });
   });
 }
 
