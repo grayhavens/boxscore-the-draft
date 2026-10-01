@@ -133,6 +133,26 @@ export function rollNumbers(el, { duration = 700, delay = 0 } = {}){
   requestAnimationFrame(step);
 }
 
+// Dots that burst out of `host`'s center and fade (your own chat reaction
+// landing). Their color comes from CSS (.fx-burst-dot).
+export function burst(host, { count = 6, radius = 18, duration = 520, delay = 0 } = {}){
+  if(!host || !fxOn()) return;
+  const lift = getComputedStyle(host).position === 'static';
+  if(lift) host.classList.add('fx-host');
+  const anims = Array.from({ length: count }, (_, i) => {
+    const dot = document.createElement('span');
+    dot.className = 'fx-burst-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    host.appendChild(dot);
+    const a = (i / count) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.round(Math.cos(a) * radius), y = Math.round(Math.sin(a) * radius);
+    const anim = play(dot, [{ opacity: 1, transform: 'translate(0, 0) scale(1)' }, { opacity: 0, transform: `translate(${x}px, ${y}px) scale(0.4)` }], { duration, delay, fill: 'both' });
+    done(anim, () => dot.remove());
+    return anim;
+  });
+  Promise.all(anims.map(a => a && a.finished)).then(() => { if(lift) host.classList.remove('fx-host'); }, () => {});
+}
+
 // A short sideways shake (time's up).
 export function nudge(el){
   return play(el, [{ transform: 'none' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(-2px)' }, { transform: 'none' }], { duration: 380 });
