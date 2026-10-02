@@ -21,6 +21,7 @@ Hook in `js/draft.js` → `render()`. Compare the previous `derive()` result wit
 - `burst` waits for Phase 5 (reaction burst), its only user.
 - A full league's count is now green in the plain render too, so the sheen ends on the state the page already shows.
 - New markup: `floatPillHtml` in `js/ui.js` (the "order flips" pill). The design system doesn't have it yet.
+- Later replaced by `docs/delight-plan.md` Phase 1: the on-the-clock card is now the clock hero (its ring goes red for the last 8 seconds instead of the gold urgency), and your own pick lands on the hero rather than flying into the board cell.
 
 - **You're on the clock.** Signal: `d.myTurn` goes false → true. Effects: gold fill on the clock card, two ring pulses, the name staggering in, and the board underline sliding to your column. Add a `navigator.vibrate` here if push alerts already buzz.
 - **Timer urgency.** Signal: time remaining < 5s while `d.myTurn`. Run this off the clock tick, not `render()`. Toggle a class for the gold tick and the breathing, and do one nudge at 0.

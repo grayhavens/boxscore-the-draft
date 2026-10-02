@@ -290,3 +290,57 @@ export function mentionHtml({ label, me = false }){
 export function mentionListHtml({ options, active = 0 }){
   return options.map((o, i) => `<button type="button" class="mention-opt${i === active ? ' active' : ''}" data-mention="${escapeHtml(o.id)}" role="option" aria-selected="${i === active}"><span class="mention-opt-name">@${escapeHtml(o.name)}</span>${o.sub ? `<span class="mention-opt-sub">${escapeHtml(o.sub)}</span>` : ''}</button>`).join('');
 }
+
+// ---- Draft room (docs/delight-plan.md, Phase 1) ----
+
+// DraftClock: the on-the-clock ring. The ring is drawn one second ahead of
+// the time and eases there over 1s, so it lands as the number changes.
+// `hurry` (the last 8 seconds) turns it red; the draft room keeps it ticking
+// with setDraftClock rather than re-rendering.
+export const DRAFT_CLOCK_C = 339.3;
+export const draftClockOffset = (secondsLeft, total) =>
+  (DRAFT_CLOCK_C * (1 - Math.max(secondsLeft - 1, 0) / Math.max(total, 1))).toFixed(1);
+const clockText = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+export function draftClockHtml({ secondsLeft, total, hurry = false }){
+  const s = Math.max(0, Math.ceil(secondsLeft));
+  return `<div class="draft-clock${hurry ? ' hurry' : ''}" data-sec="${s}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="draft-clock-track" cx="60" cy="60" r="54"></circle><circle class="draft-clock-ring" cx="60" cy="60" r="54" style="stroke-dashoffset:${draftClockOffset(s, total)}"></circle></svg><div class="draft-clock-time"><b>${clockText(s)}</b><span>to pick</span></div></div>`;
+}
+
+// The first call on a freshly rendered clock jumps straight to the time
+// (no 1s sweep from where the markup left the ring).
+export function setDraftClock(el, { secondsLeft, total, hurry = false }){
+  const s = Math.max(0, Math.ceil(secondsLeft));
+  const first = !el.dataset.live;
+  el.classList.toggle('hurry', hurry);
+  if(!first && el.dataset.sec === String(s)) return;
+  el.dataset.live = '1';
+  el.dataset.sec = String(s);
+  const ring = el.querySelector('.draft-clock-ring');
+  if(first) ring.style.transition = 'none';
+  ring.style.strokeDashoffset = draftClockOffset(s, total);
+  el.querySelector('.draft-clock-time b').textContent = clockText(s);
+  if(first){ ring.getBoundingClientRect(); ring.style.transition = ''; }
+}
+
+// ClockHero: the card you get while you're on the clock: the clock, then
+// the title and a subline. `landingHtml` (pickLandingHtml) is the state
+// it turns into once your pick is in; with it, the clock and title are
+// kept but hidden, so the landing can fade them out. Trusted markup.
+export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '' }){
+  return `<section class="clock-hero${landingHtml ? ' landed' : ''}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}</section>`;
+}
+
+// PickLanding: your pick, landed: the team's orb, its badge at 72px,
+// "Your pick is in" and a line under it, and `next` (when you pick again)
+// as a pill. `badgeHtml` is trusted.
+export function pickLandingHtml({ color, badgeHtml, title, sub, next = '' }){
+  return `${teamOrbHtml({ color, cls: 'pick-landing-orb' })}<div class="pick-landing"><span class="pick-landing-badge">${badgeHtml}</span><div class="pick-landing-title">${escapeHtml(title)}</div><div class="pick-landing-sub">${escapeHtml(sub)}</div>${next ? `<div class="pick-landing-next">${escapeHtml(next)}</div>` : ''}</div>`;
+}
+
+// SnakeRail: the pick order as a row of slots (pick number, drafter). A
+// done slot carries a chip in its team's color; the slot on the clock is
+// gold. slots: [{ label, name, state: 'done' | 'now' | '', chip }].
+export function snakeRailHtml({ slots }){
+  return `<div class="snake-rail"><div class="snake-rail-track">${slots.map(s => `<div class="snake-slot${s.state ? ` ${s.state}` : ''}"><span class="snake-slot-pk">${escapeHtml(s.label)}</span><span class="snake-slot-nm">${escapeHtml(s.name)}</span>${s.chip ? `<span class="snake-slot-chip" style="background:${escapeHtml(s.chip)}"></span>` : ''}</div>`).join('')}</div></div>`;
+}

@@ -5277,6 +5277,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-tile-md{ width: 32px; height: 32px; border-radius: 8px; font-size: 9px; }
 .dr-tile-sm{ width: 30px; height: 30px; border-radius: 7px; font-size: 9px; }
 .dr-tile-xs{ width: 18px; height: 18px; border-radius: 5px; font-size: 7px; }
+.dr-tile-xl{ width: 72px; height: 72px; border-radius: 20px; font-size: 18px; }
+.dr-tile-xl img{ padding: 8px; }
 .dr-tile img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 2px; box-sizing: border-box; background: var(--crest-ground); }
 .dr-tile-xs img{ padding: 1px; }
 .dr-tile.is-person img{ object-fit: cover; object-position: 50% 15%; padding: 0; background: var(--person-ground); }
@@ -5323,7 +5325,6 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 
 /* Center: on the clock */
 .dr-clock-card{ display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 18px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--hairline); flex: 0 0 auto; }
-.dr-clock-card.mine{ background: var(--accent-soft); border-color: var(--accent-border); }
 .dr-clock-card.done{ justify-content: flex-start; }
 .dr-clock-name{ font-family: var(--font-display); font-size: 28px; font-weight: 700; letter-spacing: var(--track-snug); line-height: 1.15; }
 .dr-clock-sub{ font-size: var(--fs-12); color: var(--text-sub); font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -5504,6 +5505,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team */
 .dm{ display: block; padding-bottom: 24px; }
 .dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+/* The on-the-clock card is too tall to pin over the list: it scrolls away. */
+.dm-top:has(.clock-hero){ position: relative; }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: var(--fs-20); }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
@@ -5852,19 +5855,61 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
    green (the sheen that plays when it fills ends here). */
 .dr-roster-row.full .dr-roster-n{ color: var(--win); font-weight: 800; }
 
-@media (prefers-reduced-motion: no-preference){
-  /* You're on the clock: the card fills gold from the plain surface. */
-  .dr-clock-card.mine.fx-arrive{ animation: dr-clock-arrive 600ms var(--ease-out) backwards; }
-  /* The last 5 seconds of your own clock: the gold wash breathes. */
-  .dr-clock-card.urgent{ position: relative; isolation: isolate; }
-  .dr-clock-card.urgent::after{
-    content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit;
-    background: var(--accent-soft); pointer-events: none;
-    animation: dr-breathe 480ms ease-in-out infinite alternate;
-  }
+/* DraftClock (draftClockHtml in js/ui.js): the on-the-clock ring. The ring
+   eases over each second (drawn a second ahead); the last 8 seconds are
+   red, and .beat pulses it once a second. */
+.draft-clock{ position: relative; width: 108px; height: 108px; flex: none; }
+.draft-clock svg{ display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.draft-clock-track{ fill: none; stroke: var(--fill-soft); stroke-width: 6; }
+.draft-clock-ring{ fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 339.3; transition: stroke-dashoffset 1000ms linear, stroke 300ms; }
+.draft-clock-time{ position: absolute; inset: 0; display: grid; place-content: center; gap: 2px; text-align: center; }
+.draft-clock-time b{ font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; transition: color 300ms; }
+.draft-clock-time span{ font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+.draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
+.draft-clock.hurry .draft-clock-time b{ color: var(--live); }
+
+/* ClockHero (clockHeroHtml): the card while you're on the clock, and the
+   pick landing it turns into (pickLandingHtml) once your pick is in. */
+.clock-hero{
+  position: relative; flex: 0 0 auto; height: 220px; overflow: hidden; isolation: isolate;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  border-radius: 20px; background: var(--surface); border: 1px solid var(--hairline);
 }
-@keyframes dr-clock-arrive{ from{ background-color: var(--surface); border-color: var(--hairline); } }
-@keyframes dr-breathe{ from{ opacity: 0.55; } to{ opacity: 1; } }
+.clock-hero-clock, .clock-hero-head{ transition: opacity 260ms, transform 400ms var(--ease-out); }
+.clock-hero-head{ text-align: center; padding: 0 16px; }
+.clock-hero-title{ margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+.clock-hero-sub{ margin: 4px 0 0; font-size: 13px; font-weight: 500; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.clock-hero.landed .clock-hero-clock, .clock-hero.landed .clock-hero-head{ opacity: 0; transform: scale(0.85); }
+.pick-landing-orb{ left: 50%; top: 42%; width: 420px; height: 420px; margin: -210px 0 0 -210px; z-index: -1; }
+.pick-landing{ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0 16px; text-align: center; pointer-events: none; }
+.pick-landing-badge{ position: relative; display: inline-flex; margin-bottom: 8px; border-radius: 20px; box-shadow: var(--crest-shadow); }
+.pick-landing-title{ font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.4px; }
+.pick-landing-sub{ font-size: 13px; font-weight: 600; color: var(--text-sub); }
+.pick-landing-next{ margin-top: 8px; padding: 4px 10px; border-radius: var(--r-pill); background: rgba(var(--hero-fade-rgb), 0.55); font-size: 11px; font-weight: 700; color: var(--text); }
+/* Under the landing: who's picking now, with their clock. */
+.dr-next-up{ margin-top: 8px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
+.dr-next-up-who{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-next-up .dr-timer{ font-size: var(--fs-16); }
+
+/* SnakeRail (snakeRailHtml): the phone's pick order, three back to twelve. */
+.snake-rail{ margin: 0 -16px; padding: 0 16px; overflow: hidden; }
+.snake-rail-track{ display: flex; gap: 6px; }
+.snake-slot{
+  position: relative; flex: none; width: 58px; height: 46px; box-sizing: border-box; padding: 6px 8px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  border-radius: 10px; background: var(--surface); border: 1px solid var(--hairline);
+  transition: background-color 320ms, border-color 320ms;
+}
+.snake-slot-pk{ font-family: var(--font-display); font-size: 10px; font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+.snake-slot-nm{ font-size: 12px; font-weight: 700; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snake-slot.now{ background: var(--accent-soft); border-color: var(--accent-border); }
+.snake-slot.now .snake-slot-nm{ color: var(--accent); }
+.snake-slot-chip{ position: absolute; top: 7px; right: 7px; width: 10px; height: 10px; border-radius: 3px; }
+
+@media (prefers-reduced-motion: no-preference){
+  .draft-clock.beat{ animation: draft-clock-beat 1s var(--ease-out) infinite; }
+}
+@keyframes draft-clock-beat{ 0%, 35%, 100%{ transform: scale(1); } 12%{ transform: scale(1.05); } }
 
 /* ---- Launch splash (js/launch-splash.js) ----
    Geometry is the 512px app icon scaled to a 200px box. Colors follow the

@@ -213,7 +213,7 @@ const onScreen = r => r.width > 0 && r.bottom > 0 && r.right > 0 && r.top < inne
 // re-render) along an arc into `toEl`, which stays hidden until it lands.
 // Returns when it lands, in unscaled ms (pass it on as a delay), or null if
 // either end isn't on screen.
-export function flyTo(ghost, from, toEl, { duration = 700, delay = 0 } = {}){
+export function flyTo(ghost, from, toEl, { duration = 700, delay = 0, easing = EASE_IN_OUT } = {}){
   if(!ghost || !from || !toEl || !fxOn()) return null;
   const to = toEl.getBoundingClientRect();
   if(!onScreen(from) || !onScreen(to) || !from.width) return null;
@@ -226,7 +226,7 @@ export function flyTo(ghost, from, toEl, { duration = 700, delay = 0 } = {}){
     { transform: 'translate(0, 0) scale(1)' },
     { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 46}px) scale(1.25)`, offset: 0.45 },
     { transform: `translate(${dx}px, ${dy}px) scale(${k})` }
-  ], { duration, delay, easing: EASE_IN_OUT, fill: 'both' });
+  ], { duration, delay, easing, fill: 'both' });
   const fade = play(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 120, delay: delay + duration, fill: 'forwards' });
   play(toEl, [{ opacity: 0 }, { opacity: 0 }], { duration: delay + duration });
   done(fade, () => ghost.remove());

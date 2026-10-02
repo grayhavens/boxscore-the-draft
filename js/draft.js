@@ -58,8 +58,8 @@ import {
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
 import { escapeHtml as esc, EASE_SPRING } from './utils.js';
-import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, riseLetters, nudge, playClass, flyTo, once, setMotionSpeed } from './motion-fx.js';
-import { floatPillHtml, buttonHtml, switchHtml } from './ui.js';
+import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed } from './motion-fx.js';
+import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml } from './ui.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -163,7 +163,9 @@ const ui = {
   mobileTab: 'pick',      // phone shell: 'pick' | 'board' | 'team'
   rosterOf: null,         // roster panel: drafter picked from its dropdown, or null for mine
   queueDrag: null,        // team id being dragged in the queue
-  queueFocus: null        // team id to refocus in the queue after a keyboard reorder
+  queueFocus: null,       // team id to refocus in the queue after a keyboard reorder
+  landed: null,           // my pick just landed: { slot, team, auto, count, clock } while the next drafter picks
+  lastClock: null         // the on-the-clock ring's last { sec, total }, for the landing to fade out from
 };
 
 // Which side panels are folded away (desktop/tablet only), remembered per
@@ -725,14 +727,13 @@ function clockCardHtml(d){
       : `<div class="dr-clock-card done strip"><span class="dr-eyebrow win">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`;
   }
   const info = d.clockInfo;
-  const mine = d.myTurn;
   const natural = drafterNaturalOwner(d, info.slot);
   const via = natural !== info.owner ? natural : null;
   const highest = Math.max(-1, ...Object.keys(s.picks).map(Number));
   const makeUp = info.slot < highest;
   const round = Math.floor(info.slot / d.n) + 1;
   const auto = autoDraftOn(d, info.owner);
-  const eyebrow = `${mine ? "YOU'RE ON THE CLOCK" : 'ON THE CLOCK'}${makeUp ? `<span class="dr-badge">${phone ? 'MAKE-UP PICK' : 'MAKE-UP'}</span>` : ''}`;
+  const eyebrow = `ON THE CLOCK${makeUp ? `<span class="dr-badge">${phone ? 'MAKE-UP PICK' : 'MAKE-UP'}</span>` : ''}`;
   // Sits beside the name rather than in the eyebrow, which it would wrap.
   const autoBadge = auto ? '<span class="dr-badge">AUTO</span>' : '';
   // The desktop strip already names who's up right beside the button, so
@@ -742,11 +743,32 @@ function clockCardHtml(d){
     ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()" aria-label="${d.proxy ? 'Cancel picking' : `Pick for ${esc(drafterName(info.owner))}`}">${proxyLabel}</button>` : '';
   const banners = `${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
     ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
+  if(d.myTurn){
+    const next = myNextSlot(d, info.slot);
+    const sub = [
+      `Pick ${pickLabel(info.slot, d.n)}`,
+      next < 0 ? 'your last pick' : `your next turn is ${pickLabel(next, d.n)}`,
+      makeUp ? 'make-up pick' : '',
+      via ? `via ${drafterName(via)}` : '',
+      auto ? 'auto-draft is on' : ''
+    ].filter(Boolean).join(' · ');
+    // Rendered full; updateClock sets the time right after, so the region's
+    // HTML stays the same from tick to tick and isn't rebuilt.
+    const total = clockLimitMs(d) / 1000;
+    return `${clockHeroHtml({ clockHtml: draftClockHtml({ secondsLeft: total, total }), title: 'You’re on the clock', sub })}${banners}`;
+  }
+  const landed = landedFor(d);
+  if(landed){
+    return `${landedHeroHtml(d, landed)}
+    <div class="dr-next-up"><span class="draft-live-dot" aria-hidden="true"></span><span class="dr-next-up-who">${esc(drafterName(info.owner))} is picking…</span><span class="dr-timer" id="dr-timer">0:00</span></div>
+    ${proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
+    ${banners}`;
+  }
   if(phone){
     return `
-    <div class="dr-clock-card${mine ? ' mine' : ''}">
+    <div class="dr-clock-card">
       <div class="dr-clock-main">
-        <div class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</div>
+        <div class="dr-eyebrow">${eyebrow}</div>
         <div class="dr-clock-name"><span class="dr-clock-who">${esc(drafterName(info.owner))}</span>${autoBadge}</div>
         ${via ? `<div class="dr-clock-sub">via ${esc(drafterName(via))}</div>` : ''}
       </div>
@@ -760,14 +782,76 @@ function clockCardHtml(d){
     ${banners}`;
   }
   return `
-    <div class="dr-clock-card strip${mine ? ' mine' : ''}">
-      <span class="dr-eyebrow${mine ? ' gold' : ''}">${eyebrow}</span>
+    <div class="dr-clock-card strip">
+      <span class="dr-eyebrow">${eyebrow}</span>
       <span class="dr-clock-name"><span class="dr-clock-who">${esc(drafterName(info.owner))}</span>${autoBadge}</span>
       ${via ? `<span class="dr-clock-sub">via ${esc(drafterName(via))}</span>` : ''}
       ${proxyBtn}
       <span class="dr-strip-timer"><span class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</span><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
     </div>
     ${banners}`;
+}
+
+// The ring turns red for the last 8 seconds.
+const HURRY_SEC = 8;
+
+// My next unpicked slot after `slot`, or -1 if I have none left.
+function myNextSlot(d, slot){
+  for(let i = slot + 1; i < d.total; i++){
+    if(!d.s.picks[i] && ownerOf(i, d.s.order, d.s.overrides) === d.me) return i;
+  }
+  return -1;
+}
+
+const pickCount = d => Object.keys(d.s.picks).length;
+
+// My pick, landed (docs/delight-plan.md, Phase 1): the hero stays on it
+// while the next drafter picks, until another pick lands or I'm up again.
+function landedFor(d){
+  const l = ui.landed;
+  if(!l || d.s.phase !== 'draft' || d.myTurn || pickCount(d) !== l.count) return null;
+  const pick = d.s.picks[l.slot];
+  return pick && pick.team === l.team ? l : null;
+}
+
+// The hero turned into the landing. The clock and title are still in it,
+// hidden, at the time they last showed, so the landing can fade them out.
+function landedHeroHtml(d, l){
+  const team = teamById(d.s.pool, l.team);
+  if(!team) return '';
+  const next = myNextSlot(d, l.slot);
+  const away = next < 0 ? 0 : next - d.clockInfo.slot;
+  const c = l.clock || { sec: 0, total: 1 };
+  return clockHeroHtml({
+    clockHtml: draftClockHtml({ secondsLeft: c.sec, total: c.total, hurry: c.sec <= HURRY_SEC }),
+    title: 'You’re on the clock',
+    landingHtml: pickLandingHtml({
+      color: team.color,
+      badgeHtml: tileHtml(team, 'xl'),
+      title: l.auto ? 'Auto-picked for you' : 'Your pick is in',
+      sub: `${team.name} · ${leagueUi(team.league).label} · Pick ${pickLabel(l.slot, d.n)}`,
+      next: next < 0 ? 'That was your last pick' : `You pick again at ${pickLabel(next, d.n)} · ${away} pick${away === 1 ? '' : 's'} away`
+    })
+  });
+}
+
+// The phone's pick order: three picks back, the one on the clock, and what's
+// coming, each done pick with its team's color. A pick slides it along.
+const RAIL_BEFORE = 3, RAIL_SLOTS = 12, RAIL_STEP = 64;   // slot 58 + gap 6
+function railStart(d){
+  const cur = d.clockInfo ? d.clockInfo.slot : d.total - 1;
+  return Math.max(0, Math.min(cur - RAIL_BEFORE, d.total - RAIL_SLOTS));
+}
+function railHtml(d){
+  if(d.s.phase !== 'draft' || !d.clockInfo) return '';
+  const start = railStart(d), cur = d.clockInfo.slot, slots = [];
+  for(let slot = start; slot < Math.min(d.total, start + RAIL_SLOTS); slot++){
+    const owner = ownerOf(slot, d.s.order, d.s.overrides);
+    const pick = d.s.picks[slot];
+    const team = pick && teamById(d.s.pool, pick.team);
+    slots.push({ label: pickLabel(slot, d.n), name: owner === d.me ? 'You' : drafterName(owner), state: pick ? 'done' : (slot === cur ? 'now' : ''), chip: team ? team.color : '' });
+  }
+  return snakeRailHtml({ slots });
 }
 
 function drafterNaturalOwner(d, slot){
@@ -1156,6 +1240,7 @@ function phoneShellHtml(){
     <div class="dm" data-tab="${ui.mobileTab}">
       <div class="dm-top">
         <div id="dr-clock"></div>
+        <div id="dm-rail"></div>
         <div class="dm-tabs">${tab('pick', 'Pick')}${tab('board', 'Board')}${tab('team', 'My team')}</div>
       </div>
       <section class="dm-pane" data-pane="pick">
@@ -1211,6 +1296,7 @@ function renderPhone(d){
   shell.querySelectorAll('.dm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.mobileTab));
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
+  setRegion('dm-rail', railHtml(d));
   setRegion('dr-autodraft', autoDraftHtml(d));
   setRegion('dm-queue-top', phoneQueueHtml(d));
   setRegion('dm-board', phoneBoardHtml(d));
@@ -1288,6 +1374,7 @@ function render(){
   maybeAutoPool(d);
   setMotionSpeed(isMockRoom(draftStore.room) ? 2 : 1);
   const events = draftEvents(d);
+  noteLanding(d, events);
   if(d.s.phase === 'lobby'){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
@@ -1387,9 +1474,10 @@ function maybeAutoPool(d){
 const fx = {
   prev: null,          // snapshot from the last render, null until the next one is a first look
   stale: undefined,    // the state seen while disconnected; the first newer one is a first look
-  sent: null,          // { team, slot, rect, ghost, at }: my pick in flight, measured before the re-render
-  lastSec: null,       // last whole second the urgent timer popped on
-  nudged: null         // clock slot the time's-up nudge already played for
+  sent: null,          // { team, slot, rect, ghost, row, at }: my pick in flight, measured before the re-render
+  nudged: null,        // clock slot the time's-up nudge already played for
+  railStart: null,     // first slot the phone's pick rail showed last render
+  railShift: 0         // how many slots it moved along this render
 };
 
 function fxSnapshot(d){
@@ -1437,6 +1525,19 @@ function draftEvents(d){
   return events;
 }
 
+// Before the room re-renders: a pick of mine turns the hero into the
+// landing (landedFor), and the pick rail notes how far it's moving.
+function noteLanding(d, events){
+  const e = events.find(x => x.type === 'pick' && x.owner === d.me);
+  if(e){
+    const pick = d.s.picks[e.slot];
+    ui.landed = { slot: e.slot, team: e.team, auto: !!pick.auto, count: pickCount(d), clock: ui.lastClock };
+  }
+  const start = d.clockInfo ? railStart(d) : null;
+  fx.railShift = start !== null && fx.railStart !== null ? start - fx.railStart : 0;
+  fx.railStart = start;
+}
+
 // A short id for this draft (room + drawn order), for once-per-device keys.
 function draftFxKey(d){
   const text = `${draftStore.room}:${d.s.order ? d.s.order.join(',') : ''}`;
@@ -1450,24 +1551,23 @@ function playDraftEvents(d, events){
   const key = draftFxKey(d);
   for(const e of events){
     if(e.type === 'clock') fxOnTheClock(e);
-    else if(e.type === 'pick') fxPick(d, e, key);
+    else if(e.type === 'pick'){ fxPick(d, e, key); fxRail(e.slot, e.owner === d.me ? 700 : 0); }
     else if(e.type === 'snake') fxSnake(e);
     else if(e.type === 'slot') fxSlot(d, e);
     else if(e.type === 'done') fxDone(d, key);
   }
 }
 
-// You're on the clock: the card fills gold, the eyebrow and your name rise
-// in, a gold ring pulses twice, the timer slides in, and the board's
-// underline slides over to your column.
+// You're on the clock: the hero rises in, its clock grows into place, the
+// title and subline follow, a gold ring pulses twice off the card, and the
+// board's underline slides over to your column.
 function fxOnTheClock(e){
-  const card = document.querySelector('#dr-clock .dr-clock-card.mine');
-  if(card){
-    playClass(card, 'fx-arrive');
-    play(card.querySelector('.dr-eyebrow'), [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 100 });
-    riseLetters(card.querySelector('.dr-clock-who'), { delay: 200 });
-    ringPulse(card, { delay: 450 });
-    play(card.querySelector('.dr-timer-box, .dr-strip-timer'), [{ opacity: 0, transform: 'translateX(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 650 });
+  const hero = document.querySelector('#dr-clock .clock-hero:not(.landed)');
+  if(hero){
+    play(hero, [{ opacity: 0, transform: 'translateY(10px) scale(0.98)' }, { opacity: 1, transform: 'none' }], { duration: 420 });
+    pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: 120 });
+    stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: 220, duration: 500 });
+    ringPulse(hero, { delay: 450 });
   }
   const head = document.querySelector('.dr-grid-head');
   const to = head && head.querySelector('.dr-bh.clock');
@@ -1503,6 +1603,16 @@ function fxPick(d, e, key){
     return;
   }
   if(!once(`pick:${key}:${e.slot}`)) return;
+  // My own pick lands on the hero (fxLanding); the board cell just lights up.
+  if(e.owner === d.me && document.querySelector('#dr-clock .clock-hero.landed')){
+    const land = fxLanding(e);
+    if(phone) fxPhoneBoard(cell, team, land);
+    else if(cell){
+      flashTint(cell, { delay: land });
+      pop(cell, { delay: land });
+    }
+    return;
+  }
   const dest = cell && cell.querySelector('.dr-tile');
   // Measured before the board moves, so the crest lands where its row ends up.
   const land = (e.sent && flyTo(e.sent.ghost, e.sent.rect, dest)) || 0;
@@ -1515,6 +1625,66 @@ function fxPick(d, e, key){
     const message = e.owner === d.me ? `Drafted ${team.name}` : `Drafted ${team.name} for ${drafterName(e.owner)}`;
     later(land + 200, () => toast(message));
   }
+}
+
+const RISE_14 = [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }];
+const LAND_EASE = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
+
+// Your pick is in: the clock and title fade back, the team's orb blooms
+// behind the hero, the crest you tapped flies into its center and a gold
+// ring pulses off it, "Your pick is in" rises, the row you picked from
+// closes up, and "You pick again at …" follows. The hero is already in its
+// landed state; this plays it in. Returns when the crest lands.
+function fxLanding(e){
+  const hero = document.querySelector('#dr-clock .clock-hero.landed');
+  hero.querySelectorAll('.clock-hero-clock, .clock-hero-head').forEach(el => {
+    play(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 260 });
+    play(el, [{ transform: 'none' }, { transform: 'scale(0.85)' }], { duration: 400 });
+  });
+  const orb = hero.querySelector('.pick-landing-orb');
+  play(orb, [{ transform: 'scale(0.2)' }, { transform: 'none' }], { duration: 1100 });
+  play(orb, [{ opacity: 0, offset: 0 }], { duration: 700 });
+  const badge = hero.querySelector('.pick-landing-badge');
+  const flown = e.sent && flyTo(e.sent.ghost, e.sent.rect, badge.querySelector('.dr-tile'), { duration: 720, easing: LAND_EASE });
+  const land = flown || 320;
+  if(!flown) pop(badge, { from: 0.6, delay: 120 });
+  ringPulse(badge, { delay: land, iterations: 1 });
+  stagger(hero.querySelectorAll('.pick-landing-title, .pick-landing-sub'), RISE_14, { step: 90, delay: land, duration: 500 });
+  play(hero.querySelector('.pick-landing-next'), RISE_14, { duration: 500, delay: Math.max(1200, land + 400) });
+  fxRowGone(e.sent);
+  return land;
+}
+
+// The row a pick was made from closes up: it fades where it was (its crest
+// is flying) while the rows under it slide up into the gap.
+function fxRowGone(sent){
+  const row = sent && sent.row;
+  if(!row || !row.rect.height) return;
+  const list = document.getElementById(row.list);
+  const ghost = row.ghost;
+  ghost.querySelectorAll('.dr-tile').forEach(t => { t.style.visibility = 'hidden'; });
+  ghost.classList.add('fx-fly');
+  ghost.setAttribute('aria-hidden', 'true');
+  Object.assign(ghost.style, { left: `${row.rect.left}px`, top: `${row.rect.top}px`, width: `${row.rect.width}px`, height: `${row.rect.height}px` });
+  (list || document.body).appendChild(ghost);
+  const fade = play(ghost, [{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' });
+  if(fade) fade.finished.then(() => ghost.remove(), () => ghost.remove()); else ghost.remove();
+  if(!list) return;
+  // Rows far below the fold aren't worth animating.
+  [...list.querySelectorAll('[data-team]')]
+    .filter(el => el.getBoundingClientRect().top >= row.rect.top - 1)
+    .slice(0, 12)
+    .forEach(el => play(el, [{ transform: `translateY(${row.rect.height}px)` }, { transform: 'none' }], { duration: 380 }));
+}
+
+// The phone's pick rail: the slot just picked gets its team chip, then the
+// rail slides along to keep the pick on the clock in place.
+function fxRail(slot, delay = 0){
+  const track = document.querySelector('#dm-rail .snake-rail-track');
+  if(!track || fx.railStart === null) return;
+  const done = track.children[slot - fx.railStart];
+  pop(done && done.querySelector('.snake-slot-chip'), { from: 0, delay, duration: 500 });
+  if(fx.railShift) play(track, [{ transform: `translateX(${fx.railShift * RAIL_STEP}px)` }, { transform: 'none' }], { duration: 600, delay: delay + 300 });
 }
 
 // The phone board, newest first: each pick puts a new on-the-clock row on
@@ -1580,45 +1750,49 @@ function fxDone(d, key){
   if(card) stagger(card.querySelectorAll('.dr-eyebrow, .dr-done-title, .dr-clock-sub, .dr-download-btn'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { step: 130, delay: end - 300, duration: 500 });
 }
 
-// The last 5 seconds of your own clock: the timer ticks gold with a pop
-// each second while the card's wash breathes, and at zero the card nudges
-// once. Runs off the clock tick (updateClock), not render().
-function fxUrgency(d, timer, left){
-  const card = timer.closest('.dr-clock-card');
-  const urgent = d.myTurn && left > 0 && left <= 5000 && fxOn();
-  if(card) card.classList.toggle('urgent', urgent);
-  const sec = Math.ceil(left / 1000);
-  if(urgent && sec !== fx.lastSec) pop(timer, { scale: 1.14, duration: 320 });
-  fx.lastSec = urgent ? sec : null;
+// ---- Clock ----
+
+// The ring on your own clock. The real room's clock is soft, so at zero it
+// holds 0:00 in red; a mock room picks for you there. In the last 8
+// seconds it's red and beats once a second, and at zero the card nudges.
+function updateHeroClock(d, ring, limit, left){
+  const sec = Math.max(0, Math.ceil(left / 1000));
+  const hurry = sec <= HURRY_SEC;
+  setDraftClock(ring, { secondsLeft: sec, total: limit / 1000, hurry });
+  ring.classList.toggle('beat', hurry && sec > 0 && d.running && fxOn());
+  ui.lastClock = { sec, total: limit / 1000 };
   // Only right as it hits zero: opening the room already over time doesn't nudge.
   if(d.myTurn && left <= 0 && fx.nudged !== d.clockInfo.slot){
     fx.nudged = d.clockInfo.slot;
-    if(left > -1000) nudge(card);
+    if(left > -1000) nudge(ring.closest('.clock-hero'));
   }
 }
-
-// ---- Clock ----
 
 function fmt(ms){
   const total = Math.ceil(Math.abs(ms) / 1000);
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-function updateClock(){
-  const timer = document.getElementById('dr-timer');
-  const d = derive();
-  if(!timer || !d || d.s.phase !== 'draft') return;
-  // Counts down to whenever the room will pick for them (a mock room's
-  // bot or timeout), else the soft clock. Auto-draft is left out: it picks
-  // within a second, and a timer racing to zero would only flash red.
+// Counts down to whenever the room will pick for them (a mock room's
+// bot or timeout), else the soft clock. Auto-draft is left out: it picks
+// within a second, and a timer racing to zero would only flash red.
+function clockLimitMs(d){
   const owner = d.clockInfo && d.clockInfo.owner;
-  const limit = (owner && autoPickLimitMs({ ...d.s, autoDraft: [] }, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
-  const elapsed = clockElapsedMs(d.s.clock, serverNow());
-  const left = limit - elapsed;
+  return (owner && autoPickLimitMs({ ...d.s, autoDraft: [] }, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
+}
+
+function updateClock(){
+  const d = derive();
+  if(!d || d.s.phase !== 'draft') return;
+  const limit = clockLimitMs(d);
+  const left = limit - clockElapsedMs(d.s.clock, serverNow());
+  const ring = document.querySelector('#dr-clock .clock-hero:not(.landed) .draft-clock');
+  if(ring) updateHeroClock(d, ring, limit, left);
+  const timer = document.getElementById('dr-timer');
+  if(!timer) return;
   const over = left < 0;
   timer.textContent = (over ? '+' : '') + fmt(left);
   timer.className = 'dr-timer' + (over ? ' over' : (left <= 15000 ? ' low' : ''));
-  fxUrgency(d, timer, left);
   const bar = document.getElementById('dr-bar');
   if(bar) bar.style.width = `${Math.max(0, Math.min(100, (left / limit) * 100))}%`;
 }
@@ -1743,7 +1917,12 @@ window.draftClick = async id => {
   // Measure the tapped crest now: by the time the pick lands, the row is gone.
   const tile = [...document.querySelectorAll(`[data-team="${id}"] .dr-tile, .dr-q[data-id="${id}"] .dr-tile`)]
     .find(el => el.getBoundingClientRect().width > 0);
-  fx.sent = { team: id, slot: d.clockInfo.slot, rect: tile ? tile.getBoundingClientRect() : null, ghost: tile ? tile.cloneNode(true) : null, at: Date.now() };
+  const row = tile && tile.closest('[data-team]');
+  const list = row && row.parentElement && row.parentElement.closest('[id]');
+  fx.sent = {
+    team: id, slot: d.clockInfo.slot, rect: tile ? tile.getBoundingClientRect() : null, ghost: tile ? tile.cloneNode(true) : null, at: Date.now(),
+    row: row && list ? { rect: row.getBoundingClientRect(), ghost: row.cloneNode(true), list: list.id } : null
+  };
   const result = await run({ type: 'pick', team: id, slot: d.clockInfo.slot }, proxying ? null : undefined);
   ui.picking = false;
   if(result.ok && proxying) ui.proxySlot = null;
@@ -1995,7 +2174,8 @@ export function setDraftActive(on){
     clearInterval(clockTimer);
     clockTimer = setInterval(updateClock, 250);
     ui.lastOrderKey = undefined;
-    fx.prev = null; fx.stale = undefined; fx.sent = null;
+    fx.prev = null; fx.stale = undefined; fx.sent = null; fx.railStart = null;
+    ui.landed = null;
     scheduleRender();
   } else {
     hideTip();
