@@ -28,6 +28,7 @@ import { GROUP_DOMAIN } from './groups.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
 import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
+import { personalMockRoom } from './draft-rules.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
 import './season-switcher.js';
 import { APP_VERSION } from './version.js';
@@ -280,17 +281,15 @@ export function openProfileSwitcher(){
 }
 window.openProfileSwitcher = openProfileSwitcher;
 
-// The Draft tile's picker, in the same sheet: the rehearsal room or the
-// real one. MOCK_DRAFT_ROOM is the throwaway room from
-// docs/draft-day-runbook.md.
-const MOCK_DRAFT_ROOM = 'mock-1';
+// The Draft tile's picker, in the same sheet: your own mock room or the
+// real one. (The group's shared rehearsal room is on Commissioner.)
 
 export function openDraftPicker(){
   if(!sheetRows()) return;
   setSheetTitle('Draft');
   sheetRows().innerHTML = `
-    <button class="sheet-row" onclick="goToDraftRoom('${MOCK_DRAFT_ROOM}')">
-      <span class="sheet-row-text">Mock Draft<span class="sheet-desc block">Practice room &middot; picks don&rsquo;t count</span></span>
+    <button class="sheet-row" onclick="goToMyMockDraft()">
+      <span class="sheet-row-text">Mock Draft<span class="sheet-desc block">Your own practice room &middot; picks don&rsquo;t count</span></span>
       <span class="set-chev">&rsaquo;</span>
     </button>
     <button class="sheet-row" onclick="goToDraftRoom('main')">
@@ -317,6 +316,14 @@ export function goToDraftRoom(room){
   window.location.href = url.toString();
 }
 window.goToDraftRoom = goToDraftRoom;
+
+// Mock Draft: your own room, against bots, that nobody else is sent to.
+// Needs to know who you are first.
+export function goToMyMockDraft(){
+  if(!currentProfileId){ openProfileSwitcher(); return; }
+  goToDraftRoom(personalMockRoom(currentProfileId));
+}
+window.goToMyMockDraft = goToMyMockDraft;
 
 export function closeIdentitySheet(){
   unlockBodyScroll();

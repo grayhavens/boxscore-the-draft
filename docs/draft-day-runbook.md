@@ -43,8 +43,8 @@ The preflight checks that the worker answers, the socket connects from the site'
 password is refused and the right one accepted. Run it the morning of the draft.
 
 **With people.** Pick a throwaway room and have everyone open
-`https://boxscorethedraft.pages.dev/?view=draft&room=mock-1` (Settings → Draft → Live Draft gives the real
-room, Mock Draft opens `mock-1`). Use a short clock (30s). Try, on purpose: a phone, a dropped
+`https://boxscorethedraft.pages.dev/?view=draft&room=mock-1` (Commissioner → Draft → Group rehearsal opens it; Settings → Draft →
+Mock Draft is each person's own private room, not this one). Use a short clock (30s). Try, on purpose: a phone, a dropped
 connection (airplane mode for 20s), a missed clock, a wrong pick you then change, a trade. To rehearse
 *your own* seat while bots fill the rest:
 
@@ -63,7 +63,8 @@ to the lobby; or just use a new room name.
 2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the
    draft room has no sign-in button of its own), then "Open draft lobby". The Draft section there shows
    whether the pool is loaded and the lottery has run.
-3. **Load team pool.** It should say 258 teams. If EPL promotion/relegation or WNBA expansion changed the
+3. **Load team pool.** It should say 258 teams. (Start draft also loads it if it's missing or short, but load and
+   check the count here first.) If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
 4. Set the clock length (90s default; the clock is soft — it counts up in red, and nobody is auto-picked
    unless they're on auto-draft). Anyone who can't make it: switch on their auto-draft in **Clock &

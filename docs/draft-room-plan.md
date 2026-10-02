@@ -55,11 +55,11 @@ drafts can run on a throwaway room.
   start/pause, and each drafter's queue (server-side so it follows you across devices).
 - Soft clock in the real room: clients render the countdown from a server timestamp, and the only
   auto-pick is **auto-draft** — drafters who switch it on (`state.autoDraft`, the `setAutoDraft` action;
-  the commissioner can switch anyone's) are picked for `AUTO_DRAFT_SECONDS` after going on the clock, by
-  the same alarm mock rooms use, in any room. `autoPickLimitMs` in `js/draft-rules.js` sets the delay. Mock rooms (`mock`, `mock-*`) are the exception: they're self-serve (every socket is
+  the commissioner can switch anyone's) are picked for the moment they go on the clock (`AUTO_DRAFT_SECONDS` is 0), by
+  the same alarm mock rooms use, in any room. `autoPickLimitMs` in `js/draft-rules.js` sets the delay. Mock rooms (`mock`, `mock-*`) are the exception (each drafter's own `mock-<id>` from Mock Draft, which starts with everyone else as a bot, and the group's shared rehearsal room `mock-1`, from Commissioner → Draft): they're self-serve (every socket is
   commissioner) and a Durable Object alarm auto-picks for bots (`config.bots`, after `config.botSeconds`)
   and for anyone whose clock runs out, from their queue or else the best-ranked team that fits
-  (`autoPickTeam` in `js/draft-rules.js`). Set up from the mock lobby's Draft order table, which draws itself on arrival (re-run any time) and carries each seat's bot switch.
+  (`autoPickTeam` in `js/draft-rules.js`). Set up from the mock lobby's Draft order table, which draws itself on arrival (re-run any time) and carries each seat's bot switch; the lobby loads its own team pool too (`maybeAutoPool` in `js/draft.js`), so there's no pool button there.
 - Server validates every pick: correct owner (or commissioner), team not taken, league cap not exceeded,
   not paused.
 - Reconnect resumes with `?after=<lastPickId>`; first frame is a full state snapshot.

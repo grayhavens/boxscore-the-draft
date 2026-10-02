@@ -285,8 +285,8 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
-      <button type="button" class="set-row" onclick="goToDraftRoom('mock-1')">
-        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Practice room &middot; picks don&rsquo;t count</span></span>
+      <button type="button" class="set-row" onclick="goToMyMockDraft()">
+        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
         <span class="set-chev">&rsaquo;</span>
       </button>
       <button type="button" class="set-row" onclick="goToDraftRoom('main')">

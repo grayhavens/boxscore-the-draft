@@ -14,7 +14,9 @@
    mock drafts run on their own rooms before the real one. See
    docs/draft-room-plan.md.
 
-   Mock rooms (isMockRoom: mock, mock-1, …) differ in two ways:
+   Mock rooms (isMockRoom: mock, mock-1, …) differ in two ways. Each
+   drafter has their own (mock-<id>, personalMockRoom), which starts with
+   everyone else as a bot; mock-1 is the group's shared rehearsal room.
    - Self-serve: every socket is treated as commissioner (sent an
      `authed` ok on connect), so anyone can set it up and run it.
    - Auto-picks: a Durable Object alarm is kept set for whoever is on
@@ -23,7 +25,7 @@
      else the best-ranked team that fits (autoPickTeam).
    Auto-draft (state.autoDraft, the setAutoDraft action) works in every
    room, the real one included: a drafter who turns it on is picked for
-   the same way, AUTO_DRAFT_SECONDS after going on the clock, and gets no
+   the same way, as soon as they go on the clock (AUTO_DRAFT_SECONDS), and gets no
    "You're on the clock" alert. autoPickLimitMs (js/draft-rules.js)
    decides the delay for both kinds of room.
    The room learns its own name and group (js/groups.js) from the
@@ -89,7 +91,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
@@ -108,10 +110,16 @@ const MAX_AUTH_FAILURES = 5;
 
 // A fresh room's state: the group's drafters, and its own sports and
 // pick counts when js/groups.js gives it some. A Commissioner page
-// change (worker/sports.js) follows on the first connect.
-function newRoomState(group){
+// change (worker/sports.js) follows on the first connect. A drafter's own
+// mock room starts with everyone else as a bot, ready to go.
+function newRoomState(group, room){
+  const drafters = drafterIdsFor(group);
   const caps = groupCaps(group);
-  return createState(drafterIdsFor(group), caps ? { caps: { ...caps } } : {});
+  const owner = mockRoomOwner(room, drafters);
+  return createState(drafters, {
+    ...(caps ? { caps: { ...caps } } : {}),
+    ...(owner ? { bots: drafters.filter(id => id !== owner) } : {})
+  });
 }
 
 function randomUnit(){
@@ -143,9 +151,9 @@ export class DraftRoom extends DurableObject {
       const row = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
       const group = this.sql.exec("SELECT v FROM kv WHERE k = 'group'").toArray()[0];
       this.group = group ? group.v : null;
-      this.state = row ? JSON.parse(row.v) : newRoomState(this.group || LEGACY_GROUP_ID);
       const room = this.sql.exec("SELECT v FROM kv WHERE k = 'room'").toArray()[0];
       this.room = room ? room.v : null;
+      this.state = row ? JSON.parse(row.v) : newRoomState(this.group || LEGACY_GROUP_ID, this.room);
       const scheduled = this.sql.exec("SELECT v FROM kv WHERE k = 'scheduledAt'").toArray()[0];
       this.scheduledAt = scheduled ? Number(scheduled.v) : null;
       const poll = this.sql.exec("SELECT v FROM kv WHERE k = 'poll'").toArray()[0];
@@ -170,7 +178,7 @@ export class DraftRoom extends DurableObject {
         // Nothing saved yet: start from this group's drafters, not the
         // default the constructor had to guess.
         const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
-        if(!saved) this.state = newRoomState(this.group);
+        if(!saved) this.state = newRoomState(this.group, this.room);
       }
       await this.syncGroupCaps();
       const mock = isMockRoom(this.room);
@@ -356,7 +364,7 @@ export class DraftRoom extends DurableObject {
       this.group = isKnownGroup(asked) ? asked : LEGACY_GROUP_ID;
       this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('group', ?)", this.group);
       const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
-      if(!saved) this.state = newRoomState(this.group);
+      if(!saved) this.state = newRoomState(this.group, this.room);
     }
     await this.syncGroupCaps({ caps, at: body.at });
     return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
