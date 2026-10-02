@@ -809,8 +809,8 @@ function clockCardParts(d){
     // Back to back at the turn of the snake, it's my clock running under it.
     const who = info.owner === d.me ? 'You’re on the clock again' : `${esc(drafterName(info.owner))} is picking…`;
     return [landedHeroHtml(d, landed), `
-    <div class="dr-next-up${info.owner === d.me ? ' mine' : ''}"><span class="draft-live-dot" aria-hidden="true"></span><span class="dr-next-up-who">${who}</span><span class="dr-timer" id="dr-timer">0:00</span></div>
-    ${proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
+    <div class="dr-next-up${info.owner === d.me ? ' mine' : ''}"><span class="draft-live-dot" aria-hidden="true"></span><span class="dr-next-up-who">${who}</span><span class="dr-timer" id="dr-timer">0:00</span>${phone ? '' : proxyBtn}</div>
+    ${phone && proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
     ${banners}`];
   }
   if(d.myTurn){

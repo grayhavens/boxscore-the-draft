@@ -83,7 +83,10 @@ export function flashTint(el, { tint = null, from = 0.55, duration = 700, delay 
 export function ringPulse(el, { duration = 900, delay = 0, iterations = 2 } = {}){
   if(!el || !fxOn()) return null;
   const remove = layer(el, 'fx-ring');
-  const anim = play(el.lastElementChild, [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.07, 1.3)' }], { duration, delay, iterations, easing: 'ease-out' });
+  // fill 'none': a delayed ring stays hidden (its layer's own opacity 0)
+  // until it starts, rather than holding its first frame, a solid gold
+  // border, through the delay.
+  const anim = play(el.lastElementChild, [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.07, 1.3)' }], { duration, delay, iterations, easing: 'ease-out', fill: 'none' });
   done(anim, remove);
   return anim;
 }
