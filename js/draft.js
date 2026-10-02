@@ -1478,18 +1478,23 @@ function fxOnTheClock(e){
 // A pick lands. Yours (or one you made for someone): the crest flies from
 // the row you tapped into its board cell, the cell flashes gold and pops,
 // and a toast confirms it, once per device. Anyone else's: just the cell
-// flashing in its league's color.
+// flashing in its league's color. The phone board is a list rather than a
+// grid, so it moves instead (fxPhoneBoard).
 function fxPick(d, e, key){
   const team = teamById(d.s.pool, e.team);
   const cell = document.querySelector(`.dr-cell[data-slot="${e.slot}"], .dm-brow[data-slot="${e.slot}"]`);
+  const phone = cell && cell.classList.contains('dm-brow');
   if(!e.mine){
-    if(cell && team) flashTint(cell, { tint: leagueUi(team.league).color });
+    if(phone) fxPhoneBoard(cell, team);
+    else if(cell && team) flashTint(cell, { tint: leagueUi(team.league).color });
     return;
   }
   if(!once(`pick:${key}:${e.slot}`)) return;
   const dest = cell && cell.querySelector('.dr-tile');
+  // Measured before the board moves, so the crest lands where its row ends up.
   const land = (e.sent && flyTo(e.sent.ghost, e.sent.rect, dest)) || 0;
-  if(cell){
+  if(phone) fxPhoneBoard(cell, team, land);
+  else if(cell){
     flashTint(cell, { delay: land });
     pop(cell, { delay: land });
   }
@@ -1497,6 +1502,25 @@ function fxPick(d, e, key){
     const message = e.owner === d.me ? `Drafted ${team.name}` : `Drafted ${team.name} for ${drafterName(e.owner)}`;
     later(land + 200, () => toast(message));
   }
+}
+
+// The phone board, newest first: each pick puts a new on-the-clock row on
+// top and pushes the rest down one. Without motion that's a jump, so the
+// rows glide down into place, the new top row slides in, and the team
+// slides into the row that was just filled under a soft tint (gold for
+// yours, else its league's color).
+function fxPhoneBoard(row, team, delay = 0){
+  const rows = [...row.parentElement.querySelectorAll(':scope > .dm-brow')];
+  const top = rows[0];
+  // Only the usual case: the clock moved on to the very next pick.
+  if(top && top !== row && rows[1] === row){
+    const h = top.getBoundingClientRect().height;
+    play(top, [{ opacity: 0, transform: `translateY(-${h * 0.6}px)` }, { opacity: 1, transform: 'none' }], { duration: 360 });
+    // Rows far below the fold aren't worth animating.
+    rows.slice(1, 12).forEach(r => play(r, [{ transform: `translateY(-${h}px)` }, { transform: 'none' }], { duration: 360 }));
+  }
+  play(row.querySelector('.dm-b-team'), [{ opacity: 0, transform: 'translateX(-12px)' }, { opacity: 1, transform: 'none' }], { duration: 380, delay: delay + 140 });
+  flashTint(row, { tint: row.classList.contains('mine') || !team ? null : leagueUi(team.league).color, from: 0.2, duration: 900, delay: delay + 140 });
 }
 
 // The snake turns: a gold pill says the order flips for the next round.
@@ -1572,10 +1596,10 @@ function updateClock(){
   const d = derive();
   if(!timer || !d || d.s.phase !== 'draft') return;
   // Counts down to whenever the room will pick for them (a mock room's
-  // bot or timeout), else the soft clock. Auto-draft picks at once (a
-  // limit of 0), so it falls through to the clock for its brief moment.
+  // bot or timeout), else the soft clock. Auto-draft is left out: it picks
+  // within a second, and a timer racing to zero would only flash red.
   const owner = d.clockInfo && d.clockInfo.owner;
-  const limit = (owner && autoPickLimitMs(d.s, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
+  const limit = (owner && autoPickLimitMs({ ...d.s, autoDraft: [] }, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
   const elapsed = clockElapsedMs(d.s.clock, serverNow());
   const left = limit - elapsed;
   const over = left < 0;
