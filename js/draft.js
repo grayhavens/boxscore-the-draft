@@ -872,7 +872,7 @@ const pickCount = d => Object.keys(d.s.picks).length;
 // drafter picking in a second (a bot, auto-draft), me back on the clock at
 // the turn of the snake, even the draft ending. The draft doesn't wait: the
 // board, the rail and the clocks under it keep going, and the card catches
-// up once the hold ends (fxLandingExit). After that it stays only while the next
+// up once the hold ends (fxClockSwap). After that it stays only while the next
 // drafter is still picking.
 function landedFor(d){
   const l = ui.landed;
@@ -1544,10 +1544,10 @@ function render(){
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
-  const leaving = landingSnapshot();
+  const clockWas = clockSnapshot();
   if(isPhone()) renderPhone(d); else renderLive(d);
   playDraftEvents(d, events);
-  if(leaving) fxLandingExit(leaving, events.some(e => e.type === 'clock'));
+  if(clockWas) fxClockSwap(clockWas);
   renderCommBar(d);
   renderModal(d);
   renderTeamSheet(d);
@@ -1726,17 +1726,9 @@ function playDraftEvents(d, events){
   }
 }
 
-// You're on the clock: the hero rises in, its clock grows into place, the
-// title and subline follow, a gold ring pulses twice off the card, and the
-// board's underline slides over to your column.
+// You're on the clock: the board's underline slides over to your column.
+// The hero growing in is the clock card's swap (fxClockSwap).
 function fxOnTheClock(e){
-  const hero = document.querySelector('#dr-clock .clock-hero:not(.landed)');
-  if(hero){
-    play(hero, [{ opacity: 0, transform: 'translateY(10px) scale(0.98)' }, { opacity: 1, transform: 'none' }], { duration: 420 });
-    pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: 120 });
-    stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: 220, duration: 500 });
-    ringPulse(hero, { delay: 450 });
-  }
   const head = document.querySelector('.dr-grid-head');
   const to = head && head.querySelector('.dr-bh.clock');
   const from = head && e.from && [...head.querySelectorAll('.dr-bh')].find(el => el.dataset.id === e.from);
@@ -1881,61 +1873,74 @@ function fxRowGone(sent){
     .forEach(el => play(el, [{ transform: `translateY(${row.rect.height}px)` }, { transform: 'none' }], { duration: 380 }));
 }
 
-// Leaving the landing (its hold is over, or the next drafter has picked):
-// rather than cut to the next card, a frozen copy of the landing fades out
-// over it while the clock area eases to its new height and the new card
-// comes in underneath. Back to back at the turn the card's frame doesn't
-// change, so the landing dissolves into my clock: the ring pops in, the
-// title rises and a gold ring pulses. Anything else (the next drafter's
-// card, the finished draft) rises in as the area shrinks.
-// Even curves (ease in and out): a front-loaded ease-out made the area
-// drop most of its height in the first frames, which read as a jolt.
-const EXIT = { fade: 460, resize: 560, inDelay: 180, in: 480 };
+// The clock card changing size: going on the clock (the small card or
+// strip grows into the hero) and leaving my pick's landing (its hold is
+// over, or the next drafter has picked). Rather than cut, a frozen copy of
+// the old card fades out over the new one while the clock area eases to
+// its new height and the new card comes in underneath, both ways on the
+// same even curves (an ease-out dropped most of the height in the first
+// frames, which read as a jolt).
+// - Going on the clock: the hero fades up as the area opens, then its ring
+//   pops in, the title rises and a gold ring pulses.
+// - Back to back at the turn the frame doesn't change, so the landing
+//   dissolves into my clock with the same ring, title and pulse.
+// - Anything else after a landing (the next drafter's card, the finished
+//   draft) rises in as the area shrinks.
+const SWAP = { fade: 460, resize: 560, inDelay: 180, in: 480 };
 
-// Taken before each render while a landing shows, to fade out if it goes.
-function landingSnapshot(){
+const clockKind = box => {
+  const hero = box.querySelector('#dr-clock-main .clock-hero');
+  return hero ? (hero.classList.contains('landed') ? 'landed' : 'mine') : 'other';
+};
+
+// Taken before each render unless my own clock is up (nothing grows out of
+// it), so the old card can fade out if the new one is a different size.
+function clockSnapshot(){
   const box = document.getElementById('dr-clock');
-  if(!box || !box.querySelector('#dr-clock-main .clock-hero.landed') || !fxOn()) return null;
+  if(!box || !fxOn() || !box.querySelector('#dr-clock-main > *')) return null;
+  const kind = clockKind(box);
+  if(kind === 'mine') return null;
   const ghost = box.cloneNode(true);
   ghost.removeAttribute('id');
   ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
   ghost.classList.add('clock-ghost');
   ghost.setAttribute('aria-hidden', 'true');
-  return { box, ghost, height: box.getBoundingClientRect().height, html: regionHtml.get('dr-clock-main') };
+  return { box, ghost, kind, height: box.getBoundingClientRect().height, html: regionHtml.get('dr-clock-main') };
 }
 
-function fxLandingExit(snap, clockEvent){
+function fxClockSwap(snap){
   const { box, ghost } = snap;
-  // Still landed (or a new landing of mine): nothing is leaving.
-  if(!box.isConnected || regionHtml.get('dr-clock-main') === snap.html || box.querySelector('#dr-clock-main .clock-hero.landed')) return;
+  if(!box.isConnected || regionHtml.get('dr-clock-main') === snap.html) return;
+  const kind = clockKind(box);
+  const entering = snap.kind === 'other' && kind === 'mine';
+  const leaving = snap.kind === 'landed' && kind !== 'landed';
+  if(!entering && !leaving) return;
   atSpeed(1, () => {
     const to = box.getBoundingClientRect().height;
-    box.classList.add('fx-exit');
+    box.classList.add('fx-swap');
     box.appendChild(ghost);
     if(Math.abs(to - snap.height) > 1){
       box.style.height = `${snap.height}px`;
       box.getBoundingClientRect();
       box.style.height = `${to}px`;
     }
-    play(ghost, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.97)' }], { duration: EXIT.fade, easing: EASE_IN_OUT, fill: 'forwards' });
+    play(ghost, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.97)' }], { duration: entering ? SWAP.fade - 120 : SWAP.fade, easing: EASE_IN_OUT, fill: 'forwards' });
     const hero = box.querySelector('#dr-clock-main .clock-hero:not(.landed)');
     if(hero){
-      // fxOnTheClock already brings it in when I've only just gone on the clock.
-      if(!clockEvent){
-        pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: EXIT.inDelay, duration: 520 });
-        stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: EXIT.inDelay + 120, duration: 500 });
-        ringPulse(hero, { delay: EXIT.resize + 40, iterations: 1 });
-      }
+      if(entering) play(hero, [{ opacity: 0, transform: 'scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: SWAP.in, delay: 60, easing: EASE_IN_OUT });
+      pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: SWAP.inDelay + (entering ? 60 : 0), duration: 520 });
+      stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: SWAP.inDelay + 120 + (entering ? 60 : 0), duration: 500 });
+      ringPulse(hero, { delay: SWAP.resize + 40, iterations: entering ? 2 : 1 });
     } else {
-      stagger([...box.querySelectorAll('#dr-clock-main > *, #dr-clock-extra > *')], [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 60, delay: EXIT.inDelay, duration: EXIT.in });
+      stagger([...box.querySelectorAll('#dr-clock-main > *, #dr-clock-extra > *')], [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 60, delay: SWAP.inDelay, duration: SWAP.in });
     }
   });
   setTimeout(() => {
     ghost.remove();
-    box.classList.remove('fx-exit');
+    box.classList.remove('fx-swap');
     box.style.height = '';
     if(ui.shell === 'phone') pinPhoneTop();
-  }, Math.max(EXIT.fade, EXIT.resize) + 20);
+  }, Math.max(SWAP.fade, SWAP.resize) + 20);
 }
 
 // The phone's pick rail: the slot just picked gets its team chip, then the
