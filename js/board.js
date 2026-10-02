@@ -62,6 +62,7 @@ import {
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
 import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
 import { startActivity } from './activity.js';
+import { startSince } from './since.js';
 import { startHistory } from './history.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -920,6 +921,7 @@ enableNavMotion();
 (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
 maybeShowWelcome();
 startActivity();
+startSince();
 startHistory();
 
 // Every standings/rankings/season-phase cache, kicked off regardless of

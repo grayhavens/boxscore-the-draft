@@ -325,13 +325,16 @@ export function setDraftClock(el, { secondsLeft, total, hurry = false }){
 
 // ClockHero: the card you get while you're on the clock: the clock, then
 // the title and a subline. `landingHtml` (pickLandingHtml) is the state
-// it turns into once your pick is in; with it, the clock and title are
-// kept but hidden, so the landing can fade them out. Trusted markup.
-export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '' }){
-  return `<section class="clock-hero${landingHtml ? ' landed' : ''}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}</section>`;
+// it turns into once a pick is in; with it, the clock and title are
+// kept but hidden, so the landing can fade them out. `others` is someone
+// else's turn (a neutral ring, since gold means you). `cornerHtml` sits in
+// the top-right corner, over the landing. Trusted markup.
+export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '', others = false, cornerHtml = '' }){
+  const cls = ['clock-hero', landingHtml ? 'landed' : '', others ? 'others' : ''].filter(Boolean).join(' ');
+  return `<section class="${cls}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}${cornerHtml ? `<div class="clock-hero-corner">${cornerHtml}</div>` : ''}</section>`;
 }
 
-// PickLanding: your pick, landed: the team's orb, its badge at 72px,
+// PickLanding: a pick, landed: the team's orb, its badge at 72px,
 // "Your pick is in" and a line under it, and `next` (when you pick again)
 // as a pill. `badgeHtml` is trusted.
 export function pickLandingHtml({ color, badgeHtml, title, sub, next = '' }){
@@ -351,4 +354,41 @@ export function snakeRailHtml({ slots }){
 // the red live dot. Tapping it calls `onclick` (trusted).
 export function clockMiniHtml({ label, sub = '', mine = false, live = false, onclick }){
   return `<button type="button" class="clock-mini${mine ? ' mine' : ''}" onclick="${onclick}">${live ? '<span class="draft-live-dot" aria-hidden="true"></span>' : ''}<span class="clock-mini-label">${escapeHtml(label)}</span>${sub ? `<span class="clock-mini-sub">${escapeHtml(sub)}</span>` : ''}<b class="clock-mini-time">0:00</b></button>`;
+}
+
+// ---- Since last night (docs/delight-plan.md, Phase 4) ----
+
+// RankBadge: a drafter's rank as a number in a gold square (gold: you),
+// the size of a team badge, for cards about your place in the standings.
+export function rankBadgeHtml({ n }){
+  return `<div class="badge rank-badge">${escapeHtml(String(n))}</div>`;
+}
+
+// UpdateCard: one thing that happened since your last visit. A soft orb
+// of the team's color top right, the badge (trusted), a title, a body line
+// and the meta row pinned to the bottom (`metaHtml` trusted: it can lead
+// with a Locked tag). `flat` is the static version for the sheet list.
+// `corner` is a short gold note top right (a rank move, "▲2"); `statsHtml`
+// (trusted, from updateStatsHtml) takes the meta row's place.
+export function updateCardHtml({ color, badgeHtml, title, body = '', metaHtml = '', corner = '', statsHtml = '', flat = false }){
+  const foot = statsHtml || (metaHtml ? `<div class="update-card-meta">${metaHtml}</div>` : '');
+  return `<div class="update-card${flat ? ' flat' : ''}">${teamOrbHtml({ color, soft: true, cls: 'update-card-orb' })}<div class="update-card-badge">${badgeHtml}</div>${corner ? `<span class="update-card-corner">${escapeHtml(corner)}</span>` : ''}<div class="update-card-title">${escapeHtml(title)}</div>${body ? `<div class="update-card-body">${escapeHtml(body)}</div>` : ''}${foot}</div>`;
+}
+
+// UpdateStats: the summary card's numbers along its bottom, each a value
+// over a label. `tone` 'live' is blue (live points), 'locked' gold.
+export function updateStatsHtml({ stats }){
+  return `<div class="update-card-stats">${stats.map(s => `<div class="update-stat"><span class="update-stat-value${s.tone ? ` ${s.tone}` : ''}">${escapeHtml(s.value)}</span><span class="update-stat-label">${escapeHtml(s.label)}</span></div>`).join('')}</div>`;
+}
+
+// UpdateStack: the full-view stack of UpdateCards over Home: a blurred
+// scrim, the title with Clear all, the cards (trusted) and the count.
+// `eyebrow` is a small line over the title.
+export function updateStackHtml({ title, eyebrow = '', cardsHtml, count, onclear }){
+  return `<div class="update-stack" role="dialog" aria-modal="true" aria-label="${escapeHtml(eyebrow ? `${eyebrow} ${title}` : title)}"><div class="update-stack-scrim"></div><div class="update-stack-wrap"><div class="update-stack-head"><h2 class="update-stack-title">${eyebrow ? `<span class="update-stack-eyebrow">${escapeHtml(eyebrow)}</span>` : ''}${escapeHtml(title)}</h2><button type="button" class="update-stack-clear" onclick="${onclear}">Clear all</button></div><div class="update-stack-cards">${cardsHtml}</div><div class="update-stack-hint">Swipe to clear &middot; <b class="update-stack-count">1 of ${count}</b></div></div></div>`;
+}
+
+// UpdatesPill: "3 updates" beside a page title, reopening the stack.
+export function updatesPillHtml({ count, onclick }){
+  return `<button type="button" class="updates-pill" onclick="${onclick}">${count} update${count === 1 ? '' : 's'}</button>`;
 }

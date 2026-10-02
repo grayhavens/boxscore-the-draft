@@ -377,6 +377,14 @@ then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, 
 distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device
 remembers the choice (localStorage `bx-ptp-open`).
 
+**Since last time** (`js/since.js`, pure `js/since-math.js`, `docs/delight-plan.md` Phase 4): back after 8 hours or
+more, Home leads with a swipeable stack: a summary card (rank, points and locked points against `bx-last-seen`, the
+visit baseline written whenever the app is put away, plus your teams' record), then up to four notable cards (locks and
+clinches, postseason games and upsets, a series against one drafter, single games), from each of your teams' ESPN
+schedules. It only drops in when something above a single game happened or your rank moved; otherwise just the
+"N updates" pill beside the Home title, which opens the cards once. Off before a group's first draft, while the draft
+card leads Home or a draft is live; reduced motion gets a sheet list.
+
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
 finish). It's hidden until the first season is recorded. The commissioner records the class being played, from today's

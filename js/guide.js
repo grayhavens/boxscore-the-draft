@@ -47,7 +47,8 @@ const GUIDE = [
       'Tap any team, here or anywhere else in the app, for its page: recent form, schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division. Tap it to open the full list.',
       'On one of your teams’ pages, swipe sideways anywhere to go to your next team, or tap the dots under its name.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
-      'Tap a drafter on Points to see their board.'
+      'Tap a drafter on Points to see their board.',
+      'Back after 8 hours or more, Since last time sums up what happened while you were away: where you stand, points that locked, playoff games and upsets, and how you did against each drafter. Swipe the cards away or tap Clear all. A quiet stretch just gets the updates button next to Home.'
     ],
     pre: {
       lead: 'Home is your board. Until the draft it shows when the draft starts, or asks which times you can make while the commissioner is still choosing, plus the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
