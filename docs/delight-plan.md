@@ -239,7 +239,23 @@ Long press already opens the seven reactions. Change how it behaves:
 
 ## Phase 4: Since last night (prototype 03): Home, `js/board.js`
 
-This shows on the **first open of a calendar day** (Central time, like Points history) when at least one event since your last visit involves you. Store `bx-last-seen` (an ISO timestamp) in localStorage, and write it once the stack is cleared or skipped. Don't show it before a group's first draft, while the draft card leads Home, or while a draft is live.
+**Status: done** (2026-10-02), reworked from "first open of the day" into **Since last time** (`js/since.js`, pure
+half `js/since-math.js`), since people won't open the app every day:
+- **When:** back after 8 hours or more (`AWAY_MS`), once per visit baseline. The stack drops in only when something
+  above a single game happened (a lock or clinch, a postseason game or upset, two or more games against one drafter)
+  or your rank moved; otherwise only the pill. Header: "Notable results" over "Since last time".
+- **Summary card first** (prototype Option B): your rank as the badge with the move top right, "You're up to 3rd" /
+  "Still 5th, 3 closer", who you passed and the gap, then Points (blue), Locked (gold) and your teams' Record along the
+  bottom (`updateStatsHtml`). Without ranks yet (they wait 3.5s on every scoring input) it reads "Your teams went 4–6".
+- **Then up to four, in order:** locks and clinches; postseason games and upsets (AP ranks at game time, so college
+  only); a series against one drafter ("Drew beat you 3–1", more games first); a single game against a drafter's team
+  ("Lost to Patrick's Rangers away"); anything else.
+- **Inputs:** games from each of your teams' ESPN schedules (one fetch per team however long you were away; the
+  schedule parser now carries the opponent's id, AP ranks and season type). The summary and locks compare today with
+  `bx-last-seen` (`{ at, ranks, totals, lockedTotals, locked }`), written whenever the app is put away, not the
+  Activity feed, which keeps only the group's last 150 events. The feed still supplies clinches and a lock's exact points.
+- **The pill isn't sticky:** tapping it reopens the cards once and removes it; it's also gone the next time the app is
+  put away.
 
 **Data.** Your events from `js/activity.js` since `bx-last-seen`, newest first, at most 5. Map each to a card:
 

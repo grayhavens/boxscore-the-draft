@@ -99,6 +99,9 @@ async function poll(){
   schedule();
 }
 
+// A live draft is under way (Since last night stays out of its way).
+export function isDraftLiveNow(){ return isLive(); }
+
 export function initDraftLive(){
   const board = document.querySelector('.board');
   if(board && !document.getElementById('draft-live-board')){

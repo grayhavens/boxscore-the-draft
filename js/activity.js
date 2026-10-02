@@ -144,6 +144,15 @@ function fetchState(){
   return fetchJSON(withGroupQuery(`${chatWorkerBase()}/activity`));
 }
 
+// The feed's events after `ts` for Since last night (js/since.js), each
+// with `myPts`: what it moved `drafterId`'s points by (0 if nothing).
+export function activityEventsSince(ts, drafterId){
+  return visibleEvents().filter(e => e.ts > ts).map(e => {
+    const d = (e.deltas || []).find(x => x.id === drafterId);
+    return { ...e, myPts: d ? d.pts : 0 };
+  });
+}
+
 export async function loadActivity(){
   const state = await fetchState();
   if(state && applyServerState(state)) refreshActivityUi();
@@ -238,6 +247,20 @@ function holderName(holder){
   return TEAM_META[holder] ? TEAM_META[holder].name : holder;
 }
 
+// Projected ranks and totals from the last snapshot this device built
+// with trustworthy totals (js/since.js keeps them as a visit's baseline).
+let latestTotals = null;
+export function latestPointsSnapshot(){ return latestTotals; }
+
+// The same snapshot, for Since last night's morning check. Its `totals`
+// and `ranks` are null until every input has loaded.
+export async function buildPointsSnapshot(){
+  if(isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return null;
+  const snapshot = await buildSnapshot();
+  if(snapshot && snapshot.totals) latestTotals = { at: Date.now(), ranks: snapshot.ranks, totals: snapshot.totals, lockedTotals: snapshot.lockedTotals, locked: snapshot.locked };
+  return snapshot;
+}
+
 async function buildSnapshot(){
   await Promise.allSettled(
     TRACKED.flatMap(cfg => cfg.load())
@@ -328,7 +351,7 @@ function diffSnapshots(prev, next, ts){
       const owner = ownerOf(now);
       if(!owner) return;
       events.push({
-        id: id(), type: 'rule', ts, league: leagueKey, teamKey: now, drafterId: owner,
+        id: id(), type: 'rule', clinch: true, ts, league: leagueKey, teamKey: now, drafterId: owner,
         title: `${holderName(now)} clinch a playoff spot`, sub: '',
         deltas: [delta(owner, rule.pts, true)], moves: []
       });
@@ -439,6 +462,7 @@ export async function runActivityDetection(force){
   lastRun = Date.now();
   try {
     const [server, snapshot] = await Promise.all([fetchState(), buildSnapshot()]);
+    if(snapshot && snapshot.totals) latestTotals = { at: Date.now(), ranks: snapshot.ranks, totals: snapshot.totals, lockedTotals: snapshot.lockedTotals, locked: snapshot.locked };
     if(server) applyServerState(server);
     if(!server || !snapshot) return;
 

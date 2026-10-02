@@ -6910,3 +6910,89 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
   font: inherit; font-size: var(--fs-16);
 }
 .access-error{ min-height: 1.3em; margin: 0; font-size: var(--fs-13); color: var(--loss); }
+
+/* ---- Since last night (js/since.js, docs/delight-plan.md Phase 4) ----
+   UpdateStack (updateStackHtml): a full-view scrim over Home with a stack
+   of UpdateCards to swipe away. js/since.js places the cards (inline
+   transform/opacity, CSS transitions) and adds .done to fade it out. */
+.update-stack{ position: fixed; inset: 0; z-index: 250; }
+.update-stack-scrim{
+  position: absolute; inset: 0;
+  background: rgba(var(--overlay-rgb), 0.7);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transition: opacity 450ms var(--ease-out);
+}
+.update-stack-wrap{
+  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 84px);
+  max-width: 440px; margin: 0 auto;
+  transition: opacity 300ms var(--ease-out), transform 450ms var(--ease-out);
+}
+.update-stack.done .update-stack-scrim{ opacity: 0; }
+.update-stack.done .update-stack-wrap{ opacity: 0; transform: translateY(-20px); }
+.update-stack.done{ pointer-events: none; }
+.update-stack-head{ display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; }
+.update-stack-title{ margin: 0; font: 700 var(--fs-22)/1.1 var(--font-display); letter-spacing: -0.3px; color: var(--text); }
+.update-stack-eyebrow{ display: block; margin-bottom: 4px; font: 800 var(--fs-11) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.update-stack-clear{ padding: 4px 0; background: none; border: 0; cursor: pointer; font: 700 var(--fs-13) var(--font-ui); color: var(--text-sub); }
+.update-stack-clear:hover{ color: var(--text); }
+.update-stack-cards{ position: relative; height: 270px; touch-action: none; }
+.update-stack-cards > .update-card{
+  position: absolute; inset: 0; cursor: grab;
+  transform: translateY(130%); opacity: 0;
+  transition: transform 600ms var(--ease-out), opacity 400ms var(--ease-out);
+}
+.update-stack-cards > .update-card:active{ cursor: grabbing; }
+.update-stack-hint{ margin-top: 52px; text-align: center; font: 600 var(--fs-13) var(--font-ui); color: var(--text-mute); }
+.update-stack-hint b{ color: var(--text-sub); font-variant-numeric: tabular-nums; }
+
+/* UpdateCard (updateCardHtml): radius 20, a soft team orb top right, the
+   meta row pinned to the bottom. .flat is the sheet list's static card. */
+.update-card{
+  position: relative; box-sizing: border-box; overflow: hidden;
+  padding: 20px; border-radius: var(--r-lg);
+  background: var(--surface-2); border: 1px solid var(--hairline-strong);
+  box-shadow: var(--shadow-modal);
+}
+.update-card-orb{ width: 240px; height: 240px; right: -90px; top: -110px; }
+.update-card-badge{ position: relative; display: inline-flex; }
+.update-card-badge > .badge{ flex-basis: 48px; width: 48px; height: 48px; border-radius: 14px; box-shadow: var(--crest-shadow); }
+.update-card-badge > .act-tile{ width: 48px; height: 48px; border-radius: 14px; font-size: var(--fs-13); }
+.update-card-title{ position: relative; margin: 18px 0 6px; font: 700 var(--fs-24)/1.15 var(--font-display); letter-spacing: -0.4px; color: var(--text); }
+.update-card-body{ position: relative; font: 500 var(--fs-15)/1.4 var(--font-ui); color: var(--text-sub); text-wrap: pretty; }
+.update-card-meta{
+  position: absolute; left: 20px; right: 20px; bottom: 18px;
+  display: flex; gap: 8px; align-items: center;
+  font: 700 var(--fs-12) var(--font-ui); color: var(--text-mute);
+}
+.update-card-corner{ position: absolute; top: 20px; right: 20px; font: 800 var(--fs-13) var(--font-ui); color: var(--accent); }
+/* UpdateStats (updateStatsHtml): the summary card's numbers, pinned to the bottom. */
+.update-card-stats{
+  position: absolute; left: 20px; right: 20px; bottom: 18px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding-top: 14px; border-top: 1px solid var(--hairline);
+}
+.update-stat{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.update-stat + .update-stat{ padding-left: 14px; border-left: 1px solid var(--hairline); }
+.update-stat-value{ font: 700 var(--fs-22)/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--text); }
+.update-stat-value.live{ color: var(--provisional); }
+.update-stat-value.locked{ color: var(--accent); }
+.update-stat-label{ font: 700 var(--fs-11) var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
+.update-card.flat{ box-shadow: none; }
+.update-card.flat + .update-card.flat{ margin-top: 10px; }
+.update-card.flat .update-card-title{ margin-top: 14px; font-size: var(--fs-20); }
+.update-card.flat :is(.update-card-meta, .update-card-stats){ position: relative; left: auto; right: auto; bottom: auto; margin-top: 14px; }
+.update-list{ padding: 4px 16px 16px; }
+
+/* RankBadge (rankBadgeHtml): your rank in a gold square. */
+.badge.rank-badge{ background: var(--accent-fill); color: var(--on-accent); border-color: transparent; font-size: var(--fs-20); }
+
+/* UpdatesPill (updatesPillHtml): beside the Home title, reopens the stack. */
+.updates-pill{ cursor: pointer;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--accent-soft); border: 1px solid var(--accent-border);
+  font: 800 var(--fs-11) var(--font-ui); color: var(--accent);
+}
+
+/* Home's rows wait hidden under the stack, then cascade in (js/since.js). */
+html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{ visibility: hidden; }
+#since-pill:empty{ display: none; }
