@@ -2505,6 +2505,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 /* Headers: eyebrow, title, a line under it, the main action on the right. */
 .admin-desk-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-desk-head-actions{ display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-desk-titles{ display: flex; flex-direction: column; gap: 6px; }
 .admin-desk-titles h1{
   margin: 0;
@@ -5352,19 +5353,13 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-proxy-btn{ margin-top: 10px; height: 32px; }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
-/* Auto-draft: my switch (under My queue, and the lobby), the note on
-   the clock card when it's about to pick for me, and the board tag. */
-.dr-auto{ display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 12px; border-radius: var(--r-sm); background: var(--seg-track); border: 1px solid transparent; }
-.dr-auto.on{ background: var(--accent-soft); border-color: var(--accent-border); }
-.dr-auto-main{ flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.dr-auto-main b{ font-size: var(--fs-13); color: var(--text); }
-.dr-auto.on .dr-auto-main b{ color: var(--accent); }
-.dr-auto-main span{ font-size: var(--fs-12); color: var(--text-sub); line-height: 1.35; }
+/* Auto-draft: my switch (under My queue, and the lobby), the AUTO tag
+   beside the name on the clock card, and the board's dot. */
+.dr-auto{ display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; margin: 14px 0 0; border-radius: var(--r-sm); background: var(--seg-track); }
+.dr-auto-label{ font: var(--type-meta); font-size: var(--fs-13); color: var(--text); }
 .dr-auto .switch{ flex: 0 0 auto; }
 .dr-lobby .dr-auto{ margin: 0; }
-.dr-auto.compact{ padding: 8px 12px; margin: 14px 0 0; }
-.dr-auto.compact .dr-auto-main span{ font-size: var(--fs-11); }
-.dr-auto-note button{ font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.dr-clock-name .dr-badge{ font-family: var(--font-ui); font-weight: 700; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
 /* A dot rather than a word: board columns are too narrow for a tag. */
 .dr-auto-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: middle; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }

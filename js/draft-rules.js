@@ -29,10 +29,22 @@ export function isMockRoom(room){
   return typeof room === 'string' && /^mock(-|$)/.test(room);
 }
 
+// Each drafter's own mock room, `mock-<id>`: Mock Draft opens it, and
+// nobody else is sent there. GROUP_MOCK_ROOM is the shared one, for a
+// group rehearsal (docs/draft-day-runbook.md), opened from Commissioner.
+export const GROUP_MOCK_ROOM = 'mock-1';
+export function personalMockRoom(id){
+  return `mock-${id}`;
+}
+// Whose own mock room `room` is, or null (the group's, or not a mock).
+export function mockRoomOwner(room, drafters){
+  return (drafters || []).find(id => room === personalMockRoom(id)) || null;
+}
+
 // Auto-draft (state.autoDraft): a drafter who turns it on, in any room,
-// is drafted for this long after going on the clock. Long enough to see
-// it coming and take the pick yourself, short enough not to hold anyone up.
-export const AUTO_DRAFT_SECONDS = 5;
+// is drafted for this long after going on the clock. No wait: over a long
+// draft even a few seconds a pick adds up, so the room picks and moves on.
+export const AUTO_DRAFT_SECONDS = 0;
 
 // How long after `owner` goes on the clock the room drafts for them, in
 // ms, or null when nobody will: the soonest of auto-draft (any room), a

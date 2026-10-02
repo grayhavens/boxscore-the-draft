@@ -251,12 +251,14 @@ column with a Draft/Scoring switch and league chips. Its writes (marks, adjustme
 a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker adds that to the system admin log as
 `Commissioner`; a write with no note isn't logged. **Deploy the worker first** (an old one ignores the note). See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
-Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
+Settings' Draft tile (and the Home draft card) offers Mock Draft or Live Draft (`main`). Mock Draft opens the drafter's
+own room, `mock-<id>` (`personalMockRoom`), which nobody else is sent to and which starts with everyone else as a bot;
+the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from Commissioner → Draft. Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 **Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
-`AUTO_DRAFT_SECONDS` (5s) after they go on the clock, from their queue or else the best team that fits, through the
+the moment they go on the clock (`AUTO_DRAFT_SECONDS` is 0), from their queue or else the best team that fits, through the
 same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
 (`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the

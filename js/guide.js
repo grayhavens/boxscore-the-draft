@@ -126,11 +126,11 @@ const GUIDE = [
     id: 'draft', icon: 'draft', title: 'Draft room',
     lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
     points: [
-      'Mock Draft is always open: practice against bots whenever you like.',
+      'Mock Draft is always open: your own practice room against bots, whenever you like. Nobody else sees it.',
       'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
       'Once the commissioner sets the next draft’s time, Home counts down to it, and your phone tells you if alerts are on.',
       'While the real draft is live, a banner on every page takes you back to it.',
-      'Can’t make it, or stepping away? Turn on Auto-draft (under My queue, in My team on a phone, or in the lobby) and the room picks for you a few seconds after you’re up: your top queued team that fits, else the best one left.',
+      'Can’t make it, or stepping away? Turn on Auto-draft (under My queue, in My team on a phone, or in the lobby) and the room picks for you the moment you’re up: your top queued team that fits, else the best one left.',
       'Tap any team, in the list, the board or a roster, for a quick outlook, its last season, its record so far and its title odds.',
       'Tap Scoring under the room’s title to check what each league’s teams are worth.',
       'Download the board as a spreadsheet once it’s done.'
