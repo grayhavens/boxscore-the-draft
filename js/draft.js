@@ -1930,7 +1930,8 @@ function fxClockSwap(snap){
       if(entering) play(hero, [{ opacity: 0, transform: 'scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: SWAP.in, delay: 60, easing: EASE_IN_OUT });
       pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: SWAP.inDelay + (entering ? 60 : 0), duration: 520 });
       stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: SWAP.inDelay + 120 + (entering ? 60 : 0), duration: 500 });
-      ringPulse(hero, { delay: SWAP.resize + 40, iterations: entering ? 2 : 1 });
+      // One soft gold glow along the edge once the card has settled.
+      ringPulse(hero, { glow: true, delay: SWAP.resize + 80, duration: 1200, iterations: 1 });
     } else {
       stagger([...box.querySelectorAll('#dr-clock-main > *, #dr-clock-extra > *')], [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 60, delay: SWAP.inDelay, duration: SWAP.in });
     }

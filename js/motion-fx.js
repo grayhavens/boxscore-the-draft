@@ -80,7 +80,17 @@ export function flashTint(el, { tint = null, from = 0.55, duration = 700, delay 
 }
 
 // A gold ring that swells off `el`'s edge and fades, `iterations` times.
-export function ringPulse(el, { duration = 900, delay = 0, iterations = 2 } = {}){
+// With `glow`, the ring doesn't swell: the edge lights up gold once and
+// eases back (a large card, where a ring scaled by its size reads as a
+// stretch, and its own overflow would clip one that grows).
+export function ringPulse(el, { duration = 900, delay = 0, iterations = 2, glow = false } = {}){
+  if(glow){
+    if(!el || !fxOn()) return null;
+    const remove = layer(el, 'fx-ring');
+    const anim = play(el.lastElementChild, [{ opacity: 0 }, { opacity: 0.85, offset: 0.22 }, { opacity: 0 }], { duration, delay, easing: 'ease-in-out', fill: 'none' });
+    done(anim, remove);
+    return anim;
+  }
   if(!el || !fxOn()) return null;
   const remove = layer(el, 'fx-ring');
   // fill 'none': a delayed ring stays hidden (its layer's own opacity 0)
