@@ -208,6 +208,15 @@ export const EASE_IN_OUT = 'cubic-bezier(0.65,0,0.35,1)';
 export const EASE_PUSH = 'cubic-bezier(0.22,0.7,0.25,1)';
 export const EASE_IN = 'cubic-bezier(0.32,0,0.67,0)';
 
+// Gestures (js/gestures.js, docs/delight-plan.md). Distances in px,
+// velocity in px/ms. A drag snaps back over SNAP_BACK_MS on --ease-spring.
+export const LONG_PRESS_MS = 380;
+export const MOVE_SLOP = 8;          // cancels a long press, then picks the axis
+export const SWIPE_COMMIT = { team: 70, card: 90, reply: 52 };
+export const FLING_VELOCITY = 0.6;
+export const RUBBER_BAND = { team: 0.6, pull: 0.5, reply: 0.55 };
+export const SNAP_BACK_MS = 520;
+
 // Tween a number inside `el` from `from` to `to` (cubic ease-out); `fmt`
 // builds the HTML for each frame. Lands on `to` exactly. A later call on
 // the same element takes over from an earlier one still running.

@@ -18,7 +18,7 @@
 import { TEAM_META, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT, leagueOf } from './data.js';
 import {
   teamBadgeHtml, escapeHtml as esc, skeletonLinesHtml, skeletonRowsHtml, lockBodyScroll, openSheetOverlay,
-  isSheetOpen, standingsOwnerHtml, standingsToggleHtml, draftOwnerName, localYyyymmdd
+  isSheetOpen, standingsOwnerHtml, standingsToggleHtml, draftOwnerName, localYyyymmdd, retryPending
 } from './utils.js';
 import { fetchGolfSeason, fetchCurrentGolfEvent, fetchGolfLeaderboard, fetchGolferRecord, fetchGolfEventsOn } from './golf-api.js';
 import { golferResults, fedexTable, finishPosition, isMissedCut, golferHeadshotUrl } from './golf.js';
@@ -41,6 +41,7 @@ export const golfStore = {
   current: null,    // { event, board } this week, board null until the field is out
   loading: false,
   error: false,
+  failedAt: 0,      // the last failed season fetch (retryPending in js/utils.js)
   fetchedAt: 0,
   liveAt: 0
 };
@@ -102,6 +103,10 @@ export function loadGolf(force = false){
   if(!hasGolf()) return Promise.resolve();
   if(loadPromise) return loadPromise;
   if(!force && golfStore.events && Date.now() - golfStore.fetchedAt < SEASON_TTL_MS) return refreshGolfLive();
+  // A failed fetch waits out the retry delay. Otherwise the repaint it
+  // triggers (Standings' PGA block calls this) asks again straight away,
+  // over and over, and every row is replaced before a tap can land on it.
+  if(!force && !golfStore.events && retryPending(golfStore)) return Promise.resolve();
   golfStore.loading = true;
   loadPromise = (async () => {
     const year = new Date().getFullYear();
@@ -115,9 +120,11 @@ export function loadGolf(force = false){
       golfStore.fedex = {};
       fedexTable(data.events.filter(e => e.results)).forEach(r => { golfStore.fedex[r.id] = r; });
       golfStore.error = false;
+      golfStore.failedAt = 0;
       golfStore.fetchedAt = Date.now();
     } else if(!golfStore.events){
       golfStore.error = true;
+      golfStore.failedAt = Date.now();
     }
     await refreshGolfLive(true);
     golfChanged();

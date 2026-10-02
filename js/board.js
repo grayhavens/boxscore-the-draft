@@ -1006,8 +1006,10 @@ document.addEventListener('visibilitychange', () => {
 // never under an open sheet (lockBodyScroll pins the body). A pull makes
 // every cache stale and refetches, then repaints the open view; pulls
 // within PULL_FETCH_GAP_MS of the last real one just replay the gesture
-// over the data already in, so a few quick pulls can't hammer ESPN.
-const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'view-overall', 'view-team-page']);
+// over the data already in, so a few quick pulls can't hammer ESPN. Not
+// on the team page: pulling its hero stretches it instead
+// (docs/delight-plan.md), and its data refreshes on its own.
+const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'view-overall']);
 const PULL_FETCH_GAP_MS = 10 * 1000;
 let lastPullFetch = 0;
 const activeView = () => document.querySelector('.board > .view.active');

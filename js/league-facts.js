@@ -31,7 +31,7 @@
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, CHECK_ICON_SVG, CHEVRON_ICON_SVG, loadAdminPassword, putAuthedJSON, withNote, findCfbTeamKeyByLocation, draftOwnerName, escapeHtml } from './utils.js';
+import { fetchJSON, loadAdminPassword, putAuthedJSON, withNote, findCfbTeamKeyByLocation, draftOwnerName } from './utils.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withScopeQuery } from './season.js';
@@ -487,21 +487,6 @@ export function removeLeagueFact(leagueKey, ruleLabel, teamKey){
 }
 window.removeLeagueFact = removeLeagueFact;
 
-// Which team's tracker body (the checklist itself, below the always-
-// visible "Earned so far" summary) is expanded — at most one at a time,
-// same within-session-only idea as obOpenLeagueKey in js/overall.js. Only
-// one team modal can be open at once, so tracking a single teamKey
-// (rather than a Set) is enough: opening a different team's modal
-// naturally starts collapsed, since trackerExpandedTeamKey won't match
-// its teamKey.
-let trackerExpandedTeamKey = null;
-
-export function toggleTrackerSection(teamKey){
-  trackerExpandedTeamKey = trackerExpandedTeamKey === teamKey ? null : teamKey;
-  renderTrackerSection(teamKey);
-}
-window.toggleTrackerSection = toggleTrackerSection;
-
 // A rule's points are Live (the code's "provisional") while they read
 // off a moving table: a rankAuto rule until its league locks in its
 // regular season (js/season-lock.js) — from then on getLeagueRuleTeams
@@ -519,7 +504,7 @@ export function isRuleProvisional(rule, leagueKey){
 // Locked + Live, "if the season ended today". Adjustments are skipped
 // for a league still showing last season (PRIOR_SEASON_DISPLAY_LEAGUES),
 // same as obDrafterAwards does — nothing there counts yet.
-function teamPointsSplit(teamKey){
+export function teamPointsSplit(teamKey){
   const meta = TEAM_META[teamKey];
   const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
   const split = { locked: 0, live: 0, projected: 0 };
@@ -574,96 +559,6 @@ export function leagueDrafterPoints(leagueKey){
     totals.set(meta.draftTeamId, (totals.get(meta.draftTeamId) || 0) + teamPointsSplit(teamKey).projected);
   });
   return DRAFT_TEAMS.filter(d => totals.has(d.id)).map(d => ({ id: d.id, name: d.name, pts: totals.get(d.id) }));
-}
-
-function signedPts(n){
-  return n > 0 ? '+' + n : (n < 0 ? '&minus;' + Math.abs(n) : '0');
-}
-
-// Header row shown whether the tracker is collapsed or expanded: the
-// "Draft Points" title and the projected/locked/live summary stay
-// visible either way, with a chevron (flipped via CSS when expanded)
-// as the only visual cue that there's more underneath. Clicking
-// anywhere on the row toggles it, not just the chevron itself.
-function trackerHeadHtml(teamKey, totalHtml, expanded){
-  return `
-    <div class="tracker-head" onclick="toggleTrackerSection('${teamKey}')">
-      <div>
-        <div class="modal-section-title">Draft Points</div>
-        <div class="tracker-total">${totalHtml}</div>
-      </div>
-      <div class="tracker-chevron ${expanded ? 'open' : ''}">${CHEVRON_ICON_SVG}</div>
-    </div>
-  `;
-}
-
-// Read-only summary of where a team stands — everything is marked from
-// the password-gated admin page now (js/admin.js), not per-team.
-export function trackerSectionHtml(teamKey){
-  const meta = TEAM_META[teamKey];
-  const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
-  if(!scoring) return '';
-
-  const expanded = trackerExpandedTeamKey === teamKey;
-  const split = teamPointsSplit(teamKey);
-  const adj = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey) ? null : getTeamAdjustment(teamKey);
-
-  const itemsHtml = scoring.rules.map(r => {
-    const achieved = (getLeagueRuleTeams(meta.leagueKey, r) || []).includes(teamKey);
-    // A Live rule (e.g. "2nd in EPL" off today's table) gets a visibly
-    // different state from a Locked one, since it can still flip before
-    // the season ends — the same Live/Locked tags the Points tab uses.
-    const isLive = achieved && isRuleProvisional(r, meta.leagueKey);
-    const stateClass = achieved ? (isLive ? 'provisional' : 'achieved') : '';
-    const tagHtml = achieved
-      ? (isLive ? '<span class="pts-tag live">Live</span>' : '<span class="pts-tag locked">Locked</span>')
-      : '';
-    return `
-      <div class="tracker-item readonly ${stateClass}">
-        <div class="tracker-check">${achieved ? CHECK_ICON_SVG : ''}</div>
-        <div class="tracker-label">${r.label}${tagHtml}</div>
-        <div class="tracker-value ${r.pts >= 0 ? 'pos' : 'neg'}">${r.pts >= 0 ? '+' : ''}${r.pts} pt${Math.abs(r.pts) === 1 ? '' : 's'}</div>
-      </div>
-    `;
-  }).join('');
-
-  const adjItemHtml = adj ? `
-    <div class="tracker-item readonly achieved">
-      <div class="tracker-check">${CHECK_ICON_SVG}</div>
-      <div class="tracker-label">${escapeHtml(adj.note || 'Manual adjustment')}<span class="pts-tag locked">Locked</span></div>
-      <div class="tracker-value ${adj.pts >= 0 ? 'pos' : 'neg'}">${adj.pts >= 0 ? '+' : ''}${adj.pts} pt${Math.abs(adj.pts) === 1 ? '' : 's'}</div>
-    </div>
-  ` : '';
-
-  // Projected is the headline, the same number the Points tab ranks on;
-  // the Locked/Live split beside it says how much of that is permanent.
-  const liveCls = split.live < 0 ? 'risk' : 'lv';
-  const totalHtml = `
-    <b>${split.projected < 0 ? '&minus;' + Math.abs(split.projected) : split.projected}</b> projected
-    <span class="tracker-split">
-      <span>${split.locked < 0 ? '&minus;' + Math.abs(split.locked) : split.locked} locked</span>
-      ${split.live !== 0 ? `<span class="${liveCls}">${signedPts(split.live)} live</span>` : ''}
-    </span>
-  `;
-  const bodyHtml = expanded ? `
-    <div class="tracker-body">
-      <div class="tracker-list">${itemsHtml}${adjItemHtml}</div>
-    </div>
-  ` : '';
-  return trackerHeadHtml(teamKey, totalHtml, expanded) + bodyHtml;
-}
-
-// `#tracker-section` now only ever lives on the Team Page's Overview tab
-// (js/team-page.js) — the team modal dropped it when trimmed down to a
-// peek. This used to also check the modal's own activeTeam dataset
-// before repainting, back when the modal was this element's only
-// possible home; that guard is gone since it no longer applies anywhere
-// this element actually renders, and was stopping this section from
-// ever expanding on the Team Page (always failing the modal check).
-function renderTrackerSection(teamKey){
-  const el = document.getElementById('tracker-section');
-  if(!el) return;
-  el.innerHTML = trackerSectionHtml(teamKey);
 }
 
 // One row per scoring rule, used by the admin page (js/admin.js) to mark

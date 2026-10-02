@@ -32,28 +32,34 @@
    alone.
    ============================================================ */
 import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending } from './utils.js';
+import {
+  teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending, abbrFromName, NEUTRAL_BADGE_STYLE,
+  EASE_SPRING, MOVE_SLOP, SWIPE_COMMIT, RUBBER_BAND, SNAP_BACK_MS
+} from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
   FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, liveDataCache, fetchTeamBundle, isBundleStale,
-  renderStats, renderNext, seasonStatus
+  renderStats, renderNext, seasonStatus, teamRecordStanding, setTeamPageRefresher
 } from './live-data.js';
 import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
 import { navigate, canAnimateLive, canAnimateNav } from './motion.js';
-import { fxOn, play, pop, rollNumbers } from './motion-fx.js';
-import { EASE_SPRING } from './utils.js';
-import { trackerSectionHtml } from './league-facts.js';
-import { teamLinesSectionHtml, loadLineInputs } from './lines.js';
+import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
+import { teamPathToPoints, loadStandingsTables } from './lines.js';
+import { currentProfileId } from './identity.js';
+import { attachDrag, releaseDirection } from './gestures.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
   getTeamDepthChart, getTeamInjuries, nflverseInjuryStatus,
   nflverseInjuriesCache, nflverseDepthChartCache
 } from './nflverse.js';
 
-import { backLinkHtml } from './ui.js';
+import {
+  backLinkHtml, teamBadgeHtml as badgeHtml, teamOrbHtml, compactBarHtml, pageDotsHtml, sectionCardHtml,
+  pathToPointsHtml, formStripHtml, countdownHtml, tickCountdowns, nextGameHtml
+} from './ui.js';
 // Every league with a verified roster/team-stats source (see this
 // file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
 // here still gets a real page + Overview tab, just a placeholder
@@ -89,7 +95,10 @@ const EMPTY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // first time a Roster tab renders, instead of hardcoding a group name
 // here that wouldn't exist for every league (MLB's groups aren't
 // Offense/Defense/Special Teams).
-const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: null };
+// swipeOrder is the teams a swipe on the hero moves through (yours, in
+// Home's order; empty on a team you don't own) and teamIndex is where in
+// it this one sits.
+const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: null, swipeOrder: [], teamIndex: -1 };
 
 const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'|'error', items }
 const rosterCache = {}; // teamKey -> { status, items }
@@ -171,8 +180,23 @@ function setTeamPageState(teamKey, originView){
   state.originScrollY = window.scrollY;
   state.activeTab = 'schedule';
   state.squadFilter = null;
+  state.swipeOrder = swipeOrderFor(teamKey);
+  state.teamIndex = state.swipeOrder.indexOf(teamKey);
   updateUrlParam('view', 'team');
   updateUrlParam('tp', teamKey);
+}
+
+// Your own teams in Home's order, league by league (golfers have no team
+// page). Empty when the team isn't yours: swiping is off there, rather
+// than running through a whole league of teams nobody here owns.
+function swipeOrderFor(teamKey){
+  const me = currentProfileId;
+  const meta = TEAM_META[teamKey];
+  if(PRE_DRAFT || !me || !meta || meta.favoriteOnly || meta.draftTeamId !== me) return [];
+  return LEAGUES.flatMap(l => l.teams).filter(k => {
+    const m = TEAM_META[k];
+    return m && m.draftTeamId === me && !m.favoriteOnly && m.kind !== 'golfer';
+  });
 }
 
 function openTeamPageNow(teamKey, originView){
@@ -371,7 +395,7 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
   page.querySelectorAll(TP_BODY).forEach(el => go(el, { opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'translateY(0px)' }, inT));
   // The meta line fades except the owner, which flies (its original stays
   // hidden until the copy lands on it).
-  page.querySelectorAll('.team-page-nav, .team-hero-meta > :not(.team-hero-owner)').forEach(el => go(el, { opacity: 0 }, { opacity: 1 }, inT));
+  page.querySelectorAll('.compact-bar, .team-hero-meta > :not(.team-hero-owner), .page-dots').forEach(el => go(el, { opacity: 0 }, { opacity: 1 }, inT));
 
   // Standings recede behind, toward the row.
   const sr = standings.getBoundingClientRect();
@@ -516,6 +540,7 @@ export function backFromFullScreen(){
     setActiveView('view-team-page');
     updateUrlParam('view', 'team');
     window.scrollTo(0, 0);
+    applyScroll();
   });
 }
 window.backFromFullScreen = backFromFullScreen;
@@ -545,6 +570,11 @@ window.setTeamPageTab = tabKey => setTeamPageTab(tabKey);
 
 // ---- Team Page ----
 
+// The fallback hero color for a team with none of its own.
+const NO_ACCENT = '#D9B45B';
+// Past this many teams the dots would run off the hero; it says "3 of 30".
+const MAX_DOTS = 24;
+
 // The line under the hero name. Its status pill needs the bundle, so a
 // refresh rewrites just this (renderTeamPage).
 function heroMetaHtml(teamKey, meta){
@@ -552,8 +582,9 @@ function heroMetaHtml(teamKey, meta){
   const league = LEAGUES.find(l => l.key === meta.leagueKey);
   const bundle = liveDataCache[teamKey];
   const status = bundle ? seasonStatus(meta, bundle) : null;
+  const mine = !!drafter && drafter.id === currentProfileId;
   return `
-    ${PRE_DRAFT ? '' : `<span class="team-hero-owner">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
+    ${PRE_DRAFT ? '' : `<span class="team-hero-owner${mine ? ' me' : ''}">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
     <span>&middot;</span>`}
     <span>${league ? league.label : ''}</span>
     ${status ? `<span class="status-pill">${status.label}</span>` : ''}
@@ -561,34 +592,34 @@ function heroMetaHtml(teamKey, meta){
 }
 
 function heroHtml(teamKey, meta){
-  const accent = meta.accent || '#D9B45B';
-  const hex = accent.replace('#', '');
-  const rgb = [0, 2, 4].map(i => parseInt(hex.substring(i, i + 2), 16) || 0).join(',');
+  const order = state.swipeOrder;
+  let dots = '';
+  if(order.length > 1 && order.length <= MAX_DOTS){
+    dots = pageDotsHtml({ count: order.length, index: state.teamIndex, labels: order.map(k => TEAM_META[k].name), onclick: 'teamPageJump' });
+  } else if(order.length > 1){
+    dots = `<div class="page-dots-count">${state.teamIndex + 1} of ${order.length}</div>`;
+  }
 
   return `
-    <div class="team-hero" style="background:linear-gradient(150deg, rgba(${rgb},0.45) 0%, rgba(${rgb},0.14) 46%, rgba(var(--hero-fade-rgb),0) 100%);">
-      <div class="team-hero-orb" style="background:radial-gradient(circle at 50% 50%, rgba(${rgb},0.45) 0%, transparent 70%);"></div>
+    <div class="team-hero" id="team-hero">
+      ${teamOrbHtml({ color: meta.accent || NO_ACCENT, cls: 'team-hero-orb' })}
       <div class="team-hero-scrim"></div>
-      <div class="team-hero-row">
-        ${meta.badgeUrl ? `<img class="crest-bare" src="${crestSrc(meta)}" alt="${meta.name}">` : teamBadgeHtml(meta)}
-        <div>
+      <div class="team-hero-fold">
+        <div class="team-hero-row">
+          ${meta.badgeUrl ? `<img class="crest-bare" src="${crestSrc(meta)}" alt="${meta.name}" draggable="false">` : teamBadgeHtml(meta)}
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
           <div class="team-hero-meta"></div>
         </div>
+        ${dots}
       </div>
     </div>
   `;
 }
 
-function gameCardHtml(teamKey, bundle){
-  const isLive = !!(bundle && bundle.espnLive && bundle.espnLive.isLive);
-  return `<div class="game-card ${isLive ? 'live' : 'upcoming'}" id="team-page-game-card"><div class="next-match" id="team-page-next"></div></div>`;
-}
-
 // What each section of the page was last written with. A refresh rewrites
 // only the sections whose markup changed, so one that lands mid-entrance
-// leaves whatever is still playing (the hero bloom, the stat roll, the
-// form cascade) alone instead of replacing it halfway through.
+// leaves whatever is still playing (the orb bloom, the stat roll, Path to
+// points, the form bars) alone instead of replacing it halfway through.
 const written = new WeakMap();
 function writeHtml(el, html){
   if(!el || written.get(el) === html) return false;
@@ -609,44 +640,237 @@ function writeRendered(el, render){
 }
 
 // `refresh`: new data for the page already on screen (a fetch landing),
-// rather than an open. The nav, hero and tabs stay put; only what the data
-// drives is rewritten, and only where it changed.
+// rather than an open or a swipe. The bar, hero and tabs stay put; only
+// what the data drives is rewritten, and only where it changed.
 function renderTeamPage({ refresh = false } = {}){
   const el = document.getElementById('team-page-content');
   if(!el) return;
   const teamKey = state.teamKey;
   const meta = TEAM_META[teamKey];
   if(!meta) return;
-  const bundle = liveDataCache[teamKey];
+  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.team-hero'));
+  // A swipe or a pull is holding the hero; rebuilding it waits for the
+  // release. A refresh leaves the hero alone, so it goes ahead.
+  if(shell && gesture){ pendingRender = true; return; }
+  if(shell) pendingRender = false;
   const tabs = tabsFor(meta.leagueKey);
+  const oldOrb = el.querySelector('.team-hero-orb');
+  const fromColor = oldOrb ? oldOrb.style.getPropertyValue('--orb') : null;
+  const backLabel = state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home');
 
-  if(!(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.team-hero'))){
+  if(shell){
     el.dataset.activeTeam = teamKey;
     el.innerHTML = `
-      <div class="team-page-nav">
-        ${backLinkHtml({ label: state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home'), onclick: 'backFromTeamPage()' })}
-        <div class="team-page-actions">${favoriteStarHtml(teamKey)}</div>
-      </div>
+      ${compactBarHtml({
+        backHtml: backLinkHtml({ label: backLabel, onclick: 'backFromTeamPage()' }),
+        badgeHtml: teamBadgeHtml(meta),
+        name: meta.name,
+        actionsHtml: favoriteStarHtml(teamKey),
+        color: meta.accent || NO_ACCENT
+      })}
       ${heroHtml(teamKey, meta)}
-      <div class="stat-strip" id="team-page-stats">${bundle ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
-      ${gameCardHtml(teamKey, bundle)}
+      <div class="stat-strip" id="team-page-stats"></div>
+      <div class="game-card upcoming" id="team-page-game-card"><div class="next-match" id="team-page-next"></div></div>
       <div class="team-page-tabs" id="team-page-tabs">${segmentedControlHtml(tabs, state.activeTab, 'setTeamPageTab')}</div>
       <div class="tab-body" id="team-page-tab-body"></div>
     `;
   }
 
   writeHtml(el.querySelector('.team-hero-meta'), heroMetaHtml(teamKey, meta));
-  if(bundle){
-    const card = document.getElementById('team-page-game-card');
-    const isLive = !!(bundle.espnLive && bundle.espnLive.isLive);
-    card.classList.toggle('live', isLive);
-    card.classList.toggle('upcoming', !isLive);
-    writeRendered(document.getElementById('team-page-stats'), id => renderStats(meta, bundle, id));
-    writeRendered(document.getElementById('team-page-next'), id => renderNext(teamKey, meta, bundle, id));
-  }
+  renderStatStrip(teamKey);
+  renderNextGame(teamKey);
   renderTabBody();
+  if(shell){
+    ensureTables(teamKey);
+    bindHeroGestures();
+    crossFadeOrb(fromColor);
+    applyScroll();
+    startCountdowns();
+  }
   playHeroOpen();
+  playSwipeIn();
   playStatsRoll();
+}
+
+// The live-data refresh ticks (js/live-data.js) repaint just these two.
+setTeamPageRefresher(teamKey => {
+  if(teamKey !== state.teamKey) return;
+  renderStatStrip(teamKey);
+  renderNextGame(teamKey);
+});
+
+// Record, standing and what the team's worth to its owner. Before the
+// standings tables are in, the league's own strip from the bundle.
+function renderStatStrip(teamKey){
+  const el = document.getElementById('team-page-stats');
+  const meta = TEAM_META[teamKey];
+  if(!el || !meta) return;
+  const rs = teamRecordStanding(meta);
+  const bundle = liveDataCache[teamKey];
+  if(!rs){
+    if(bundle) writeRendered(el, id => renderStats(meta, bundle, id));
+    else writeHtml(el, '<div class="stat-cell"><div class="lbl">Loading…</div></div>');
+    return;
+  }
+  const path = teamPathToPoints(teamKey);
+  const cell = (num, lbl, cls = '') => `<div class="stat-cell${cls ? ` ${cls}` : ''}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+  writeHtml(el, cell(rs.record, 'Record')
+    + cell(rs.standing, rs.group || 'Standing')
+    + (path ? cell(path.now < 0 ? '&minus;' + Math.abs(path.now) : path.now, 'Points', 'pts') : ''));
+}
+
+// The next game with a countdown to it, or the league's own live line
+// while a game is on (and for the few teams with no ESPN schedule).
+function renderNextGame(teamKey){
+  const card = document.getElementById('team-page-game-card');
+  const meta = TEAM_META[teamKey];
+  const bundle = liveDataCache[teamKey];
+  if(!card || !meta || !bundle) return;
+  const live = !!(bundle.espnLive && bundle.espnLive.isLive);
+  const evt = !live && bundle.espnSchedule && bundle.espnSchedule.upcoming && bundle.espnSchedule.upcoming[0];
+  card.classList.toggle('live', live);
+  card.classList.toggle('upcoming', !live);
+  card.classList.toggle('next-game', !!evt);
+  if(!evt){
+    if(!card.querySelector('#team-page-next')) card.innerHTML = '<div class="next-match" id="team-page-next"></div>';
+    writeRendered(card.querySelector('#team-page-next'), id => renderNext(teamKey, meta, bundle, id));
+    return;
+  }
+  const at = new Date(evt.date).getTime();
+  const opp = evt.opponentShortName || evt.opponentName;
+  card.innerHTML = nextGameHtml({
+    when: nextWhen(evt),
+    home: evt.isHome,
+    ownBadgeHtml: teamBadgeHtml(meta),
+    oppBadgeHtml: badgeHtml({ crestSrc: evt.opponentLogoUrl, name: evt.opponentName, style: NEUTRAL_BADGE_STYLE, text: evt.opponentAbbr || abbrFromName(evt.opponentName) }),
+    oppName: opp,
+    rightHtml: evt.timeTbd || !Number.isFinite(at) ? '<span class="countdown">TBD</span>' : countdownHtml({ at }),
+    subHtml: [evt.venueName, evt.broadcast].filter(Boolean).join(' &middot; ')
+  });
+}
+
+// "Today · 7:30 PM", "Sun, Oct 4 · 7:20 PM", "Sun, Oct 4 · Time TBD".
+function nextWhen(evt){
+  const d = new Date(evt.date);
+  if(isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const day = sameDay ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const time = evt.timeTbd ? 'Time TBD' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
+// ---- Hero: scroll collapse, swipe between teams, pull to stretch ----
+
+// Scrolling folds the hero into the compact bar. One passive listener
+// writes the page's --y (scroll) and --p (0 → 1 from 110px to 200px); the
+// CSS does the rest. Nothing here reads layout.
+const COLLAPSE_FROM = 110, COLLAPSE_OVER = 90;
+let scrollFrame = 0;
+function applyScroll(){
+  scrollFrame = 0;
+  const page = document.getElementById('view-team-page');
+  if(!page || !page.classList.contains('active')) return;
+  const y = Math.max(0, window.scrollY);
+  page.style.setProperty('--y', y.toFixed(1));
+  page.style.setProperty('--p', Math.min(1, Math.max(0, (y - COLLAPSE_FROM) / COLLAPSE_OVER)).toFixed(3));
+}
+window.addEventListener('scroll', () => { if(!scrollFrame) scrollFrame = requestAnimationFrame(applyScroll); }, { passive: true });
+
+// The gesture holding the hero right now ('x' swipe, 'y' pull), if any.
+let gesture = null;
+let detachHero = null;
+
+function bindHeroGestures(){
+  if(detachHero){ detachHero(); detachHero = null; }
+  const hero = document.getElementById('team-hero');
+  if(!hero) return;
+  const row = hero.querySelector('.team-hero-row');
+  const orb = hero.querySelector('.team-hero-orb');
+  hero.classList.toggle('swipes', state.swipeOrder.length > 1);
+  detachHero = attachDrag(hero, {
+    slop: MOVE_SLOP,
+    ignore: 'button, a',
+    // Sideways moves through your teams; down at the very top stretches.
+    accept: (axis, { dy }) => !rowMotion && (axis === 'x'
+      ? state.swipeOrder.length > 1
+      : dy > 0 && window.scrollY <= 0 && fxOn()),
+    onStart: axis => {
+      gesture = axis;
+      const el = axis === 'x' ? row : hero;
+      el.getAnimations().forEach(a => a.cancel());
+      el.style.transition = 'none';
+      if(axis === 'y') orb.style.transition = 'none';
+    },
+    onMove: (axis, { dx, dy }) => {
+      if(axis === 'x'){
+        row.style.transform = `translateX(${(dx * RUBBER_BAND.team).toFixed(1)}px)`;
+        row.style.opacity = (1 - Math.min(0.7, Math.abs(dx) / 260)).toFixed(3);
+      } else {
+        const stretch = Math.min(Math.max(dy, 0), 180) * RUBBER_BAND.pull;
+        hero.style.setProperty('--pull', stretch.toFixed(1));
+        orb.style.transform = `scale(${(1 + stretch / 260).toFixed(4)})`;
+      }
+    },
+    onEnd: (axis, { dx, cancelled }) => {
+      gesture = null;
+      const dir = axis === 'x' && !cancelled ? releaseDirection(-dx, 0, { commit: SWIPE_COMMIT.team }) : 0;
+      if(dir){ swipeTo(state.teamIndex + dir, dir); return; }
+      if(axis === 'x') springBack(row, ['transform', 'opacity'], () => { row.style.transform = ''; row.style.opacity = ''; });
+      else springBack(hero, ['height'], () => hero.style.removeProperty('--pull'), orb);
+      if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
+    }
+  });
+}
+
+// Lets go of a drag: back to the plain layout on --ease-spring, or at once
+// without motion. `orb` (the pull) springs its scale back alongside.
+function springBack(el, props, reset, orb){
+  const spring = fxOn();
+  const t = `${SNAP_BACK_MS}ms var(--ease-spring)`;
+  el.style.transition = spring ? props.map(p => `${p} ${p === 'opacity' ? '300ms var(--ease-out)' : t}`).join(', ') : 'none';
+  if(orb) orb.style.transition = spring ? `transform ${t}, background-color 700ms var(--ease-out)` : 'none';
+  reset();
+  if(orb) orb.style.transform = '';
+  setTimeout(() => {
+    el.style.transition = '';
+    if(orb) orb.style.transition = '';
+  }, spring ? SNAP_BACK_MS + 60 : 0);
+}
+
+// Moves to the team at `index` in the swipe order (wrapping), coming in
+// from `dir` (1: from the right). Back still returns to where the page was
+// opened from; only `tp` in the URL changes.
+function swipeTo(index, dir){
+  const order = state.swipeOrder;
+  if(order.length < 2) return;
+  const i = ((index % order.length) + order.length) % order.length;
+  const teamKey = order[i];
+  state.teamIndex = i;
+  if(teamKey === state.teamKey) return;
+  state.teamKey = teamKey;
+  state.squadFilter = null;
+  if(!tabsFor(TEAM_META[teamKey].leagueKey).some(t => t.key === state.activeTab)) state.activeTab = 'schedule';
+  updateUrlParam('tp', teamKey);
+  window.scrollTo(0, 0);
+  fxBeginOpen('swipe', dir);
+  renderTeamPage();
+  ensureBundle(teamKey);
+}
+window.teamPageJump = i => {
+  if(i === state.teamIndex) return;
+  swipeTo(i, i > state.teamIndex ? 1 : -1);
+};
+
+// The next game's countdown ticks once a second while the page is up.
+let countdownTimer = null;
+function startCountdowns(){
+  if(countdownTimer) return;
+  countdownTimer = setInterval(() => {
+    const page = document.getElementById('view-team-page');
+    if(!page || !page.classList.contains('active')){ clearInterval(countdownTimer); countdownTimer = null; return; }
+    if(!document.hidden) tickCountdowns(page);
+  }, 1000);
 }
 
 function renderTabBody(){
@@ -665,14 +889,13 @@ function renderTabBody(){
 
   if(state.activeTab === 'schedule'){
     if(!same) el.innerHTML = scheduleTabHtml(teamKey);
+    writeHtml(document.getElementById('ptp-section'), pathSectionHtml(teamKey));
     writeHtml(document.getElementById('form-section'), recentFormHtml(teamKey, bundle));
-    writeHtml(document.getElementById('lines-section'), teamLinesSectionHtml(teamKey));
     writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
-    writeHtml(document.getElementById('tracker-section'), trackerSectionHtml(teamKey));
-    playFormCascade();
-    playLineChanges(teamKey);
+    playPathIn();
+    playPathChanges(teamKey);
+    playFormGrow();
     ensureNews(teamKey);
-    ensureLines(teamKey);
     return;
   }
   if(state.activeTab === 'stats'){
@@ -750,74 +973,96 @@ function upcomingRowHtml(evt){
   `;
 }
 
-function recentFormHtml(teamKey, bundle){
-  const sched = bundle && bundle.espnSchedule;
-  let scheduleHtml;
-  if(!bundle){
-    scheduleHtml = `<div class="loading-note">Loading schedule…</div>`;
-  } else if(!sched){
-    scheduleHtml = `<div class="no-live-note">Schedule isn't available for this team yet.</div>`;
-  } else {
-    // Last 5 results — the separate W/D/L summary strip and the
-    // Upcoming section below it used to live here too, but this tab is
-    // meant as a quick "how'd they do lately" glance now, not a mini
-    // schedule (that's what "Full schedule ›" and the Full Schedule
-    // screen are for). Each result row still carries its own W/D/L
-    // pill (resultRowHtml above), just not the separate summary strip.
-    const recentResults = sched.recent.slice(0, 5);
-    scheduleHtml = `
-      <div class="modal-section-title">Recent form</div>
-      ${recentResults.map(evt => resultRowHtml(teamKey, evt)).join('') || '<div class="loading-note">No results yet.</div>'}
-      <div class="more-link-row">
-        <span class="boxscore-link center" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
-      </div>
-    `;
-  }
-  return scheduleHtml;
-}
+// Margin scale for the form strip's bars: goals in EPL and NHL, runs in
+// MLB, points elsewhere (docs/delight-plan.md says goals ÷3 and points
+// ÷25; hockey and baseball margins are goal-sized, so they scale like EPL).
+const FORM_MARGIN_PER = { epl: 3, nhl: 3, mlb: 5 };
 
-// The Overview tab's sections, empty: renderTabBody fills each one.
-// News used to be its own tab — it's a section here now, below the
-// schedule content, so it still shows even while schedule/bundle data
-// is loading or unavailable rather than being gated on it. Draft Points
-// (js/league-facts.js) closes out the tab for every team; it used to sit
-// at the bottom of Stats, which some leagues don't have.
-function scheduleTabHtml(teamKey){
-  return `
-    <div id="form-section"></div>
-    <div id="lines-section" data-team="${teamKey}"></div>
-    <div class="modal-section-title spaced">News</div>
-    <div id="news-section"></div>
-    <div id="tracker-section"></div>
-  `;
-}
-
-// ---- On the line (js/lines.js) ----
-
-// Its league's tables (division ones too) may not be loaded yet; the
-// section fills in once they are, if this team is still on screen.
-function ensureLines(teamKey){
-  loadLineInputs([TEAM_META[teamKey].leagueKey]).then(() => {
-    const el = document.getElementById('lines-section');
-    if(el && el.dataset.team === teamKey && writeHtml(el, teamLinesSectionHtml(teamKey))) playLineChanges(teamKey);
+function formStripCardHtml(teamKey, meta, recent){
+  const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+  const games = recent.slice(0, 5).reverse().map(evt => {
+    const margin = (evt.ownScore ?? 0) - (evt.oppScore ?? 0);
+    return {
+      result: margin > 0 ? 'w' : (margin < 0 ? 'l' : 'd'),
+      score: `${evt.ownScore}–${evt.oppScore}`,
+      opp: evt.opponentAbbr || abbrFromName(evt.opponentName),
+      margin,
+      onclick: gameDetail && evt.id ? `openGameDetail('${teamKey}', '${evt.id}')` : null
+    };
+  });
+  return sectionCardHtml({
+    title: 'Recent form',
+    subHtml: `Last ${games.length}`,
+    html: formStripHtml({ games, per: FORM_MARGIN_PER[meta.leagueKey] || 25 }),
+    cls: 'form-card'
   });
 }
 
-// ---- Live effects (docs/motion-plan.md, Phase 4) ----
-// Each open of the page plays its entrance once: the hero bloom, the stat
-// strip rolling up, the recent-form cascade. A data refresh re-renders the
-// page but plays none of them again, and neither does anything that only
-// arrives well after the page opened. `fx.kind` is how the page arrived:
-// 'push' (plain), 'shared' (from the team modal, crest and name morphing
-// in) or 'row' (grown out of a Standings row, which flies those itself).
-const FX_OPEN_WINDOW_MS = 8000;
-const fx = { kind: null, at: 0, done: new Set(), lines: null };
+function pathSectionHtml(teamKey){
+  const path = teamPathToPoints(teamKey);
+  return path ? pathToPointsHtml(path) : '';
+}
 
-function fxBeginOpen(kind){
+// The last five as a strip of bars; every result row, with its boxscore
+// link, is on the Full schedule screen.
+function recentFormHtml(teamKey, bundle){
+  const meta = TEAM_META[teamKey];
+  const sched = bundle && bundle.espnSchedule;
+  if(!bundle) return `<div class="loading-note">Loading schedule…</div>`;
+  if(!sched) return `<div class="no-live-note">Schedule isn't available for this team yet.</div>`;
+  return `${sched.recent.length ? formStripCardHtml(teamKey, meta, sched.recent) : '<div class="loading-note">No results yet.</div>'}
+      <div class="more-link-row">
+        <span class="boxscore-link center" onclick="openFullSchedule('${teamKey}')">Full schedule <span class="chev">›</span></span>
+      </div>`;
+}
+
+// The Overview tab's sections, empty: renderTabBody fills each one. Path
+// to points leads: what this team is worth to its owner, rule by rule,
+// with On the line's distance on each. News follows the schedule, and
+// shows even while the schedule is loading or unavailable.
+function scheduleTabHtml(teamKey){
+  return `
+    <div id="ptp-section" data-team="${teamKey}"></div>
+    <div id="form-section"></div>
+    <div class="modal-section-title spaced">News</div>
+    <div id="news-section"></div>
+  `;
+}
+
+// The tables the stat strip and Path to points read (division ones too) may
+// not be loaded yet; both fill in once they are, if this team is still on
+// screen.
+function ensureTables(teamKey){
+  loadStandingsTables([TEAM_META[teamKey].leagueKey]).then(() => {
+    if(state.teamKey !== teamKey) return;
+    renderStatStrip(teamKey);
+    playStatsRoll();
+    const el = document.getElementById('ptp-section');
+    if(el && el.dataset.team === teamKey && writeHtml(el, pathSectionHtml(teamKey))){
+      playPathIn();
+      playPathChanges(teamKey);
+    }
+  });
+}
+
+// ---- Live effects (docs/motion-plan.md Phase 4, docs/delight-plan.md Phase 2) ----
+// Each open of the page plays its entrance once: the orb blooms, the stat
+// strip rolls up, Path to points pops in, the form bars grow. A data
+// refresh re-renders the page but plays none of them again, and neither
+// does anything that only arrives well after the page opened. `fx.kind`
+// is how the page arrived: 'push' (plain), 'shared' (from the team modal,
+// crest and name morphing in), 'row' (grown out of a Standings row, which
+// flies those itself) or 'swipe' (from the team beside it; `fx.dir` is
+// the side it came from).
+const FX_OPEN_WINDOW_MS = 8000;
+const fx = { kind: null, at: 0, done: new Set(), path: null, dir: 0 };
+
+function fxBeginOpen(kind, dir = 0){
   fx.kind = kind;
   fx.at = Date.now();
   fx.done = new Set();
-  fx.lines = null;
+  fx.path = null;
+  fx.dir = dir;
 }
 
 // True once per open for `key`, and only soon after the open.
@@ -829,22 +1074,15 @@ function fxFirst(key){
 
 const rise = px => [{ opacity: 0, transform: `translateY(${px}px)` }, { opacity: 1, transform: 'none' }];
 
-// Hero bloom: the team's color grows out from behind the crest and the orb
-// drifts in. On a plain push the crest, name and meta rise in too; the
-// other two ways in bring the crest and name along themselves.
+// The orb blooms out from behind the crest. On a plain push the crest,
+// name and meta rise in too; the other ways in bring the crest and name
+// along themselves, and a swipe brings the whole hero in from the side.
 function playHeroOpen(){
   const hero = document.querySelector('#team-page-content .team-hero');
-  if(!hero || !fxOn() || !fxFirst('hero')) return;
-  const bloom = document.createElement('div');
-  bloom.className = 'team-hero-bloom';
-  bloom.setAttribute('aria-hidden', 'true');
-  bloom.style.background = hero.style.background;
-  hero.prepend(bloom);
-  hero.classList.add('fx-bloom');
-  const grow = play(bloom, [{ opacity: 0, transform: 'scale(0.35)' }, { opacity: 1, transform: 'none' }], { duration: 900, delay: 150 });
-  const end = () => { bloom.remove(); hero.classList.remove('fx-bloom'); };
-  if(grow) grow.finished.then(end, end); else end();
-  play(hero.querySelector('.team-hero-orb'), [{ opacity: 0, transform: 'translate(30px, -20px) scale(0.6)' }, { opacity: 1, transform: 'none' }], { duration: 1100, delay: 250 });
+  if(!hero || fx.kind === 'swipe' || !fxOn() || !fxFirst('hero')) return;
+  const orb = hero.querySelector('.team-hero-orb');
+  play(orb, [{ transform: 'scale(0.2)' }, { transform: 'none' }], { duration: 1100, delay: 150 });
+  play(orb, [{ opacity: 0, offset: 0 }], { duration: 700, delay: 150 });
   if(fx.kind === 'push'){
     play(hero.querySelector('.team-hero-row > :first-child'), [{ opacity: 0, transform: 'scale(0.7) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 200, easing: EASE_SPRING });
     play(hero.querySelector('.team-hero-name'), rise(18), { duration: 520, delay: 380 });
@@ -852,39 +1090,71 @@ function playHeroOpen(){
   if(fx.kind !== 'row') play(hero.querySelector('.team-hero-meta'), rise(10), { duration: 480, delay: 480 });
 }
 
-// The stat strip's numbers roll up from zero, once its numbers are in.
+// A swipe: the new hero comes in from the side it was swiped from, and the
+// sections under it follow 50ms apart.
+function playSwipeIn(){
+  if(fx.kind !== 'swipe' || !fxOn() || !fxFirst('swipe')) return;
+  const page = document.getElementById('team-page-content');
+  play(page.querySelector('.team-hero-row'), [{ opacity: 0, transform: `translateX(${fx.dir * 70}px)` }, { opacity: 1, transform: 'none' }], { duration: 520 });
+  stagger(page.querySelectorAll(TP_BODY), [{ opacity: 0, transform: `translateX(${fx.dir * 40}px)` }, { opacity: 1, transform: 'none' }], { step: 50, duration: 520 });
+}
+
+// The orb cross-fades from the last team's color to this one's (its CSS
+// transition does the work; this starts it from the old color).
+function crossFadeOrb(fromColor){
+  const orb = document.querySelector('#team-page-content .team-hero-orb');
+  const bar = document.querySelector('#team-page-content .compact-bar');
+  if(!orb || !fromColor || fx.kind !== 'swipe' || !fxOn()) return;
+  const to = orb.style.getPropertyValue('--orb');
+  if(!to || to === fromColor) return;
+  [orb, bar].forEach(el => { if(el) el.style.setProperty('--orb', fromColor); });
+  void orb.offsetWidth;
+  [orb, bar].forEach(el => { if(el) el.style.setProperty('--orb', to); });
+}
+
+// The stat strip's numbers roll up from zero, once its numbers are in;
+// the team's points last.
 function playStatsRoll(){
   const nums = document.querySelectorAll('#team-page-stats .stat-cell .num');
   if(!nums.length || !fxOn() || !fxFirst('stats')) return;
-  nums.forEach(el => rollNumbers(el, { duration: 700, delay: 300 }));
+  nums.forEach(el => rollNumbers(el, { duration: 700, delay: el.parentElement.classList.contains('pts') ? 350 : 300 }));
 }
 
-// Recent form: the result rows rise in 70ms apart, each W/D/L pill
-// popping as its row lands.
-function playFormCascade(){
-  const rows = [...document.querySelectorAll('#team-page-tab-body .form-item')].filter(r => r.querySelector('.form-pill'));
-  if(!rows.length || !fxOn() || !fxFirst('form')) return;
-  rows.forEach((row, i) => {
-    play(row, rise(14), { duration: 420, delay: 120 + i * 70 });
-    pop(row.querySelector('.form-pill'), { from: 0, duration: 460, delay: 260 + i * 70 });
+// Path to points: the nodes pop in 90ms apart, and the gold line between
+// locked rules draws down after them.
+function playPathIn(){
+  const steps = [...document.querySelectorAll('#ptp-section .ptp-step')];
+  if(!steps.length || !fxOn() || !fxFirst('path')) return;
+  steps.forEach((step, i) => {
+    pop(step.querySelector('.ptp-node'), { from: 0, duration: 460, delay: 200 + i * 90 });
+    const line = step.querySelector('.ptp-line.gold');
+    if(line) play(line, [{ transform: 'scaleY(0)' }, { transform: 'none' }], { duration: 500, delay: 380 + i * 90 });
   });
 }
 
-// On the line: a line whose status changed since this page last drew it
-// (Chasing → Holding, say) pops its tag and its points.
-function playLineChanges(teamKey){
-  const rows = [...document.querySelectorAll('#lines-section [data-line]')];
+// A rule whose state changed since this page last drew it (In reach →
+// Live, say) pops its tag and its points.
+function playPathChanges(teamKey){
+  const steps = [...document.querySelectorAll('#ptp-section [data-rule]')];
   const now = {};
-  rows.forEach(r => { now[r.dataset.line] = r.dataset.status; });
-  const prev = fx.lines && fx.lines.team === teamKey ? fx.lines.states : null;
-  fx.lines = { team: teamKey, states: now };
+  steps.forEach(r => { now[r.dataset.rule] = r.dataset.state; });
+  const prev = fx.path && fx.path.team === teamKey ? fx.path.states : null;
+  fx.path = { team: teamKey, states: now };
   if(!prev || !fxOn()) return;
-  rows.forEach(r => {
-    const was = prev[r.dataset.line];
-    if(!was || was === r.dataset.status) return;
-    play(r.querySelector('.pts-tag'), [{ opacity: 0.4, transform: 'scale(1.25)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: EASE_SPRING });
-    pop(r.querySelector('.ob-rule-pts'), { scale: 1.35, duration: 480 });
+  steps.forEach(r => {
+    const was = prev[r.dataset.rule];
+    if(!was || was === r.dataset.state) return;
+    play(r.querySelector('.status-tag'), [{ opacity: 0.4, transform: 'scale(1.25)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: EASE_SPRING });
+    pop(r.querySelector('.ptp-node'), { scale: 1.3, duration: 480 });
+    pop(r.querySelector('.ptp-pts'), { scale: 1.35, duration: 480 });
   });
+}
+
+// Recent form: each bar grows out of the midline, 60ms apart.
+function playFormGrow(){
+  const bars = document.querySelectorAll('#team-page-tab-body .fs-bar > i');
+  if(!bars.length || !fxOn() || !fxFirst('form')) return;
+  bars.forEach((bar, i) => play(bar, [{ transform: 'scaleY(0)' }, { transform: 'none' }], { duration: 600, delay: 300 + i * 60, easing: EASE_SPRING }));
 }
 
 // ---- News (a section on the Overview tab, not its own tab) ----
@@ -948,7 +1218,8 @@ function ensureNews(teamKey){
   newsCache[teamKey] = { status: 'loading', items: [] };
   fetchEspnTeamNews(flat.sportPath, row.id).then(items => {
     newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [], failedAt: Date.now() };
-    if(state.teamKey === teamKey && state.activeTab === 'schedule') renderTabBody();
+    // Just the news, so the sections above it keep their entrance.
+    if(state.teamKey === teamKey && state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
   });
 }
 window.retryTeamPageNews = teamKey => {

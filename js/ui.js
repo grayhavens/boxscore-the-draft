@@ -165,6 +165,104 @@ export function floatPillHtml({ label }){
   return `<div class="float-pill" role="status">${escapeHtml(label)}</div>`;
 }
 
+// ---- Team page (docs/delight-plan.md, Phase 2) ----
+
+// TeamOrb: a soft blurred circle of a team's color behind a hero. Team
+// colors are identity, never meaning (CLAUDE.md): only as an orb, a crest
+// or a badge. `color` is the team's own (TEAM_META), `cls` places it.
+export function teamOrbHtml({ color, cls = '', soft = false }){
+  return `<span class="team-orb${soft ? ' soft' : ''}${cls ? ` ${cls}` : ''}" style="--orb:${escapeHtml(color)}" aria-hidden="true"></span>`;
+}
+
+// CompactBar: the fixed bar a hero collapses into on scroll. The back link
+// and actions always show; the tint and the small badge and name fade in
+// with the page's --p (0 → 1). `badgeHtml` and `actionsHtml` are trusted.
+export function compactBarHtml({ backHtml, badgeHtml, name, actionsHtml = '', color }){
+  return `<div class="compact-bar" style="--orb:${escapeHtml(color)}"><span class="compact-bar-bg" aria-hidden="true"></span>${backHtml}<span class="compact-bar-title" aria-hidden="true">${badgeHtml}<span>${escapeHtml(name)}</span></span><span class="compact-bar-actions">${actionsHtml}</span></div>`;
+}
+
+// PageDots: which of several pages is showing (the team page's swipe
+// order). Each dot is a button that calls `onclick` with its index.
+export function pageDotsHtml({ count, index, labels = [], onclick }){
+  const dots = Array.from({ length: count }, (_, i) => `<button type="button" class="page-dot${i === index ? ' on' : ''}" onclick="${onclick}(${i})" aria-label="${escapeHtml(labels[i] || `Page ${i + 1}`)}"${i === index ? ' aria-current="true"' : ''}></button>`).join('');
+  return `<div class="page-dots">${dots}</div>`;
+}
+
+// SectionCard: a titled card on a detail page (the team page's Path to
+// points, Recent form). `subHtml` (right of the title) and `html` are
+// trusted.
+export function sectionCardHtml({ title, subHtml = '', html, cls = '' }){
+  return `<section class="sec-card${cls ? ` ${cls}` : ''}"><div class="sec-card-head"><h3 class="sec-card-title">${escapeHtml(title)}</h3>${subHtml ? `<span class="sec-card-sub">${subHtml}</span>` : ''}</div>${html}</section>`;
+}
+
+const PATH_TAGS = { locked: ['Locked', 'locked'], live: ['Live', 'live'], reach: ['In reach', ''] };
+
+// PathToPoints: every scoring rule of a team's league as a ladder, in a
+// SectionCard. Each rule: { label, pts, state: 'locked' | 'live' | 'reach'
+// | 'off', noteHtml }. noteHtml is trusted (On the line writes it). A line
+// joins the nodes, gold between two locked rules. A penalty the team is in
+// is red, like a negative Live total on Points.
+export function pathToPointsHtml({ now, max, rules }){
+  const fmt = n => (n < 0 ? '&minus;' + Math.abs(n) : String(n));
+  const rows = rules.map((r, i) => {
+    const tag = PATH_TAGS[r.state] && (r.pts < 0 && r.state === 'live' ? ['Live', 'risk'] : PATH_TAGS[r.state]);
+    const next = rules[i + 1];
+    const gold = r.state === 'locked' && next && next.state === 'locked';
+    return `<div class="ptp-step ${r.state}${r.pts < 0 ? ' neg' : ''}" data-rule="${escapeHtml(r.label)}" data-state="${r.state}">`
+      + `<span class="ptp-node">${r.state === 'locked' ? iconHtml('check') : ''}</span>`
+      + (next ? `<span class="ptp-line${gold ? ' gold' : ''}" aria-hidden="true"></span>` : '')
+      + `<span class="ptp-main"><span class="ptp-label">${escapeHtml(r.label)}${tag ? tagHtml({ label: tag[0], variant: tag[1] }) : ''}</span>${r.noteHtml ? `<span class="ptp-note">${r.noteHtml}</span>` : ''}</span>`
+      + `<span class="ptp-pts">${r.pts > 0 ? '+' : ''}${fmt(r.pts)}</span></div>`;
+  }).join('');
+  return sectionCardHtml({ title: 'Path to points', subHtml: `${fmt(now)} now &middot; up to ${fmt(max)}`, html: `<div class="ptp-steps">${rows}</div>`, cls: 'ptp' });
+}
+
+// FormStrip: the last five games as columns, oldest first, newest on the
+// right (fewer than five leave the oldest slots empty). A win's bar grows
+// up from the midline, a loss's down, a draw is a tick; height is the
+// margin over `per` (goals for EPL, points elsewhere). Each game:
+// { result: 'w' | 'l' | 'd', score, opp, margin, onclick? }.
+export function formStripHtml({ games, per, slots = 5 }){
+  const empty = '<span class="fs-col empty" aria-hidden="true"><span class="fs-bar"></span></span>'.repeat(Math.max(0, slots - games.length));
+  const cols = games.map(g => {
+    const h = g.result === 'd' ? 4 : Math.min(48, Math.abs(g.margin) / per * 48 + 6);
+    const inner = `<span class="fs-bar"><i style="height:${h.toFixed(1)}%"></i></span><span class="fs-res">${g.result.toUpperCase()}</span><span class="fs-score">${escapeHtml(g.score)}</span><span class="fs-opp">${escapeHtml(g.opp)}</span>`;
+    return g.onclick
+      ? `<button type="button" class="fs-col ${g.result}" onclick="${g.onclick}">${inner}</button>`
+      : `<span class="fs-col ${g.result}">${inner}</span>`;
+  }).join('');
+  return `<div class="form-strip-bars">${empty}${cols}</div>`;
+}
+
+// "2d 04:12:09" until a start time, "04:12:09" on the day itself.
+export function countdownText(ms){
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400), p = n => String(n).padStart(2, '0');
+  return `${d ? d + 'd ' : ''}${p(Math.floor(s % 86400 / 3600))}:${p(Math.floor(s % 3600 / 60))}:${p(s % 60)}`;
+}
+
+// Countdown: ticks to `at` (ms). The page that shows it calls
+// tickCountdowns once a second while it's visible.
+export function countdownHtml({ at, now = Date.now() }){
+  return `<span class="countdown" data-at="${Number(at)}">${countdownText(at - now)}</span>`;
+}
+
+export function tickCountdowns(root, now = Date.now()){
+  root.querySelectorAll('.countdown[data-at]').forEach(el => {
+    const text = countdownText(Number(el.dataset.at) - now);
+    if(el.textContent !== text) el.textContent = text;
+  });
+}
+
+// NextGame: the card body for a team's next game: its badge, vs/at, the
+// opponent's badge and name, and `rightHtml` (the countdown) on the right,
+// under a header with `when`. Badges and rightHtml are trusted.
+export function nextGameHtml({ when, home, ownBadgeHtml, oppBadgeHtml, oppName, rightHtml = '', subHtml = '' }){
+  return `<div class="ng-head"><span class="ng-title">Next game</span><span class="ng-when">${escapeHtml(when)}</span></div>`
+    + `<div class="ng-row">${ownBadgeHtml}<span class="ng-vs">${home ? 'vs' : 'at'}</span>${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span>${rightHtml}</div>`
+    + (subHtml ? `<div class="ng-sub">${subHtml}</div>` : '');
+}
+
 // Mention: a tag inside a chat message ("@Isaac"). `me` marks one that
 // tags you, in gold.
 export function mentionHtml({ label, me = false }){

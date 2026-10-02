@@ -1,0 +1,208 @@
+/* Boxscore color tokens — lifted verbatim from css/style.css.
+   Dark is the default. Light: data-theme="light" on <html>; "auto" follows the OS. */
+:root{
+  color-scheme: dark;
+  --ink-rgb: 255,255,255; /* @kind other */
+  --hero-fade-rgb: 10,11,13; /* @kind other */
+
+  /* Grounds */
+  --bg: #0A0B0D;
+  --surface: #16171B;
+  --surface-2: #1C1D21;
+  --sheet: #18191D;
+
+  /* Ink */
+  --text: #F3F4F6;
+  --text-sub: #94969E;
+  --text-mute: #64666E;
+  --hairline: rgba(var(--ink-rgb),0.07);
+  --hairline-strong: rgba(var(--ink-rgb),0.14);
+  --divider: rgba(var(--ink-rgb),0.06);
+  --fill-soft: rgba(var(--ink-rgb),0.06);
+  --hover: rgba(var(--ink-rgb),0.04);
+  --press: rgba(var(--ink-rgb),0.07);
+  --skeleton: rgba(var(--ink-rgb),0.07);
+
+  /* Accent — gold. Leader, CTAs, selected. */
+  --accent: #D9B45B;
+  --accent-fill: #D9B45B;
+  --accent-soft: rgba(217,180,91,0.14);
+  --accent-border: rgba(217,180,91,0.35);
+  --tab-pill: rgba(217,180,91,0.16);
+  --on-accent: #0A0B0D;
+  --cta-bg: var(--accent-fill);
+  --cta-border: transparent;
+  --cta-color: var(--on-accent);
+  --star-idle: var(--text-mute);
+  --star-on: var(--accent);
+
+  /* Results & status */
+  --win: #5FB88A;
+  --win-soft: rgba(95,184,138,0.14);
+  --loss: #D97066;
+  --loss-soft: rgba(217,112,102,0.14);
+  --draw: #B8A369;
+  --draw-soft: rgba(184,163,105,0.16);
+  --live: #E5484D;
+  --live-soft: rgba(229,72,77,0.12);
+  --live-border: rgba(229,72,77,0.36);
+  --on-live: #FFFFFF;
+  /* Provisional (Live points that can still change) — blue */
+  --provisional: #7C9CD9;
+  --provisional-soft: rgba(124,156,217,0.16);
+  --provisional-border: rgba(124,156,217,0.38);
+  --record: #9AA5B5;
+  --record-soft: rgba(154,165,181,0.16);
+
+  /* Leaderboard tiers */
+  --lb-ink-strong: #FFFFFF;
+  --lb-ink-2: #E6E7EB;
+  --lb-ink-3: #C7C9D1;
+  --lb-rank-mid: #9C9EA6;
+  --lb-rank-low: #5E6068;
+  --lb-stroke: #4A4C54;
+  --lb-divider: rgba(var(--ink-rgb),0.05);
+  --lb-accent-wash: rgba(217,180,91,0.07);
+  --lb-accent-wash-border: rgba(217,180,91,0.30);
+
+  /* Chrome */
+  --bar-bg: rgba(19,20,24,0.82);
+  --seg-track: rgba(var(--ink-rgb),0.06);
+  --seg-thumb: rgba(var(--ink-rgb),0.13);
+  --seg-thumb-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  --knob: #FFFFFF;
+  --overlay-rgb: 6,7,9; /* @kind other */
+  --overlay: rgba(var(--overlay-rgb),0.6);
+  --crest-ground: #F1F2F4;
+  --person-ground: #DDE3DF;
+
+  /* Textures: Live = blue hatch, at-risk = red hatch */
+  --live-stripe: repeating-linear-gradient(135deg, var(--provisional) 0 3px, var(--provisional-soft) 3px 6px);
+  --risk-stripe: repeating-linear-gradient(135deg, var(--loss) 0 3px, color-mix(in srgb, var(--loss) 35%, transparent) 3px 6px);
+
+  /* Brand mark (logo, splash) */
+  --brand-dark: #0A0B0D;
+  --brand-ink: #F3F2EF;
+  --brand-square: #DC7D00;
+  --splash-ink: var(--brand-ink);
+
+  /* League chart colors (js/overall.js) — never used for meaning */
+  --league-epl: #826AC8;
+  --league-cfb: #C86AA1;
+  --league-nfl: #91C86A;
+  --league-mcbb: #C58C6A;
+  --league-nba: #B57FC0;
+  --league-nhl: #6FBFC6;
+  --league-mlb: #6AC87A;
+  --league-wnba: #A8B36A;
+
+  /* Semantic aliases */
+  --surface-page: var(--bg);
+  --surface-card: var(--surface);
+  --surface-raised: var(--surface-2);
+  --surface-sheet: var(--sheet);
+  --text-body: var(--text);
+  --text-secondary: var(--text-sub);
+  --text-tertiary: var(--text-mute);
+  --border-card: var(--hairline);
+  --border-control: var(--hairline-strong);
+  --status-positive: var(--win);
+  --status-negative: var(--loss);
+  --status-live: var(--live);
+  --status-provisional: var(--provisional);
+  --status-locked: var(--accent);
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --ink-rgb: 20,22,28; /* @kind other */
+  --hero-fade-rgb: 244,243,239; /* @kind other */
+  --bg: #F4F3EF;
+  --surface: #FFFFFF;
+  --surface-2: #ECEAE4;
+  --sheet: #FFFFFF;
+  --text: #16171B;
+  --text-sub: #5B5D66;
+  --text-mute: #8A8C94;
+  --accent: #85660C;
+  --accent-fill: #E2B84A;
+  --accent-soft: rgba(154,119,22,0.12);
+  --accent-border: rgba(154,119,22,0.4);
+  --tab-pill: rgba(154,119,22,0.16);
+  --on-accent: #16171B;
+  --cta-color: #16171B;
+  --star-idle: #7C7E87;
+  --star-on: #D9A20F;
+  --win: #2E8A5C;
+  --win-soft: rgba(46,138,92,0.12);
+  --loss: #C2453B;
+  --loss-soft: rgba(194,69,59,0.12);
+  --draw: #8A7430;
+  --draw-soft: rgba(138,116,48,0.14);
+  --provisional: #4A6FB8;
+  --provisional-soft: rgba(74,111,184,0.12);
+  --provisional-border: rgba(74,111,184,0.38);
+  --live-soft: rgba(229,72,77,0.10);
+  --record: #56617A;
+  --record-soft: rgba(86,97,122,0.12);
+  --lb-ink-strong: #0B0C0F;
+  --lb-ink-2: #22242A;
+  --lb-ink-3: #3F414A;
+  --lb-rank-mid: #6B6D76;
+  --lb-rank-low: #9A9CA4;
+  --lb-stroke: #C9C7BF;
+  --lb-accent-wash: rgba(154,119,22,0.07);
+  --lb-accent-wash-border: rgba(154,119,22,0.30);
+  --bar-bg: rgba(250,250,248,0.85);
+  --seg-thumb: #FFFFFF;
+  --seg-thumb-shadow: 0 1px 3px rgba(20,22,28,0.16), 0 0 0 0.5px rgba(20,22,28,0.06);
+  --hero-shadow: 0 8px 18px rgba(20,22,28,0.22);
+  --splash-ink: #0B0C0F;
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+  color-scheme: light;
+  --ink-rgb: 20,22,28; /* @kind other */
+  --hero-fade-rgb: 244,243,239; /* @kind other */
+  --bg: #F4F3EF;
+  --surface: #FFFFFF;
+  --surface-2: #ECEAE4;
+  --sheet: #FFFFFF;
+  --text: #16171B;
+  --text-sub: #5B5D66;
+  --text-mute: #8A8C94;
+  --accent: #85660C;
+  --accent-fill: #E2B84A;
+  --accent-soft: rgba(154,119,22,0.12);
+  --accent-border: rgba(154,119,22,0.4);
+  --tab-pill: rgba(154,119,22,0.16);
+  --on-accent: #16171B;
+  --cta-color: #16171B;
+  --star-idle: #7C7E87;
+  --star-on: #D9A20F;
+  --win: #2E8A5C;
+  --win-soft: rgba(46,138,92,0.12);
+  --loss: #C2453B;
+  --loss-soft: rgba(194,69,59,0.12);
+  --draw: #8A7430;
+  --draw-soft: rgba(138,116,48,0.14);
+  --provisional: #4A6FB8;
+  --provisional-soft: rgba(74,111,184,0.12);
+  --provisional-border: rgba(74,111,184,0.38);
+  --live-soft: rgba(229,72,77,0.10);
+  --record: #56617A;
+  --record-soft: rgba(86,97,122,0.12);
+  --lb-ink-strong: #0B0C0F;
+  --lb-ink-2: #22242A;
+  --lb-ink-3: #3F414A;
+  --lb-rank-mid: #6B6D76;
+  --lb-rank-low: #9A9CA4;
+  --lb-stroke: #C9C7BF;
+  --lb-accent-wash: rgba(154,119,22,0.07);
+  --lb-accent-wash-border: rgba(154,119,22,0.30);
+  --bar-bg: rgba(250,250,248,0.85);
+  --seg-thumb: #FFFFFF;
+  --seg-thumb-shadow: 0 1px 3px rgba(20,22,28,0.16), 0 0 0 0.5px rgba(20,22,28,0.06);
+  --hero-shadow: 0 8px 18px rgba(20,22,28,0.22);
+  --splash-ink: #0B0C0F;
+  }
+}

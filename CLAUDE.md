@@ -359,9 +359,18 @@ the sample rides on the Activity PUT (`js/activity.js`) and the worker only vali
 **On the line** (`js/lines.js`, pure math in `js/lines-math.js`): how close each drafted team is to every placement
 rule that scores ("1 game behind Vikings" for Division title, "2 pts clear of the drop"), in games behind for record
 leagues and table points for EPL/NHL. It reads the same ranked tables the rules score from (`rankAutoRowTables` in
-`js/league-facts.js`), so it always agrees with Live points. The team page's Overview has a section for the team, and a
-drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
+`js/league-facts.js`), so it always agrees with Live points. The team page's Path to points (`teamPathToPoints`) puts each
+rule's line under it, and a drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
 ignore tiebreakers. Only for a league whose season is under way and not locked.
+
+**Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): a 300px hero (status-bar strip included) with the team
+orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
+cover is off on this page). Swiping the hero sideways moves through your own teams in Home's order (dots under it; off
+on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
+top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
+game counts down every second, Overview leads with Path to points (`teamPathToPoints` in `js/lines.js`: every rule as
+locked, live, in reach or off, with On the line's distance as its note) and the last five games as bars; every result
+row is on Full schedule.
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
@@ -388,8 +397,8 @@ team page's open/back functions therefore apply their DOM change asynchronously,
 (`draftEvents` / `playDraftEvents` in `js/draft.js`) and Scores (`playScoreEffects` in `js/live-now.js`: a goal's "+N",
 and the final whistle, after which a just-ended game stays on the Live tab for 2 minutes with a W chip) and Points
 (`obPlayFlip` / `obPlayLockIn` in `js/overall.js`: the rank shuffle, and your points locking in) and the team page
-(`js/team-page.js`: the hero bloom, stat roll and form cascade once per open; On the line flips; from the team modal, the
-crest and name morph into the hero through `view-transition-name`). A view compares the state it last rendered with the new one, writes
+(`js/team-page.js`: the orb bloom, stat roll, Path to points and form bars once per open; a rule's state change flips;
+from the team modal, the crest and name morph into the hero through `view-transition-name`). A view compares the state it last rendered with the new one, writes
 the DOM, then plays the effect. The first render, a reconnect and a hidden tab show the settled state with no effects,
 big moments play once per device (`once`), and every effect ends on exactly what the plain render shows. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in
@@ -425,4 +434,9 @@ the adoption plan, in step with `docs/motion-plan.md`, is `docs/design-system-pl
   and note it in the PR so the design system can add the component.
 - Motion follows `docs/motion-plan.md`. Gate everything with `canAnimateLive()` (`fxOn()` in `js/motion-fx.js`).
 - Meaning colors: gold (`--accent`) means you or locked points, blue (`--provisional`) means live points that can still
-  change, red (`--live`) means a game in progress, and team colors appear only on the team page hero and crests.
+  change, red (`--live`) means a game in progress. Team colors are identity, never meaning. They appear as crests and
+  badges, and as a soft blurred **team orb** (`teamOrbHtml`) on the team page hero, the draft room's pick landing, Since
+  last night cards, the champion reveal and the share card. Never use a team color for text, borders or state.
+- Gestures (swipes, pulls, drags) go through `js/gestures.js` (`attachDrag`, axis lock, pure decisions tested in
+  `tests/gestures.test.mjs`), with the distances in `js/utils.js` (`MOVE_SLOP`, `SWIPE_COMMIT`, `RUBBER_BAND`, …).
+  The delight pass (`docs/delight-plan.md`, prototypes in `docs/delight-reference/`) is the next round of motion.

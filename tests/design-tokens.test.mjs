@@ -131,3 +131,10 @@ test('custom properties on :root are defined only in css/tokens.css', () => {
   const defs = rootBlocks.flatMap(b => b.match(/--[\w-]+\s*:/g) || []);
   assert.deepEqual(defs, [], 'Move these :root custom properties into css/tokens.css');
 });
+
+test('the delight pass tokens are defined (docs/delight-plan.md)', () => {
+  const tokens = read('css/tokens.css');
+  for(const name of ['--orb-blur', '--orb-opacity', '--orb-opacity-soft', '--crest-shadow']){
+    assert.match(tokens, new RegExp(`${name}:\\s*[^;]+;`), `${name} missing from css/tokens.css`);
+  }
+});
