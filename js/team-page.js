@@ -498,6 +498,10 @@ function expandFromRow(teamKey, origin, src){
     page.classList.add('tp-still');
     renderTeamPage();
     page.querySelector('.tp-clip').scrollTop = 0;
+    // The page opens at its top, whatever the view underneath is scrolled
+    // to: a fold left over from that scroll (or the last visit's) would
+    // push the hero crest down, and the crest would fly to the wrong spot.
+    setFold(page, 0);
     runRowMotion({ opening: true, src, page, under, onDone: () => {
       liftTeamPageLayer(page, under);
       if(page.classList.contains('active')) window.scrollTo(0, 0);
@@ -523,6 +527,7 @@ function collapseToRow(origin){
   try{
     layTeamPageOver(page, under);
     page.querySelector('.tp-clip').scrollTop = pageScroll;
+    setFold(page, pageScroll);
     setActiveView('view-' + origin);
     page.classList.add('tp-still');
     updateUrlParam('view', origin === 'board' ? null : origin);
@@ -824,8 +829,13 @@ let scrollFrame = 0;
 function applyScroll(){
   scrollFrame = 0;
   const page = document.getElementById('view-team-page');
-  if(!page || !page.classList.contains('active')) return;
-  const y = Math.max(0, window.scrollY);
+  // While it's the crest transition's layer, the window's scroll is the
+  // view underneath's, not the page's (setFold sets it then).
+  if(!page || !page.classList.contains('active') || page.classList.contains('tp-layer')) return;
+  setFold(page, window.scrollY);
+}
+function setFold(page, scrollY){
+  const y = Math.max(0, scrollY);
   page.style.setProperty('--y', y.toFixed(1));
   page.style.setProperty('--p', Math.min(1, Math.max(0, (y - COLLAPSE_FROM) / COLLAPSE_OVER)).toFixed(3));
 }
