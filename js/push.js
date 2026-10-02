@@ -1,6 +1,6 @@
 /* ============================================================
    Push alerts: "You're on the clock" in the live draft, new chat
-   messages, and changes to your points (worker/points-alert.js),
+   messages, being tagged in chat, and changes to your points (worker/points-alert.js),
    delivered to this device even when Boxscore is closed. The worker
    sends them (worker/web-push.js); sw.js shows them.
 
@@ -21,7 +21,8 @@ const RESYNC_MS = 24 * 60 * 60 * 1000;      // re-register once a day so the wor
 export const PUSH_KINDS = [
   ['draft', 'My draft pick', 'When you go on the clock in the live draft'],
   ['points', 'My points', 'When your teams gain or lose points'],
-  ['chat', 'Chat messages', 'When someone posts while you’re away']
+  ['chat', 'Chat messages', 'When someone posts while you’re away'],
+  ['mention', 'Mentions', 'When someone tags you in chat']
 ].filter(([kind]) => kind !== 'points' || !PRE_DRAFT);
 
 let publicKey = null;
@@ -71,7 +72,12 @@ export function pushAvailability(){
 export function pushPrefs(){
   const saved = loadSaved();
   const on = saved && 'Notification' in window && Notification.permission === 'granted';
-  return { draft: !!(on && saved.prefs.draft), chat: !!(on && saved.prefs.chat), points: !!(on && saved.prefs.points) };
+  const prefs = { draft: !!(on && saved.prefs.draft), chat: !!(on && saved.prefs.chat), points: !!(on && saved.prefs.points) };
+  // Mentions default to on for a device that turned alerts on before the
+  // switch existed (wantsAlert in worker/web-push.js agrees).
+  const mention = on && saved.prefs.mention;
+  prefs.mention = typeof mention === 'boolean' ? mention : Object.values(prefs).some(Boolean);
+  return prefs;
 }
 
 // Fetched once per page load, ahead of any tap: iOS only shows the

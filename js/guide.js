@@ -117,8 +117,9 @@ const GUIDE = [
     points: [
       'Press and hold a message to react to it. Tap one to copy it.',
       'Use the GIF button to send a GIF.',
+      'Type @ to tag someone. They get an alert, and the Chat tab shows @ until they’ve seen it.',
       'Share to chat in a game’s box score posts the score as it stands. Its live line catches up once the game moves on.',
-      'The Chat tab shows how many messages you haven’t read.'
+      'The Chat tab shows how many messages you haven’t read, or @ when one tags you.'
     ],
     go: ['Go to Chat', "switchView('chat')"]
   },
@@ -151,13 +152,13 @@ const GUIDE = [
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat, and when the draft’s time is set.',
+    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat or tags you, and when the draft’s time is set.',
     points: [
       'Turn them on in Settings, under Alerts. Each device is set up on its own.',
       'On iPhone, alerts only work in the app added to your Home Screen.'
     ],
     pre: {
-      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat, and when the draft’s time is set.',
+      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat or tags you, and when the draft’s time is set.',
       points: [
         'Turn them on in Settings, under Alerts. Each device is set up on its own.',
         'On iPhone, alerts only work in the app added to your Home Screen.',

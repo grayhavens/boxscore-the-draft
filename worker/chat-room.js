@@ -29,6 +29,10 @@
                        or, for a game shared from Game Details (the text
                        is then written here — see worker/chat-game.js):
                        { type: 'send', from, game: {...} }
+                       any send may add `mentions: ['<drafterId>', ...]`,
+                       the drafters its text tags (js/chat-mentions.js);
+                       'everyone' tags the whole group and also needs
+                       `auth`, the commissioner password or token
                        { type: 'react', from, messageId, emoji } — toggles
                        that drafter's reaction on a message (send it again
                        to take it back); emoji must be in REACTION_EMOJI
@@ -47,7 +51,7 @@
                                                               a message's
                                                               reactions changed
                        { type: 'error', reason: '...' }       rejected send
-     message = { id, from, text, ts, gif?, game? } — id is the SQLite autoincrement
+     message = { id, from, text, ts, gif?, game?, mentions? } — id is the SQLite autoincrement
      key, so it's a total order the client can dedupe/resume against
      (connect with ?after=<lastSeenId> to only get what it missed).
      reactions = { '<emoji>': ['<drafterId>', ...] }, and only emoji with
@@ -59,10 +63,12 @@
      retained message's reactions, keyed by message id.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor } from '../js/groups.js';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName } from '../js/groups.js';
 import { effectiveDrafters } from './roster.js';
 import { pushToDrafters } from './web-push.js';
 import { parseGame, gameText } from './chat-game.js';
+import { checkCommissionerSecret } from './commissioner-token.js';
+import { EVERYONE, parseMentions, splitRecipients } from '../js/chat-mentions.js';
 
 // Each group (js/groups.js) has its own room (the worker picks it by
 // ?group=), and only that group's drafters can post in it. The group rides
@@ -85,6 +91,9 @@ const KEEP_MESSAGES = 1000;
 const RATE_WINDOW_MS = 10000;
 const RATE_MAX_MESSAGES = 10;
 const ADMIN_RECENT_MESSAGES = 40;
+// Wrong commissioner passwords a socket can send with "@everyone" before
+// it stops being checked (the message still posts, untagged).
+const MAX_AUTH_FAILURES = 5;
 
 // Mirrors REACTION_EMOJI in js/chat.js — the picker's order is also the
 // order reaction pills are shown in.
@@ -143,6 +152,9 @@ export class ChatRoom extends DurableObject {
     // Same for `game`, a shared game's snapshot (JSON text, else null).
     const hasGameColumn = this.sql.exec('PRAGMA table_info(messages)').toArray().some(c => c.name === 'game');
     if(!hasGameColumn) this.sql.exec('ALTER TABLE messages ADD COLUMN game TEXT');
+    // And `mentions`, the drafter ids a message tags (JSON array, else null).
+    const hasMentionsColumn = this.sql.exec('PRAGMA table_info(messages)').toArray().some(c => c.name === 'mentions');
+    if(!hasMentionsColumn) this.sql.exec('ALTER TABLE messages ADD COLUMN mentions TEXT');
     // Messages the admin deleted (worker/system-admin.js), by id, so a
     // device that was offline at the time drops its cached copy: the
     // history frame carries the list. Pruned with the messages.
@@ -221,12 +233,13 @@ export class ChatRoom extends DurableObject {
   // it missed); anything else is a fresh client and gets the latest page.
   messagesAfter(after){
     const rows = Number.isFinite(after) && after >= 0
-      ? this.sql.exec('SELECT id, sender, text, ts, gif, game FROM messages WHERE id > ? ORDER BY id ASC LIMIT ?', after, MAX_CATCHUP_MESSAGES).toArray()
-      : this.sql.exec('SELECT * FROM (SELECT id, sender, text, ts, gif, game FROM messages ORDER BY id DESC LIMIT ?) ORDER BY id ASC', HISTORY_ON_FRESH_CONNECT).toArray();
+      ? this.sql.exec('SELECT id, sender, text, ts, gif, game, mentions FROM messages WHERE id > ? ORDER BY id ASC LIMIT ?', after, MAX_CATCHUP_MESSAGES).toArray()
+      : this.sql.exec('SELECT * FROM (SELECT id, sender, text, ts, gif, game, mentions FROM messages ORDER BY id DESC LIMIT ?) ORDER BY id ASC', HISTORY_ON_FRESH_CONNECT).toArray();
     return rows.map(r => {
       const message = { id: r.id, from: r.sender, text: r.text, ts: r.ts };
       if(r.gif) message.gif = JSON.parse(r.gif);
       if(r.game) message.game = JSON.parse(r.game);
+      if(r.mentions) message.mentions = JSON.parse(r.mentions);
       return message;
     });
   }
@@ -316,9 +329,10 @@ export class ChatRoom extends DurableObject {
     }
 
     if(!this.allowFrom(ws)) return;
+    const mentions = await this.allowedMentions(ws, msg);
 
     const now = Date.now();
-    const { id } = this.sql.exec('INSERT INTO messages (sender, text, ts, gif, game) VALUES (?, ?, ?, ?, ?) RETURNING id', msg.from, text, now, gif ? JSON.stringify(gif) : null, game ? JSON.stringify(game) : null).one();
+    const { id } = this.sql.exec('INSERT INTO messages (sender, text, ts, gif, game, mentions) VALUES (?, ?, ?, ?, ?, ?) RETURNING id', msg.from, text, now, gif ? JSON.stringify(gif) : null, game ? JSON.stringify(game) : null, mentions.length ? JSON.stringify(mentions) : null).one();
     this.sql.exec('DELETE FROM messages WHERE id <= ?', id - KEEP_MESSAGES);
     this.sql.exec('DELETE FROM reactions WHERE message_id <= ?', id - KEEP_MESSAGES);
     this.sql.exec('DELETE FROM deleted WHERE id <= ?', id - KEEP_MESSAGES);
@@ -326,10 +340,27 @@ export class ChatRoom extends DurableObject {
     const message = { id, from: msg.from, text, ts: now };
     if(gif) message.gif = gif;
     if(game) message.game = game;
+    if(mentions.length) message.mentions = mentions;
     this.broadcast({ type: 'message', message });
     // Awaited after the broadcast, so everyone connected already has the
     // message; it just keeps the room awake until the pushes are out.
     await this.pushMessage(socketGroup(ws), message);
+  }
+
+  // The drafters a message may tag. "@everyone" is the commissioner's
+  // only: it needs the password (or an admin page token) on the send,
+  // and is dropped, not refused, without it, so the message still posts.
+  async allowedMentions(ws, msg){
+    const mentions = parseMentions(msg.mentions, socketDrafterIds(ws), msg.from);
+    if(!mentions.includes(EVERYONE)) return mentions;
+    const attachment = ws.deserializeAttachment() || { sent: [] };
+    const group = socketGroup(ws);
+    let ok = false;
+    if((attachment.authFailures || 0) < MAX_AUTH_FAILURES){
+      ok = await checkCommissionerSecret(msg.auth, this.env[adminSecretName(group)], group);
+      if(!ok) ws.serializeAttachment({ ...(ws.deserializeAttachment() || attachment), authFailures: (attachment.authFailures || 0) + 1 });
+    }
+    return ok ? mentions : mentions.filter(id => id !== EVERYONE);
   }
 
   // Presence is per socket (a drafter can have the app open on two
@@ -344,7 +375,8 @@ export class ChatRoom extends DurableObject {
   // Alerts everyone in the group but the sender and anyone with the app
   // on screen right now. The phone collapses a run of these into one
   // notification (see sw.js), and the Topic does the same for a phone
-  // that's offline.
+  // that's offline. Anyone the message tags gets a mention alert instead,
+  // which stands on its own ("Josh mentioned you") and has its own switch.
   async pushMessage(group, message){
     const watching = new Set();
     for(const socket of this.ctx.getWebSockets()){
@@ -355,14 +387,26 @@ export class ChatRoom extends DurableObject {
     const text = message.text.length > PUSH_PREVIEW_LENGTH ? `${message.text.slice(0, PUSH_PREVIEW_LENGTH - 1)}…` : message.text;
     // Confirmed spots (worker/roster.js) carry their real name, not the placeholder.
     const sender = (await effectiveDrafters(this.env, group)).find(d => d.id === message.from);
-    return pushToDrafters(this.env, group, recipients, 'chat', {
-      kind: 'chat',
-      title: sender ? sender.name : 'Chat',
-      body: text || 'Sent a GIF',
-      url: './?view=chat',
-      tag: 'chat',
-      id: message.id
-    }, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'chat' });
+    const { tagged, others } = splitRecipients(recipients, message.mentions);
+    const name = sender ? sender.name : 'Someone';
+    await Promise.all([
+      pushToDrafters(this.env, group, others, 'chat', {
+        kind: 'chat',
+        title: sender ? sender.name : 'Chat',
+        body: text || 'Sent a GIF',
+        url: './?view=chat',
+        tag: 'chat',
+        id: message.id
+      }, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'chat' }),
+      pushToDrafters(this.env, group, tagged, 'mention', {
+        kind: 'mention',
+        title: (message.mentions || []).includes(EVERYONE) ? `${name} mentioned everyone` : `${name} mentioned you`,
+        body: text || 'Sent a GIF',
+        url: './?view=chat',
+        tag: 'mention',
+        id: message.id
+      }, { ttl: 24 * 60 * 60, urgency: 'high', topic: 'mention' })
+    ]);
   }
 
   async webSocketClose(ws, code){

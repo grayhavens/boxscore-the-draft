@@ -69,6 +69,7 @@ const SHELL_FILES = [
   './js/version.js',
   './js/admin.js',
   './js/chat.js',
+  './js/chat-mentions.js',
   './js/favorites.js',
   './js/gif-picker.js',
   './js/gifs.js',
@@ -170,6 +171,17 @@ async function showAlert(data){
       title = `${count} new messages`;
     }
     if(self.navigator.setAppBadge) self.navigator.setAppBadge(count).catch(() => {});
+  }
+  // Mentions stack the same way, apart from the chat run, so being
+  // tagged is never folded into "3 new messages".
+  if(data.kind === 'mention'){
+    const shown = await self.registration.getNotifications({ tag: 'mention' });
+    const prev = shown[shown.length - 1];
+    if(prev && prev.data && prev.data.count){
+      count = prev.data.count + 1;
+      body = `${title}: ${body}`;
+      title = `${count} new mentions`;
+    }
   }
   // The draft's start time arrives as a timestamp (`at`), since only this
   // device knows its time zone (worker/draft-time-alert.js).

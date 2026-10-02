@@ -197,6 +197,16 @@ The system admin page can delete a message for everyone: the room broadcasts `{t
 keeps the deleted ids (pruned with the messages) in the `history` frame's `deleted` list, for the same reason, so a
 device that was away drops its cached copy.
 
+**Chat mentions** (`js/chat-mentions.js`, pure and shared with the worker and tests): typing `@` in the composer opens a
+list of the group above it, and a sent message carries `mentions`, the drafter ids its text tags (ids, since names have
+spaces and a roster confirm can rename a spot). The worker keeps only real drafters (`parseMentions`) in a `mentions`
+column. Anyone tagged gets a "Josh mentioned you" alert instead of the chat one (`splitRecipients`), its own `mention`
+switch in Settings → Alerts, on by default for a device that never set it (`wantsAlert` in `worker/web-push.js`), and
+mention alerts stack apart from chat's in `sw.js`. A message that tags you is outlined in gold and the Chat badge reads
+`@` while one is unread. `@everyone` is the commissioner's: offered only on a device with the password saved, sent with
+it as `auth`, and dropped by the room (the message still posts) unless `checkCommissionerSecret` passes. **Deploy the
+worker first:** an old worker ignores `mentions`, so tags would neither highlight nor alert.
+
 **Shared games in chat** (`js/game-card.js`, `worker/chat-game.js`): Game Details' "Share to chat" button posts the
 game right away (no caption step) and jumps to the Chat tab. The message's `game` field is a snapshot of the game
 at that moment (league, ESPN event id, state, status, both sides' team key/name/abbr/score), shown as a frozen card that
