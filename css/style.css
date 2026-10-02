@@ -876,7 +876,7 @@ body{
   border-radius: 8px;
 }
 
-/* Both the badge and the name open the team modal (openTeamModal) —
+/* Both the badge and the name open the team page (openTeamPage) —
    plain buttons with no chrome of their own, so the row still looks
    like a row and not a toolbar. */
 .tg-badge-btn,
@@ -1097,8 +1097,8 @@ body{
 
 .modal-close:hover{ color: var(--text); background: rgba(var(--ink-rgb),0.1); }
 
-/* Team modal head: the favorite star sits beside .modal-close (see
-   openTeamModal in js/live-data.js) — this wrapper takes over the
+/* Sheet head (the golfer sheet, the draft room's team sheet): the
+   favorite star sits beside .modal-close — this wrapper takes over the
    absolute corner positioning so .modal-close can drop its own
    (still used standalone everywhere else the class appears, e.g. the
    identity-switcher and Scores-scope sheets in index.html). */
@@ -1336,10 +1336,6 @@ body{
 }
 .modal-section-title.spaced{ margin-top: 16px; }
 
-.form-list{
-  margin-bottom: 20px;
-}
-
 .form-item{
   display: flex;
   align-items: center;
@@ -1362,15 +1358,6 @@ body{
 .form-pill.w{ background: var(--win-soft); color: var(--win); }
 .form-pill.d{ background: var(--draw-soft); color: var(--draw); }
 .form-pill.l{ background: var(--loss-soft); color: var(--loss); }
-
-/* Last-5 form row (EPL, ahead of the detailed match line below it) —
-   same .form-pill circles as the detailed row, just side by side with
-   no detail text. */
-.form-strip{
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
 
 .form-detail{
   font-size: var(--fs-13);
@@ -2664,23 +2651,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 /* ---- Live data additions ---- */
 
-/* Modal-head season-phase badge (see seasonStatus/renderSeasonBadge in
-   js/live-data.js) — same soft-badge shape as .zone-tag below, one tint
-   per phase so Pre/In/Post-Season and Season Complete read apart at a
-   glance without needing the label alone to carry it. Its shape is the
-   shared tag recipe ("Tags: one shape for every status pill" below). */
-.season-badge.pre{ color: var(--provisional); background: var(--provisional-soft); }
-.season-badge.in{ color: var(--win); background: var(--win-soft); }
-.season-badge.post{ color: var(--accent); background: var(--accent-soft); }
-.season-badge.complete{ color: var(--record); background: var(--record-soft); }
-
-/* EPL qualification-zone tag (Champions League/Europa League/
-   Relegation) — color and background come from ESPN's own note.color
-   per team (see softZoneTint/renderStats in js/live-data.js): a
-   low-alpha tint of that color behind full-strength text, same
-   soft-badge look as .season-badge above, rather than a solid pastel
-   fill. The tint is set inline; the shape is the shared tag recipe below. */
-
 .no-live-note{
   font-size: var(--fs-13);
   color: var(--text-sub);
@@ -3504,8 +3474,12 @@ html:has(#view-team-page.active) .safe-area-top{ visibility: hidden; }
   -webkit-user-select: none;
   user-select: none;
 }
-/* Sideways drags are the swipe; vertical ones still scroll the page. */
-.team-hero.swipes{ touch-action: pan-y; cursor: grab; }
+/* Sideways drags anywhere on the page are the swipe between teams;
+   vertical ones still scroll it. A swipe slides the page past the screen's
+   edge, which mustn't make the page scroll sideways. */
+#team-page-content.swipes{ touch-action: pan-y; }
+#team-page-content.swipes .team-hero{ cursor: grab; }
+html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflow-x: clip; }
 .team-hero img{ -webkit-user-drag: none; }
 .team-hero-orb{ left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px; }
 .team-hero-scrim{
@@ -3678,7 +3652,7 @@ html:has(#view-team-page.active) .safe-area-top{ visibility: hidden; }
 .sec-card-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
 .sec-card-title{ margin: 0; font-family: var(--font-display); font-size: var(--fs-16); font-weight: 700; }
 .sec-card-sub{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
-#ptp-section:not(:empty){ margin-bottom: 14px; }
+#ptp-section:not(:empty){ margin: 14px 0; }
 
 /* PathToPoints (pathToPointsHtml). Gold is locked, blue is live, a ring is
    in reach, a faded ring is off; a penalty the team is in is red, like a
@@ -3709,6 +3683,39 @@ html:has(#view-team-page.active) .safe-area-top{ visibility: hidden; }
 .ptp-step.locked .ptp-pts{ color: var(--accent); }
 .ptp-step.live .ptp-pts{ color: var(--provisional); }
 .ptp-step.neg.live .ptp-pts, .ptp-step.neg.locked .ptp-pts{ color: var(--loss); }
+
+/* Folded (pathToPointsHtml with `toggle`): the head is the button, and the
+   ladder shrinks to a row of its nodes plus a count. The two swap through
+   0fr ↔ 1fr grid rows, so each animates its own height. */
+.ptp-toggle{
+  width: 100%; margin: 0; padding: 0;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left;
+  align-items: center; cursor: pointer;
+}
+.ptp-toggle .sec-card-title{ flex: 1; min-width: 0; }
+.ptp-toggle svg{ flex: none; color: var(--text-mute); transition: transform var(--dur-move) var(--ease-out); }
+.ptp.fold.open .ptp-toggle svg{ transform: rotate(180deg); }
+.ptp-fold, .ptp-unfold{ display: grid; transition: grid-template-rows var(--dur-move) var(--ease-out), opacity var(--dur-move) var(--ease-out); }
+.ptp-fold{ grid-template-rows: 1fr; }
+.ptp-unfold{ grid-template-rows: 0fr; opacity: 0; }
+.ptp-fold > *, .ptp-unfold > *{ min-height: 0; overflow: hidden; }
+.ptp.fold.open .ptp-fold{ grid-template-rows: 0fr; opacity: 0; }
+.ptp.fold.open .ptp-unfold{ grid-template-rows: 1fr; opacity: 1; }
+.ptp.fold .sec-card-head{ margin-bottom: 0; }
+.ptp.fold.open .ptp-steps{ padding-top: 6px; }
+.ptp-sum{ display: flex; align-items: center; gap: 12px; padding-top: 10px; }
+.ptp-dots{ display: flex; align-items: center; gap: 5px; flex: none; }
+.ptp-dot{ width: 10px; height: 10px; border: 2px solid var(--hairline-strong); border-radius: 50%; }
+.ptp-dot.locked{ background: var(--accent); border-color: var(--accent); }
+.ptp-dot.live{ background: var(--live-stripe); border-color: var(--provisional); }
+.ptp-dot.reach{ border-color: var(--provisional-border); }
+.ptp-dot.off{ opacity: 0.45; }
+.ptp-dot.neg.live{ background: var(--risk-stripe); border-color: var(--loss); }
+.ptp-dot.neg.locked{ background: var(--loss); border-color: var(--loss); }
+.ptp-count{ min-width: 0; font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
+@media (prefers-reduced-motion: reduce){
+  .ptp-fold, .ptp-unfold, .ptp-toggle svg{ transition: none; }
+}
 
 /* FormStrip (formStripHtml): the last five as bars off a midline. */
 .form-strip-bars{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -3857,10 +3864,6 @@ button.fs-col:hover{ background: var(--hover); }
   line-height: 1.5;
 }
 
-/* Trimmed team modal's hand-off to the Team Page (js/live-data.js's
-   openTeamModal) — same accent-soft/accent-border "callout" recipe
-   .prior-season-note/.ob-sim-banner already use, shaped into a
-   full-width button instead of a text banner. */
 /* Tag (tagHtml in js/ui.js): one shape for every status pill. Blue =
    provisional, gold = locked/leader, green = positive, red = at risk. */
 .status-tag{
@@ -4722,9 +4725,9 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 
 
 /* ==== Tags: one shape for every status pill (R9) ====
-   season-badge, zone-tag, pts-tag and status-pill all share the same
-   recipe; each keeps only its own color. */
-.season-badge, .zone-tag, .pts-tag, .status-pill{
+   pts-tag and status-pill share the same recipe; each keeps only its
+   own color. */
+.pts-tag, .status-pill{
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -5672,9 +5675,9 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes vt-pop-old{ to{ transform: translateX(100%); } }
 @keyframes vt-pop-new{ from{ transform: translateX(-28%); filter: brightness(0.55); } }
 
-/* Standings row ↔ Team page container transform (js/team-page.js,
+/* Team crest ↔ Team page container transform (js/team-page.js,
    expandFromRow/collapseToRow). While it runs the team page is a fixed
-   layer over the Standings view, at exactly its in-flow spot at scroll 0:
+   layer over the view the tap came from, at exactly its in-flow spot at scroll 0:
    the view's own column (--tp-l/--tp-w), pushed down by --tp-t, with the
    screen around it painted --bg. The clip-path that grows it out of the
    row is animated on it from JS. .tp-still holds off .view-push-in, which
@@ -5782,13 +5785,6 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes tg-final-rail{ from{ color: var(--live); } }
 @keyframes tg-final-dim{ from{ color: var(--text); } }
 
-
-/* Team page from the team modal: its crest and name morph into the hero's
-   (view-transition-name tp-crest / tp-name), on the push's own timing. */
-@media (prefers-reduced-motion: no-preference){
-  ::view-transition-group(tp-crest),
-  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: var(--ease-push); }
-}
 
 /* Pull to refresh (js/pull-refresh.js): the launch splash's mark, 44px, in
    the gap the page leaves as it's pulled down. Its geometry is the

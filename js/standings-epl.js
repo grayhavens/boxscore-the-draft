@@ -12,7 +12,6 @@ import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { liveDataCache, renderLiveBundle } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -78,11 +77,6 @@ export function fetchEplStandingsTable(){
     }
     standingsDataChanged();
     renderAllEplCardRecords();
-    // Modal stats (renderStats) read eplStandingsCache.table directly
-    // rather than storing their own copy, so if the currently-open
-    // team's modal is EPL, repaint it now that the table just changed.
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    if(activeTeam && liveDataCache[activeTeam]) renderLiveBundle(activeTeam, liveDataCache[activeTeam]);
   })();
   return eplStandingsPromise;
 }

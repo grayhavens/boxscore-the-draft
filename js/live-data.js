@@ -1,9 +1,11 @@
 /* ============================================================
    Live data: fetch, cache, and render each team's stats/last
-   result/next fixture, plus the team detail modal and the staggered
-   background refresh loop that keeps it all current.
+   result/next fixture (Home's row status, the team page's stat strip
+   and next game), the Game Details sheet, and the staggered background
+   refresh loop that keeps it all current. Every team tap goes to the
+   team page (js/team-page.js); the old team peek modal is gone.
    ============================================================ */
-import { TEAM_META, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { TEAM_META, LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
 import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
@@ -18,8 +20,6 @@ import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisio
 import { nhlRecordLabel, findEspnNhlRow, fetchEspnNhlStandingsCached, nhlDivisionLabel, nhlDivisionRank, nhlConferenceRank, fetchEspnNhlDivisionStandingsCached } from './standings-nhl.js';
 import { mlbRecordLabel, findEspnMlbRow, fetchEspnMlbStandingsCached, mlbDivisionLabel, mlbDivisionRank, mlbConferenceRank, fetchEspnMlbDivisionStandingsCached } from './standings-mlb.js';
 import { wnbaRecordLabel, findEspnWnbaRow, fetchEspnWnbaStandingsCached } from './standings-wnba.js';
-import { favoriteStarHtml } from './favorites.js';
-import { openGolfer } from './golf-view.js';
 import { getSeasonPhaseLabel } from './season-phase.js';
 
 import { buttonHtml, iconButtonHtml } from './ui.js';
@@ -367,7 +367,7 @@ export async function fetchTeamBundle(teamKey){
   // the generic branch below: NBA/NHL/MLB/WNBA teams that were never
   // given a sportsdbId (every currently-drafted team but Josh's own —
   // real board-card records for them already came from this same
-  // name-matching, see js/standings-flat.js) get a real modal schedule
+  // name-matching, see js/standings-flat.js) get a real schedule
   // here too, not just the "not hooked up" placeholder they got before
   // this was checked ahead of the sportsdbId gate. Only commits to this
   // path once that id actually resolves — a team whose row genuinely
@@ -436,22 +436,11 @@ export async function fetchTeamBundle(teamKey){
   return bundle;
 }
 
-// Turns ESPN's solid zone hex (e.g. "#81D6AC") into a low-alpha rgba,
-// matching the soft-tint badge look used everywhere else (--win-soft,
-// --loss-soft, etc.) instead of a solid pastel fill with forced dark text.
-function softZoneTint(hex, alpha){
-  const h = hex.replace(/^#+/, '');
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 // EPL's ESPN season has no pre/post/off split at all — the core API
 // lists exactly one continuous "types" entry for the whole Aug-May
 // campaign, unlike NFL/NBA/etc's four (see js/season-phase.js, which
 // covers those). So instead of a real season.type, this reads the same
-// schedule already fetched for the modal (bundle.espnSchedule) and
+// schedule already fetched for the team (bundle.espnSchedule) and
 // infers phase from what's actually on it: nothing played and nothing
 // left means the close season, nothing played yet but fixtures exist
 // means it hasn't kicked off, and everything else (or a full but
@@ -468,9 +457,7 @@ function eplSeasonStatus(bundle){
 }
 
 // What phase of its season this team's league is actually in right
-// now — not just "do we have live data hooked up" (that's hasLive in
-// openTeamModal, which only gates whether this badge's slot exists at
-// all). NFL/NBA/NHL/MLB/WNBA/CFB/mcbb read js/season-phase.js's shared,
+// now (the team page's status pill). NFL/NBA/NHL/MLB/WNBA/CFB/mcbb read js/season-phase.js's shared,
 // date-range-verified cache (see that module's header comment for why
 // this used to read a since-removed bundle.espnSeason pointer field
 // instead, and why that was unreliable); EPL keeps its own schedule-
@@ -484,24 +471,7 @@ export function seasonStatus(meta, bundle){
   return getSeasonPhaseLabel(meta.leagueKey);
 }
 
-function renderSeasonBadge(meta, bundle){
-  const el = document.getElementById('season-badge');
-  if(!el) return;
-  // MLB/WNBA: this badge would just be reporting on the '26 season
-  // that doesn't count towards drafted points (see priorSeasonNoteHtml
-  // in openTeamModal below) — showing "In-Season" here reads as if the
-  // team is live for scoring purposes, so skip the badge entirely.
-  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)) {
-    el.style.display = 'none';
-    el.innerHTML = '';
-    return;
-  }
-  const status = seasonStatus(meta, bundle);
-  el.style.display = status ? 'inline-block' : 'none';
-  el.innerHTML = status ? `<span class="season-badge ${status.cls}">${status.label}</span>` : '';
-}
-
-export function renderStats(meta, bundle, elId = 'live-stats'){
+export function renderStats(meta, bundle, elId){
   const el = document.getElementById(elId);
   if(!el) return;
 
@@ -518,21 +488,6 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
         <div class="stat-cell"><div class="num">${row.points}</div><div class="lbl">Points</div></div>
         <div class="stat-cell"><div class="num">${row.wins}-${row.draws}-${row.losses}</div><div class="lbl">W-D-L</div></div>
       `;
-      // Champions League/Europa League/Relegation — straight off ESPN's
-      // own qualification-zone note, which TheSportsDB's table never
-      // had at all. Sits in the modal head (see openTeamModal), not the
-      // stat strip, so this only updates that one span rather than
-      // re-rendering stats around it.
-      const zoneEl = document.getElementById('zone-tag');
-      if(zoneEl){
-        // display toggled (not just emptied) so an inactive zone doesn't
-        // still eat a flex gap slot in .modal-sub next to it.
-        zoneEl.style.display = row.zone ? 'inline-block' : 'none';
-        const zoneColor = row.zoneColor || '#94969E';
-        zoneEl.innerHTML = row.zone
-          ? `<span class="zone-tag" style="color:${zoneColor};background:${softZoneTint(zoneColor, 0.16)};">${row.zone}</span>`
-          : '';
-      }
       return;
     }
   }
@@ -559,14 +514,14 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
   // (and did) drift from what the Standings tab showed once that moved
   // to ESPN. Division now comes from that same Standings-tab source too
   // (nflDivisionLabel/fetchEspnNflDivisionStandingsCached) — it didn't
-  // exist when this modal was first built (ESPN's simple standings
+  // exist when this stat strip was first built (ESPN's simple standings
   // endpoint has no division field at all; that heavier per-division
   // fetch came later), which is why Conference used to be the only
   // grouping shown here. fetchEspnNflDivisionStandingsCached is a no-op
   // if already fresh; kicked off here (not just from the Standings tab)
-  // since this is often the first place in a session that needs it —
-  // its own completion re-renders this modal if it's still open once
-  // that heavier fetch resolves.
+  // since this is often the first place in a session that needs it (the
+  // team page repaints its strip once its tables land, ensureTables in
+  // js/team-page.js).
   if(meta.leagueKey === 'nfl'){
     const row = findEspnNflRow(meta);
     if(row){
@@ -588,8 +543,8 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
   // leagues had no real record source at all before ESPN, only the
   // generic Sport/Founded/Stadium bio fields below. Division (NBA/NHL/
   // MLB only — WNBA has no real divisions, see js/standings-wnba.js)
-  // follows the same "kick off the heavier fetch here, its own
-  // completion re-renders this modal" pattern as NFL's above.
+  // follows the same "kick off the heavier fetch here" pattern as NFL's
+  // above.
   if(meta.leagueKey === 'nba'){
     const record = nbaRecordLabel(meta);
     if(record){
@@ -725,123 +680,7 @@ export function teamRecordStanding(meta){
   return null;
 }
 
-// Last 5 results as a compact row of pills, oldest on the left ending
-// with the most recent (matches recentEvents' own newest-first order,
-// so this just reverses a slice of it) — the detailed line rendered
-// below it always covers the rightmost/most recent one already.
-function formPillsHtml(recentEvents){
-  const last5 = recentEvents.slice(0, 5).reverse();
-  return `
-    <div class="form-strip">
-      ${last5.map(evt => {
-        let cls = 'd', label = 'D';
-        if(evt.ownScore > evt.oppScore){ cls = 'w'; label = 'W'; }
-        else if(evt.ownScore < evt.oppScore){ cls = 'l'; label = 'L'; }
-        const title = `${evt.isHome ? 'vs' : 'at'} ${evt.opponentName} · ${evt.ownScore}-${evt.oppScore}`;
-        return `<div class="form-pill ${cls}" title="${title}">${label}</div>`;
-      }).join('')}
-    </div>
-  `;
-}
-
-export function renderForm(teamKey, meta, bundle, elId = 'live-form'){
-  const el = document.getElementById(elId);
-  if(!el) return;
-  const id = meta.sportsdbId;
-
-  const rStatus = bundle.rundownEvent && bundle.rundownEvent.score && bundle.rundownEvent.score.event_status;
-  if(rStatus === 'STATUS_FINAL'){
-    const line = rundownEventLine(bundle.rundownEvent, bundle.rundownTeamId);
-    let result = 'd', label = 'D';
-    if(line.own > line.opp){ result = 'w'; label = 'W'; }
-    else if(line.own < line.opp){ result = 'l'; label = 'L'; }
-    el.innerHTML = `
-      <div class="form-item">
-        <div class="form-pill ${result}">${label}</div>
-        <div class="form-detail">
-          <span class="opp">${line.opponentName}</span>
-          <span class="meta">${line.isHome ? 'Home' : 'Away'}</span>
-        </div>
-        <div class="form-score">${line.own}–${line.opp}</div>
-      </div>
-    `;
-    return;
-  }
-
-  // EPL: real schedule data from ESPN (js/espn.js) instead of
-  // TheSportsDB's eventslast — see fetchEspnTeamSchedule. Adds a
-  // "Form" strip (last 5 results) above the usual detailed line, and a
-  // real venue name on that line — neither available from TheSportsDB.
-  if(bundle.espnSchedule){
-    const recent = bundle.espnSchedule.recent;
-    const evt = recent && recent[0];
-    if(!evt){
-      el.innerHTML = `<div class="loading-note">No recent result found.</div>`;
-      return;
-    }
-    let result = 'd', label = 'D';
-    if(evt.ownScore > evt.oppScore){ result = 'w'; label = 'W'; }
-    else if(evt.ownScore < evt.oppScore){ result = 'l'; label = 'L'; }
-    // Same Game Details sheet as the LIVE entry chip in renderNext, just
-    // for this team's last completed game instead of one in progress —
-    // gated the same way (a league wired up in GAME_DETAIL_LEAGUES and a
-    // real ESPN event id). Styled as a plain text link rather than a
-    // pill/chip — lighter still than the LIVE chip, since this sits
-    // amid an already-busy result row (form pill, opponent, score)
-    // rather than being the row's only secondary element.
-    const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
-    const boxscoreLinkHtml = (gameDetail && evt.id) ? `
-      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${evt.id}')">View boxscore <span class="chev">›</span></div>
-    ` : '';
-    el.innerHTML = `
-      ${formPillsHtml(recent)}
-      <div class="form-item">
-        <div class="form-pill ${result}">${label}</div>
-        <div class="form-detail">
-          <span class="opp">${evt.opponentName}</span>
-          <span class="meta">${evt.isHome ? 'Home' : 'Away'}${evt.venueName ? ' · ' + evt.venueName : ''}</span>
-        </div>
-        <div class="form-right">
-          <div class="form-score">${evt.ownScore}–${evt.oppScore}</div>
-          ${boxscoreLinkHtml}
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  const evt = bundle.last && bundle.last.results && bundle.last.results[0];
-  if(!evt){
-    el.innerHTML = bundle.rundownOnly
-      ? `<div class="loading-note">No recent result — check back once the season's underway.</div>`
-      : `<div class="loading-note">No recent result found.</div>`;
-    return;
-  }
-
-  const isHome = String(evt.idHomeTeam) === String(id);
-  const opponent = isHome ? evt.strAwayTeam : evt.strHomeTeam;
-  const own = isHome ? evt.intHomeScore : evt.intAwayScore;
-  const opp = isHome ? evt.intAwayScore : evt.intHomeScore;
-
-  let result = 'd', label = 'D';
-  if(own !== null && opp !== null && own !== undefined && opp !== undefined){
-    if(parseInt(own, 10) > parseInt(opp, 10)){ result = 'w'; label = 'W'; }
-    else if(parseInt(own, 10) < parseInt(opp, 10)){ result = 'l'; label = 'L'; }
-  }
-
-  el.innerHTML = `
-    <div class="form-item">
-      <div class="form-pill ${result}">${label}</div>
-      <div class="form-detail">
-        <span class="opp">${opponent || 'TBD'}</span>
-        <span class="meta">${isHome ? 'Home' : 'Away'}${evt.dateEvent ? ' · ' + evt.dateEvent : ''}</span>
-      </div>
-      <div class="form-score">${own ?? '–'}–${opp ?? '–'}</div>
-    </div>
-  `;
-}
-
-// Shared by renderNext, renderForm, and renderRowStatus: pulls this
+// Shared by renderNext and renderRowStatus: pulls this
 // team's own score, the opponent's score/name, and a human clock/period
 // label out of a TheRundown event, from that team's perspective — live
 // or not; callers branch on event_status first.
@@ -855,7 +694,7 @@ export function rundownEventLine(event, rundownTeamId){
   return { isHome, own, opp, opponentName: (opponent && opponent.name) || 'TBD', period };
 }
 
-export function renderNext(teamKey, meta, bundle, elId = 'live-next'){
+export function renderNext(teamKey, meta, bundle, elId){
   const el = document.getElementById(elId);
   if(!el) return;
   const id = meta.sportsdbId;
@@ -996,7 +835,7 @@ function clearStatusSlot(el){
   el.onclick = null;
 }
 
-// Board-row status: reuses whatever the modal fetch already pulled
+// Board-row status: reuses whatever the bundle fetch already pulled
 // (last result / next fixture) rather than fetching anything extra,
 // so it stays inside the same 30 req/min budget described in js/api.js.
 export function renderRowStatus(teamKey, bundle){
@@ -1019,11 +858,11 @@ export function renderRowStatus(teamKey, bundle){
   // js/espn.js. Same priority-over-everything-else idea as renderNext.
   if(bundle.espnLive && bundle.espnLive.isLive){
     // Tapping the value jumps straight to the Game Details boxscore
-    // sheet instead of the team modal underneath it — but only where
-    // that sheet actually exists (GAME_DETAIL_LEAGUES) and this live
-    // game has a real ESPN eventId to fetch it with. Everywhere else
-    // the slot has no handler of its own, so the click bubbles up to
-    // the row's openTeamModal exactly like before.
+    // sheet instead of the team page — but only where that sheet
+    // actually exists (GAME_DETAIL_LEAGUES) and this live game has a
+    // real ESPN eventId to fetch it with. Everywhere else the slot has
+    // no handler of its own, so the click bubbles up to the row's
+    // openTeamPage.
     const gameDetail = GAME_DETAIL_LEAGUES[meta.leagueKey];
     const eventId = bundle.espnLive.eventId;
     paintStatusSlot(el, {
@@ -1152,15 +991,6 @@ export function renderRowStatus(teamKey, bundle){
   clearStatusSlot(el);
 }
 
-export function renderLiveBundle(teamKey, bundle){
-  const meta = TEAM_META[teamKey];
-  if(!meta || !bundle) return;
-  renderStats(meta, bundle);
-  renderSeasonBadge(meta, bundle);
-  renderForm(teamKey, meta, bundle);
-  renderNext(teamKey, meta, bundle);
-}
-
 // How old a cached bundle can be before opening that team refetches it.
 // Same order as the 5-minute background rotation (MIN_REFRESH_CYCLE_MS),
 // so a team viewed mid-rotation isn't refetched twice for nothing.
@@ -1170,90 +1000,9 @@ export function isBundleStale(bundle){
   return !at || (Date.now() - at) > BUNDLE_STALE_MS;
 }
 
-async function openLiveTeam(teamKey){
-  const bundle = await fetchTeamBundle(teamKey);
-  if(bundle) renderRowStatus(teamKey, bundle);
-  // If the modal moved on to a different team while this was loading, bail.
-  if(document.getElementById('modal-content').dataset.activeTeam !== teamKey) return;
-
-  if(bundle){
-    renderLiveBundle(teamKey, bundle);
-  } else {
-    const el = document.getElementById('live-form');
-    if(el) el.innerHTML = `<div class="loading-note">Unable to load live data right now — try again in a moment.</div>`;
-  }
-}
-
-export function openTeamModal(teamKey){
-  const meta = TEAM_META[teamKey];
-  if(!meta) return;
-  // Golfers get their own sheet (js/golf-view.js).
-  if(meta.kind === 'golfer'){ openGolfer(meta.espnAthleteId); return; }
-
-  openSheetOverlay(document.getElementById('modal-overlay'));
-  lockBodyScroll();
-
-  const modalContent = document.getElementById('modal-content');
-  modalContent.dataset.activeTeam = teamKey;
-
-  // A team also has live data if its league is in FLAT_SCHEDULE_LEAGUES
-  // (see fetchTeamBundle) — that path matches by name/nickname, not
-  // sportsdbId, so it covers NBA/NHL/MLB/WNBA teams that were never
-  // given a sportsdbId too (every currently-drafted team but Josh's
-  // own), not just the ones with real TheSportsDB/TheRundown ids.
-  const hasLive = !!meta.sportsdbId || !!meta.rundownTeamId || !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-  const cached = hasLive ? liveDataCache[teamKey] : null;
-  // The Team Page (js/team-page.js) only exists for leagues on the ESPN
-  // schedule/standings path (FLAT_SCHEDULE_LEAGUES) — College
-  // Basketball has no ESPN wiring at all (see that map's own header
-  // comment) and stays on this modal alone, so it gets no hand-off CTA.
-  const hasTeamPage = !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-  const ctaHtml = hasTeamPage ? `
-    ${buttonHtml({ label: 'View team page ›', onclick: `closeTeamModal(); openTeamPage('${teamKey}', 'board');` })}
-    <div class="modal-cta-note">News, season splits and the full squad live there</div>
-  ` : '';
-
-  modalContent.innerHTML = `
-    <div class="modal-accent" style="background:${meta.accent};"></div>
-    <div class="modal-head">
-      ${teamBadgeHtml(meta)}
-      <div>
-        <h2>${meta.fullName || meta.name}</h2>
-        <div class="modal-sub">${meta.sub}${hasLive ? ' <span id="season-badge" style="display:none;"></span>' : ''}${meta.leagueKey === 'epl' ? '<span id="zone-tag" style="display:none;"></span>' : ''}</div>
-      </div>
-      <div class="modal-actions">
-        ${favoriteStarHtml(teamKey)}
-        <button class="modal-close" onclick="closeTeamModal()">&times;</button>
-      </div>
-    </div>
-    ${hasLive ? `
-      <div class="stat-strip" id="live-stats">${cached ? '' : '<div class="stat-cell"><div class="lbl">Loading…</div></div>'}</div>
-      <div class="modal-body">
-        <div class="modal-section-title">${meta.recentLabel || 'Most Recent Result'}</div>
-        <div class="form-list" id="live-form">${cached ? '' : skeletonLinesHtml(3)}</div>
-        <div class="modal-section-title">${meta.leagueKey === 'epl' ? 'Next Match' : 'Next Game'}</div>
-        <div class="next-match" id="live-next">${cached ? '' : skeletonLinesHtml(3)}</div>
-        ${ctaHtml}
-      </div>
-    ` : `
-      <div class="modal-body">
-        <div class="no-live-note">Live results for ${meta.fullName || meta.name} aren't hooked up yet — showing placeholder space here for now.</div>
-        ${ctaHtml}
-      </div>
-    `}
-  `;
-
-  // A cached bundle paints instantly, but it may have been restored from
-  // localStorage days ago — refetch behind it rather than waiting for the
-  // background rotation to reach this team.
-  if(hasLive){
-    if(cached) renderLiveBundle(teamKey, cached);
-    if(!cached || isBundleStale(cached)) openLiveTeam(teamKey);
-  }
-}
-window.openTeamModal = openTeamModal;
-
-export function closeTeamModal(){
+// Closes the shared #modal-overlay sheet (the golfer sheet, js/golf-view.js)
+// and any Game Details on top of it.
+export function closeModalSheet(){
   closeGameDetail();
   // Escape lands here with any sheet up; only unlock for our own.
   const overlay = document.getElementById('modal-overlay');
@@ -1263,16 +1012,15 @@ export function closeTeamModal(){
   unlockBodyScroll();
   closeSheetOverlay(overlay);
 }
-window.closeTeamModal = closeTeamModal;
+window.closeModalSheet = closeModalSheet;
 
-/* ---- Game Details: a wider sheet stacked on top of the team modal ----
+/* ---- Game Details: a wider sheet over whatever opened it ----
    Option B from the drill-down exploration — see docs/espn-migration-plan.md.
    Fetched only when a drafter actually taps in for the box score (never
-   prefetched alongside the team modal's own live line), for leagues
+   prefetched alongside a team's own live line), for leagues
    listed in GAME_DETAIL_LEAGUES above (MLB, then CFB added 2026-09-12)
-   — the entry point above is gated on the same map. Body scroll is
-   already locked by openTeamModal underneath; this overlay opens/closes
-   without touching that lock. */
+   — the entry point above is gated on the same map. It takes the body
+   scroll lock itself unless the golfer sheet underneath already holds it. */
 
 // One out/count/runners line, e.g. "2 outs · 1-2 count · runner on 2nd" —
 // built from the raw situation object off bundle.espnLive.situation
@@ -1605,7 +1353,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
 
     // Default to whichever team this sheet was opened from (see
     // openGameDetail) rather than always away/home, so tapping "View full
-    // boxscore" off a team's own modal lands on that team's own stats
+    // boxscore" off a team's own page lands on that team's own stats
     // first — falls back to the away team if that side's id ever doesn't
     // match either boxscore entry.
     //
@@ -1732,7 +1480,7 @@ function shareGameDetailToChat(){
   };
   if(Number.isFinite(start)) game.start = start;
   window.dispatchEvent(new CustomEvent('boxscore:share-game', { detail: game }));
-  closeTeamModal();
+  closeModalSheet();
   window.switchView('chat');
 }
 window.shareGameDetailToChat = shareGameDetailToChat;
@@ -1812,15 +1560,14 @@ export async function openGameDetail(teamKey, eventId){
   const el = document.getElementById('game-detail-content');
   if(!overlay || !el) return;
 
-  // Opened straight from the Scores tab there's no team modal holding the
-  // scroll lock underneath, so take it here.
+  // Unless the golfer sheet is underneath holding the scroll lock, take
+  // it here.
   if(!isSheetOpen(overlay) && !isSheetOpen(document.getElementById('modal-overlay'))){
     gameDetailOwnsLock = true;
     lockBodyScroll();
   }
   openSheetOverlay(overlay);
-  // Guards the fetch below the same way openLiveTeam guards the team
-  // modal's own fetch — if the sheet gets closed, or reopened for a
+  // Guards the fetch below — if the sheet gets closed, or reopened for a
   // different game, while this request is in flight, its result is
   // stale and shouldn't paint over whatever's showing now.
   el.dataset.activeEvent = String(eventId);
@@ -1883,14 +1630,14 @@ export function closeGameDetail(){
 }
 window.closeGameDetail = closeGameDetail;
 
-enableSheetSwipeToDismiss(document.getElementById('modal-content'), closeTeamModal);
+enableSheetSwipeToDismiss(document.getElementById('modal-content'), closeModalSheet);
 enableSheetSwipeToDismiss(document.getElementById('game-detail-content'), closeGameDetail);
 
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
   const gdOverlay = document.getElementById('game-detail-overlay');
   if(isSheetOpen(gdOverlay)){ closeGameDetail(); return; }
-  closeTeamModal();
+  closeModalSheet();
 });
 
 /* ---- Staggered background refresh ----
@@ -1900,7 +1647,7 @@ document.addEventListener('keydown', (e) => {
    sending is smoothed out to a handful of requests per minute rather
    than a spike. Every tick also paints that team's board-row pill
    (last result / today's fixture) from the same fetch — no extra
-   requests for that. If a team's modal happens to be open when its
+   requests for that. If a team's page happens to be open when its
    turn comes up, it updates live right in front of you.
 
    This full-bundle rotation is no longer what keeps live scores
@@ -1932,7 +1679,7 @@ const MIN_REFRESH_CYCLE_MS = 5 * 60 * 1000;
 // NBA/NHL/MLB/WNBA team besides Josh's own, which resolve through
 // ESPN's flat standings by name instead) permanently out of this
 // rotation: never proactively refreshed, only ever fetched once if
-// someone happened to open that team's modal. Fixed as part of the
+// someone happened to open that team. Fixed as part of the
 // 2026-09-12 ESPN-cadence review.
 const LIVE_TEAM_KEYS = Object.keys(TEAM_META).filter(k => {
   const meta = TEAM_META[k];
@@ -1949,16 +1696,12 @@ export async function backgroundRefreshTick(){
   const bundle = await fetchTeamBundle(teamKey);
   if(!bundle) return;
   renderRowStatus(teamKey, bundle);
-  if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
-    renderLiveBundle(teamKey, bundle);
-  }
   refreshOpenTeamPageIfActive(teamKey, bundle);
 }
 
-// The Team Page (js/team-page.js) marks its own mount point with the
-// same data-activeTeam convention the modal above already uses, so this
-// file can keep its stat strip and next game current on the same refresh
-// ticks the modal gets. The page hands over its own repaint
+// The Team Page (js/team-page.js) marks its mount point with
+// data-activeTeam, so this file can keep its stat strip and next game
+// current on the same refresh ticks as Home's rows. The page hands over its own repaint
 // (setTeamPageRefresher) rather than this file importing team-page.js,
 // which itself imports a good deal of this file.
 let teamPageRefresher = null;
@@ -1990,7 +1733,7 @@ function refreshOpenTeamPageIfActive(teamKey, bundle){
    already covers every team in it in one response.
 
    Only patches a team that already has a cached bundle (from a prior
-   backgroundRefreshTick or an opened modal) — a team with no bundle
+   backgroundRefreshTick or an opened team page) — a team with no bundle
    yet yields no row-status element worth patching in place, and its
    own turn in the slower rotation above will populate it soon
    regardless (LIVE_TEAM_KEYS is 183 teams over a 5-minute cycle, so
@@ -2009,9 +1752,6 @@ function applyLiveScoreboardPatch(teamKey, espnLive){
   // MIN_REFRESH_CYCLE_MS stale) while the score is visibly live.
   cached.fetchedAt = new Date();
   renderRowStatus(teamKey, cached);
-  if(document.getElementById('modal-content').dataset.activeTeam === teamKey){
-    renderLiveBundle(teamKey, cached);
-  }
   refreshOpenTeamPageIfActive(teamKey, cached);
 }
 

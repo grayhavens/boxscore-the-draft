@@ -1,7 +1,7 @@
 /* ============================================================
-   Team Page: a real, navigable screen for a single team — the
-   destination the trimmed team modal (js/live-data.js's openTeamModal)
-   hands off to, and what a Standings row now pushes to directly. Owns
+   Team Page: a real, navigable screen for a single team, and the one
+   place every team tap in the app goes (a Home or Standings row grows
+   into it; Scores' crests and Points' rows push it in). Owns
    its own three "screens" (the page itself, plus the Full Schedule and
    Full Squad screens behind its footer links) and their push/pop
    navigation, tab state, and the News/Roster/Stats fetches unique to
@@ -34,7 +34,7 @@
 import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import {
   teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending, abbrFromName, NEUTRAL_BADGE_STYLE,
-  EASE_SPRING, MOVE_SLOP, SWIPE_COMMIT, RUBBER_BAND, SNAP_BACK_MS
+  EASE_SPRING, EASE_OUT, MOVE_SLOP, SWIPE_COMMIT, FLING_VELOCITY, RUBBER_BAND, SNAP_BACK_MS
 } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
@@ -45,7 +45,7 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
-import { navigate, canAnimateLive, canAnimateNav } from './motion.js';
+import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
 import { currentProfileId } from './identity.js';
@@ -124,55 +124,31 @@ function setActiveView(viewId){
 // drafter's board you're peeking — see setDraftTeam in js/board.js), so
 // the Team Page's own team key rides in `?tp=` instead to avoid
 // colliding with that existing, unrelated param.
-// rowEl: the Standings row that was tapped, when there is one — the page
-// then grows out of that row (expandFromRow below) instead of pushing in.
+// originView: the view the tap came from ('board', 'standings',
+// 'live-now', 'overall'); Back returns there, at the same scroll.
+// rowEl: what was tapped, when it shows the team's crest (a Home or
+// Standings row, a team on a Scores card, a Compare team) — the page then
+// grows out of it (expandFromRow below) instead of pushing in.
 export function openTeamPage(teamKey, originView, rowEl){
   if(!TEAM_META[teamKey] || rowMotion) return;
   // A golfer has no team page: the golfer sheet is the whole thing.
   if(TEAM_META[teamKey].kind === 'golfer'){ window.openGolfer(TEAM_META[teamKey].espnAthleteId); return; }
   const origin = originView || 'board';
-  if(rowEl && origin === 'standings' && canAnimateLive() && rowOnScreen(rowEl)){
+  const src = rowEl && canAnimateLive() ? teamSource(rowEl) : null;
+  if(src && rowOnScreen(src.el)){
     fxBeginOpen('row');
-    expandFromRow(teamKey, rowEl);
+    expandFromRow(teamKey, origin, src);
     return;
   }
-  // From the team modal ("View team page"), its crest and name become the
-  // hero's during the push: the same view-transition-name on both sides,
-  // so the browser morphs one into the other.
-  const shared = canAnimateNav() ? sharedFromModal(teamKey) : null;
-  if(shared) nameShared(shared);
-  const vt = navigate('push', () => {
-    if(shared) nameShared(shared, true);
-    fxBeginOpen(shared ? 'shared' : 'push');
+  navigate('push', () => {
+    fxBeginOpen('push');
     openTeamPageNow(teamKey, origin);
-    if(shared) nameShared(heroShared());
   });
-  if(vt && shared){
-    const clear = () => { const h = heroShared(); if(h) nameShared(h, true); };
-    vt.finished.then(clear, clear);
-  }
-}
-
-// The team modal's crest and name, while it's showing (or closing on its
-// way to this page) for this team.
-function sharedFromModal(teamKey){
-  const meta = TEAM_META[teamKey];
-  const head = document.querySelector('#modal-overlay .modal-head');
-  const crest = head && head.querySelector('.badge'), name = head && head.querySelector('h2');
-  if(!crest || !name || name.textContent.trim() !== (meta.fullName || meta.name)) return null;
-  return { crest, name };
-}
-function heroShared(){
-  const crest = document.querySelector('#team-page-content .team-hero-row > :first-child');
-  const name = document.querySelector('#team-page-content .team-hero-name');
-  return crest && name ? { crest, name } : null;
-}
-function nameShared(pair, clear){
-  if(!pair) return;
-  pair.crest.style.viewTransitionName = clear ? '' : 'tp-crest';
-  pair.name.style.viewTransitionName = clear ? '' : 'tp-name';
 }
 window.openTeamPage = openTeamPage;
+
+// What Back says: the page it returns to.
+const BACK_LABELS = { board: 'Home', standings: 'Standings', 'live-now': 'Scores', overall: 'Points' };
 
 function setTeamPageState(teamKey, originView){
   state.teamKey = teamKey;
@@ -210,7 +186,7 @@ function openTeamPageNow(teamKey, originView){
 export function backFromTeamPage(){
   if(rowMotion) return;
   const { originView } = state;
-  if(originView === 'standings' && canAnimateLive() && collapseToRow()) return;
+  if(canAnimateLive() && collapseToRow(originView)) return;
   navigate('pop', () => {
     setActiveView('view-' + originView);
     updateUrlParam('view', originView === 'board' ? null : originView);
@@ -220,16 +196,17 @@ export function backFromTeamPage(){
 }
 window.backFromTeamPage = backFromTeamPage;
 
-/* ---- Standings row ↔ Team page: container transform ----
-   The tapped row grows into the page, and Back shrinks the page back into
-   that row (design handoff "Row Expand Transition"; timings, curves and
+/* ---- Team crest ↔ Team page: container transform ----
+   Whatever holds the tapped crest (a Home or Standings row, a team's line
+   on a Scores card, a Compare team) grows into the page, and Back shrinks
+   the page back into it (design handoff "Row Expand Transition"; timings, curves and
    sequencing are theirs). Run with Web Animations on the live DOM rather
    than a View Transition: on the way back the team page is the *old*
    state, and a View Transition only has a frozen picture of that, so its
    body, veil and ghost couldn't fade on their own.
 
-   While it runs, both views are showing: the Standings view stays in the
-   page flow (.tp-under) and the team page sits over it as a fixed layer
+   While it runs, both views are showing: the view the row is on stays in
+   the page flow (.tp-under) and the team page sits over it as a fixed layer
    (.tp-layer) laid out exactly where it sits in the flow at scroll 0, so
    swapping back to the plain layout at the end moves no pixels. Above
    the layer, #tp-fx holds the pieces that fly: a veil the color of the
@@ -240,6 +217,24 @@ const ROW_D = 560;                                 // open; close runs at 0.85x
 const ROW_EASE = 'cubic-bezier(0.45,0.05,0.15,1)';  // gentle start, long settle
 const ROW_SOFT = 'cubic-bezier(0.45,0,0.55,1)';     // crossfades
 const TP_BODY = '#team-page-stats, #team-page-game-card, #team-page-tabs, #team-page-tab-body';
+
+// What grows into the page from a tap on `el`, and the parts of it that
+// fly into the hero: { el, crest, name?, owner? }, or null when what was
+// tapped shows no crest (the page then pushes in). A Standings row's sub
+// line and a Scores team's are its owner; a Home row's is its record,
+// which stays behind with the rest.
+function teamSource(el){
+  const side = el.closest('.tg-side');
+  if(side){
+    const owner = side.querySelector('.tg-owner');
+    return { el: side, crest: side.querySelector('.badge'), name: side.querySelector('.tg-name'), owner: owner && owner.textContent.trim() ? owner : null };
+  }
+  const row = el.closest('.standings-row, .team, .cmp-team');
+  const crest = row && row.querySelector('.badge');
+  if(!crest) return null;
+  if(row.classList.contains('cmp-team')) return { el: row, crest };
+  return { el: row, crest, name: row.querySelector('.team-name'), owner: row.classList.contains('standings-row') ? row.querySelector('.team-sub') : null };
+}
 
 let rowMotion = null;       // the running transition, if any: { finish }
 let pendingRender = false;  // a render that landed mid-transition, held until it ends
@@ -266,11 +261,15 @@ const insetOf = (top, right, bottom, left, round) => `inset(${top}px ${right}px 
 // keyframe pair is written open-wise and swapped for close, with easing
 // still running forward (no `direction: reverse`, which would turn the
 // ease-out into an ease-in).
-function runRowMotion({ opening, row, page, standings, layout, onDone }){
+// `under` is the view the row sits on; `src` is teamSource's. Parts it
+// has no copy of (a Home row's owner, a Compare team's name) fade in on
+// the hero instead of flying.
+function runRowMotion({ opening, src, page, under, layout, onDone }){
+  const row = src.el;
   const D = opening ? ROW_D : Math.round(ROW_D * 0.85);
   const vw = window.innerWidth, vh = window.innerHeight;
   const rr = rect(row);
-  const rowCrest = row.querySelector('.badge'), rowName = row.querySelector('.team-name'), rowOwner = row.querySelector('.team-sub');
+  const { crest: rowCrest, name: rowName = null, owner: rowOwner = null } = src;
   const heroCrest = page.querySelector('.team-hero-row > :first-child');
   const heroName = page.querySelector('.team-hero-name'), heroOwner = page.querySelector('.team-hero-owner');
   const anims = [];
@@ -307,12 +306,17 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
   // Copies of the row pinned where it is, showing only some of it, laid
   // out exactly like the real one — including the top hairline, which the
   // row gets from its neighbor (a sibling rule), not from itself.
+  // `flying` picks which copy: the parts that fly and nothing else (a
+  // hidden parent's visible child still shows), or everything but them.
+  const parts = [rowCrest, rowName, rowOwner].filter(Boolean);
+  parts.forEach(n => { n.dataset.tpPart = ''; });
   const rowBorder = getComputedStyle(row).borderTopWidth;
-  const rowCopy = hideSel => {
+  const rowCopy = flying => {
     const c = row.cloneNode(true);
     c.removeAttribute('onclick');
     c.classList.add('tp-ghost');
-    c.querySelectorAll(hideSel).forEach(n => { n.style.visibility = 'hidden'; });
+    if(flying) c.style.visibility = 'hidden';
+    c.querySelectorAll('[data-tp-part]').forEach(n => { n.style.visibility = flying ? 'visible' : 'hidden'; });
     Object.assign(c.style, {
       left: rr.x + 'px', top: rr.y + 'px', width: rr.w + 'px', height: rr.h + 'px',
       borderTop: `${rowBorder} solid transparent`
@@ -323,7 +327,7 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
 
   // Ghost: the row's rank and record — its crest, name and owner fly
   // instead.
-  const ghost = rowCopy('.badge, .team-main');
+  const ghost = rowCopy(false);
   // Closing, the rank and record fill in while the card lands, not after.
   go(ghost, { opacity: 1 }, { opacity: 0 }, opening
     ? { easing: ROW_SOFT, duration: D * 0.35 }
@@ -343,7 +347,8 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
   // that cross-fade is a copy of the row showing only its crest and name,
   // above the veil (the real row sits under it) and pixel-identical to the
   // real row that replaces it when the transition ends.
-  const face = rowCopy('.standings-row > :not(.badge):not(.team-main), .team-main > :not(.team-name):not(.team-sub)');
+  const face = rowCopy(true);
+  parts.forEach(n => { delete n.dataset.tpPart; });
   const hidden = [];
   const hide = el => { if(el){ el.style.visibility = 'hidden'; hidden.push(el); } };
   const handoff = opening ? { easing: ROW_SOFT, duration: D * 0.15 } : { easing: ROW_SOFT, duration: D * 0.22, delay: D * 0.78 };
@@ -395,12 +400,12 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
   page.querySelectorAll(TP_BODY).forEach(el => go(el, { opacity: 0, transform: 'translateY(28px)' }, { opacity: 1, transform: 'translateY(0px)' }, inT));
   // The meta line fades except the owner, which flies (its original stays
   // hidden until the copy lands on it).
-  page.querySelectorAll('.compact-bar, .team-hero-meta > :not(.team-hero-owner), .page-dots').forEach(el => go(el, { opacity: 0 }, { opacity: 1 }, inT));
+  page.querySelectorAll(`.compact-bar, .team-hero-meta > ${rowOwner ? ':not(.team-hero-owner)' : '*'}, .page-dots${rowName ? '' : ', .team-hero-name'}`).forEach(el => go(el, { opacity: 0 }, { opacity: 1 }, inT));
 
-  // Standings recede behind, toward the row.
-  const sr = standings.getBoundingClientRect();
-  standings.style.transformOrigin = `50% ${rr.y + rr.h / 2 - sr.top}px`;
-  go(standings, { transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.93)', opacity: 0.3 });
+  // The view underneath recedes, toward the row.
+  const sr = under.getBoundingClientRect();
+  under.style.transformOrigin = `50% ${rr.y + rr.h / 2 - sr.top}px`;
+  go(under, { transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.93)', opacity: 0.3 });
 
   let ended = false;
   const finish = () => {
@@ -408,7 +413,7 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
     ended = true;
     anims.forEach(a => { try{ a.cancel(); }catch(e){} });
     hidden.forEach(el => { el.style.visibility = ''; });
-    standings.style.transformOrigin = '';
+    under.style.transformOrigin = '';
     fx.remove();
     rowMotion = null;
     onDone();
@@ -420,86 +425,88 @@ function runRowMotion({ opening, row, page, standings, layout, onDone }){
   setTimeout(finish, D + 400);
 }
 
-// Lays the team page over the Standings view as a fixed layer that
+// Lays the team page over the view underneath as a fixed layer that
 // matches its in-flow position at scroll 0 (see the section comment).
 // Measured off whichever of the two is in the flow right now; both sit in
 // the same spot in .board.
-function layTeamPageOver(page, standings){
-  const sr = (page.classList.contains('active') ? page : standings).getBoundingClientRect();
+function layTeamPageOver(page, under){
+  const sr = (page.classList.contains('active') ? page : under).getBoundingClientRect();
   const layout = { T: sr.top + window.scrollY, L: sr.left, W: sr.width };
   page.style.setProperty('--tp-t', layout.T + 'px');
   page.style.setProperty('--tp-l', layout.L + 'px');
   page.style.setProperty('--tp-w', layout.W + 'px');
   page.classList.add('tp-layer', 'tp-still');
-  standings.classList.add('tp-under');
+  under.classList.add('tp-under');
   return layout;
 }
 
-function liftTeamPageLayer(page, standings){
+function liftTeamPageLayer(page, under){
   page.classList.remove('tp-layer');
   ['--tp-t', '--tp-l', '--tp-w'].forEach(p => page.style.removeProperty(p));
-  standings.classList.remove('tp-under');
+  under.classList.remove('tp-under');
 }
 
-function expandFromRow(teamKey, row){
+function expandFromRow(teamKey, origin, src){
   const page = document.getElementById('view-team-page');
-  const standings = document.getElementById('view-standings');
-  if(!page || !standings){ openTeamPageNow(teamKey, 'standings'); return; }
+  const under = document.getElementById('view-' + origin);
+  if(!page || !under){ openTeamPageNow(teamKey, origin); return; }
   try{
-    const layout = layTeamPageOver(page, standings);
-    setTeamPageState(teamKey, 'standings');
+    const layout = layTeamPageOver(page, under);
+    setTeamPageState(teamKey, origin);
     setActiveView('view-team-page');
     page.classList.add('tp-still');
     renderTeamPage();
     ensureBundle(teamKey);
     page.scrollTop = 0;
-    runRowMotion({ opening: true, row, page, standings, layout, onDone: () => {
-      liftTeamPageLayer(page, standings);
+    runRowMotion({ opening: true, src, page, under, layout, onDone: () => {
+      liftTeamPageLayer(page, under);
       if(page.classList.contains('active')) window.scrollTo(0, 0);
     } });
   }catch(e){
     console.error(e);
     if(rowMotion) rowMotion.finish();
-    else { liftTeamPageLayer(page, standings); openTeamPageNow(teamKey, 'standings'); }
+    else { liftTeamPageLayer(page, under); openTeamPageNow(teamKey, origin); }
   }
 }
 
-// false when there's no row to shrink into (it scrolled away or a refresh
-// dropped it) — the caller then pops the ordinary way.
-function collapseToRow(){
+// false when there's no row to shrink into (it scrolled away, a refresh
+// dropped it, or a swipe moved to a team that isn't on screen there) —
+// the caller then pops the ordinary way.
+function collapseToRow(origin){
   const page = document.getElementById('view-team-page');
-  const standings = document.getElementById('view-standings');
-  if(!page || !standings) return false;
+  const under = document.getElementById('view-' + origin);
+  if(!page || !under) return false;
   const pageScroll = window.scrollY;
   try{
-    const layout = layTeamPageOver(page, standings);
+    const layout = layTeamPageOver(page, under);
     page.scrollTop = pageScroll;
-    setActiveView('view-standings');
+    setActiveView('view-' + origin);
     page.classList.add('tp-still');
-    updateUrlParam('view', 'standings');
+    updateUrlParam('view', origin === 'board' ? null : origin);
     updateUrlParam('tp', null);
     window.scrollTo(0, state.originScrollY);
     const key = state.teamKey;
-    const row = [...standings.querySelectorAll('.standings-row')]
-      .find(r => (r.getAttribute('onclick') || '').includes(`openTeamPage('${key}'`) && rowOnScreen(r));
-    if(!row){
+    const src = [...under.querySelectorAll('[onclick]')]
+      .filter(r => (r.getAttribute('onclick') || '').includes(`openTeamPage('${key}'`))
+      .map(teamSource).find(t => t && rowOnScreen(t.el));
+    if(!src){
       // Nothing to land on: put the page back and let the caller pop.
-      liftTeamPageLayer(page, standings);
+      liftTeamPageLayer(page, under);
       setActiveView('view-team-page');
       updateUrlParam('view', 'team');
       updateUrlParam('tp', key);
       window.scrollTo(0, pageScroll);
       return false;
     }
-    runRowMotion({ opening: false, row, page, standings, layout, onDone: () => {
-      liftTeamPageLayer(page, standings);
+    runRowMotion({ opening: false, src, page, under, layout, onDone: () => {
+      liftTeamPageLayer(page, under);
       page.classList.remove('tp-still');
     } });
     return true;
   }catch(e){
     console.error(e);
     if(rowMotion) rowMotion.finish();
-    else liftTeamPageLayer(page, standings);
+    else liftTeamPageLayer(page, under);
     return true;
   }
 }
@@ -581,7 +588,10 @@ function heroMetaHtml(teamKey, meta){
   const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
   const league = LEAGUES.find(l => l.key === meta.leagueKey);
   const bundle = liveDataCache[teamKey];
-  const status = bundle ? seasonStatus(meta, bundle) : null;
+  // MLB/WNBA show a season that doesn't score yet (PRIOR_SEASON_DISPLAY_LEAGUES):
+  // an "In-Season" pill would read as if it counts.
+  const prior = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey);
+  const status = bundle && !prior ? seasonStatus(meta, bundle) : null;
   const mine = !!drafter && drafter.id === currentProfileId;
   return `
     ${PRE_DRAFT ? '' : `<span class="team-hero-owner${mine ? ' me' : ''}">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
@@ -656,7 +666,7 @@ function renderTeamPage({ refresh = false } = {}){
   const tabs = tabsFor(meta.leagueKey);
   const oldOrb = el.querySelector('.team-hero-orb');
   const fromColor = oldOrb ? oldOrb.style.getPropertyValue('--orb') : null;
-  const backLabel = state.originView === 'standings' ? 'Standings' : (state.originView === 'live-now' ? 'Scores' : 'Home');
+  const backLabel = BACK_LABELS[state.originView] || 'Home';
 
   if(shell){
     el.dataset.activeTeam = teamKey;
@@ -683,6 +693,7 @@ function renderTeamPage({ refresh = false } = {}){
   if(shell){
     ensureTables(teamKey);
     bindHeroGestures();
+    bindPageSwipe();
     crossFadeOrb(fromColor);
     applyScroll();
     startCountdowns();
@@ -777,50 +788,122 @@ function applyScroll(){
 }
 window.addEventListener('scroll', () => { if(!scrollFrame) scrollFrame = requestAnimationFrame(applyScroll); }, { passive: true });
 
-// The gesture holding the hero right now ('x' swipe, 'y' pull), if any.
+// The gesture holding the page right now ('x' swipe, 'y' pull, 'leave'
+// while a committed swipe slides out), if any.
 let gesture = null;
 let detachHero = null;
 
+// Pull to stretch: down on the hero at the very top.
 function bindHeroGestures(){
   if(detachHero){ detachHero(); detachHero = null; }
   const hero = document.getElementById('team-hero');
   if(!hero) return;
-  const row = hero.querySelector('.team-hero-row');
   const orb = hero.querySelector('.team-hero-orb');
-  hero.classList.toggle('swipes', state.swipeOrder.length > 1);
+  document.getElementById('team-page-content').classList.toggle('swipes', state.swipeOrder.length > 1);
   detachHero = attachDrag(hero, {
     slop: MOVE_SLOP,
     ignore: 'button, a',
-    // Sideways moves through your teams; down at the very top stretches.
-    accept: (axis, { dy }) => !rowMotion && (axis === 'x'
-      ? state.swipeOrder.length > 1
-      : dy > 0 && window.scrollY <= 0 && fxOn()),
-    onStart: axis => {
-      gesture = axis;
-      const el = axis === 'x' ? row : hero;
-      el.getAnimations().forEach(a => a.cancel());
-      el.style.transition = 'none';
-      if(axis === 'y') orb.style.transition = 'none';
+    accept: (axis, { dy }) => !rowMotion && !gesture && axis === 'y' && dy > 0 && window.scrollY <= 0 && fxOn(),
+    onStart: () => {
+      gesture = 'y';
+      hero.getAnimations().forEach(a => a.cancel());
+      hero.style.transition = 'none';
+      orb.style.transition = 'none';
     },
-    onMove: (axis, { dx, dy }) => {
-      if(axis === 'x'){
-        row.style.transform = `translateX(${(dx * RUBBER_BAND.team).toFixed(1)}px)`;
-        row.style.opacity = (1 - Math.min(0.7, Math.abs(dx) / 260)).toFixed(3);
-      } else {
-        const stretch = Math.min(Math.max(dy, 0), 180) * RUBBER_BAND.pull;
-        hero.style.setProperty('--pull', stretch.toFixed(1));
-        orb.style.transform = `scale(${(1 + stretch / 260).toFixed(4)})`;
-      }
+    onMove: (axis, { dy }) => {
+      const stretch = Math.min(Math.max(dy, 0), 180) * RUBBER_BAND.pull;
+      hero.style.setProperty('--pull', stretch.toFixed(1));
+      orb.style.transform = `scale(${(1 + stretch / 260).toFixed(4)})`;
     },
-    onEnd: (axis, { dx, cancelled }) => {
+    onEnd: () => {
       gesture = null;
-      const dir = axis === 'x' && !cancelled ? releaseDirection(-dx, 0, { commit: SWIPE_COMMIT.team }) : 0;
-      if(dir){ swipeTo(state.teamIndex + dir, dir); return; }
-      if(axis === 'x') springBack(row, ['transform', 'opacity'], () => { row.style.transform = ''; row.style.opacity = ''; });
-      else springBack(hero, ['height'], () => hero.style.removeProperty('--pull'), orb);
+      springBack(hero, ['height'], () => hero.style.removeProperty('--pull'), orb);
       if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
     }
   });
+}
+
+// Swipe between teams from anywhere on the page. The hero's crest and name
+// and every section under it follow the finger 1:1 while the orb drifts a
+// little behind; a release past SWIPE_COMMIT.team (or a flick) slides the
+// page out and the next team in from the other side, anything less springs
+// back. A drag that starts in something that scrolls sideways (the depth
+// chart, a box score) is left to it. Bound once: #team-page-content stays
+// put while its contents are rewritten.
+let pageSwipeBound = false;
+function swipePieces(){
+  const page = document.getElementById('team-page-content');
+  return page ? [page.querySelector('.team-hero-row'), ...page.querySelectorAll(TP_BODY)].filter(Boolean) : [];
+}
+const pageOrb = () => document.querySelector('#team-page-content .team-hero-orb');
+const ORB_DRIFT = 0.2;
+
+function scrollsSideways(target, root){
+  for(let el = target; el && el !== root; el = el.parentElement){
+    if(el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+  }
+  return false;
+}
+
+function bindPageSwipe(){
+  const page = document.getElementById('team-page-content');
+  if(pageSwipeBound || !page) return;
+  pageSwipeBound = true;
+  let pieces = [], orb = null;
+  attachDrag(page, {
+    slop: MOVE_SLOP,
+    ignore: t => t.closest('input, select, textarea') || scrollsSideways(t, page),
+    // Clearly sideways only, so a slightly diagonal scroll stays a scroll.
+    accept: (axis, { dx, dy }) => !rowMotion && !gesture && axis === 'x'
+      && state.swipeOrder.length > 1 && Math.abs(dx) > Math.abs(dy) * 1.2,
+    onStart: () => {
+      gesture = 'x';
+      pieces = swipePieces();
+      orb = pageOrb();
+      [...pieces, orb].forEach(el => {
+        if(!el) return;
+        el.getAnimations().forEach(a => a.cancel());
+        el.style.transition = 'none';
+        el.style.willChange = 'transform, opacity';
+      });
+    },
+    onMove: (axis, { dx }) => {
+      const w = window.innerWidth;
+      const t = `translateX(${dx.toFixed(1)}px)`;
+      const o = (1 - Math.min(0.6, Math.abs(dx) / w * 0.9)).toFixed(3);
+      pieces.forEach(el => { el.style.transform = t; el.style.opacity = o; });
+      if(orb) orb.style.transform = `translateX(${(dx * ORB_DRIFT).toFixed(1)}px)`;
+    },
+    onEnd: (axis, { dx, vx, cancelled }) => {
+      const dir = cancelled ? 0 : releaseDirection(-dx, -vx, { commit: SWIPE_COMMIT.team, fling: FLING_VELOCITY });
+      [...pieces, orb].forEach(el => { if(el) el.style.willChange = ''; });
+      if(dir){ leaveTo(state.teamIndex + dir, dir, { dx, vx, pieces, orb }); return; }
+      gesture = null;
+      pieces.forEach(el => springBack(el, ['transform', 'opacity'], () => { el.style.transform = ''; el.style.opacity = ''; }));
+      if(orb) springBack(orb, ['transform'], () => { orb.style.transform = ''; });
+      if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
+    }
+  });
+}
+
+// Slides the page out toward where the finger was going (`dx` and `vx` are
+// where and how fast the drag let go), then shows the team at `index`.
+// Quick: the faster the flick, the sooner the next team is up.
+function leaveTo(index, dir, { dx = 0, vx = 0, pieces = swipePieces(), orb = pageOrb() } = {}){
+  if(!fxOn() || !pieces.length){ gesture = null; swipeTo(index, dir); return; }
+  gesture = 'leave';
+  const w = window.innerWidth;
+  const to = -dir * w * 0.45;
+  const speed = Math.max(Math.abs(vx), 1.4);
+  const duration = Math.round(Math.min(220, Math.max(110, Math.abs(to - dx) / speed)));
+  const fromOpacity = pieces[0].style.opacity || '1';
+  const anims = pieces.map(el => el.animate([
+    { transform: `translateX(${dx}px)`, opacity: fromOpacity },
+    { transform: `translateX(${to}px)`, opacity: 0 }
+  ], { duration, easing: 'cubic-bezier(0.3,0.5,0.6,1)', fill: 'forwards' }));
+  if(orb) orb.animate([{ transform: `translateX(${dx * ORB_DRIFT}px)` }, { transform: 'none' }], { duration: duration + 200, easing: EASE_OUT });
+  const go = () => { gesture = null; pendingRender = false; swipeTo(index, dir); };
+  anims[0].finished.then(go, go);
 }
 
 // Lets go of a drag: back to the plain layout on --ease-spring, or at once
@@ -858,8 +941,8 @@ function swipeTo(index, dir){
   ensureBundle(teamKey);
 }
 window.teamPageJump = i => {
-  if(i === state.teamIndex) return;
-  swipeTo(i, i > state.teamIndex ? 1 : -1);
+  if(i === state.teamIndex || gesture || rowMotion) return;
+  leaveTo(i, i > state.teamIndex ? 1 : -1);
 };
 
 // The next game's countdown ticks once a second while the page is up.
@@ -998,10 +1081,30 @@ function formStripCardHtml(teamKey, meta, recent){
   });
 }
 
+// Path to points folds to one row; whether it's unfolded is remembered per
+// device, the same for every team.
+const PATH_OPEN_KEY = 'bx-ptp-open';
+let pathOpen = false;
+try{ pathOpen = localStorage.getItem(PATH_OPEN_KEY) === '1'; }catch(err){}
+
 function pathSectionHtml(teamKey){
   const path = teamPathToPoints(teamKey);
-  return path ? pathToPointsHtml(path) : '';
+  return path ? pathToPointsHtml({ ...path, toggle: 'togglePathToPoints', open: pathOpen }) : '';
 }
+window.togglePathToPoints = () => {
+  pathOpen = !pathOpen;
+  try{ localStorage.setItem(PATH_OPEN_KEY, pathOpen ? '1' : '0'); }catch(err){}
+  const el = document.getElementById('ptp-section');
+  if(!el || !el.dataset.team) return;
+  const card = el.querySelector('.ptp.fold');
+  // Flip the class in place so the fold animates; the next write sees the
+  // new markup only if something else changed too.
+  if(card){
+    card.classList.toggle('open', pathOpen);
+    card.querySelector('.ptp-toggle').setAttribute('aria-expanded', String(pathOpen));
+    card.querySelector('.ptp-sum').setAttribute('aria-hidden', String(pathOpen));
+  }
+};
 
 // The last five as a strip of bars; every result row, with its boxscore
 // link, is on the Full schedule screen.
@@ -1016,14 +1119,15 @@ function recentFormHtml(teamKey, bundle){
       </div>`;
 }
 
-// The Overview tab's sections, empty: renderTabBody fills each one. Path
-// to points leads: what this team is worth to its owner, rule by rule,
-// with On the line's distance on each. News follows the schedule, and
-// shows even while the schedule is loading or unavailable.
+// The Overview tab's sections, empty: renderTabBody fills each one. Recent
+// form leads, then Path to points: what this team is worth to its owner,
+// rule by rule, with On the line's distance on each (folded to one row
+// until it's opened). News follows, and shows even while the schedule is
+// loading or unavailable.
 function scheduleTabHtml(teamKey){
   return `
-    <div id="ptp-section" data-team="${teamKey}"></div>
     <div id="form-section"></div>
+    <div id="ptp-section" data-team="${teamKey}"></div>
     <div class="modal-section-title spaced">News</div>
     <div id="news-section"></div>
   `;
@@ -1050,9 +1154,8 @@ function ensureTables(teamKey){
 // strip rolls up, Path to points pops in, the form bars grow. A data
 // refresh re-renders the page but plays none of them again, and neither
 // does anything that only arrives well after the page opened. `fx.kind`
-// is how the page arrived: 'push' (plain), 'shared' (from the team modal,
-// crest and name morphing in), 'row' (grown out of a Standings row, which
-// flies those itself) or 'swipe' (from the team beside it; `fx.dir` is
+// is how the page arrived: 'push' (plain), 'row' (grown out of a Home or
+// Standings row, which flies the crest and name itself) or 'swipe' (from the team beside it; `fx.dir` is
 // the side it came from).
 const FX_OPEN_WINDOW_MS = 8000;
 const fx = { kind: null, at: 0, done: new Set(), path: null, dir: 0 };
@@ -1075,8 +1178,8 @@ function fxFirst(key){
 const rise = px => [{ opacity: 0, transform: `translateY(${px}px)` }, { opacity: 1, transform: 'none' }];
 
 // The orb blooms out from behind the crest. On a plain push the crest,
-// name and meta rise in too; the other ways in bring the crest and name
-// along themselves, and a swipe brings the whole hero in from the side.
+// name and meta rise in too; a row brings the crest and name along
+// itself, and a swipe brings the whole hero in from the side.
 function playHeroOpen(){
   const hero = document.querySelector('#team-page-content .team-hero');
   if(!hero || fx.kind === 'swipe' || !fxOn() || !fxFirst('hero')) return;
@@ -1090,13 +1193,16 @@ function playHeroOpen(){
   if(fx.kind !== 'row') play(hero.querySelector('.team-hero-meta'), rise(10), { duration: 480, delay: 480 });
 }
 
-// A swipe: the new hero comes in from the side it was swiped from, and the
-// sections under it follow 50ms apart.
+// A swipe: the new page comes in from the side it was swiped from, picking
+// up where the old one slid out (leaveTo), the sections under the hero a
+// beat behind it.
 function playSwipeIn(){
   if(fx.kind !== 'swipe' || !fxOn() || !fxFirst('swipe')) return;
   const page = document.getElementById('team-page-content');
-  play(page.querySelector('.team-hero-row'), [{ opacity: 0, transform: `translateX(${fx.dir * 70}px)` }, { opacity: 1, transform: 'none' }], { duration: 520 });
-  stagger(page.querySelectorAll(TP_BODY), [{ opacity: 0, transform: `translateX(${fx.dir * 40}px)` }, { opacity: 1, transform: 'none' }], { step: 50, duration: 520 });
+  const from = fx.dir * Math.min(window.innerWidth * 0.35, 220);
+  const slide = [{ opacity: 0, transform: `translateX(${from}px)` }, { opacity: 1, transform: 'none' }];
+  play(page.querySelector('.team-hero-row'), slide, { duration: 420 });
+  stagger(page.querySelectorAll(TP_BODY), slide, { step: 30, delay: 20, duration: 420 });
 }
 
 // The orb cross-fades from the last team's color to this one's (its CSS
@@ -1121,10 +1227,14 @@ function playStatsRoll(){
 }
 
 // Path to points: the nodes pop in 90ms apart, and the gold line between
-// locked rules draws down after them.
+// locked rules draws down after them. Folded, its row of dots pops instead.
 function playPathIn(){
   const steps = [...document.querySelectorAll('#ptp-section .ptp-step')];
   if(!steps.length || !fxOn() || !fxFirst('path')) return;
+  if(!pathOpen){
+    document.querySelectorAll('#ptp-section .ptp-dot').forEach((dot, i) => pop(dot, { from: 0, duration: 420, delay: 200 + i * 50 }));
+    return;
+  }
   steps.forEach((step, i) => {
     pop(step.querySelector('.ptp-node'), { from: 0, duration: 460, delay: 200 + i * 90 });
     const line = step.querySelector('.ptp-line.gold');

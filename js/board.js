@@ -356,7 +356,7 @@ export function renderBoard(){
         subHtml,
         favHtml: isFavorite(teamKey) ? favoriteMarkHtml() : '',
         statusId: `row-status-${teamKey}`,
-        onclick: `openTeamModal('${teamKey}')`
+        onclick: `openTeamPage('${teamKey}', 'board', this)`
       });
     }).join('');
 

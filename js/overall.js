@@ -819,7 +819,7 @@ function obCardHtml(x, scale){
   const rulesHtml = x.awards.slice()
     .sort((a, b) => (a.provisional === b.provisional) ? b.pts - a.pts : (a.provisional ? 1 : -1))
     .map(a => `
-      <div class="ob-rule" ${a.teamKey ? `onclick="openTeamModal('${a.teamKey}')"` : ''}>
+      <div class="ob-rule" ${a.teamKey ? `onclick="openTeamPage('${a.teamKey}', 'overall')"` : ''}>
         <div class="ob-rule-main">
           <div class="ob-rule-label">${escapeHtml(a.label)}</div>
           <div class="ob-rule-meta">

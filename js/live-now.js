@@ -353,7 +353,7 @@ function sideParts(side, dim, game, which, ended){
   return {
     ...parts,
     owner: side.owner,
-    badgeOnclick: `event.stopPropagation(); openTeamModal('${side.teamKey}')`,
+    badgeOnclick: `event.stopPropagation(); openTeamPage('${side.teamKey}', 'live-now', this)`,
     // Same rule as the Teams tab: a read-only star, only once a team is
     // favorited — toggling happens on the team page.
     favHtml: side.isFav ? favoriteMarkHtml() : ''
@@ -362,7 +362,7 @@ function sideParts(side, dim, game, which, ended){
 
 // The onclick sits on the whole row, not just the card, so the time-gutter
 // rail opens Game Details too. The badge buttons inside each side still
-// stopPropagation, so they keep opening the team modal instead.
+// stopPropagation, so they open the team page instead.
 function gameHtml(game){
   // Only a finished game has a loser to de-emphasize; live and
   // scheduled games keep both sides at full strength.

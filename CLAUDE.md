@@ -133,8 +133,8 @@ modeling, so it was moved off `standings-flat` onto a single flat league-wide ra
 EPL's instead.
 
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
-strip, next match, and the full team-detail modal (`openTeamModal`), plus a staggered background
-refresh loop (`backgroundRefreshTick`) so open tabs stay current without hammering any API. Results
+strip and next match (Home's rows, the team page's stat strip and next game) and the Game Details sheet,
+plus a staggered background refresh loop (`backgroundRefreshTick`) so open tabs stay current without hammering any API. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
 
@@ -363,14 +363,19 @@ leagues and table points for EPL/NHL. It reads the same ranked tables the rules 
 rule's line under it, and a drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
 ignore tiebreakers. Only for a league whose season is under way and not locked.
 
-**Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): a 300px hero (status-bar strip included) with the team
+**Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): where every team tap in the app goes (there's no team peek
+modal; a golfer opens the golfer sheet). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
+card, a Compare team) grows what was tapped into the page, crest, name and owner flying into the hero (`teamSource`
+picks the parts), and Back shrinks it back; Points' rule and activity rows, which show no crest, push it in. Back says
+where it returns to. A 300px hero (status-bar strip included) with the team
 orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
-cover is off on this page). Swiping the hero sideways moves through your own teams in Home's order (dots under it; off
+cover is off on this page). Swiping sideways anywhere on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
 top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
-game counts down every second, Overview leads with Path to points (`teamPathToPoints` in `js/lines.js`: every rule as
-locked, live, in reach or off, with On the line's distance as its note) and the last five games as bars; every result
-row is on Full schedule.
+game counts down every second, Overview leads with the last five games as bars (every result row is on Full schedule),
+then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, live, in reach or off, with On the line's
+distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device
+remembers the choice (localStorage `bx-ptp-open`).
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
@@ -384,10 +389,10 @@ on), Home shows the champion for 21 days, and champions get a title tag on their
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
-actually being played right now. Until that next season starts, their Standings tab and team modals
+actually being played right now. Until that next season starts, their Standings tab and team pages
 show real, live, but non-scoring results — flagged with a shared `prior-season-note` (bold/accent
 styling — this is easy to misread as counting if skimmed) rather than hiding the data. Their team
-modals also suppress the season-phase badge (`In-Season`/`Pre-Season`/etc.) entirely, since showing
+pages also suppress the season-phase pill (`In-Season`/`Pre-Season`/etc.) entirely, since showing
 it would read as if the current season counts.
 
 **Motion** (`js/motion.js`, `js/launch-splash.js`): tab switches slide toward the tapped tab and the team
@@ -398,7 +403,7 @@ team page's open/back functions therefore apply their DOM change asynchronously,
 and the final whistle, after which a just-ended game stays on the Live tab for 2 minutes with a W chip) and Points
 (`obPlayFlip` / `obPlayLockIn` in `js/overall.js`: the rank shuffle, and your points locking in) and the team page
 (`js/team-page.js`: the orb bloom, stat roll, Path to points and form bars once per open; a rule's state change flips;
-from the team modal, the crest and name morph into the hero through `view-transition-name`). A view compares the state it last rendered with the new one, writes
+from a crest on Home, Standings, Scores or Compare, what was tapped grows into the page and Back shrinks it back). A view compares the state it last rendered with the new one, writes
 the DOM, then plays the effect. The first render, a reconnect and a hidden tab show the settled state with no effects,
 big moments play once per device (`once`), and every effect ends on exactly what the plain render shows. The
 launch splash plays once per cold launch (sessionStorage `bx-splash`) and must stay the first thing in

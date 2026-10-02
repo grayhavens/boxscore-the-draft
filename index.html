@@ -143,17 +143,18 @@
 
 </div>
 
-<!-- Team / league detail modal -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this) closeTeamModal()">
+<!-- Shared sheet: the golfer sheet (js/golf-view.js). Every team tap
+     goes to the team page instead. -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this) closeModalSheet()">
   <div class="modal" id="modal-content">
     <!-- content injected by JS -->
   </div>
 </div>
 
-<!-- Game Details: stacks on top of the team modal above (Option B —
+<!-- Game Details: a wide sheet over whatever opened it (Option B —
      see docs/espn-migration-plan.md's Game Details section). Opened by
-     js/live-data.js's openGameDetail; the team modal underneath stays
-     open and dimmed, not closed. -->
+     js/live-data.js's openGameDetail; a sheet underneath stays open and
+     dimmed, not closed. -->
 <div class="modal-overlay stacked" id="game-detail-overlay" onclick="if(event.target===this) closeGameDetail()">
   <div class="modal modal-wide" id="game-detail-content">
     <!-- content injected by JS -->

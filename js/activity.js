@@ -568,7 +568,7 @@ function eventAction(e){
     const id = e.type === 'lock' && mineEvent(e) ? currentDraftTeamId : e.drafterId;
     return DRAFT_TEAMS.some(d => d.id === id) ? `obOpenSheet('${id}')` : '';
   }
-  return TEAM_META[e.teamKey] ? `openTeamModal('${e.teamKey}')` : '';
+  return TEAM_META[e.teamKey] ? `openTeamPage('${e.teamKey}', 'overall')` : '';
 }
 
 function mineEvent(e){

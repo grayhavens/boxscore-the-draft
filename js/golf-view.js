@@ -279,7 +279,7 @@ function renderGolferSheet(id){
       </div>
       <div class="modal-actions">
         ${teamKey ? favoriteStarHtml(teamKey) : ''}
-        <button class="modal-close" onclick="closeTeamModal()">&times;</button>
+        <button class="modal-close" onclick="closeModalSheet()">&times;</button>
       </div>
     </div>
     <div class="stat-strip">
@@ -368,7 +368,7 @@ function eventSheetHtml(head, board){
         <h2>${esc(shortName(head ? head.name : 'Tournament'))}</h2>
         <div class="modal-sub">${esc(status)}${head && head.major ? ' &middot; Major' : ''}${board && board.purse ? ` &middot; ${esc(board.purse)} purse` : ''}</div>
       </div>
-      <div class="modal-actions"><button class="modal-close" onclick="closeTeamModal()">&times;</button></div>
+      <div class="modal-actions"><button class="modal-close" onclick="closeModalSheet()">&times;</button></div>
     </div>
     <div class="modal-body golf-board">
       ${rows === null ? skeletonRowsHtml(8) : rows.length ? rows.map(p => leaderRowHtml(board, p)).join('') : '<div class="golf-muted">The field isn’t out yet.</div>'}

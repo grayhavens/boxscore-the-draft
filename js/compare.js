@@ -433,7 +433,7 @@ function raceTeamHtml(leagueKey, t, aId){
   const meta = TEAM_META[t.teamKey];
   const isA = meta.draftTeamId === aId;
   return `
-    <button type="button" class="cmp-team" onclick="openTeamModal('${t.teamKey}')">
+    <button type="button" class="cmp-team" onclick="openTeamPage('${t.teamKey}', 'overall', this)">
       <span class="cmp-badge">${teamBadgeHtml(meta)}</span>
       <span class="cmp-team-name">${meta.name} <span class="cmp-team-owner ${isA ? 'a' : ''}">&middot; ${t.ownerName}</span></span>
       <span class="cmp-team-rec">${recordText(leagueKey, t.row)} &middot; ${ordinal(t.rank)}</span>

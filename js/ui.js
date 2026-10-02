@@ -202,7 +202,11 @@ const PATH_TAGS = { locked: ['Locked', 'locked'], live: ['Live', 'live'], reach:
 // | 'off', noteHtml }. noteHtml is trusted (On the line writes it). A line
 // joins the nodes, gold between two locked rules. A penalty the team is in
 // is red, like a negative Live total on Points.
-export function pathToPointsHtml({ now, max, rules }){
+// With `toggle` (a global function's name) it folds: the head is a button,
+// and folded the ladder shrinks to one row of its nodes and a count of the
+// rules that matter ("2 locked · 1 live · 3 in reach"). `open` unfolds it.
+// Not in the design system yet.
+export function pathToPointsHtml({ now, max, rules, toggle = null, open = false }){
   const fmt = n => (n < 0 ? '&minus;' + Math.abs(n) : String(n));
   const rows = rules.map((r, i) => {
     const tag = PATH_TAGS[r.state] && (r.pts < 0 && r.state === 'live' ? ['Live', 'risk'] : PATH_TAGS[r.state]);
@@ -214,7 +218,18 @@ export function pathToPointsHtml({ now, max, rules }){
       + `<span class="ptp-main"><span class="ptp-label">${escapeHtml(r.label)}${tag ? tagHtml({ label: tag[0], variant: tag[1] }) : ''}</span>${r.noteHtml ? `<span class="ptp-note">${r.noteHtml}</span>` : ''}</span>`
       + `<span class="ptp-pts">${r.pts > 0 ? '+' : ''}${fmt(r.pts)}</span></div>`;
   }).join('');
-  return sectionCardHtml({ title: 'Path to points', subHtml: `${fmt(now)} now &middot; up to ${fmt(max)}`, html: `<div class="ptp-steps">${rows}</div>`, cls: 'ptp' });
+  const sub = `${fmt(now)} now &middot; up to ${fmt(max)}`;
+  const steps = `<div class="ptp-steps">${rows}</div>`;
+  if(!toggle) return sectionCardHtml({ title: 'Path to points', subHtml: sub, html: steps, cls: 'ptp' });
+  const count = state => rules.filter(r => r.state === state).length;
+  const counts = [[count('locked'), 'locked'], [count('live'), 'live'], [count('reach'), 'in reach']]
+    .filter(([n]) => n).map(([n, label]) => `${n} ${label}`).join(' &middot; ') || 'Nothing yet';
+  const dots = rules.map(r => `<span class="ptp-dot ${r.state}${r.pts < 0 ? ' neg' : ''}"></span>`).join('');
+  return `<section class="sec-card ptp fold${open ? ' open' : ''}">`
+    + `<button type="button" class="sec-card-head ptp-toggle" onclick="${toggle}()" aria-expanded="${open}">`
+    + `<span class="sec-card-title">Path to points</span><span class="sec-card-sub">${sub}</span>${iconHtml('chevron-down', { size: 16 })}</button>`
+    + `<div class="ptp-fold"><div class="ptp-sum" aria-hidden="${open}"><span class="ptp-dots">${dots}</span><span class="ptp-count">${counts}</span></div></div>`
+    + `<div class="ptp-unfold"><div>${steps}</div></div></section>`;
 }
 
 // FormStrip: the last five games as columns, oldest first, newest on the

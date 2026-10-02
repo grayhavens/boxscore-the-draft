@@ -41,7 +41,6 @@
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -130,7 +129,7 @@ export function createFlatStandingsBoard(opts){
 
   // Given a drafted team's own meta, find its row in the cache — the
   // reverse direction of findFlatTeamKey, used by the board card label
-  // and (from js/live-data.js) the team modal's stat strip.
+  // and (from js/live-data.js) the team page's stat strip.
   function findRowForMeta(meta){
     const rows = cache.rows;
     if(!rows) return null;
@@ -225,17 +224,6 @@ export function createFlatStandingsBoard(opts){
         if(!divisionCache.divisions) divisionCache.error = true;
       }
       standingsDataChanged();
-      // The team modal's Division stat cell (js/live-data.js's
-      // renderStats) reads this same cache, and can easily open before
-      // this heavier fetch resolves (it's only triggered on-demand, not
-      // eagerly at boot, since most sessions never open a given team's
-      // modal) — same "activeTeam" re-render used by CFB/EPL/NFL's own
-      // standings fetches for this exact race.
-      const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-      const activeMeta = activeTeam && TEAM_META[activeTeam];
-      if(activeMeta && activeMeta.leagueKey === leagueKey){
-        renderStats(activeMeta, liveDataCache[activeTeam] || {});
-      }
     })();
     return divisionPromise;
   }
@@ -253,7 +241,7 @@ export function createFlatStandingsBoard(opts){
   }
 
   // Given a drafted team's own meta, find which division it's in — used
-  // by the team modal's Division stat cell (js/live-data.js). Reverse
+  // by the team page's Division stat cell (js/live-data.js). Reverse
   // direction of computeDivisionStandings, same idea as findRowForMeta
   // above but walking the (much less frequently needed) division cache
   // instead of the flat one.

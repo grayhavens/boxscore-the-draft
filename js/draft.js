@@ -993,8 +993,8 @@ function renderModal(d){
 // Tapping a team anywhere in the room (Available, the queue, the board, a
 // roster slot) opens its scouting sheet: last season, its record so far
 // and title odds (js/draft-scout.js), with Draft and Queue on it. Built
-// from the app's team modal classes (openTeamModal in js/live-data.js) so
-// it reads as the same sheet.
+// from the app's shared sheet classes (.modal, .modal-head, the golfer
+// sheet's too) so it reads as the same sheet.
 
 function sheetBadgeHtml(team){
   return teamBadgeHtml({

@@ -44,7 +44,6 @@ import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnCbbRankings, fetchEspnCbbStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -99,11 +98,6 @@ export function fetchEspnCbbStandingsCached(){
     }
     standingsDataChanged();
     renderAllCbbCardRecords();
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    const activeMeta = activeTeam && TEAM_META[activeTeam];
-    if(activeMeta && activeMeta.leagueKey === 'mcbb'){
-      renderStats(activeMeta, liveDataCache[activeTeam] || {});
-    }
   })();
   return espnCbbStandingsPromise;
 }
