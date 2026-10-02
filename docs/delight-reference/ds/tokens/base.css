@@ -1,0 +1,9 @@
+*{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html{ background: var(--bg); }
+body{ margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; }
+a{ color: var(--accent); text-decoration: none; font-weight: 700; }
+a:hover{ color: var(--text); text-decoration: underline; }
+:where(button, a, [role="button"], [role="switch"], [tabindex]):focus-visible{ outline: none; box-shadow: var(--focus-ring); }
+:where(input, textarea, select):focus-visible{ outline: none; border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-soft); }
+.num{ font-variant-numeric: tabular-nums; }
+.eyebrow{ font: 700 var(--fs-11)/1 var(--font-ui); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-mute); }

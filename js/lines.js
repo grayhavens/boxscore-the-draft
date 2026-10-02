@@ -2,7 +2,7 @@
    On the line: how close each drafted team is to the placement rules
    that score ("1½ games up on the Packers" for Division title, "2 pts
    clear of the drop"). Two places show it:
-   - the team page's Overview, one row per rule the team can win or lose;
+   - the team page's Path to points, every rule's state and its line;
    - a drafter's Points breakdown, their closest calls across every team.
 
    The tables are the ones the rules score from (rankAutoRowTables in
@@ -13,7 +13,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { escapeHtml } from './utils.js';
-import { rankAutoRowTables, leagueSeasonUnderway } from './league-facts.js';
+import { rankAutoRowTables, leagueSeasonUnderway, getLeagueRuleTeams, isRuleProvisional, teamPointsSplit, getTeamAdjustment } from './league-facts.js';
 import { isLeagueLocked } from './season-lock.js';
 import { LINE_LEAGUES, lineRecord, lineStatus, gapText, gapInGames } from './lines-math.js';
 import { fetchEspnNflStandingsCached, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
@@ -41,13 +41,15 @@ const LOADERS = {
 // A drafter's breakdown only lists lines this close (in games; table
 // points count as games at a win's worth).
 const CLOSE_GAMES = 2;
-// The team page shows a rule that would cost the team only once it's
-// this close to falling in.
-const NEAR_DROP_GAMES = 3;
 
 export function loadLineInputs(leagueKeys){
-  const keys = leagueKeys.filter(k => LOADERS[k] && linesLive(k) !== false);
-  return Promise.allSettled(keys.flatMap(k => LOADERS[k]()));
+  return loadStandingsTables(leagueKeys.filter(k => linesLive(k) !== false));
+}
+
+// The same tables whether or not the league has lines (the team page's
+// stat strip reads them too).
+export function loadStandingsTables(leagueKeys){
+  return Promise.allSettled(leagueKeys.filter(k => LOADERS[k]).flatMap(k => LOADERS[k]()));
 }
 
 // true when a league's table is moving and scores; false when it can't
@@ -106,19 +108,16 @@ export function teamLines(teamKey){
   return out;
 }
 
-const COSTS = new Set(['risk', 'stuck', 'clear', 'safe']);
-
-// What each status is called, and its colors: ptsCls for .ob-rule-pts
-// (team page), deltaCls for .act-delta (Points).
+// What each status is called on Points, and its .act-delta color.
 const STATUS = {
-  holds: { tag: 'Holding', tagCls: 'live', ptsCls: 'live', deltaCls: 'live' },
-  clinched: { tag: 'Clinched', tagCls: 'locked', ptsCls: '', deltaCls: 'lock' },
-  chasing: { tag: 'Chasing', tagCls: 'rank', ptsCls: 'mute', deltaCls: 'mute' },
-  out: { tag: 'Out of reach', tagCls: 'rank', ptsCls: 'mute', deltaCls: 'mute' },
-  risk: { tag: 'At risk', tagCls: 'risk', ptsCls: 'neg', deltaCls: 'risk' },
-  stuck: { tag: 'Stuck', tagCls: 'risk', ptsCls: 'neg', deltaCls: 'risk' },
-  clear: { tag: 'Clear', tagCls: 'rank', ptsCls: 'mute', deltaCls: 'mute' },
-  safe: { tag: 'Safe', tagCls: 'rank', ptsCls: 'mute', deltaCls: 'mute' }
+  holds: { tag: 'Holding', deltaCls: 'live' },
+  clinched: { tag: 'Clinched', deltaCls: 'lock' },
+  chasing: { tag: 'Chasing', deltaCls: 'mute' },
+  out: { tag: 'Out of reach', deltaCls: 'mute' },
+  risk: { tag: 'At risk', deltaCls: 'risk' },
+  stuck: { tag: 'Stuck', deltaCls: 'risk' },
+  clear: { tag: 'Clear', deltaCls: 'mute' },
+  safe: { tag: 'Safe', deltaCls: 'mute' }
 };
 
 function lineText(line){
@@ -141,38 +140,61 @@ function signedPts(n){
   return n > 0 ? '+' + n : '&minus;' + Math.abs(n);
 }
 
-// ---- Team page ----
+// ---- Team page: Path to points ----
 
-// A rule that would cost the team only shows while it's in it, or close.
-function shownOnTeamPage(line){
-  if(!COSTS.has(line.status)) return true;
-  if(line.status === 'safe') return false;
-  return line.status !== 'clear' || gapInGames(line.gap, line.cfg) <= NEAR_DROP_GAMES;
-}
-
-// The Overview's "On the line" section: '' when the team has none.
-export function teamLinesSectionHtml(teamKey){
-  const lines = teamLines(teamKey).filter(shownOnTeamPage);
-  if(!lines.length) return '';
-  const rows = lines.map(line => {
-    const s = STATUS[line.status];
-    return `
-      <div class="ob-rule static" data-line="${escapeHtml(line.rule.label)}" data-status="${line.status}">
-        <div class="ob-rule-main">
-          <div class="ob-rule-label">${escapeHtml(line.rule.label)}</div>
-          <div class="ob-rule-meta">
-            <span>${lineText(line)}</span>
-            <span class="pts-tag ${s.tagCls}">${s.tag}</span>
-          </div>
-        </div>
-        <div class="ob-rule-pts ${s.ptsCls}">${signedPts(line.rule.pts)}</div>
-      </div>`;
-  }).join('');
-  return `
-    <div class="modal-section-title spaced">On the line</div>
-    <div class="ob-card ob-lines">${rows}</div>
-    <div class="act-foot">From today’s table. Clinched and out of reach ignore tiebreakers.</div>
-  `;
+// Every scoring rule of a drafted team's league, as what it's worth to its
+// owner right now. Built from the same answers Live points uses
+// (getLeagueRuleTeams, isRuleProvisional, teamPointsSplit), with On the
+// line's distance as each rule's note, so the two always agree:
+//   locked  earned and can't be lost (Locked points)
+//   live    earned off a table that can still move (Live points)
+//   reach   not earned, but On the line says it still can be
+//   off     out of reach, not started, or a penalty the team is clear of
+// A penalty the team is in is live (or locked once it's final). An admin
+// adjustment is its own locked row, so the rows add up to `now`. `max` is
+// the best the team can still finish with. null for a team nobody owns.
+export function teamPathToPoints(teamKey){
+  const meta = TEAM_META[teamKey];
+  const scoring = meta && LEAGUE_SCORING[meta.leagueKey];
+  if(PRE_DRAFT || !scoring || meta.favoriteOnly || !meta.draftTeamId) return null;
+  const leagueKey = meta.leagueKey;
+  const prior = PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey);
+  const locked = isLeagueLocked(leagueKey);
+  const underway = !prior && !locked && leagueSeasonUnderway(leagueKey) === true;
+  const lines = new Map(teamLines(teamKey).map(l => [l.rule.label, l]));
+  let max = 0;
+  // A team finishes in one place per table, so exact placements in the
+  // same table (EPL's 3rd, 2nd and 1st) count once: the best still open.
+  const placements = new Map();
+  const rules = scoring.rules.map(rule => {
+    const won = (getLeagueRuleTeams(leagueKey, rule) || []).includes(teamKey);
+    const line = lines.get(rule.label);
+    let state = 'off';
+    if(won) state = isRuleProvisional(rule, leagueKey) ? 'live' : 'locked';
+    else if(rule.pts > 0 && line && line.status === 'chasing') state = 'reach';
+    const gone = !won && ((line && line.status === 'out') || (rule.rankAuto && locked));
+    const best = state === 'locked' ? rule.pts : (rule.pts > 0 && !gone ? rule.pts : 0);
+    const spec = rule.rankAuto;
+    if(spec && spec.rank && rule.pts > 0){
+      const scope = spec.scope || 'league';
+      placements.set(scope, Math.max(placements.get(scope) || 0, best));
+    } else max += best;
+    let noteHtml = line ? lineText(line) : '';
+    if(!noteHtml && rule.rankAuto){
+      if(prior) noteHtml = 'Counts from next season';
+      else if(locked) noteHtml = won ? 'Final standings' : '';
+      else if(!underway) noteHtml = 'Once the season starts';
+      else if(won) noteHtml = 'From today’s table';
+    }
+    return { label: rule.label, pts: rule.pts, state, noteHtml };
+  });
+  placements.forEach(pts => { max += pts; });
+  const adj = prior ? null : getTeamAdjustment(teamKey);
+  if(adj){
+    rules.push({ label: adj.note || 'Adjustment', pts: adj.pts, state: 'locked', noteHtml: 'Set by the commissioner' });
+    max += adj.pts;
+  }
+  return { now: teamPointsSplit(teamKey).projected, max, rules };
 }
 
 // ---- A drafter's Points breakdown ----

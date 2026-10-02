@@ -1177,9 +1177,8 @@ body{
 
 .sheet-row + .sheet-row{ border-top: 1px solid var(--divider); }
 
-/* Same empty-ring/filled-check swap as .tracker-check in
-   js/league-facts.js's achievement tracker — reused here for "current
-   identity" instead of a colored avatar. */
+/* An empty ring that fills with a check: the "current identity" mark,
+   instead of a colored avatar. */
 .sheet-check{
   flex: 0 0 auto;
   margin-left: auto;
@@ -1971,169 +1970,6 @@ body{
    the drafter breakdowns. */
 .scoring-value.pos{ color: var(--win); }
 .scoring-value.neg{ color: var(--loss); }
-
-/* ---- Season tracker (achievement checklist, in team modal) ----
-   The head (title + "Earned so far" summary + chevron) stays visible
-   whether the body (the checklist itself) is collapsed or not — only
-   trackerSectionHtml's `expanded` flag decides whether tracker-body
-   renders at all, so there's no hidden-but-present markup to fight
-   with in CSS. Sits under its own top margin (see #tracker-section
-   below) so it doesn't crowd the Next Match/Game section right above it. */
-.tracker-head{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  cursor: pointer;
-}
-
-#tracker-section{
-  margin-top: 16px;
-}
-
-.tracker-total{
-  font-size: var(--fs-11);
-  color: var(--text-sub);
-  font-weight: 600;
-}
-
-.tracker-total b{
-  color: var(--text);
-  font-family: var(--font-display);
-  /* Explicit, not inherited — without this, the <b> tag's default
-     "bolder" keyword resolves relative to .tracker-total's own 600,
-     which lands on 900 (the CSS bolder-keyword table steps 600->900),
-     noticeably heavier than the 700 used everywhere else in the app
-     for an emphasized Space Grotesk number (.form-score, .tracker-value,
-     .next-match .nm-teams) — that mismatch is what read as "too big". */
-  font-weight: 700;
-}
-
-.tracker-chevron{
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  color: var(--text-mute);
-  transition: transform 0.18s ease;
-}
-
-.tracker-chevron.open{
-  transform: rotate(180deg);
-}
-
-.tracker-body{
-  margin-top: 12px;
-}
-
-.tracker-list{
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 4px;
-}
-
-.tracker-item{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 2px;
-  cursor: pointer;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-  font-family: inherit;
-  min-height: 44px;
-}
-
-.tracker-item + .tracker-item{
-  border-top: 1px solid rgba(var(--ink-rgb),0.055);
-}
-
-.tracker-check{
-  flex: 0 0 20px;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid rgba(var(--ink-rgb),0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tracker-check svg{ width: 11px; height: 11px; }
-
-.tracker-item.achieved .tracker-check{
-  background: var(--win);
-  border-color: transparent;
-}
-
-.tracker-label{
-  flex: 1;
-  font-size: var(--fs-13);
-  font-weight: 600;
-  color: var(--text-sub);
-}
-
-.tracker-item.achieved .tracker-label{
-  color: var(--text);
-}
-
-.tracker-value{
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--fs-11);
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  white-space: nowrap;
-  border: 1.5px solid rgba(var(--ink-rgb),0.12);
-  color: var(--text-mute);
-  background: transparent;
-}
-
-.tracker-item.achieved .tracker-value.pos{
-  background: var(--win-soft);
-  color: var(--win);
-  border-color: transparent;
-}
-
-.tracker-item.achieved .tracker-value.neg{
-  background: var(--loss-soft);
-  color: var(--loss);
-  border-color: transparent;
-}
-
-/* Rank-based rules (e.g. "2nd in EPL") that currently apply — amber
-   instead of the green/red used for a real, locked-in fact, since
-   these read straight off today's table and can still change before
-   the season ends. */
-.tracker-item.provisional .tracker-check{
-  background: var(--provisional);
-  border-color: transparent;
-}
-
-.tracker-item.provisional .tracker-label{ color: var(--text); }
-
-.tracker-item.provisional .tracker-value{
-  background: var(--provisional-soft);
-  color: var(--provisional);
-  border-color: transparent;
-}
-
-
-/* "10 locked · +2 live" beside the projected total — the same split
-   (and Live color) the Points tab shows for a drafter. */
-.tracker-split{
-  display: inline-flex;
-  gap: 8px;
-  margin-left: 10px;
-  padding-left: 10px;
-  border-left: 1px solid rgba(var(--ink-rgb),0.12);
-}
-.tracker-split .lv{ color: var(--provisional); }
-.tracker-split .risk{ color: var(--loss); }
-
-.tracker-item.readonly{ cursor: default; }
 
 /* ---- League Facts (marked from the admin page, js/admin.js) ---- */
 .league-facts-list{
@@ -3073,7 +2909,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .pts-tag.lock-in{ color: var(--on-accent); background: var(--accent-fill); }
 .pts-tag.rank{ color: var(--text-sub); background: var(--fill-soft); }
 .pts-tag.risk{ color: var(--loss); background: var(--loss-soft); }
-.tracker-label .pts-tag{ margin-left: 6px; }
 
 .ob-move{ display: inline-block; font-size: var(--fs-11); font-weight: 800; white-space: nowrap; } /* inline-block so the re-rank pop can scale it */
 .ob-move.up{ color: var(--win); }
@@ -3516,8 +3351,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 .ob-rule:last-child{ border-bottom: none; }
 .ob-rule.static{ cursor: default; }
-/* The team page's "On the line" (js/lines.js): .ob-rule rows straight in a card. */
-.ob-lines{ padding: 2px 14px; }
 .ob-rule-main{ min-width: 0; }
 .ob-rule-label{
   font-size: var(--fs-13);
@@ -3650,55 +3483,81 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 .team-page-actions{ display: flex; align-items: center; gap: 6px; }
 
+/* ---- Team page hero (docs/delight-plan.md, Phase 2) ----
+   300px tall, status-bar strip included: it bleeds past the body's padding
+   to the screen's edges, with the team orb behind a scrim. Scrolling folds
+   it into the fixed .compact-bar (js/team-page.js writes the view's --y,
+   the scroll, and --p, 0 → 1 over the fold). The notch cover is off on this
+   page; the bar covers that strip once the hero has scrolled away. */
+#view-team-page{ --p: 0; --y: 0; }
+html:has(#view-team-page.active) .safe-area-top{ visibility: hidden; }
+/* Its own block formatting context, so the hero's negative top margin
+   stays inside the page instead of collapsing up through .board. */
+#team-page-content{ display: flow-root; }
+
 .team-hero{
   position: relative;
   overflow: hidden;
-  padding: 10px 20px 20px;
+  height: calc(300px + var(--pull, 0) * 1px);
+  margin: calc(-1 * (env(safe-area-inset-top) + var(--page-pad))) calc(-1 * var(--page-pad)) 0;
+  -webkit-user-select: none;
+  user-select: none;
 }
-.team-hero-orb{
-  position: absolute;
-  right: -46px; top: -30px;
-  width: 190px; height: 190px;
-  border-radius: 50%;
-  filter: blur(2px);
-  pointer-events: none;
-}
+/* Sideways drags are the swipe; vertical ones still scroll the page. */
+.team-hero.swipes{ touch-action: pan-y; cursor: grab; }
+.team-hero img{ -webkit-user-drag: none; }
+.team-hero-orb{ left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px; }
 .team-hero-scrim{
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(var(--hero-fade-rgb),0) 40%, rgba(var(--hero-fade-rgb),0.85) 100%);
+  background: linear-gradient(180deg, rgba(var(--hero-fade-rgb),0) 35%, rgba(var(--hero-fade-rgb),1) 100%);
   pointer-events: none;
 }
-.team-hero-row{
-  position: relative;
+.team-hero-fold{
+  position: absolute;
+  left: 0; right: 0; bottom: 20px;
+  padding: 0 var(--page-pad);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  transform: translateY(calc(var(--y) * 0.35px));
+  opacity: calc(1 - var(--p));
+}
+.team-hero-row{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  text-align: center;
 }
 .crest-bare{
   flex: 0 0 auto;
   object-fit: contain;
   background: none;
 }
-.team-hero .crest-bare{ width: 82px; height: 82px; filter: drop-shadow(var(--hero-shadow)); }
+.team-hero .crest-bare{ width: 76px; height: 76px; filter: drop-shadow(var(--crest-shadow)); }
+.team-hero-row > .badge{ flex: none; width: 76px; height: 76px; border-radius: 22px; font-size: var(--fs-22); box-shadow: var(--crest-shadow); }
 .team-hero-name{
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: var(--fs-30);
-  letter-spacing: -0.9px;
-  line-height: 1.02;
+  font-size: 28px;
+  letter-spacing: -0.6px;
+  line-height: 1.1;
   text-wrap: balance;
 }
 .team-hero-meta{
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 8px;
-  font-size: var(--fs-11);
+  gap: 6px;
+  font-size: var(--fs-13);
   font-weight: 600;
   color: var(--text-sub);
 }
+.team-hero-owner.me{ color: var(--accent); }
 .team-hero-meta .status-pill{
   font-size: var(--fs-10);
   font-weight: 800;
@@ -3738,6 +3597,157 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .tab-body{ padding: 14px 20px 26px; min-height: 330px; }
 .tab-body.fit{ min-height: 0; }
 .team-page-tabs{ margin: 16px 20px 0; }
+
+/* TeamOrb (teamOrbHtml in js/ui.js): a team's own color, blurred, behind a
+   hero. Identity only, never meaning. --orb is set inline from data; the
+   color cross-fades when it changes (swiping between teams). */
+.team-orb{
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--orb);
+  filter: blur(var(--orb-blur));
+  opacity: var(--orb-opacity);
+  pointer-events: none;
+  transition: background-color 700ms var(--ease-out);
+}
+.team-orb.soft{ opacity: var(--orb-opacity-soft); }
+
+/* CompactBar (compactBarHtml): the fixed bar a hero folds into. The back
+   link and actions always show; the tint, hairline and small title come
+   in with --p. Its inner edges line up with .board's column. */
+.compact-bar{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 160;
+  height: calc(env(safe-area-inset-top) + 52px);
+  padding: env(safe-area-inset-top) calc(max(var(--page-pad), (100% - 1400px) / 2) - 6px) 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.compact-bar-bg{
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--orb) 20%, var(--bg));
+  border-bottom: 1px solid var(--hairline);
+  opacity: var(--p, 0);
+  transition: background-color 700ms var(--ease-out);
+  pointer-events: none;
+}
+.compact-bar > .ob-back, .compact-bar-actions{ position: relative; flex: none; }
+.compact-bar > .ob-back{ color: var(--text); }
+.compact-bar-actions{ margin-left: auto; display: flex; align-items: center; }
+.compact-bar-actions .favorite-star{ width: 44px; height: 44px; }
+.compact-bar-actions .favorite-star svg{ width: 22px; height: 22px; }
+.compact-bar-title{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-16);
+  font-weight: 700;
+  opacity: var(--p, 0);
+  transform: translateY(calc((1 - var(--p, 0)) * 8px));
+}
+.compact-bar-title > span{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compact-bar-title .badge{ flex: none; width: 26px; height: 26px; border-radius: var(--r-badge-sm); font-size: 9px; }
+
+/* PageDots (pageDotsHtml): which of several pages is up. */
+.page-dots{ display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.page-dot{
+  position: relative;
+  width: 6px; height: 6px;
+  padding: 0; border: 0; border-radius: 3px;
+  background-color: var(--hairline-strong);
+  cursor: pointer;
+  transition: width 320ms var(--ease-out), background-color 320ms var(--ease-out);
+}
+.page-dot::after{ content: ''; position: absolute; inset: -9px -3px; }
+.page-dot.on{ width: 18px; background-color: var(--text); }
+.page-dots-count{ font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+
+/* The team page's stat strip: record, standing, points. */
+#team-page-stats .stat-cell .num{ font-variant-numeric: tabular-nums; }
+#team-page-stats .stat-cell .lbl{ font-size: 9px; font-weight: 800; letter-spacing: var(--track-label); }
+
+/* SectionCard (sectionCardHtml): a titled card on a detail page. */
+.sec-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-table); padding: 16px; }
+.sec-card-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.sec-card-title{ margin: 0; font-family: var(--font-display); font-size: var(--fs-16); font-weight: 700; }
+.sec-card-sub{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+#ptp-section:not(:empty){ margin-bottom: 14px; }
+
+/* PathToPoints (pathToPointsHtml). Gold is locked, blue is live, a ring is
+   in reach, a faded ring is off; a penalty the team is in is red, like a
+   negative Live total on Points. */
+.ptp-step{ position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 12px; padding: 9px 0; }
+.ptp-node{
+  position: relative; z-index: 1;
+  width: 22px; height: 22px;
+  border: 2px solid var(--hairline-strong); border-radius: 50%;
+  background: var(--surface);
+  display: grid; place-items: center;
+  color: var(--on-accent);
+}
+.ptp-node svg{ width: 12px; height: 12px; }
+.ptp-line{ position: absolute; left: 10px; top: 33px; bottom: -7px; width: 2px; background-color: var(--hairline); transform-origin: top; }
+.ptp-line.gold{ background-color: var(--accent); }
+.ptp-step.locked .ptp-node{ background: var(--accent); border-color: var(--accent); }
+.ptp-step.live .ptp-node{ background: var(--live-stripe); border-color: var(--provisional); }
+.ptp-step.reach .ptp-node{ border-color: var(--provisional-border); }
+.ptp-step.off .ptp-node{ opacity: 0.45; }
+.ptp-step.neg.live .ptp-node{ background: var(--risk-stripe); border-color: var(--loss); }
+.ptp-step.neg.locked .ptp-node{ background: var(--loss); border-color: var(--loss); }
+.ptp-main{ min-width: 0; }
+.ptp-label{ display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: var(--fs-15); font-weight: 700; line-height: 1.3; }
+.ptp-step.off .ptp-label{ color: var(--text-sub); }
+.ptp-note{ display: block; margin-top: 2px; font-size: var(--fs-13); font-weight: 500; line-height: 1.35; color: var(--text-sub); }
+.ptp-pts{ align-self: center; font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+.ptp-step.locked .ptp-pts{ color: var(--accent); }
+.ptp-step.live .ptp-pts{ color: var(--provisional); }
+.ptp-step.neg.live .ptp-pts, .ptp-step.neg.locked .ptp-pts{ color: var(--loss); }
+
+/* FormStrip (formStripHtml): the last five as bars off a midline. */
+.form-strip-bars{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.fs-col{
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 0; padding: 0 0 2px;
+  background: none; border: 0; border-radius: var(--r-sm);
+  color: inherit; font: inherit;
+}
+button.fs-col{ cursor: pointer; }
+button.fs-col:hover{ background: var(--hover); }
+.fs-bar{ position: relative; width: 100%; height: 60px; }
+.fs-bar::before{ content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background-color: var(--divider); }
+.fs-bar > i{ position: absolute; left: 22%; right: 22%; bottom: 50%; border-radius: 4px 4px 1px 1px; background-color: var(--win); transform-origin: bottom; }
+.fs-col.l .fs-bar > i{ bottom: auto; top: 50%; border-radius: 1px 1px 4px 4px; background-color: var(--loss); transform-origin: top; }
+.fs-col.d .fs-bar > i{ bottom: 48%; border-radius: 2px; background-color: var(--draw); transform-origin: center; }
+.fs-res{ font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag); color: var(--win); }
+.fs-col.l .fs-res{ color: var(--loss); }
+.fs-col.d .fs-res{ color: var(--draw); }
+.fs-score{ font-family: var(--font-display); font-size: var(--fs-11); font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fs-opp{ font-size: var(--fs-10); font-weight: 600; color: var(--text-mute); }
+.form-card + .more-link-row{ margin-top: 4px; }
+
+/* NextGame (nextGameHtml) inside the team page's game card. */
+.game-card.next-game{ display: block; }
+.ng-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.ng-title{ font-family: var(--font-display); font-size: var(--fs-16); font-weight: 700; }
+.ng-when{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+.ng-row{ display: flex; align-items: center; gap: 8px; }
+.ng-row .badge{ flex: none; width: 34px; height: 34px; border-radius: 11px; font-size: var(--fs-10); }
+.ng-vs{ font-size: var(--fs-12); font-weight: 700; color: var(--text-mute); }
+.ng-opp{
+  flex: 1; min-width: 0;
+  font-size: var(--fs-15); font-weight: 700; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word;
+}
+.ng-sub{ margin-top: 10px; font-size: var(--fs-11); font-weight: 500; color: var(--text-mute); }
+
+/* Countdown (countdownHtml): ticks once a second. */
+.countdown{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .news-card{
   background: var(--surface);
@@ -4645,7 +4655,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Tabular numerals on every number column (R10) */
 .standings-row, .person-record-chip, .league-tab .n,
 .ob-rank, .ob-detail-total, .ob-card-pts, .ob-rule-pts, .ob-table-row, .ob-ladder-row,
-.stat-cell .num, .stat-tile .num, .form-score, .tracker-total, .tracker-value,
+.stat-cell .num, .stat-tile .num, .form-score,
 .scoring-value, .fact-pts, .tg-score, .tg-rail-top, .gd-score-team b,
 .linescore-table, .box-table, .gd-teamstats, .chat-time, .chat-badge{
   font-variant-numeric: tabular-nums;
@@ -5623,7 +5633,7 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .view.tp-layer{
   display: block;
   position: fixed; top: 0; bottom: 0; left: var(--tp-l); width: var(--tp-w);
-  border-top: var(--tp-t) solid transparent; box-sizing: border-box;
+  padding-top: var(--tp-t); box-sizing: border-box;
   overflow: hidden;
   background: var(--bg); box-shadow: 0 0 0 100vmax var(--bg);
   z-index: 150;
@@ -5723,11 +5733,6 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 @keyframes tg-final-rail{ from{ color: var(--live); } }
 @keyframes tg-final-dim{ from{ color: var(--text); } }
 
-/* Team page: the hero bloom (js/team-page.js, playHeroOpen). A copy of the
-   hero's team-color background grows in at the back while the hero's own
-   is held off, so the two never stack. */
-.team-hero.fx-bloom{ background: none !important; }
-.team-hero-bloom{ position: absolute; inset: 0; transform-origin: 20% 50%; pointer-events: none; }
 
 /* Team page from the team modal: its crest and name morph into the hero's
    (view-transition-name tp-crest / tp-name), on the push's own timing. */

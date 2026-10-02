@@ -799,7 +799,8 @@ export async function fetchEspnEplStandings(){
 // correct regardless of which behavior a given sport turns out to have.
 // Shape returned: { recent, upcoming }, each an array of
 // [{ id, date, completed, statusDetail, isHome, opponentName,
-// opponentLogoUrl, ownScore, oppScore, venueName, broadcast }],
+// opponentLogoUrl, opponentAbbr, opponentShortName, ownScore, oppScore,
+// venueName, broadcast }],
 // recent newest-first, upcoming soonest-first.
 export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
   const normalize = event => {
@@ -818,6 +819,8 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
       isHome: self.homeAway === 'home',
       opponentName: espnTeamName(opponent.team),
       opponentLogoUrl: espnLogoUrl(opponent.team),
+      opponentAbbr: opponent.team.abbreviation || null,
+      opponentShortName: opponent.team.shortDisplayName || null,
       ownScore: self.score ? Number(self.score.displayValue) : null,
       oppScore: opponent.score ? Number(opponent.score.displayValue) : null,
       venueName: comp.venue ? comp.venue.fullName : null,

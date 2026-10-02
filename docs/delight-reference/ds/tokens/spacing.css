@@ -1,0 +1,24 @@
+/* Radii, layout, elevation. Values are the product's own — not snapped to a grid. */
+:root{
+  --r-xs: 6px; --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-sheet: 28px; --r-pill: 999px;
+  --r-badge: 13px;      /* 44px team badge */
+  --r-badge-sm: 8px;    /* 26px team badge */
+  --r-table: 16px;      /* points table, game card */
+  --r-hero: 18px;       /* points hero, race card */
+  --r-cta: 12px;        /* full-width CTA */
+  --r-seg: 11px; --r-seg-thumb: 8px;
+
+  --page-pad: 24px;     /* 16px under 700px */
+  --nav-h: 58px;
+  --hit-min: 44px;
+  --space-1: 4px; --space-2: 6px; --space-3: 8px; --space-4: 10px; --space-5: 12px;
+  --space-6: 14px; --space-7: 16px; --space-8: 18px; --space-9: 20px; --space-10: 22px; --space-11: 24px;
+
+  --shadow-pop: 0 12px 32px rgba(0,0,0,0.5);
+  --shadow-tip: 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,0.5);
+  --shadow-sheet: 0 -24px 64px rgba(0,0,0,0.55);
+  --hero-shadow: 0 10px 22px rgba(0,0,0,0.5);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+@media (max-width: 700px){ :root{ --page-pad: 16px; } }

@@ -6,7 +6,7 @@
    cache only when there's no connectivity — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v36';
+const CACHE_NAME = 'boxscore-v37';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const SHELL_FILES = [
   './js/launch-splash.js',
   './js/motion.js',
   './js/motion-fx.js',
+  './js/gestures.js',
   './js/ui.js',
   './js/icons.js',
   './js/escape.js',

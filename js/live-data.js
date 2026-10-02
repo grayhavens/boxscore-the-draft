@@ -681,11 +681,54 @@ export function renderStats(meta, bundle, elId = 'live-stats'){
     : `<div class="stat-cell"><div class="lbl">Live stats unavailable right now</div></div>`;
 }
 
+// The team page's stat strip (js/team-page.js): the team's record, and
+// its standing where its scoring rules look (division, else conference,
+// else the whole table) with that group's name as the label. Off the same
+// rows renderStats reads; null while they're loading.
+const FLAT_STANDING = {
+  nfl: { row: findEspnNflRow, record: r => `${r.wins}-${r.losses}${r.ties ? '-' + r.ties : ''}`, div: nflDivisionLabel, divRank: nflDivisionRank, confRank: nflConferenceRank, load: fetchEspnNflDivisionStandingsCached },
+  nba: { row: findEspnNbaRow, record: r => `${r.wins}-${r.losses}`, div: nbaDivisionLabel, divRank: nbaDivisionRank, confRank: nbaConferenceRank, load: fetchEspnNbaDivisionStandingsCached },
+  nhl: { row: findEspnNhlRow, record: r => `${r.wins}-${r.losses}-${r.otLosses || 0}`, div: nhlDivisionLabel, divRank: nhlDivisionRank, confRank: nhlConferenceRank, load: fetchEspnNhlDivisionStandingsCached },
+  mlb: { row: findEspnMlbRow, record: r => `${r.wins}-${r.losses}`, div: mlbDivisionLabel, divRank: mlbDivisionRank, confRank: mlbConferenceRank, load: fetchEspnMlbDivisionStandingsCached }
+};
+export function teamRecordStanding(meta){
+  const k = meta.leagueKey;
+  const flat = FLAT_STANDING[k];
+  if(flat){
+    const row = flat.row(meta);
+    if(!row) return null;
+    flat.load();
+    const div = flat.div(meta), divRank = flat.divRank(meta), confRank = flat.confRank(meta);
+    const conf = row.conferenceAbbr || '';
+    if(div && divRank) return { record: flat.record(row), standing: ordinal(divRank), group: k === 'mlb' || k === 'nfl' ? `${conf} ${div}`.trim() : div };
+    return { record: flat.record(row), standing: confRank ? ordinal(confRank) : '—', group: conf || 'Standing' };
+  }
+  if(k === 'epl'){
+    const row = findEspnEplRow(meta);
+    return row ? { record: `${row.wins}-${row.draws}-${row.losses}`, standing: ordinal(row.rank), group: 'Table' } : null;
+  }
+  if(k === 'wnba'){
+    const row = findEspnWnbaRow(meta);
+    return row ? { record: `${row.wins}-${row.losses}`, standing: row.conferenceAbbr || '—', group: 'Conference' } : null;
+  }
+  if(k === 'cfb' || k === 'mcbb'){
+    const rec = k === 'cfb' ? findCfbRecord(meta) : findCbbRecord(meta);
+    if(!rec || rec.wins === null) return null;
+    const record = `${rec.wins}-${rec.losses}`;
+    if(k === 'mcbb'){
+      const row = findEspnCbbRow(meta), confRank = cbbConferenceRank(meta);
+      if(confRank) return { record, standing: ordinal(confRank), group: (row && row.conferenceAbbr) || 'Conference' };
+    }
+    return { record, standing: typeof rec.ranking === 'number' ? '#' + rec.ranking : 'NR', group: 'AP poll' };
+  }
+  return null;
+}
+
 // Last 5 results as a compact row of pills, oldest on the left ending
 // with the most recent (matches recentEvents' own newest-first order,
 // so this just reverses a slice of it) — the detailed line rendered
 // below it always covers the rightmost/most recent one already.
-export function formStripHtml(recentEvents){
+function formPillsHtml(recentEvents){
   const last5 = recentEvents.slice(0, 5).reverse();
   return `
     <div class="form-strip">
@@ -750,7 +793,7 @@ export function renderForm(teamKey, meta, bundle, elId = 'live-form'){
       <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${evt.id}')">View boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
-      ${formStripHtml(recent)}
+      ${formPillsHtml(recent)}
       <div class="form-item">
         <div class="form-pill ${result}">${label}</div>
         <div class="form-detail">
@@ -1913,19 +1956,17 @@ export async function backgroundRefreshTick(){
 
 // The Team Page (js/team-page.js) marks its own mount point with the
 // same data-activeTeam convention the modal above already uses, so this
-// file can keep its stat-strip/game-card current on the same refresh
-// ticks the modal gets, without importing team-page.js (which itself
-// imports a good deal of this file — importing it back here would be
-// circular for no real benefit, since all that's needed is two DOM ids
-// to repaint).
+// file can keep its stat strip and next game current on the same refresh
+// ticks the modal gets. The page hands over its own repaint
+// (setTeamPageRefresher) rather than this file importing team-page.js,
+// which itself imports a good deal of this file.
+let teamPageRefresher = null;
+export function setTeamPageRefresher(fn){ teamPageRefresher = fn; }
+
 function refreshOpenTeamPageIfActive(teamKey, bundle){
   const el = document.getElementById('team-page-content');
-  if(!el || el.dataset.activeTeam !== teamKey) return;
-  const meta = TEAM_META[teamKey];
-  renderStats(meta, bundle, 'team-page-stats');
-  renderNext(teamKey, meta, bundle, 'team-page-next');
-  const cardEl = document.getElementById('team-page-game-card');
-  if(cardEl) cardEl.classList.toggle('live', !!(bundle.espnLive && bundle.espnLive.isLive));
+  if(!el || el.dataset.activeTeam !== teamKey || !teamPageRefresher) return;
+  teamPageRefresher(teamKey, bundle);
 }
 
 /* ---- Fast live-scoreboard sweep ----

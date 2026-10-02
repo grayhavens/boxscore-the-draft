@@ -44,7 +44,8 @@ const GUIDE = [
     id: 'home', icon: 'home', tour: true, title: 'Your teams',
     lead: 'Home is your board: every team you drafted, grouped by league, with its latest form and next game.',
     points: [
-      'Tap any team for its page: schedule, news, squad and stats. On the line shows how close it is to each scoring line, like 1 game behind for the division.',
+      'Tap any team for its page: schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division.',
+      'On one of your teams’ pages, swipe the top sideways to go to your next team, or tap the dots under its name.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
       'Tap a drafter on Points to see their board.'
     ],
