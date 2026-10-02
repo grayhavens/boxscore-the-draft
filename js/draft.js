@@ -59,7 +59,7 @@ import {
 } from './draft-client.js';
 import { escapeHtml as esc, EASE_SPRING } from './utils.js';
 import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed } from './motion-fx.js';
-import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml } from './ui.js';
+import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml, clockMiniHtml } from './ui.js';
 
 const LEAGUE_UI = {
   epl: { label: 'EPL', color: '#826AC8' }, nfl: { label: 'NFL', color: '#91C86A' },
@@ -835,6 +835,56 @@ function landedHeroHtml(d, l){
   });
 }
 
+// ---- Phone: the pinned mini clock ----
+
+// The hero is too tall to pin over the list, so it scrolls away with it
+// (.dm-top:has(.clock-hero)). Once it's mostly out of sight, a slim bar
+// slides down from the top with the same clock: yours while you're up, the
+// next drafter's while your pick is landed. Tapping it goes back up.
+function miniHtml(d){
+  if(d.myTurn) return clockMiniHtml({ label: 'You’re on the clock', sub: `Pick ${pickLabel(d.clockInfo.slot, d.n)}`, mine: true, onclick: 'draftToClock()' });
+  if(landedFor(d)) return clockMiniHtml({ label: `${drafterName(d.clockInfo.owner)} is picking…`, live: true, onclick: 'draftToClock()' });
+  return '';
+}
+
+let heroObserver = null, watchedHero = null;
+function watchHero(){
+  const hero = document.querySelector('#dr-clock .clock-hero');
+  if(hero === watchedHero) return;
+  if(!heroObserver && 'IntersectionObserver' in window){
+    heroObserver = new IntersectionObserver(entries => {
+      const e = entries[entries.length - 1];
+      const mini = document.getElementById('dm-mini');
+      // Only once it's gone off the top, not while it's below (it never is).
+      if(mini) mini.classList.toggle('show', e.target.isConnected && e.intersectionRatio < 0.4 && e.boundingClientRect.top < e.rootBounds.top + 1);
+    }, { root: root(), threshold: [0, 0.4, 1] });
+  }
+  if(!heroObserver) return;
+  if(watchedHero) heroObserver.unobserve(watchedHero);
+  watchedHero = hero;
+  if(hero) heroObserver.observe(hero);
+  else { const mini = document.getElementById('dm-mini'); if(mini) mini.classList.remove('show'); }
+}
+
+// Back up to the hero: eased over `ms` when motion is on (so the landing
+// knows when to start), else at once. Returns how long it takes.
+const SCROLL_UP_MS = 420;
+function scrollToClock(){
+  const sc = root();
+  const from = sc ? sc.scrollTop : 0;
+  if(from <= 0) return 0;
+  if(!fxOn()){ sc.scrollTop = 0; return 0; }
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / SCROLL_UP_MS);
+    sc.scrollTop = from * Math.pow(1 - k, 3);
+    if(k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  return SCROLL_UP_MS;
+}
+window.draftToClock = () => { scrollToClock(); };
+
 // The phone's pick order: three picks back, the one on the clock, and what's
 // coming, each done pick with its team's color. A pick slides it along.
 const RAIL_BEFORE = 3, RAIL_SLOTS = 12, RAIL_STEP = 64;   // slot 58 + gap 6
@@ -1238,6 +1288,7 @@ function phoneShellHtml(){
   const tab = (key, label) => `<button class="dm-tab${ui.mobileTab === key ? ' on' : ''}" data-tab="${key}" onclick="draftMobileTab('${key}')">${label}</button>`;
   return `
     <div class="dm" data-tab="${ui.mobileTab}">
+      <div id="dm-mini" class="dm-mini"></div>
       <div class="dm-top">
         <div id="dr-clock"></div>
         <div id="dm-rail"></div>
@@ -1297,6 +1348,8 @@ function renderPhone(d){
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
   setRegion('dm-rail', railHtml(d));
+  setRegion('dm-mini', miniHtml(d));
+  watchHero();
   setRegion('dr-autodraft', autoDraftHtml(d));
   setRegion('dm-queue-top', phoneQueueHtml(d));
   setRegion('dm-board', phoneBoardHtml(d));
@@ -1637,6 +1690,21 @@ const LAND_EASE = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
 // landed state; this plays it in. Returns when the crest lands.
 function fxLanding(e){
   const hero = document.querySelector('#dr-clock .clock-hero.landed');
+  // On a phone the pick was made further down: the room is scrolling back
+  // up to the hero (draftClick), so the landing holds its start until then.
+  const wait = e.sent && e.sent.scrollUntil ? Math.max(0, e.sent.scrollUntil - performance.now()) : 0;
+  if(wait > 0){
+    hero.classList.add('land-wait');
+    setTimeout(() => {
+      hero.classList.remove('land-wait');
+      if(hero.isConnected) playLanding(hero, e, true);
+    }, wait);
+    return wait + 720;
+  }
+  return playLanding(hero, e, false);
+}
+
+function playLanding(hero, e, scrolled){
   hero.querySelectorAll('.clock-hero-clock, .clock-hero-head').forEach(el => {
     play(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 260 });
     play(el, [{ transform: 'none' }, { transform: 'scale(0.85)' }], { duration: 400 });
@@ -1651,7 +1719,8 @@ function fxLanding(e){
   ringPulse(badge, { delay: land, iterations: 1 });
   stagger(hero.querySelectorAll('.pick-landing-title, .pick-landing-sub'), RISE_14, { step: 90, delay: land, duration: 500 });
   play(hero.querySelector('.pick-landing-next'), RISE_14, { duration: 500, delay: Math.max(1200, land + 400) });
-  fxRowGone(e.sent);
+  // After scrolling up, the row is long out of sight.
+  if(!scrolled) fxRowGone(e.sent);
   return land;
 }
 
@@ -1788,6 +1857,14 @@ function updateClock(){
   const left = limit - clockElapsedMs(d.s.clock, serverNow());
   const ring = document.querySelector('#dr-clock .clock-hero:not(.landed) .draft-clock');
   if(ring) updateHeroClock(d, ring, limit, left);
+  const mini = document.querySelector('#dm-mini .clock-mini-time');
+  if(mini){
+    // Yours holds at 0:00 like the ring; the next drafter's runs over like the strip.
+    const sec = Math.max(0, Math.ceil(left / 1000));
+    const text = d.myTurn ? fmt(sec * 1000) : (left < 0 ? '+' : '') + fmt(left);
+    if(mini.textContent !== text) mini.textContent = text;
+    mini.classList.toggle('hurry', d.myTurn && sec <= HURRY_SEC);
+  }
   const timer = document.getElementById('dr-timer');
   if(!timer) return;
   const over = left < 0;
@@ -1923,6 +2000,12 @@ window.draftClick = async id => {
     team: id, slot: d.clockInfo.slot, rect: tile ? tile.getBoundingClientRect() : null, ghost: tile ? tile.cloneNode(true) : null, at: Date.now(),
     row: row && list ? { rect: row.getBoundingClientRect(), ghost: row.cloneNode(true), list: list.id } : null
   };
+  // A phone scrolled down to the list goes back up to the hero, so the
+  // landing plays where you can see it. The crest still flies from your tap.
+  const hero = !proxying && ui.shell === 'phone' && document.querySelector('#dr-clock .clock-hero');
+  if(hero && hero.getBoundingClientRect().top < root().getBoundingClientRect().top){
+    fx.sent.scrollUntil = performance.now() + scrollToClock();
+  }
   const result = await run({ type: 'pick', team: id, slot: d.clockInfo.slot }, proxying ? null : undefined);
   ui.picking = false;
   if(result.ok && proxying) ui.proxySlot = null;

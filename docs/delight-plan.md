@@ -78,7 +78,10 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
 - **Hero:** shows on desktop and phone while you're on the clock, in place of the old gold clock card. Its subline uses the
   app's pick labels ("Pick 2.07 · your next turn is 3.04") and adds make-up, via and auto-draft when they apply. On a
   phone the top block (clock, rail, tabs) stops being sticky while the hero is up, since 220px pinned over the list left
-  too little of it. Other drafters' turns keep the compact card / desktop strip.
+  too little of it. Once the hero is mostly scrolled away, a slim bar (`clockMiniHtml`) slides down pinned to the top
+  with the same clock (tap it to go back up), and drafting from down the list scrolls back up to the hero (420ms) before
+  the landing plays, the crest still flying from where you tapped. Other drafters' turns keep the compact card / desktop
+  strip.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
   last 8 seconds and the beat; the nudge at zero stays. Over time it holds 0:00 in red.

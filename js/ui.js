@@ -344,3 +344,11 @@ export function pickLandingHtml({ color, badgeHtml, title, sub, next = '' }){
 export function snakeRailHtml({ slots }){
   return `<div class="snake-rail"><div class="snake-rail-track">${slots.map(s => `<div class="snake-slot${s.state ? ` ${s.state}` : ''}"><span class="snake-slot-pk">${escapeHtml(s.label)}</span><span class="snake-slot-nm">${escapeHtml(s.name)}</span>${s.chip ? `<span class="snake-slot-chip" style="background:${escapeHtml(s.chip)}"></span>` : ''}</div>`).join('')}</div></div>`;
 }
+
+// ClockMini: the slim bar pinned to the top of the phone's draft room once
+// the hero has scrolled away: who's up, a short line, and the time (set by
+// the room's clock tick). `mine` is gold, as in the hero; `live` leads with
+// the red live dot. Tapping it calls `onclick` (trusted).
+export function clockMiniHtml({ label, sub = '', mine = false, live = false, onclick }){
+  return `<button type="button" class="clock-mini${mine ? ' mine' : ''}" onclick="${onclick}">${live ? '<span class="draft-live-dot" aria-hidden="true"></span>' : ''}<span class="clock-mini-label">${escapeHtml(label)}</span>${sub ? `<span class="clock-mini-sub">${escapeHtml(sub)}</span>` : ''}<b class="clock-mini-time">0:00</b></button>`;
+}

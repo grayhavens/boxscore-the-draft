@@ -5507,6 +5507,26 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
 /* The on-the-clock card is too tall to pin over the list: it scrolls away. */
 .dm-top:has(.clock-hero){ position: relative; }
+/* ClockMini (clockMiniHtml): pinned in its place once the hero is out of
+   sight. The wrapper is zero-height and sticky, so the bar floats over the
+   list without taking room; it slides down when .dm-mini.show. */
+.dm-mini{ position: sticky; top: 0; z-index: 6; height: 0; }
+.clock-mini{
+  display: flex; align-items: center; gap: 8px; width: calc(100% - 32px); margin: 8px 16px 0; padding: 0 14px; height: 44px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); box-shadow: var(--shadow-tip);
+  font: inherit; font-size: var(--fs-13); font-weight: 700; color: var(--text); text-align: left; cursor: pointer;
+  opacity: 0; transform: translateY(-120%); pointer-events: none;
+  transition: opacity 200ms var(--ease-out), transform 320ms var(--ease-out);
+}
+.dm-mini.show .clock-mini{ opacity: 1; transform: none; pointer-events: auto; }
+/* An opaque gold, so the list doesn't show through the tint. */
+.clock-mini.mine{ background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: var(--accent-border); }
+.clock-mini.mine .clock-mini-label{ color: var(--accent); }
+.clock-mini-label{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock-mini-sub{ flex: none; font-weight: 600; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.clock-mini-time{ margin-left: auto; font-family: var(--font-display); font-size: var(--fs-17); font-variant-numeric: tabular-nums; transition: color 300ms; }
+.clock-mini-time.hurry{ color: var(--live); }
+@media (prefers-reduced-motion: reduce){ .clock-mini{ transition: none; } }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: var(--fs-20); }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
@@ -5880,6 +5900,9 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .clock-hero-title{ margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
 .clock-hero-sub{ margin: 4px 0 0; font-size: 13px; font-weight: 500; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .clock-hero.landed .clock-hero-clock, .clock-hero.landed .clock-hero-head{ opacity: 0; transform: scale(0.85); }
+/* Scrolling back up to a landing: it holds the clock until it's in view. */
+.clock-hero.land-wait .clock-hero-clock, .clock-hero.land-wait .clock-hero-head{ opacity: 1; transform: none; transition: none; }
+.clock-hero.land-wait .pick-landing, .clock-hero.land-wait .pick-landing-orb{ opacity: 0; }
 .pick-landing-orb{ left: 50%; top: 42%; width: 420px; height: 420px; margin: -210px 0 0 -210px; z-index: -1; }
 .pick-landing{ position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0 16px; text-align: center; pointer-events: none; }
 .pick-landing-badge{ position: relative; display: inline-flex; margin-bottom: 8px; border-radius: 20px; box-shadow: var(--crest-shadow); }
