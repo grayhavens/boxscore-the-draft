@@ -485,6 +485,53 @@ function setRegion(id, html){
   if(el && regionHtml.get(id) !== html){ el.innerHTML = html; regionHtml.set(id, html); }
 }
 
+// The same, but only the nodes that changed are touched, so a starred
+// team's row updates without every crest in the list being rebuilt (a new
+// lazy <img> shows the tile's abbreviation until it decodes: a flicker).
+// For regions of plain rows; a form control that changed is replaced whole.
+function patchRegion(id, html){
+  const el = document.getElementById(id);
+  if(!el || regionHtml.get(id) === html) return;
+  const next = document.createElement('template');
+  next.innerHTML = html;
+  patchChildren(el, next.content);
+  regionHtml.set(id, html);
+}
+
+// Team rows are matched by their team id, so a pick or a queue reorder
+// moves the existing rows instead of rewriting every row below it.
+const rowKey = n => n.nodeType === 1 ? (n.getAttribute('data-team') || n.getAttribute('data-id')) : null;
+
+function patchChildren(parent, next){
+  const keyed = new Map();
+  parent.childNodes.forEach(n => { const k = rowKey(n); if(k) keyed.set(k, n); });
+  const want = [...next.childNodes];
+  want.forEach((node, i) => {
+    const at = parent.childNodes[i] || null;
+    const k = rowKey(node);
+    const cur = k ? keyed.get(k) : (at && !rowKey(at) ? at : null);
+    if(k) keyed.delete(k);
+    if(!cur){ parent.insertBefore(node, at); return; }
+    if(cur !== at) parent.insertBefore(cur, at);
+    if(!cur.isEqualNode(node)) patchNode(cur, node);
+  });
+  while(parent.childNodes.length > want.length) parent.lastChild.remove();
+}
+
+function patchNode(cur, node){
+  const sameElement = cur.nodeType === 1 && node.nodeType === 1 && cur.tagName === node.tagName
+    && !/^(INPUT|SELECT|TEXTAREA|IMG)$/.test(cur.tagName);
+  if(sameElement){
+    [...cur.attributes].forEach(a => { if(!node.hasAttribute(a.name)) cur.removeAttribute(a.name); });
+    [...node.attributes].forEach(a => { if(cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value); });
+    patchChildren(cur, node);
+  } else if(cur.nodeType === 3 && node.nodeType === 3){
+    cur.textContent = node.textContent;
+  } else {
+    cur.replaceWith(node);
+  }
+}
+
 // ---- Available pool ----
 
 // League by league, each in rank order (unranked teams, e.g. write-ins,
@@ -672,7 +719,7 @@ function renderPool(d){
       ? `<button class="dr-link" onclick="draftSetConf(null)">Show all ${ui.filter === 'all' ? 'teams' : leagueUi(ui.filter).label}</button>` : '';
     list = `<div class="dr-empty">No teams left here. ${back}</div>`;
   }
-  setRegion('dr-pool', list + writeInCardHtml(d, filtered));
+  patchRegion('dr-pool', list + writeInCardHtml(d, filtered));
   const count = document.getElementById('dr-avail-count');
   if(count) count.textContent = `${available.length} left`;
   const railCount = document.getElementById('dr-rail-left-count');
@@ -1212,11 +1259,24 @@ function renderPhone(d){
   renderPool(d);
   setRegion('dr-clock', clockCardHtml(d));
   setRegion('dr-autodraft', autoDraftHtml(d));
-  setRegion('dm-queue-top', phoneQueueHtml(d));
+  patchRegion('dm-queue-top', phoneQueueHtml(d));
   setRegion('dm-board', phoneBoardHtml(d));
-  setRegion('dr-roster', rosterHtml(d));
-  setRegion('dr-queue', queueHtml(d));
+  patchRegion('dr-roster', rosterHtml(d));
+  patchRegion('dr-queue', queueHtml(d));
   updateClock();
+  if(ui.revealScope) revealScopeRow();
+}
+
+// A narrower list (a division tapped on a row, a league tab, a filter
+// menu) can leave the page scrolled past the filter row, under the
+// sticky clock: bring the row back to just below it.
+function revealScopeRow(){
+  ui.revealScope = false;
+  const top = document.querySelector('.dm-top'), row = document.getElementById('dr-groups');
+  const scroller = document.getElementById('draft-content');
+  if(!top || !row || !scroller) return;
+  const gap = row.getBoundingClientRect().top - top.getBoundingClientRect().bottom - 8;
+  if(gap < 0) scroller.scrollBy({ top: gap });
 }
 
 // ---- Render ----
@@ -1244,8 +1304,8 @@ function renderLive(d){
   setRegion('dr-clock', clockCardHtml(d));
   const hadBoard = regionHtml.has('dr-board');
   setRegion('dr-board', boardHtml(d));
-  setRegion('dr-roster', rosterHtml(d));
-  setRegion('dr-queue', queueHtml(d));
+  patchRegion('dr-roster', rosterHtml(d));
+  patchRegion('dr-queue', queueHtml(d));
   updateClock();
   const cell = document.querySelector('.dr-cell[data-current]');
   if(cell && (!hadBoard || cell.dataset.scrolled !== String(d.clockInfo && d.clockInfo.slot))){
@@ -1631,13 +1691,13 @@ async function run(action, from){
   return result;
 }
 
-window.draftSetFilter = key => { ui.filter = key; ui.conf = ui.div = ui.menu = null; ui.showAll = false; scheduleRender(); };
+window.draftSetFilter = key => { ui.filter = key; ui.conf = ui.div = ui.menu = null; ui.showAll = false; ui.revealScope = true; scheduleRender(); };
 // Choosing a different conference drops a division that isn't inside it.
 window.draftSetConf = conf => {
   const d = derive();
   ui.conf = conf || null;
   if(ui.div && (!ui.conf || !d || !leagueDivs(ui.filter, d.s.pool, ui.conf).some(v => v.div === ui.div))) ui.div = null;
-  ui.menu = null; ui.showAll = false;
+  ui.menu = null; ui.showAll = false; ui.revealScope = true;
   scheduleRender();
 };
 // A division always sets its conference too.
@@ -1646,13 +1706,13 @@ window.draftSetDiv = div => {
   const hit = div && d ? leagueDivs(ui.filter, d.s.pool).find(v => v.div === div) : null;
   ui.div = hit ? hit.div : null;
   if(hit) ui.conf = hit.conf;
-  ui.menu = null; ui.showAll = false;
+  ui.menu = null; ui.showAll = false; ui.revealScope = true;
   scheduleRender();
 };
 // A row's group label: jump to that league, conference and division.
 window.draftSetScope = (league, conf, div) => {
   ui.filter = league; ui.conf = conf || null; ui.div = div || null;
-  ui.menu = null; ui.showAll = false;
+  ui.menu = null; ui.showAll = false; ui.revealScope = true;
   scheduleRender();
 };
 window.draftMenu = key => { ui.menu = key && ui.menu !== key ? key : null; scheduleRender(); };

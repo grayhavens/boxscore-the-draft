@@ -478,7 +478,7 @@ export async function runActivityDetection(force){
 
 // ---- Rendering ----
 
-const LEAGUE_ABBR = { epl: 'EPL', nfl: 'NFL', nba: 'NBA', nhl: 'NHL', mlb: 'MLB', wnba: 'WNBA', cfb: 'CFB', mcbb: 'CBB' };
+const LEAGUE_ABBR = { epl: 'EPL', nfl: 'NFL', nba: 'NBA', nhl: 'NHL', mlb: 'MLB', wnba: 'WNBA', cfb: 'CFB', mcbb: 'CBB', pga: 'PGA' };
 
 // A league's tile in its chart color (js/lines.js uses it too).
 export function leagueTileHtml(leagueKey){
