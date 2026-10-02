@@ -23,10 +23,14 @@ import { currentProfileId } from './identity.js';
 import { onTheClock } from './draft-engine.js';
 import { totalPicks } from './draft-rules.js';
 import { draftStore, subscribeDraft } from './draft-client.js';
+import { fetchLiveRoomStatus } from './draft-schedule.js';
 import { escapeHtml as esc } from './utils.js';
 
 const POLL_LIVE_MS = 20000;
 const POLL_IDLE_MS = 90000;
+const LIVE_ROOM = 'main';
+// An answer this recent (Home's card asked at the same moment) is reused.
+const POLL_GAP_MS = 5000;
 
 let status = null;      // { phase, running, slot, owner, drafters, total } or null
 let pollTimer = null;
@@ -86,14 +90,20 @@ async function poll(){
   clearTimeout(pollTimer);
   if(document.visibilityState !== 'visible') return;   // resumes on visibilitychange
   if(draftStore.status !== 'open'){
-    try {
-      const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${encodeURIComponent(draftStore.room)}`), { cache: 'no-store' });
-      // A worker without this route (404) means there's no live draft to show.
-      if(res.ok) status = await res.json();
-      else if(res.status === 404) status = null;
-    } catch (e){
-      // Offline: keep the last answer and try again on the next tick.
+    // The live room's status is the same request Home's draft card reads
+    // (js/draft-schedule.js), so it goes through there and is sent once.
+    // A worker without this route (404) means there's no live draft to
+    // show; offline keeps the last answer for the next tick.
+    let answer = { ok: false, status: 0, data: null };
+    if(draftStore.room === LIVE_ROOM) answer = await fetchLiveRoomStatus(POLL_GAP_MS);
+    else {
+      try {
+        const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${encodeURIComponent(draftStore.room)}`), { cache: 'no-store' });
+        answer = { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
+      } catch (e){}
     }
+    if(answer.ok) status = answer.data;
+    else if(answer.status === 404) status = null;
   }
   paint();
   schedule();

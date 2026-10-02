@@ -134,7 +134,7 @@ EPL's instead.
 
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
 strip and next match (Home's rows, the team page's stat strip and next game) and the Game Details sheet,
-plus a staggered background refresh loop (`backgroundRefreshTick`) so open tabs stay current without hammering any API. Results
+plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
 
@@ -253,7 +253,7 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
-room signs its socket in with the password saved there. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
+room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
 league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Draft screen leads with
 a "Needs attention" list (a paused draft, a passed or near draft time with the lobby unready, a poll everyone answered,
 a locked league with postseason rules nobody is marked for), flagged in the sidebar too. Under 900px it keeps the phone
@@ -422,7 +422,7 @@ and navigates with `#splash=handoff`; the group's splash then starts mid-timelin
 it works" card is `js/landing-explainer.js`.
 
 **PWA shell:** `manifest.json` + `sw.js` (network-first with a cached-shell fallback, so the app
-still opens offline) exist because this runs installed on iOS. `index.html`'s `.safe-area-top` fixed
+still opens offline; a launch whose page takes over 3s runs wholly from the cache, never mixing versions) exist because this runs installed on iOS. `index.html`'s `.safe-area-top` fixed
 div exists because the installed PWA's translucent status bar shows real page content through it —
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.

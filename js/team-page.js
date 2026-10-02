@@ -184,7 +184,13 @@ function openTeamPageNow(teamKey, originView){
 }
 
 export function backFromTeamPage(){
-  if(rowMotion) return;
+  // Back tapped while the page is still growing in: land the opening at
+  // once and shrink straight back, rather than ignoring the tap. A tap
+  // during the shrink itself is already on its way.
+  if(rowMotion){
+    if(!rowMotion.opening) return;
+    rowMotion.finish();
+  }
   const { originView } = state;
   if(canAnimateLive() && collapseToRow(originView)) return;
   navigate('pop', () => {
@@ -238,7 +244,7 @@ function teamSource(el){
   return { el: row, crest, name: row.querySelector('.team-name'), owner: row.classList.contains('standings-row') ? row.querySelector('.team-sub') : null };
 }
 
-let rowMotion = null;       // the running transition, if any: { finish }
+let rowMotion = null;       // the running transition, if any: { finish, opening }
 let pendingRender = false;  // a render that landed mid-transition, held until it ends
 const afterRow = [];        // other work held until it ends
 
@@ -462,7 +468,7 @@ function runRowMotion({ opening, src, page, under, onDone }){
       held.forEach(fn => fn());
     }));
   };
-  rowMotion = { finish };
+  rowMotion = { finish, opening };
   // Whatever happens to the animations, always land the navigation.
   Promise.all(anims.map(a => a.finished)).then(finish, finish);
   setTimeout(finish, D + 400);

@@ -1017,11 +1017,15 @@ function scrollToClock(){
   if(from <= 0) return 0;
   if(!fxOn()){ sc.scrollTop = 0; return 0; }
   const t0 = performance.now();
+  let set = from;
   const step = now => {
+    // The drafter scrolled while it ran: let go rather than fight them.
+    if(Math.abs(sc.scrollTop - set) > 2) return;
     const k = Math.min(1, (now - t0) / SCROLL_UP_MS);
     // Ease in and out, so it leaves the list gently and settles on the hero.
     const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
     sc.scrollTop = from * (1 - eased);
+    set = sc.scrollTop;
     if(k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -2110,8 +2114,19 @@ function clockLimitMs(d){
   return (owner && autoPickLimitMs({ ...d.s, autoDraft: [] }, owner, isMockRoom(draftStore.room))) || d.s.config.clockSeconds * 1000;
 }
 
+// Just what the clock needs, for the 4x-a-second tick: a full derive()
+// recounts every roster each time.
+function clockDerive(){
+  const s = fullState();
+  if(!s) return null;
+  const clockInfo = onTheClock(s);
+  const running = s.phase === 'draft' && s.clock.running;
+  return { s, clockInfo, running, myTurn: !!clockInfo && clockInfo.owner === currentProfileId && running };
+}
+
 function updateClock(){
-  const d = derive();
+  if(document.hidden) return;
+  const d = clockDerive();
   if(!d || d.s.phase !== 'draft') return;
   const limit = clockLimitMs(d);
   const left = limit - clockElapsedMs(d.s.clock, serverNow());
@@ -2128,8 +2143,10 @@ function updateClock(){
   const timer = document.getElementById('dr-timer');
   if(!timer) return;
   const over = left < 0;
-  timer.textContent = (over ? '+' : '') + fmt(left);
-  timer.className = 'dr-timer' + (over ? ' over' : (left <= 15000 ? ' low' : ''));
+  const text = (over ? '+' : '') + fmt(left);
+  const cls = 'dr-timer' + (over ? ' over' : (left <= 15000 ? ' low' : ''));
+  if(timer.textContent !== text) timer.textContent = text;
+  if(timer.className !== cls) timer.className = cls;
   const bar = document.getElementById('dr-bar');
   if(bar) bar.style.width = `${Math.max(0, Math.min(100, (left / limit) * 100))}%`;
 }
