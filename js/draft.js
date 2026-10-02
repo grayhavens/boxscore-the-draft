@@ -360,13 +360,19 @@ function lobbyHtml(d){
   const settled = !drawn || revealed >= d.n;
   let actions;
   if(draftStore.commissioner){
-    const poolBtn = `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload team pool (${s.poolSize})` : 'Load team pool'}</button>`;
-    const clock = clockSelectHtml(d);
+    const poolBtn = `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload pool (${s.poolSize})` : 'Load team pool'}</button>`;
     const main = !drawn
       ? `<button class="dr-btn dr-btn-primary" onclick="draftRunLottery()">Run lottery</button>`
       : `<button class="dr-btn dr-btn-primary"${settled ? '' : ' disabled'} onclick="draftStart()">Start draft</button>
          <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">Re-run lottery</button>`;
-    actions = `<div class="dr-actions">${main}</div><div class="dr-actions dr-actions-sub">${poolBtn}${clock}</div>`;
+    // One block: the buttons, then the clock. Phones lay it out two to a
+    // row, so a mock's bot speed joins it there to pair with the clock
+    // (wider screens keep it beside the bot buttons).
+    const timing = (mock ? botSpeedHtml(d, 'dr-narrow-only') : '') + clockSelectHtml(d);
+    actions = `<div class="dr-lobby-actions">
+        <div class="dr-action-group">${main}${poolBtn}</div>
+        <div class="dr-action-group">${timing}</div>
+      </div>`;
   } else if(mock){
     // A mock room signs every socket in on connect; this is the moment before.
     actions = '<div class="dr-wait">Connecting…</div>';
@@ -384,7 +390,7 @@ function lobbyHtml(d){
           ? `${(s.config.bots || []).length} of ${d.n} bots`
           : (!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…'))}</span></div>
         ${rows}
-        ${mock && draftStore.commissioner ? botActionsHtml(d) : ''}
+        ${mock && draftStore.commissioner ? botActionsHtml(d, 'dr-wide-only') : ''}
       </div>
       ${firstPicks}
       ${autoDraftHtml(d)}
@@ -411,12 +417,17 @@ function mockOrderRowsHtml(d){
   }).join('');
 }
 
-function botActionsHtml(d){
+// `speedClass` lets the lobby show this bot speed on wide screens only.
+function botActionsHtml(d, speedClass = ''){
   return `<div class="dr-actions dr-actions-sub dr-bot-actions">
         <button class="dr-btn" onclick="draftSetBots('others')">Everyone but me</button>
         <button class="dr-btn" onclick="draftSetBots('none')">No bots</button>
-        <label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, d.s.config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>
+        ${botSpeedHtml(d, speedClass)}
       </div>`;
+}
+
+function botSpeedHtml(d, cls = ''){
+  return `<label class="dr-inline${cls ? ' ' + cls : ''}">Bots pick in ${selectHtml(BOT_CHOICES, d.s.config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>`;
 }
 
 function botControlsHtml(d){
