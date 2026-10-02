@@ -16,6 +16,7 @@
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { fetchJSON, retryPending } from './utils.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // nflverse's team abbreviations match this app's own TEAM_META.badgeText
 // verbatim for every NFL team except the Rams — nflverse says "LA",
 // this app says "LAR" (checked against a live pull of all 32 teams,
@@ -45,7 +46,7 @@ let injuriesPromise = null;
 let depthChartPromise = null;
 
 function isFresh(cache, ttlMs){
-  return !!cache.byTeam && !!cache.fetchedAt && (Date.now() - cache.fetchedAt) < ttlMs;
+  return !!cache.byTeam && !!cache.fetchedAt && isFreshAt(cache.fetchedAt, ttlMs);
 }
 
 function saveCache(key, cache){

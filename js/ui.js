@@ -164,3 +164,16 @@ export function scoreBumpHtml({ n }){
 export function floatPillHtml({ label }){
   return `<div class="float-pill" role="status">${escapeHtml(label)}</div>`;
 }
+
+// Mention: a tag inside a chat message ("@Isaac"). `me` marks one that
+// tags you, in gold.
+export function mentionHtml({ label, me = false }){
+  return `<span class="mention${me ? ' me' : ''}">${escapeHtml(label)}</span>`;
+}
+
+// MentionList: the names offered above a chat composer while an "@" is
+// being typed. Each option carries data-mention (its id); `active` is the
+// highlighted one, which Enter or Tab picks.
+export function mentionListHtml({ options, active = 0 }){
+  return options.map((o, i) => `<button type="button" class="mention-opt${i === active ? ' active' : ''}" data-mention="${escapeHtml(o.id)}" role="option" aria-selected="${i === active}"><span class="mention-opt-name">@${escapeHtml(o.name)}</span>${o.sub ? `<span class="mention-opt-sub">${escapeHtml(o.sub)}</span>` : ''}</button>`).join('');
+}

@@ -110,7 +110,7 @@ test('allowlist has no stale entries', () => {
 test('JS motion curves match the --ease-* tokens', () => {
   const tokens = read('css/tokens.css'), utils = read('js/utils.js');
   const norm = v => v.replace(/\s+/g, '');
-  const pairs = { EASE_OUT: '--ease-out', EASE_SPRING: '--ease-spring', EASE_IN_OUT: '--ease-in-out', EASE_PUSH: '--ease-push' };
+  const pairs = { EASE_OUT: '--ease-out', EASE_SPRING: '--ease-spring', EASE_IN_OUT: '--ease-in-out', EASE_PUSH: '--ease-push', EASE_IN: '--ease-in' };
   for(const [js, css] of Object.entries(pairs)){
     const t = tokens.match(new RegExp(`${css}:\\s*([^;]+);`));
     const u = utils.match(new RegExp(`export const ${js} = '([^']+)'`));
@@ -118,6 +118,11 @@ test('JS motion curves match the --ease-* tokens', () => {
     assert.ok(u, `${js} missing from js/utils.js`);
     assert.equal(norm(u[1]), norm(t[1]), `${js} in js/utils.js doesn't match ${css} in css/tokens.css`);
   }
+  // js/sheet.js keeps its own copy of the sheet curve (it imports nothing).
+  const sheet = read('js/sheet.js').match(/export const SHEET_EASE = '([^']+)'/);
+  const t = tokens.match(/--ease-sheet:\s*([^;]+);/);
+  assert.ok(sheet && t, 'SHEET_EASE or --ease-sheet missing');
+  assert.equal(norm(sheet[1]), norm(t[1]), "SHEET_EASE in js/sheet.js doesn't match --ease-sheet in css/tokens.css");
 });
 
 test('custom properties on :root are defined only in css/tokens.css', () => {

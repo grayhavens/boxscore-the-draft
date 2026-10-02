@@ -16,7 +16,7 @@
    its table, never the page, so the hero stays on today.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
-import { fetchJSON, segmentedControlHtml, escapeHtml, ordinal, reducedMotion, skeletonRowsHtml } from './utils.js';
+import { fetchJSON, segmentedControlHtml, escapeHtml, ordinal, reducedMotion, skeletonRowsHtml, EASE_OUT } from './utils.js';
 import { chatWorkerBase } from './api.js';
 import { withScopeQuery, scopedKey } from './season.js';
 import { currentDraftTeamId } from './board.js';
@@ -29,6 +29,7 @@ import {
   monthIndexAt, dayAtFraction, yDomain, gridValues, xTicks, spreadLabels, withToday, simulatedHistory, MONTH_PAD
 } from './race-math.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // Chart geometry. The viewBox is the plot's real CSS width (measure()),
 // so text and strokes stay their designed size on a tablet or desktop
 // and only the plot widens; the height grows a little with it, capped.
@@ -68,7 +69,7 @@ function loadLocalHistory(){
 
 function refreshHistory(){
   if(historyLoading || isObSimulated()) return;
-  if(history && Date.now() - history.fetchedAt < HISTORY_FRESH_MS) return;
+  if(history && isFreshAt(history.fetchedAt, HISTORY_FRESH_MS)) return;
   historyLoading = true;
   fetchJSON(withScopeQuery(`${chatWorkerBase()}/points/history`)).then(res => {
     historyLoading = false;
@@ -375,7 +376,7 @@ function drawTable(day, head){
     if(from === undefined) return;
     const dy = from - r.getBoundingClientRect().top;
     if(Math.abs(dy) < 1) return;
-    r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 320, easing: EASE_OUT });
   });
 }
 

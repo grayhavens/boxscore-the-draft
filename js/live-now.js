@@ -40,6 +40,7 @@ import { escapeHtml as esc } from './escape.js';
 import { gameCardHtml, gameSectionHtml, tagHtml, scoreBumpHtml } from './ui.js';
 import { fxOn, playClass, pop, floatUp } from './motion-fx.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
 // re-pick and stale the moment the slate changes). `dayOffset` is in
@@ -103,7 +104,7 @@ async function fetchDayScoreboard(sportPath, offset){
   if(offset === 0) return fetchEspnScoreboardCached(sportPath);
   const key = `${sportPath}|${localYyyymmdd(dateForOffset(offset))}`;
   const cached = dayScoreboardCache[key];
-  if(cached && Date.now() - cached.fetchedAt < OTHER_DAY_TTL_MS) return cached.data;
+  if(cached && isFreshAt(cached.fetchedAt, OTHER_DAY_TTL_MS)) return cached.data;
   const data = await fetchEspnScoreboard(sportPath, localYyyymmdd(dateForOffset(offset)));
   dayScoreboardCache[key] = { data, fetchedAt: Date.now() };
   return data;

@@ -88,6 +88,8 @@ import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
 import { teamRowHtml } from './ui.js';
+import { initPullToRefresh } from './pull-refresh.js';
+import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
 setScoringRules(LEAGUES, LEAGUE_SCORING);
@@ -283,8 +285,8 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
-      <button type="button" class="set-row" onclick="goToDraftRoom('mock-1')">
-        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Practice room &middot; picks don&rsquo;t count</span></span>
+      <button type="button" class="set-row" onclick="goToMyMockDraft()">
+        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
         <span class="set-chev">&rsaquo;</span>
       </button>
       <button type="button" class="set-row" onclick="goToDraftRoom('main')">
@@ -905,7 +907,9 @@ startHistory();
 // stays open — otherwise a long-open app kept whatever tables it booted
 // with until someone happened to open the Standings tab.
 const STANDINGS_REFRESH_MS = 15 * 60 * 1000;
+// Returns once every fetch it started has settled (pull to refresh waits on it).
 function refreshStandingsData(){
+  const jobs = [];
   // renderBoard() already repaints row-status pills and CFB/EPL/NFL
   // record chips from whatever's cached (possibly from a previous
   // browser session), so nothing sits blank waiting for its turn in the
@@ -913,14 +917,14 @@ function refreshStandingsData(){
   // fetches here, regardless of whether the Standings tab (the only
   // other place that calls these) has been opened yet, so the board's
   // records aren't stuck waiting on that.
-  fetchCfbRecords();
-  fetchEspnCfbRecordsCached();
-  fetchEplStandingsTable();
-  fetchEspnNflStandingsCached();
-  fetchEspnNbaStandingsCached();
-  fetchEspnNhlStandingsCached();
-  fetchEspnMlbStandingsCached();
-  fetchEspnWnbaStandingsCached();
+  jobs.push(fetchCfbRecords());
+  jobs.push(fetchEspnCfbRecordsCached());
+  jobs.push(fetchEplStandingsTable());
+  jobs.push(fetchEspnNflStandingsCached());
+  jobs.push(fetchEspnNbaStandingsCached());
+  jobs.push(fetchEspnNhlStandingsCached());
+  jobs.push(fetchEspnMlbStandingsCached());
+  jobs.push(fetchEspnWnbaStandingsCached());
 
   // NFL/NBA/NHL/MLB's division tables used to be fetched lazily (only
   // once the Standings tab's Divisions view or a team modal in that
@@ -930,19 +934,20 @@ function refreshStandingsData(){
   // every drafter's points until something happened to trigger one of
   // those lazy paths. Fetched eagerly here for the same reason the flat
   // standings above already are.
-  fetchEspnNflDivisionStandingsCached();
-  fetchEspnNbaDivisionStandingsCached();
-  fetchEspnNhlDivisionStandingsCached();
-  fetchEspnMlbDivisionStandingsCached();
-  fetchEspnCbbRankingsCached();
-  fetchEspnCbbStandingsCached();
+  jobs.push(fetchEspnNflDivisionStandingsCached());
+  jobs.push(fetchEspnNbaDivisionStandingsCached());
+  jobs.push(fetchEspnNhlDivisionStandingsCached());
+  jobs.push(fetchEspnMlbDivisionStandingsCached());
+  jobs.push(fetchEspnCbbRankingsCached());
+  jobs.push(fetchEspnCbbStandingsCached());
 
   // Season phase (js/season-phase.js) backs both the team modal's season
   // badge and, via checkSeasonLocks just below, whether a league's
   // regular-season rankAuto rules should already be frozen — eager here
   // for the same "don't wait on some other tab being opened first" reason
   // as the standings caches above.
-  SEASON_PHASE_LEAGUES.forEach(fetchSeasonPhaseCached);
+  jobs.push(...SEASON_PHASE_LEAGUES.map(league => fetchSeasonPhaseCached(league)));
+  return Promise.allSettled(jobs);
 }
 refreshStandingsData();
 setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsData(); }, STANDINGS_REFRESH_MS);
@@ -995,6 +1000,33 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState !== 'visible') return;
   liveSweepAndPaint();
   refreshStandingsData();
+});
+
+// Pull to refresh (js/pull-refresh.js) on the views that show live data,
+// never under an open sheet (lockBodyScroll pins the body). A pull makes
+// every cache stale and refetches, then repaints the open view; pulls
+// within PULL_FETCH_GAP_MS of the last real one just replay the gesture
+// over the data already in, so a few quick pulls can't hammer ESPN.
+const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'view-overall', 'view-team-page']);
+const PULL_FETCH_GAP_MS = 10 * 1000;
+let lastPullFetch = 0;
+const activeView = () => document.querySelector('.board > .view.active');
+initPullToRefresh({
+  view: activeView,
+  canPull: () => {
+    const view = activeView();
+    return !!view && PULL_VIEWS.has(view.id) && document.body.style.position !== 'fixed';
+  },
+  refresh: async () => {
+    if(Date.now() - lastPullFetch > PULL_FETCH_GAP_MS){
+      lastPullFetch = Date.now();
+      expireCaches();
+    }
+    await Promise.allSettled([refreshStandingsData(), liveScoreboardSweepTick(), refreshGolfLive()]);
+    if(isViewActive('board')) renderBoard();
+    if(isViewActive('live-now')) await renderLiveNow();
+    if(isViewActive('overall')) renderOverallStandings();
+  }
 });
 
 if('serviceWorker' in navigator){

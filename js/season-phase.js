@@ -33,6 +33,7 @@
    ============================================================ */
 import { fetchEspnSeasonTypes } from './espn.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // ESPN's own site-API sport slug, and the (differently-shaped) core-API
 // league slug fetchEspnSeasonTypes also needs — the first half of each
 // pair matches FLAT_SCHEDULE_LEAGUES's sportPath (js/live-data.js) but
@@ -72,7 +73,7 @@ function phaseCacheFor(leagueKey){
 }
 
 function isFresh(cache){
-  return !!cache.data && !!cache.fetchedAt && (Date.now() - cache.fetchedAt) < SEASON_PHASE_TTL_MS;
+  return !!cache.data && !!cache.fetchedAt && isFreshAt(cache.fetchedAt, SEASON_PHASE_TTL_MS);
 }
 
 function localKey(leagueKey){

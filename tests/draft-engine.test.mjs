@@ -5,7 +5,7 @@ import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/dr
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
-  autoPickTeam, isMockRoom, autoPickLimitMs, AUTO_DRAFT_SECONDS
+  autoPickTeam, isMockRoom, autoPickLimitMs, AUTO_DRAFT_SECONDS, personalMockRoom, mockRoomOwner, GROUP_MOCK_ROOM
 } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
@@ -438,11 +438,12 @@ test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms 
   assert.equal(autoPickLimitMs(s, 'a', false), null, 'the real room\'s clock is soft');
   assert.equal(autoPickLimitMs(s, 'b', false), null, 'bots are a mock-room thing');
   assert.equal(autoPickLimitMs(s, 'c', false), AUTO_DRAFT_SECONDS * 1000);
+  assert.ok(AUTO_DRAFT_SECONDS <= 1, 'auto-draft is a beat, not a wait');
   assert.equal(autoPickLimitMs(s, 'a', true), 30000);
   assert.equal(autoPickLimitMs(s, 'b', true), 2000);
   assert.equal(autoPickLimitMs(s, 'c', true), AUTO_DRAFT_SECONDS * 1000);
   s = ok(s, { type: 'setAutoDraft', drafter: 'b', on: true }, COMM);
-  assert.equal(autoPickLimitMs(s, 'b', true), 2000, 'whichever comes first');
+  assert.equal(autoPickLimitMs(s, 'b', true), AUTO_DRAFT_SECONDS * 1000, 'whichever comes first');
   const old = live();
   delete old.autoDraft;
   assert.equal(autoPickLimitMs(old, 'a', false), null);
@@ -451,6 +452,18 @@ test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms 
 test('mock rooms are the mock-* names only', () => {
   assert.ok(isMockRoom('mock') && isMockRoom('mock-1') && isMockRoom('mock-2'));
   assert.ok(!isMockRoom('main') && !isMockRoom('mockery') && !isMockRoom('rehearsal-x') && !isMockRoom(null));
+});
+
+test('each drafter has their own mock room; the group rehearsal room has no owner', () => {
+  const drafters = ['josh', 'isaac', 'erichylok'];
+  assert.equal(personalMockRoom('josh'), 'mock-josh');
+  assert.ok(isMockRoom(personalMockRoom('erichylok')));
+  assert.ok(/^[a-z0-9-]{1,32}$/.test(personalMockRoom('ericprister')), 'fits the worker\'s room-name rule');
+  assert.equal(mockRoomOwner('mock-isaac', drafters), 'isaac');
+  assert.equal(mockRoomOwner(GROUP_MOCK_ROOM, drafters), null);
+  assert.equal(mockRoomOwner('mock-someone', drafters), null, 'not a drafter here');
+  assert.equal(mockRoomOwner('main', drafters), null);
+  assert.equal(mockRoomOwner('mock-josh', null), null);
 });
 
 test('a room saved before bots existed gets bot defaults on its next setConfig', () => {

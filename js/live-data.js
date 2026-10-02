@@ -23,6 +23,7 @@ import { openGolfer } from './golf-view.js';
 import { getSeasonPhaseLabel } from './season-phase.js';
 
 import { buttonHtml, iconButtonHtml } from './ui.js';
+import { isFreshAt } from './cache-fresh.js';
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
 // than TheSportsDB — see the "EPL/NBA/NHL/MLB/WNBA" branch in
@@ -238,7 +239,7 @@ export async function fetchEspnScoreboardCached(sportPath){
   const cached = espnScoreboardCache[sportPath];
   // `day` is part of the hit check so a tab left open past midnight
   // refetches for the new date instead of serving yesterday's slate.
-  if(cached && cached.day === day && (Date.now() - cached.fetchedAt) < ESPN_SCOREBOARD_TTL_MS) return cached.data;
+  if(cached && cached.day === day && isFreshAt(cached.fetchedAt, ESPN_SCOREBOARD_TTL_MS)) return cached.data;
   const pending = espnScoreboardInFlight[sportPath];
   if(pending && pending.day === day) return pending.promise;
   const promise = fetchEspnScoreboard(sportPath, day || undefined).then(data => {
@@ -340,7 +341,7 @@ export function loadTeamInfoCache(){
 
 async function fetchTeamInfoCached(teamKey, id, useV2){
   const cached = teamInfoCache[teamKey];
-  if(cached && (Date.now() - cached.fetchedAt) < TEAM_INFO_TTL_MS) return cached.info;
+  if(cached && isFreshAt(cached.fetchedAt, TEAM_INFO_TTL_MS)) return cached.info;
 
   const info = useV2 ? await fetchSportsDbV2Team(id) : await fetchJSON(`${API_BASE}lookupteam.php?id=${id}`);
   const entry = { info, fetchedAt: Date.now() };

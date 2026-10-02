@@ -1,5 +1,5 @@
 /* ============================================================
-   WEB PUSH — draft "you're on the clock", chat and "my points" alerts
+   WEB PUSH — draft "you're on the clock", chat, chat mention and "my points" alerts
    (worker/points-alert.js) that reach a drafter's phone even when
    Boxscore isn't open (js/push.js subscribes, sw.js shows them).
 
@@ -35,7 +35,7 @@ const RECORD_SIZE = 4096;
 // (Firefox) and Microsoft (Edge on Windows).
 const PUSH_HOSTS = [/^web\.push\.apple\.com$/, /^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/, /\.notify\.windows\.com$/];
 
-export const PUSH_KINDS = ['chat', 'draft', 'points'];
+export const PUSH_KINDS = ['chat', 'draft', 'points', 'mention'];
 
 export function pushKvKey(group, drafterId){
   return `${group === LEGACY_GROUP_ID ? 'push' : `push@${group}`}:${drafterId}`;
@@ -83,10 +83,23 @@ export function parseSubscription(sub){
   return { endpoint: sub.endpoint, p256dh: keys.p256dh.replace(/=+$/, ''), auth: keys.auth.replace(/=+$/, '') };
 }
 
+// `mention` is left out when the device never set it (an app version
+// from before mentions), so wantsAlert can tell "never asked" from "off".
 export function parsePrefs(prefs){
   const out = {};
   PUSH_KINDS.forEach(k => { out[k] = !!(prefs && prefs[k]); });
+  if(!prefs || typeof prefs.mention !== 'boolean') delete out.mention;
   return out;
+}
+
+// Whether a device with these prefs gets a `kind` alert. Mentions are on
+// for any device with alerts on that never chose: being tagged is a
+// direct ask, and every device registered before mentions existed would
+// otherwise miss them until someone found the new switch.
+export function wantsAlert(prefs, kind){
+  if(!prefs) return false;
+  if(kind === 'mention' && typeof prefs.mention !== 'boolean') return Object.values(prefs).some(Boolean);
+  return !!prefs[kind];
 }
 
 export async function loadDevices(env, group, drafterId){
@@ -231,7 +244,7 @@ export async function pushToDrafters(env, group, drafterIds, kind, payload, opti
     try {
       const devices = await loadDevices(env, group, drafterId);
       const gone = [];
-      await Promise.all(devices.filter(d => kind === null || (d.prefs && d.prefs[kind])).map(async device => {
+      await Promise.all(devices.filter(d => kind === null || wantsAlert(d.prefs, kind)).map(async device => {
         stats.devices += 1;
         try {
           const status = await sendPush(env, device, payload, options);
