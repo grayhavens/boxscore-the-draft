@@ -5110,6 +5110,22 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
+/* The lobby's commissioner controls: buttons, then the clock, on one line.
+   Under 600px a two-column grid (the primary button across both when the
+   rest pair up), so no control is left on a line by itself. */
+.dr-lobby-actions{ display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.dr-action-group{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.dr-action-group:empty{ display: none; }
+.dr-narrow-only{ display: none; }
+@media (max-width: 600px){
+  .dr-wide-only{ display: none; }
+  .dr-narrow-only{ display: flex; }
+  .dr-lobby-actions{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dr-action-group{ display: contents; }
+  .dr-lobby-actions .dr-btn{ width: 100%; padding: 0 10px; }
+  .dr-lobby-actions.span .dr-btn-primary{ grid-column: 1 / -1; }
+  .dr-lobby-actions .dr-inline{ justify-content: space-between; min-width: 0; }
+}
 
 /* Live room layout */
 .dr-layout{
