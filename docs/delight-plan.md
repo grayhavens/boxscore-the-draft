@@ -94,8 +94,15 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   fades out over the new card while the clock area eases to its new height, both on even ease-in-out curves (an
   ease-out dropped most of the height in the first frames and read as a jolt). Back to back, the landing dissolves
   into your clock (ring pops in, title rises, one gold pulse); otherwise the next card rises in as the area shrinks. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
-  changes underneath never rebuild a landing mid-play. Other drafters' turns keep the compact card / desktop
-  strip.
+  changes underneath never rebuild a landing mid-play. On a phone, other drafters' turns keep the compact card.
+- **Desktop and tablet keep the hero up for every turn** (changed after Phase 1 shipped): someone else's turn is
+  "Mo is on the clock" with a neutral ring (gold means you), and every pick lands on it ("Mo's pick is in", plus when you
+  pick next). Every landing holds at least 6s (`DESK_LAND_HOLD_MS`), then the card catches up to whoever's up through
+  the same `fxClockSwap` (gold glow only for your own clock). Your own landing isn't cut short by a pick landing under it;
+  someone else's gives way at once when you go on the clock. The card is 252px in every state; who's picking and the
+  commissioner's Pick for (`#dr-clock-extra`, as `.dr-hero-foot`) lie over its bottom edge. A chevron in its corner
+  minimizes it to the old one-line strip (gold on your own turn), remembered per device (`draftHeroMin`, localStorage
+  `draftHeroMin`); the strip's chevron brings it back.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
   last 8 seconds and the beat; the nudge at zero stays. Over time it holds 0:00 in red.

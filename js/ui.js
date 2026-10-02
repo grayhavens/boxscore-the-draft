@@ -325,13 +325,16 @@ export function setDraftClock(el, { secondsLeft, total, hurry = false }){
 
 // ClockHero: the card you get while you're on the clock: the clock, then
 // the title and a subline. `landingHtml` (pickLandingHtml) is the state
-// it turns into once your pick is in; with it, the clock and title are
-// kept but hidden, so the landing can fade them out. Trusted markup.
-export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '' }){
-  return `<section class="clock-hero${landingHtml ? ' landed' : ''}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}</section>`;
+// it turns into once a pick is in; with it, the clock and title are
+// kept but hidden, so the landing can fade them out. `others` is someone
+// else's turn (a neutral ring, since gold means you). `cornerHtml` sits in
+// the top-right corner, over the landing. Trusted markup.
+export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '', others = false, cornerHtml = '' }){
+  const cls = ['clock-hero', landingHtml ? 'landed' : '', others ? 'others' : ''].filter(Boolean).join(' ');
+  return `<section class="${cls}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}${cornerHtml ? `<div class="clock-hero-corner">${cornerHtml}</div>` : ''}</section>`;
 }
 
-// PickLanding: your pick, landed: the team's orb, its badge at 72px,
+// PickLanding: a pick, landed: the team's orb, its badge at 72px,
 // "Your pick is in" and a line under it, and `next` (when you pick again)
 // as a pill. `badgeHtml` is trusted.
 export function pickLandingHtml({ color, badgeHtml, title, sub, next = '' }){

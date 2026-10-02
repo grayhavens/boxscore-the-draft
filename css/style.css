@@ -5676,6 +5676,9 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .dr-clock-card.strip .dr-clock-sub{ margin: 0; white-space: nowrap; }
 .dr-clock-card.strip .dr-proxy-btn{ margin: 0 0 0 4px; height: 30px; }
 .dr-strip-timer{ margin-left: auto; display: flex; align-items: center; gap: 12px; }
+/* Minimized hero: your own turn is the gold strip; the chevron brings the hero back. */
+.dr-clock-card.strip.mine{ background: var(--accent-soft); border-color: var(--accent-border); }
+.dr-strip-expand{ flex: none; }
 .dr-download-btn{ flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
 .dr-strip-timer .dr-timer{ font-size: 26px; }
 .dr-strip-timer .dr-bar{ width: 90px; margin: 0; }
@@ -5914,6 +5917,21 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .pick-landing-title{ font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.4px; }
 .pick-landing-sub{ font-size: 13px; font-weight: 600; color: var(--text-sub); }
 .pick-landing-next{ margin-top: 8px; padding: 4px 10px; border-radius: var(--r-pill); background: rgba(var(--hero-fade-rgb), 0.55); font-size: 11px; font-weight: 700; color: var(--text); }
+/* Someone else's turn (desktop): a neutral ring, since gold means you. */
+.clock-hero.others .draft-clock-ring{ stroke: var(--text-sub); }
+.clock-hero.others .draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
+/* Desktop and tablet: the minimize button in the corner, and the foot
+   (who's picking under a landing, the commissioner's Pick for) laid over the
+   hero's bottom edge from #dr-clock-extra, so the card's height never changes. */
+.clock-hero-corner{ position: absolute; top: 10px; right: 10px; z-index: 2; }
+.clock-hero-min svg{ transform: rotate(180deg); }
+.dr-layout #dr-clock{ position: relative; }
+.dr-layout .clock-hero{ height: 252px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .clock-hero{ padding-bottom: 46px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .pick-landing{ padding-bottom: 46px; }
+.dr-hero-foot{ position: absolute; left: 12px; right: 12px; top: 194px; height: 46px; z-index: 3; display: flex; align-items: center; justify-content: center; }
+.dr-hero-foot .dr-next-up{ margin: 0; width: 100%; max-width: 520px; padding: 6px 8px 6px 14px; background: rgba(var(--hero-fade-rgb), 0.55); }
+.dr-hero-foot .dr-proxy-btn{ margin: 0; height: 30px; }
 /* Under the landing: who's picking now, with their clock. */
 .dr-next-up{ margin-top: 8px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
 .dr-next-up-who{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
