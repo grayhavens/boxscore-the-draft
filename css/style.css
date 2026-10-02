@@ -5501,9 +5501,10 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-trade-col select{ height: 38px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; font-size: var(--fs-16); }
 .dr-trade-preview{ padding: 10px 12px; border-radius: var(--r-sm); background: var(--seg-track); font-size: var(--fs-13); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team */
+/* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team.
+   .dm-top stays above the Pick tab's filter row (.dr-scope, z-index 25 for its menus). */
 .dm{ display: block; padding-bottom: 24px; }
-.dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.dm-top{ position: sticky; top: 0; z-index: 30; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: var(--fs-20); }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
