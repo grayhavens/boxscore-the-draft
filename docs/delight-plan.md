@@ -89,8 +89,10 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   back up) the hero holds it even if the next drafter picks a second later (a bot, auto-draft), you're back on the
   clock at the turn of the snake, or the draft ends. The draft doesn't wait: the board, rail and clocks keep going, and
   the line under the hero says who's picking now ("You’re on the clock again", in gold, with your clock running at the
-  turn). Then the card catches up (`fxCatchUp`): your own clock comes in with the on-the-clock entrance, anything else
-  rises in. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
+  turn). Then the card catches up (`fxLandingExit`, also used whenever a landing ends): a frozen copy of the landing
+  fades out over the new card while the clock area eases to its new height, both on even ease-in-out curves (an
+  ease-out dropped most of the height in the first frames and read as a jolt). Back to back, the landing dissolves
+  into your clock (ring pops in, title rises, one gold pulse); otherwise the next card rises in as the area shrinks. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
   changes underneath never rebuild a landing mid-play. Other drafters' turns keep the compact card / desktop
   strip.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's

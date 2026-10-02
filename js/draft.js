@@ -57,7 +57,7 @@ import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
-import { escapeHtml as esc, EASE_SPRING } from './utils.js';
+import { escapeHtml as esc, EASE_SPRING, EASE_IN_OUT } from './utils.js';
 import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed, atSpeed } from './motion-fx.js';
 import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml, clockMiniHtml } from './ui.js';
 
@@ -166,8 +166,7 @@ const ui = {
   queueFocus: null,       // team id to refocus in the queue after a keyboard reorder
   landed: null,           // my pick just landed: { slot, team, auto, count, clock } while the next drafter picks
   lastClock: null,        // the on-the-clock ring's last { sec, total }, for the landing to fade out from
-  landTimer: null,        // ends the landing's hold (noteLanding)
-  catchUp: null           // the clock card's HTML when the hold ended, until the next render compares
+  landTimer: null         // ends the landing's hold (noteLanding)
 };
 
 // Which side panels are folded away (desktop/tablet only), remembered per
@@ -873,7 +872,7 @@ const pickCount = d => Object.keys(d.s.picks).length;
 // drafter picking in a second (a bot, auto-draft), me back on the clock at
 // the turn of the snake, even the draft ending. The draft doesn't wait: the
 // board, the rail and the clocks under it keep going, and the card catches
-// up once the hold ends (catchUp). After that it stays only while the next
+// up once the hold ends (fxLandingExit). After that it stays only while the next
 // drafter is still picking.
 function landedFor(d){
   const l = ui.landed;
@@ -1545,12 +1544,10 @@ function render(){
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
+  const leaving = landingSnapshot();
   if(isPhone()) renderPhone(d); else renderLive(d);
   playDraftEvents(d, events);
-  if(ui.catchUp !== null){
-    if(regionHtml.get('dr-clock-main') !== ui.catchUp) fxCatchUp();
-    ui.catchUp = null;
-  }
+  if(leaving) fxLandingExit(leaving, events.some(e => e.type === 'clock'));
   renderCommBar(d);
   renderModal(d);
   renderTeamSheet(d);
@@ -1702,7 +1699,7 @@ function noteLanding(d, events){
     const hold = fxOn() ? wait + LAND_HOLD_MS : LAND_HOLD_STILL_MS;
     ui.landed = { slot: e.slot, team: e.team, auto: !!pick.auto, count: pickCount(d), clock: ui.lastClock, until: Date.now() + hold, nextText: nextPickText(d, e.slot) };
     clearTimeout(ui.landTimer);
-    ui.landTimer = setTimeout(() => { ui.catchUp = regionHtml.get('dr-clock-main') || ''; scheduleRender(); }, hold + 30);
+    ui.landTimer = setTimeout(scheduleRender, hold + 30);
   }
   const start = d.clockInfo ? railStart(d) : null;
   fx.railShift = start !== null && fx.railStart !== null ? start - fx.railStart : 0;
@@ -1884,13 +1881,61 @@ function fxRowGone(sent){
     .forEach(el => play(el, [{ transform: `translateY(${row.rect.height}px)` }, { transform: 'none' }], { duration: 380 }));
 }
 
-// The landing's hold is over and the card catches up with the room: my
-// own clock comes in as it would have (back to back at the turn), anything
-// else (the next drafter, the finished draft) rises in.
-function fxCatchUp(){
-  if(!fxOn()) return;
-  if(document.querySelector('#dr-clock .clock-hero:not(.landed)')) return fxOnTheClock({});
-  play(document.querySelector('#dr-clock-main > *'), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 420 });
+// Leaving the landing (its hold is over, or the next drafter has picked):
+// rather than cut to the next card, a frozen copy of the landing fades out
+// over it while the clock area eases to its new height and the new card
+// comes in underneath. Back to back at the turn the card's frame doesn't
+// change, so the landing dissolves into my clock: the ring pops in, the
+// title rises and a gold ring pulses. Anything else (the next drafter's
+// card, the finished draft) rises in as the area shrinks.
+// Even curves (ease in and out): a front-loaded ease-out made the area
+// drop most of its height in the first frames, which read as a jolt.
+const EXIT = { fade: 460, resize: 560, inDelay: 180, in: 480 };
+
+// Taken before each render while a landing shows, to fade out if it goes.
+function landingSnapshot(){
+  const box = document.getElementById('dr-clock');
+  if(!box || !box.querySelector('#dr-clock-main .clock-hero.landed') || !fxOn()) return null;
+  const ghost = box.cloneNode(true);
+  ghost.removeAttribute('id');
+  ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  ghost.classList.add('clock-ghost');
+  ghost.setAttribute('aria-hidden', 'true');
+  return { box, ghost, height: box.getBoundingClientRect().height, html: regionHtml.get('dr-clock-main') };
+}
+
+function fxLandingExit(snap, clockEvent){
+  const { box, ghost } = snap;
+  // Still landed (or a new landing of mine): nothing is leaving.
+  if(!box.isConnected || regionHtml.get('dr-clock-main') === snap.html || box.querySelector('#dr-clock-main .clock-hero.landed')) return;
+  atSpeed(1, () => {
+    const to = box.getBoundingClientRect().height;
+    box.classList.add('fx-exit');
+    box.appendChild(ghost);
+    if(Math.abs(to - snap.height) > 1){
+      box.style.height = `${snap.height}px`;
+      box.getBoundingClientRect();
+      box.style.height = `${to}px`;
+    }
+    play(ghost, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.97)' }], { duration: EXIT.fade, easing: EASE_IN_OUT, fill: 'forwards' });
+    const hero = box.querySelector('#dr-clock-main .clock-hero:not(.landed)');
+    if(hero){
+      // fxOnTheClock already brings it in when I've only just gone on the clock.
+      if(!clockEvent){
+        pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: EXIT.inDelay, duration: 520 });
+        stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: EXIT.inDelay + 120, duration: 500 });
+        ringPulse(hero, { delay: EXIT.resize + 40, iterations: 1 });
+      }
+    } else {
+      stagger([...box.querySelectorAll('#dr-clock-main > *, #dr-clock-extra > *')], [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 60, delay: EXIT.inDelay, duration: EXIT.in });
+    }
+  });
+  setTimeout(() => {
+    ghost.remove();
+    box.classList.remove('fx-exit');
+    box.style.height = '';
+    if(ui.shell === 'phone') pinPhoneTop();
+  }, Math.max(EXIT.fade, EXIT.resize) + 20);
 }
 
 // The phone's pick rail: the slot just picked gets its team chip, then the
@@ -2405,7 +2450,7 @@ export function setDraftActive(on){
     clockTimer = setInterval(updateClock, 250);
     ui.lastOrderKey = undefined;
     fx.prev = null; fx.stale = undefined; fx.sent = null; fx.railStart = null;
-    ui.landed = null; ui.catchUp = null;
+    ui.landed = null;
     scheduleRender();
   } else {
     hideTip();
