@@ -10,7 +10,7 @@ import { reducedMotion } from './sheet.js';
 // landing page can use them too); re-exported so importers keep one place.
 export {
   reducedMotion, lockBodyScroll, unlockBodyScroll,
-  isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss
+  isSheetOpen, openSheetOverlay, closeSheetOverlay, sheetSettled, enableSheetSwipeToDismiss
 } from './sheet.js';
 
 // Every fetch helper below used to have no timeout at all — a request
