@@ -5939,6 +5939,11 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }
   .modal-overlay.closing{ animation: overlay-out 280ms ease forwards; }
   .modal-overlay.closing .modal{ animation: sheet-down 280ms var(--ease-in) forwards; }
+  /* Game Details opens at full height, so on the shared timing it covers
+     twice the distance of a short sheet in the same time and reads as a
+     snap. It gets a longer, softer slide of its own. */
+  .modal-overlay.stacked.open:not(.closing){ animation-duration: 480ms; }
+  .modal-overlay.stacked.open:not(.closing) .modal{ animation-duration: 680ms; }
 
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }
@@ -5951,6 +5956,12 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 @keyframes overlay-out{ to{ background-color: rgba(var(--overlay-rgb), 0); } }
 @keyframes sheet-spring{ from{ transform: translateY(100%); } to{ transform: translateY(0); } }
 @keyframes sheet-down{ to{ transform: translateY(100%); } }
+/* A box score that arrives after Game Details has landed (openGameDetail
+   in js/live-data.js) eases in instead of popping over the skeleton. */
+@media (prefers-reduced-motion: no-preference){
+  .gd-fade-in > *{ animation: gd-fade-in 260ms var(--ease-out) backwards; }
+}
+@keyframes gd-fade-in{ from{ opacity: 0; transform: translateY(6px); } }
 @keyframes sheet-row-in{ from{ opacity: 0; transform: translateY(14px); } }
 
 /* ============================================================

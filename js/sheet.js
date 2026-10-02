@@ -68,6 +68,24 @@ export function openSheetOverlay(overlay){
   overlay.classList.add('open', 'entering');
   clearTimeout(overlay._sheetEnter);
   overlay._sheetEnter = setTimeout(() => overlay.classList.remove('entering'), SHEET_ENTER_MS);
+  overlay._settled = sheetSlide(sheet);
+}
+
+// Resolves once an opening sheet has finished sliding up (at once without
+// motion), so a caller can hold a heavy render until then: a box score
+// painted mid-slide drops frames and makes the slide stutter.
+export function sheetSettled(overlay){
+  return (overlay && overlay._settled) || Promise.resolve();
+}
+
+function sheetSlide(sheet){
+  if(!sheet || !sheetMotion()) return Promise.resolve();
+  return new Promise(resolve => {
+    const finish = () => { sheet.removeEventListener('animationend', onEnd); clearTimeout(timer); resolve(); };
+    const onEnd = e => { if(e.target === sheet && e.animationName === 'sheet-spring') finish(); };
+    const timer = setTimeout(finish, SHEET_ENTER_MS); // safety net if animationend never fires
+    sheet.addEventListener('animationend', onEnd);
+  });
 }
 
 export function closeSheetOverlay(overlay){
