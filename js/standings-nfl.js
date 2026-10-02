@@ -37,7 +37,6 @@ import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -126,15 +125,6 @@ export function fetchEspnNflStandingsCached(){
     }
     standingsDataChanged();
     renderAllNflCardRecords();
-
-    // If an NFL team's modal happens to be open already (its stats cell
-    // rendered before this fetch resolved), refresh it now rather than
-    // leaving the fallback bio stats up until reopened.
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    const activeMeta = activeTeam && TEAM_META[activeTeam];
-    if(activeMeta && activeMeta.leagueKey === 'nfl'){
-      renderStats(activeMeta, liveDataCache[activeTeam] || {});
-    }
   })();
   return espnNflStandingsPromise;
 }
@@ -237,16 +227,6 @@ export function fetchEspnNflDivisionStandingsCached(){
       if(!espnNflDivisionCache.divisions) espnNflDivisionCache.error = true;
     }
     standingsDataChanged();
-    // The team modal's Division stat cell (js/live-data.js's
-    // renderStats) reads this same cache, and can easily open before
-    // this heavier fetch resolves (it's only triggered on-demand, not
-    // eagerly at boot) — same "activeTeam" re-render idea as
-    // fetchEspnNflStandingsCached above, just for this cache instead.
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    const activeMeta = activeTeam && TEAM_META[activeTeam];
-    if(activeMeta && activeMeta.leagueKey === 'nfl'){
-      renderStats(activeMeta, liveDataCache[activeTeam] || {});
-    }
   })();
   return espnNflDivisionPromise;
 }
@@ -277,7 +257,7 @@ export function renderNflGroupHeader(label){
 }
 
 // Given a drafted team's own meta, find which division it's in — used
-// by the team modal's Division stat cell (js/live-data.js). Matches by
+// by the team page's Division stat cell (js/live-data.js). Matches by
 // badgeText/abbreviation the same way findEspnNflRow does, since a
 // division-cache team entry carries no direct link back to TEAM_META.
 function findNflDivisionForMeta(meta){

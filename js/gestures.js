@@ -46,14 +46,15 @@ export function velocity(samples, axis, windowMs = 100){
 // before that, taps and scrolls go through untouched. Once claimed:
 // onStart(axis), onMove(axis, { dx, dy }), then onEnd(axis, { dx, dy, vx,
 // vy, cancelled }). A drag swallows the click that follows it. `ignore` is
-// a selector for children that never start one (buttons). Returns detach().
+// a selector for children that never start one (buttons), or a function of
+// the pointerdown's target that says so. Returns detach().
 export function attachDrag(el, { slop, accept = () => true, ignore = null, onStart = () => {}, onMove = () => {}, onEnd = () => {} }){
   let g = null;           // { id, x, y, mode: 'wait' | 'x' | 'y' | 'off', samples }
   let swallowUntil = 0;
 
   const down = e => {
     if(g || !e.isPrimary || e.button > 0) return;
-    if(ignore && e.target.closest(ignore)) return;
+    if(ignore && (typeof ignore === 'function' ? ignore(e.target) : e.target.closest(ignore))) return;
     g = { id: e.pointerId, x: e.clientX, y: e.clientY, mode: 'wait', samples: [] };
   };
   const move = e => {

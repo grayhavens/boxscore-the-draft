@@ -49,8 +49,6 @@ const ALLOWED = {
     '#CEB888': 1, '#008E97': 1, '#CE1126': 1, '#2A6FB5': 1, '#AB0003': 1, '#AB0520': 1, '#4A6FA5': 1,
     '#B0B7BC': 1, '#203731': 1, '#FFFFFF': 2, '#EF0107': 1
   },
-  // Fallback for an ESPN standings zone with no color of its own.
-  'js/live-data.js': { '#94969E': 1 },
   // League chart colors (also --league-* now; move over with the Points screen).
   'js/overall.js': {
     '#826AC8': 1, '#C86AA1': 1, '#91C86A': 1, '#C58C6A': 1, '#B57FC0': 1, '#6FBFC6': 1, '#6AC87A': 1, '#A8B36A': 1

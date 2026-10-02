@@ -44,15 +44,15 @@ const GUIDE = [
     id: 'home', icon: 'home', tour: true, title: 'Your teams',
     lead: 'Home is your board: every team you drafted, grouped by league, with its latest form and next game.',
     points: [
-      'Tap any team for its page: schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division.',
-      'On one of your teams’ pages, swipe the top sideways to go to your next team, or tap the dots under its name.',
+      'Tap any team, here or anywhere else in the app, for its page: recent form, schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division. Tap it to open the full list.',
+      'On one of your teams’ pages, swipe sideways anywhere to go to your next team, or tap the dots under its name.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
       'Tap a drafter on Points to see their board.'
     ],
     pre: {
       lead: 'Home is your board. Until the draft it shows when the draft starts, or asks which times you can make while the commissioner is still choosing, plus the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
       points: [
-        'Tap any team for its page: schedule, news, squad and stats.',
+        'Tap any team, here or anywhere else in the app, for its page: schedule, news, squad and stats.',
         'Star a team on its page to keep it on your board even if someone else drafted it.'
       ]
     },

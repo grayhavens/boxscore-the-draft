@@ -9,7 +9,7 @@
 
    Both the AP Top 25 (computeCfbRankingTable/renderCfbRankingRow) and
    full-roster win-loss records (findCfbRecord — the board card, the
-   team modal stat strip, and the "Person" combined-win% view) read
+   team page stat strip, and the "Person" combined-win% view) read
    ESPN's hidden API (js/espn.js) now, not TheRundown — see
    docs/espn-migration-plan.md's Phase 2 (rankings) and the CFB phase
    further down that doc (records). Why: TheRundown's daily data-point
@@ -32,7 +32,6 @@ import { fetchJSON, teamBadgeHtml, abbrFromName, formatWinPct, findCfbTeamKeyByL
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
 import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -102,14 +101,6 @@ export function fetchCfbRecords(){
     standingsDataChanged();
     renderAllCfbCardRecords();
 
-    // If a CFB team's modal happens to be open already (its stats
-    // cell rendered before this fetch resolved), refresh it now
-    // rather than leaving the fallback bio stats up until reopened.
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    const activeMeta = activeTeam && TEAM_META[activeTeam];
-    if(activeMeta && activeMeta.leagueKey === 'cfb'){
-      renderStats(activeMeta, liveDataCache[activeTeam] || {});
-    }
   })();
   return cfbRecordsPromise;
 }
@@ -273,11 +264,6 @@ export function fetchEspnCfbRecordsCached(){
     }
     standingsDataChanged();
     renderAllCfbCardRecords();
-    const activeTeam = document.getElementById('modal-content').dataset.activeTeam;
-    const activeMeta = activeTeam && TEAM_META[activeTeam];
-    if(activeMeta && activeMeta.leagueKey === 'cfb'){
-      renderStats(activeMeta, liveDataCache[activeTeam] || {});
-    }
   })();
   return espnCfbRecordsPromise;
 }

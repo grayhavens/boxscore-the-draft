@@ -104,6 +104,17 @@ Boxscore's UI comes from the Boxscore design system. The spec is in `docs/design
 - **Keyframes stay in `css/style.css`.** `tokens.css` holds custom properties only. The `@keyframes` in
   `tokens/motion.css` go in the motion section of `style.css`, next to the motion plan's new ones.
 
+## Waiting on the design system
+
+Components and variants the app added that the design system doesn't have yet. Each one's helper says "Not in the
+design system yet" in `js/ui.js`. Take an entry off once the design system has it.
+
+- **PathToPoints, folded** (`pathToPointsHtml({ toggle, open })`, `.ptp.fold` in `css/style.css`, 2026-10-02): the
+  team page's Path to points card can fold. The SectionCard head becomes a button with a chevron (rotates 180° when
+  open); folded, the ladder shrinks to one row of 10px state dots (`.ptp-dot`, the ladder nodes' colors) and a count
+  ("2 locked · 1 live · 3 in reach"). Folded and open swap through `grid-template-rows` 0fr ↔ 1fr over
+  `--dur-move` `--ease-out`. Needs a SectionCard collapsible variant, or a PathToPoints `folded` option.
+
 ## Combined order with the motion plan
 
 `docs/motion-plan.md` (timings in `docs/motion-reference/*.jsx`) is the motion half of the design system.

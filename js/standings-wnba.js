@@ -86,7 +86,7 @@ export function fetchEspnWnbaStandingsCached(){
 }
 
 // Given a drafted team's own meta, find its row in the flat table —
-// used by wnbaRecordLabel (board cards) and the team modal's stat
+// used by wnbaRecordLabel (board cards) and the team page's stat
 // strip (js/live-data.js), same exact-match rule as NBA/NHL/MLB (see
 // findFlatTeamKey's own comment in js/standings-flat.js) rather than
 // EPL/CFB's looser substring rule.

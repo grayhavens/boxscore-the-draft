@@ -144,10 +144,10 @@ The hero bloom, stat roll, form cascade and shared-element push already exist. K
 - The back link and favorite star stay visible the whole time.
 - Use one passive scroll listener writing a custom property, with no layout reads in the handler.
 
-**Swipe between your teams.** A horizontal drag on the hero, using the gesture helper.
-- The content follows at 0.6× and fades to 0.3.
-- Past 70px it commits: change team, scroll to the top, re-render. The new hero content enters from ±70px over 520ms `--ease-out`, the body sections enter from ±40px staggered 50ms, and the orb color cross-fades.
-- Under 70px it snaps back.
+**Swipe between your teams.** A horizontal drag anywhere on the page (shipped first on the hero alone, widened since), using the gesture helper.
+- The hero's crest and name and every section under it follow the finger 1:1, fading to 0.4; the orb drifts at 0.2×. The back bar and dots stay put. Only a clearly sideways drag (|dx| > 1.2·|dy|) claims it, and one that starts in a sideways scroller is left to it.
+- Past 70px, or a flick at `FLING_VELOCITY`, it commits: the page slides out the way it was going (110–220ms, faster for a faster flick), then the team changes, scrolls to the top and re-renders, coming in from the other side (±35% of the width, max 220px) over 420ms `--ease-out`, body sections 30ms apart, while the orb color cross-fades.
+- Otherwise it snaps back.
 - The order is the Home order of the teams you own. With a non-owned team open, swipe within its league instead, or turn swiping off (your call; note it in the PR). Tapping a dot jumps to that team.
 - Update the URL each time, so Back still returns to where the page was opened from.
 
@@ -155,7 +155,7 @@ The hero bloom, stat roll, form cascade and shared-element push already exist. K
 
 **Stat strip.** Three columns: Record, Standing, Points. Points rolls up after 350ms. Labels 9px 800 uppercase; values 20px Space Grotesk 700, tabular.
 
-**Path to points** (`pathToPointsHtml({ rules })`). This is new and sits at the top of Overview. Build it from `LEAGUE_SCORING` and the On the line data (`js/lines.js`) so it always agrees with Live points.
+**Path to points** (`pathToPointsHtml({ rules })`). This is new and sits under Recent form on Overview, folded to a row of state dots and a count ("2 locked · 1 live · 3 in reach") until tapped open. Build it from `LEAGUE_SCORING` and the On the line data (`js/lines.js`) so it always agrees with Live points.
 - Header: "Path to points", then "{now} now · up to {max}" (12px 600 `--text-sub`).
 - Rows: a 22px node column, then label (15px 700) with a tag, a note (13px 500 `--text-sub`, from On the line, for example "Lead by 1 game, 5 left") and points (15px Space Grotesk 700).
 - A 2px `--hairline` line joins the nodes. Between locked rules it is `--accent` and grows `scaleY` 0 → 1, 500ms.
