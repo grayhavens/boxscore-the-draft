@@ -5918,11 +5918,15 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .dr-next-up{ margin-top: 8px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
 .dr-next-up-who{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dr-next-up .dr-timer{ font-size: var(--fs-16); }
-/* Leaving a landing (fxLandingExit): the clock area eases to its new height
-   while a frozen copy of the landing (.clock-ghost) fades out over the new card. */
-.fx-exit{ position: relative; overflow: hidden; transition: height 560ms var(--ease-in-out); }
+/* Desktop: the commissioner's Pick sits at the end of the line, as in the strip. */
+.dr-next-up .dr-proxy-btn{ flex: none; height: 30px; margin: -4px -6px -4px 4px; }
+/* The clock card changing size (fxClockSwap: going on the clock, leaving a
+   landing): the clock area eases to its new height while a frozen copy of
+   the old card (.clock-ghost) fades out over the new one. */
+.fx-swap{ position: relative; overflow: hidden; flex-shrink: 0; transition: height 560ms var(--ease-in-out); }
+/* (flex-shrink: on desktop the clock sits in a column with the board, and overflow: hidden would let it be squeezed.) */
 .clock-ghost{ position: absolute; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; }
-@media (prefers-reduced-motion: reduce){ .fx-exit{ transition: none; } }
+@media (prefers-reduced-motion: reduce){ .fx-swap{ transition: none; } }
 /* Back to back at the turn of the snake: it's your own clock under the landing. */
 .dr-next-up.mine{ border-color: var(--accent-border); }
 .dr-next-up.mine .dr-next-up-who{ color: var(--accent); }
