@@ -383,7 +383,7 @@ function runRowMotion({ opening, src, page, under, onDone }){
     const pr = parseFloat(cs.paddingRight) || 0, pb = parseFloat(cs.paddingBottom) || 0;
     return { x: box.x + pl, y: box.y + pt, w: box.w - pl - pr, h: box.h - pt - pb };
   };
-  const fly = (src, dst, scale) => {
+  const fly = (src, dst, scale, { settle = false } = {}) => {
     if(!src || !dst) return;
     const box = rect(dst);
     if(!box.w || !box.h) return;
@@ -391,11 +391,18 @@ function runRowMotion({ opening, src, page, under, onDone }){
     const copy = dst.cloneNode(true);
     const cs = getComputedStyle(dst);
     copy.classList.add('tp-fly');
+    // Already decoded for the row; drawing it straight away keeps the copy
+    // from flying in blank for a frame.
+    copy.querySelectorAll('img').forEach(img => { img.decoding = 'sync'; });
+    if(copy.tagName === 'IMG') copy.decoding = 'sync';
     // Styles the copy would lose outside the page (the owner's come from
-    // .team-hero-meta, the crest's size and shadow from .team-hero).
+    // .team-hero-meta, the crest's size from .team-hero). Not the crest's
+    // drop-shadow: a filter on something scaling is redrawn as it goes,
+    // and it hitched the flight on iPhone. A badge's shadow is left
+    // behind the same way.
     Object.assign(copy.style, {
       left: box.x + 'px', top: box.y + 'px', width: box.w + 'px', height: box.h + 'px',
-      filter: cs.filter, color: cs.color,
+      color: cs.color,
       fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight,
       lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing
     });
@@ -406,9 +413,17 @@ function runRowMotion({ opening, src, page, under, onDone }){
     const tx = s.x - box.x - k * (t.x - box.x), ty = s.y - box.y - k * (t.y - box.y);
     go(copy, { transform: `translate(${tx}px, ${ty}px) scale(${k})` }, { transform: 'translate(0px, 0px) scale(1)' });
     go(copy, { opacity: 0 }, { opacity: 1 }, handoff);
-    hide(src); hide(dst);
+    hide(src);
+    // The hero crest wears a drop-shadow the copy doesn't. Rather than
+    // drawing it for the first time on the landing frame (a hitch) and
+    // popping it in, the real crest fades in under the copy over the
+    // last stretch, while the copy is within a few pixels of it.
+    if(settle) go(dst, { opacity: 0 }, { opacity: 1 }, opening
+      ? { easing: ROW_SOFT, duration: D * 0.15, delay: D * 0.85 }
+      : { easing: ROW_SOFT, duration: D * 0.15 });
+    else hide(dst);
   };
-  fly(rowCrest, heroCrest, (s, t) => s.h / t.h);
+  fly(rowCrest, heroCrest, (s, t) => s.h / t.h, { settle: true });
   const byFont = (src, dst) => () => parseFloat(getComputedStyle(src).fontSize) / parseFloat(getComputedStyle(dst).fontSize);
   fly(rowName, heroName, byFont(rowName, heroName));
   fly(rowOwner, heroOwner, byFont(rowOwner, heroOwner));
@@ -438,8 +453,14 @@ function runRowMotion({ opening, src, page, under, onDone }){
     fx.remove();
     rowMotion = null;
     onDone();
-    if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
-    afterRow.splice(0).forEach(fn => fn());
+    // What waited for the landing runs just after it, so the landing frame
+    // only has to put the page back in the flow.
+    requestAnimationFrame(() => setTimeout(() => {
+      const held = afterRow.splice(0);
+      if(rowMotion){ afterRow.push(...held); return; }  // another one started
+      if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
+      held.forEach(fn => fn());
+    }));
   };
   rowMotion = { finish };
   // Whatever happens to the animations, always land the navigation.

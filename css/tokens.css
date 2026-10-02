@@ -311,7 +311,8 @@
 
 /* ==== Delight pass (docs/delight-plan.md) ====
    The team orb: a soft blurred circle of a team's own color behind a hero
-   (.team-orb, teamOrbHtml in js/ui.js). Its color comes from data, inline
+   (.team-orb, teamOrbHtml in js/ui.js); --orb-blur is the blur's σ, drawn
+   with a radial mask. Its color comes from data, inline
    as --orb. The crest that sits on it gets --crest-shadow. */
 :root{
   --orb-blur: 64px;
