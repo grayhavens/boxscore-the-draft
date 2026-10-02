@@ -543,7 +543,7 @@ function golfCardRowHtml(board, r){
     <div class="tg-side golf-side">
       <button type="button" class="tg-badge-btn" onclick="event.stopPropagation(); openGolfer('${esc(p.id)}')" aria-label="${esc(p.name)}">${teamBadgeHtml(TEAM_META[r.teamKey])}</button>
       <div class="tg-label">
-        <span class="tg-name">${esc(p.name)}</span>
+        <span class="tg-name">${esc(p.shortName || p.name)}</span>
         <span class="tg-owner">${esc([r.owner, sub].filter(Boolean).join(' · '))}</span>
       </div>
       ${r.isFav ? favoriteMarkHtml() : ''}
