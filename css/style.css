@@ -3575,12 +3575,27 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
 
 /* TeamOrb (teamOrbHtml in js/ui.js): a team's own color, blurred, behind a
    hero. Identity only, never meaning. --orb is set inline from data; the
-   color cross-fades when it changes (swiping between teams). */
+   color cross-fades when it changes (swiping between teams).
+   The blur is a radial mask, not filter: blur(). A blur that size is a
+   heavy draw on iPhone, and it hitched the frame the team page opens on.
+   The mask's stops trace a gaussian blur of the disc (σ = --orb-blur):
+   the box is the disc's size, grown by 2σ on every side (and shifted back
+   by `translate`, which leaves `transform` free for animations), and fades
+   from ~1 at 2σ inside the disc's edge to 0 at 2σ outside it. */
 .team-orb{
+  --orb-fade: radial-gradient(closest-side,
+    rgba(var(--ink-rgb), 0.98) calc(100% - 4 * var(--orb-blur)),
+    rgba(var(--ink-rgb), 0.84) calc(100% - 3 * var(--orb-blur)),
+    rgba(var(--ink-rgb), 0.5) calc(100% - 2 * var(--orb-blur)),
+    rgba(var(--ink-rgb), 0.16) calc(100% - var(--orb-blur)),
+    rgba(var(--ink-rgb), 0) 100%);
   position: absolute;
-  border-radius: 50%;
+  box-sizing: content-box;
+  padding: calc(2 * var(--orb-blur));
+  translate: calc(-2 * var(--orb-blur)) calc(-2 * var(--orb-blur));
   background-color: var(--orb);
-  filter: blur(var(--orb-blur));
+  -webkit-mask-image: var(--orb-fade);
+  mask-image: var(--orb-fade);
   opacity: var(--orb-opacity);
   pointer-events: none;
   transition: background-color 700ms var(--ease-out);

@@ -391,11 +391,18 @@ function runRowMotion({ opening, src, page, under, onDone }){
     const copy = dst.cloneNode(true);
     const cs = getComputedStyle(dst);
     copy.classList.add('tp-fly');
+    // Already decoded for the row; drawing it straight away keeps the copy
+    // from flying in blank for a frame.
+    copy.querySelectorAll('img').forEach(img => { img.decoding = 'sync'; });
+    if(copy.tagName === 'IMG') copy.decoding = 'sync';
     // Styles the copy would lose outside the page (the owner's come from
-    // .team-hero-meta, the crest's size and shadow from .team-hero).
+    // .team-hero-meta, the crest's size from .team-hero). Not the crest's
+    // drop-shadow: a filter on something scaling is redrawn as it goes,
+    // and it hitched the flight on iPhone. A badge's shadow is left
+    // behind the same way.
     Object.assign(copy.style, {
       left: box.x + 'px', top: box.y + 'px', width: box.w + 'px', height: box.h + 'px',
-      filter: cs.filter, color: cs.color,
+      color: cs.color,
       fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight,
       lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing
     });
