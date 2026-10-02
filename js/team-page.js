@@ -208,7 +208,9 @@ window.backFromTeamPage = backFromTeamPage;
    While it runs, both views are showing: the view the row is on stays in
    the page flow (.tp-under) and the team page sits over it as a fixed layer
    (.tp-layer) laid out exactly where it sits in the flow at scroll 0, so
-   swapping back to the plain layout at the end moves no pixels. Above
+   swapping back to the plain layout at the end moves no pixels. Everything
+   that moves is a transform or an opacity (see .tp-layer in
+   css/style.css), so it stays smooth while the page renders under it. Above
    the layer, #tp-fx holds the pieces that fly: a veil the color of the
    row's own surface, a "ghost" of the row's rank and record, and copies
    of the hero crest and name (the real ones sit inside .team-hero's
@@ -238,6 +240,14 @@ function teamSource(el){
 
 let rowMotion = null;       // the running transition, if any: { finish }
 let pendingRender = false;  // a render that landed mid-transition, held until it ends
+const afterRow = [];        // other work held until it ends
+
+// Runs `fn` now, or once a running row transition lands: anything that
+// would rewrite the page's layout mid-flight waits for it.
+function whenSettled(fn){
+  if(rowMotion) afterRow.push(fn);
+  else fn();
+}
 
 function rowOnScreen(el){
   if(!el || !el.isConnected) return false;
@@ -255,7 +265,6 @@ function surfaceColor(el){
 }
 
 const rect = el => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; };
-const insetOf = (top, right, bottom, left, round) => `inset(${top}px ${right}px ${bottom}px ${left}px round ${round}px)`;
 
 // Everything both directions share. `opening` picks the direction; every
 // keyframe pair is written open-wise and swapped for close, with easing
@@ -264,10 +273,11 @@ const insetOf = (top, right, bottom, left, round) => `inset(${top}px ${right}px 
 // `under` is the view the row sits on; `src` is teamSource's. Parts it
 // has no copy of (a Home row's owner, a Compare team's name) fade in on
 // the hero instead of flying.
-function runRowMotion({ opening, src, page, under, layout, onDone }){
+function runRowMotion({ opening, src, page, under, onDone }){
   const row = src.el;
   const D = opening ? ROW_D : Math.round(ROW_D * 0.85);
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const clip = page.querySelector('.tp-clip'), content = clip.firstElementChild;
+  const { width: vw, height: vh } = page.getBoundingClientRect();
   const rr = rect(row);
   const { crest: rowCrest, name: rowName = null, owner: rowOwner = null } = src;
   const heroCrest = page.querySelector('.team-hero-row > :first-child');
@@ -278,12 +288,21 @@ function runRowMotion({ opening, src, page, under, layout, onDone }){
     anims.push(el.animate(opening ? [a, b] : [b, a], Object.assign({ duration: D, easing: ROW_EASE, fill: 'both' }, opts)));
   };
 
-  // The page clip: the row's rectangle → the whole screen. Insets are
-  // relative to the layer's own box (the view's column, full height).
-  const { L, W } = layout;
-  go(page,
-    { clipPath: insetOf(rr.y, L + W - (rr.x + rr.w), vh - (rr.y + rr.h), rr.x - L, 4) },
-    { clipPath: insetOf(0, -(vw - L - W), 0, -L, 0) });
+  // The page window: the row's rectangle → the whole screen. The layer's
+  // own edge is the window's left and top, .tp-clip's is its right and
+  // bottom, and the content moves back by the sum of both, so it holds
+  // still on screen while the window opens over it.
+  const x0 = rr.x, y0 = rr.y, x1 = rr.x + rr.w, y1 = rr.y + rr.h;
+  const at = (x, y) => ({ transform: `translate(${x}px, ${y}px)` });
+  go(page, at(x0, y0), at(0, 0));
+  go(clip, at(x1 - vw - x0, y1 - vh - y0), at(0, 0));
+  go(content, at(vw - x1, vh - y1), at(0, 0));
+  // The compact bar is fixed to the moving content meanwhile (see
+  // .tp-layer in css/style.css): hold it at the screen's top left.
+  const cr = content.getBoundingClientRect();
+  page.style.setProperty('--tp-bx', -cr.left + 'px');
+  page.style.setProperty('--tp-by', -cr.top + 'px');
+  page.style.setProperty('--tp-vw', vw + 'px');
 
   const fx = document.createElement('div');
   fx.id = 'tp-fx';
@@ -294,7 +313,8 @@ function runRowMotion({ opening, src, page, under, layout, onDone }){
   veil.className = 'tp-veil';
   veil.style.background = surfaceColor(row);
   fx.appendChild(veil);
-  go(veil, { clipPath: insetOf(rr.y, vw - (rr.x + rr.w), vh - (rr.y + rr.h), rr.x, 4) }, { clipPath: insetOf(0, 0, 0, 0, 0) });
+  // A flat color, so it can simply stretch.
+  go(veil, { transform: `translate(${x0}px, ${y0}px) scale(${rr.w / vw}, ${rr.h / vh})` }, { transform: 'translate(0px, 0px) scale(1, 1)' });
   // Closing, the veil is in (and the page's content gone) by the time
   // the card is half its way down, so what lands is a clean row-colored
   // card rather than an empty page-colored box that changes color as it
@@ -414,10 +434,12 @@ function runRowMotion({ opening, src, page, under, layout, onDone }){
     anims.forEach(a => { try{ a.cancel(); }catch(e){} });
     hidden.forEach(el => { el.style.visibility = ''; });
     under.style.transformOrigin = '';
+    ['--tp-bx', '--tp-by', '--tp-vw'].forEach(p => page.style.removeProperty(p));
     fx.remove();
     rowMotion = null;
     onDone();
     if(pendingRender){ pendingRender = false; renderTeamPage({ refresh: true }); }
+    afterRow.splice(0).forEach(fn => fn());
   };
   rowMotion = { finish };
   // Whatever happens to the animations, always land the navigation.
@@ -431,13 +453,11 @@ function runRowMotion({ opening, src, page, under, layout, onDone }){
 // the same spot in .board.
 function layTeamPageOver(page, under){
   const sr = (page.classList.contains('active') ? page : under).getBoundingClientRect();
-  const layout = { T: sr.top + window.scrollY, L: sr.left, W: sr.width };
-  page.style.setProperty('--tp-t', layout.T + 'px');
-  page.style.setProperty('--tp-l', layout.L + 'px');
-  page.style.setProperty('--tp-w', layout.W + 'px');
+  page.style.setProperty('--tp-t', sr.top + window.scrollY + 'px');
+  page.style.setProperty('--tp-l', sr.left + 'px');
+  page.style.setProperty('--tp-w', sr.width + 'px');
   page.classList.add('tp-layer', 'tp-still');
   under.classList.add('tp-under');
-  return layout;
 }
 
 function liftTeamPageLayer(page, under){
@@ -451,17 +471,19 @@ function expandFromRow(teamKey, origin, src){
   const under = document.getElementById('view-' + origin);
   if(!page || !under){ openTeamPageNow(teamKey, origin); return; }
   try{
-    const layout = layTeamPageOver(page, under);
+    layTeamPageOver(page, under);
     setTeamPageState(teamKey, origin);
     setActiveView('view-team-page');
     page.classList.add('tp-still');
     renderTeamPage();
-    ensureBundle(teamKey);
-    page.scrollTop = 0;
-    runRowMotion({ opening: true, src, page, under, layout, onDone: () => {
+    page.querySelector('.tp-clip').scrollTop = 0;
+    runRowMotion({ opening: true, src, page, under, onDone: () => {
       liftTeamPageLayer(page, under);
       if(page.classList.contains('active')) window.scrollTo(0, 0);
     } });
+    // A fresh fetch lands after the page has: its parse and render would
+    // compete with the transition for the main thread.
+    whenSettled(() => { if(state.teamKey === teamKey) ensureBundle(teamKey); });
   }catch(e){
     console.error(e);
     if(rowMotion) rowMotion.finish();
@@ -478,8 +500,8 @@ function collapseToRow(origin){
   if(!page || !under) return false;
   const pageScroll = window.scrollY;
   try{
-    const layout = layTeamPageOver(page, under);
-    page.scrollTop = pageScroll;
+    layTeamPageOver(page, under);
+    page.querySelector('.tp-clip').scrollTop = pageScroll;
     setActiveView('view-' + origin);
     page.classList.add('tp-still');
     updateUrlParam('view', origin === 'board' ? null : origin);
@@ -498,7 +520,7 @@ function collapseToRow(origin){
       window.scrollTo(0, pageScroll);
       return false;
     }
-    runRowMotion({ opening: false, src, page, under, layout, onDone: () => {
+    runRowMotion({ opening: false, src, page, under, onDone: () => {
       liftTeamPageLayer(page, under);
       page.classList.remove('tp-still');
     } });
@@ -1136,8 +1158,12 @@ function scheduleTabHtml(teamKey){
 // The tables the stat strip and Path to points read (division ones too) may
 // not be loaded yet; both fill in once they are, if this team is still on
 // screen.
+// Tables already loaded land before the page's first frame and draw with
+// it; ones that need a fetch wait out a row transition (whenSettled).
 function ensureTables(teamKey){
-  loadStandingsTables([TEAM_META[teamKey].leagueKey]).then(() => {
+  let early = true;
+  setTimeout(() => { early = false; });
+  loadStandingsTables([TEAM_META[teamKey].leagueKey]).then(() => (early ? f => f() : whenSettled)(() => {
     if(state.teamKey !== teamKey) return;
     renderStatStrip(teamKey);
     playStatsRoll();
@@ -1146,7 +1172,7 @@ function ensureTables(teamKey){
       playPathIn();
       playPathChanges(teamKey);
     }
-  });
+  }));
 }
 
 // ---- Live effects (docs/motion-plan.md Phase 4, docs/delight-plan.md Phase 2) ----
