@@ -74,6 +74,30 @@ Snapping back is always 520ms `--ease-spring`. Use `setPointerCapture`. Use `tou
 
 Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
 
+**Status: done** (2026-10-02). Notes from building it:
+- **Hero:** shows on desktop and phone while you're on the clock, in place of the old gold clock card. Its subline uses the
+  app's pick labels ("Pick 2.07 · your next turn is 3.04") and adds make-up, via and auto-draft when they apply. On a
+  phone, 220px pinned over the list left too little of it, so while the hero is up the top block sticks only once the
+  hero and rail have scrolled off (a negative `top`, set by `pinPhoneTop`). What stays pinned is a slim bar with the same
+  clock (`clockMiniHtml`, over where the rail was; tap it to go back up) and the Pick / Board / My team tabs under it,
+  taking their own room above the list so no row or button is ever under the bar. Drafting from down the list scrolls back up to the hero (420ms) before
+  the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
+  eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
+  lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). Other drafters' turns keep the compact card / desktop
+  strip.
+- **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
+  HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
+  last 8 seconds and the beat; the nudge at zero stays. Over time it holds 0:00 in red.
+- **Landing:** the hero stays landed (`ui.landed`) while the next drafter picks, until another pick lands or you're up
+  again, with a "Mo is picking…" line and their clock under it in place of the prototype's CTA. A pick seen on another
+  device, or after the once key was spent, shows the landed hero with no motion. Without a tap on this device
+  (auto-draft, a mock room's timeout) there's no flight; the badge pops in instead. The "Drafted …" toast is kept only
+  for picks made for someone else. The row collapse is transform-only: the row fades where it was while the rows under
+  it slide up into the gap.
+- **Rail:** phone only (`#dm-rail`, three picks back to twelve). On desktop the board grid already is the pick order.
+  It slides along on every pick, not just yours.
+
 **Draft clock** (`draftClockHtml({ secondsLeft, total, hurry })`). This is an SVG ring, 108×108, r=54, stroke 6.
 - The track is `--fill-soft`. The ring is `--accent` with `stroke-linecap: round` and `stroke-dasharray: 339.3`.
 - Draw the offset one second ahead (`C·(1 − (left−1)/total)`) with a 1000ms linear transition, so the ring lands as the number changes.
