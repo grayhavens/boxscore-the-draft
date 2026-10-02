@@ -268,7 +268,7 @@ the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from 
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 **Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
-the moment they go on the clock (`AUTO_DRAFT_SECONDS` is 0), from their queue or else the best team that fits, through the
+the moment they go on the clock (`AUTO_DRAFT_SECONDS`, 0.75s: a beat so it reads as a pick), from their queue or else the best team that fits, through the
 same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
 (`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the

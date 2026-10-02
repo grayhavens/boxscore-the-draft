@@ -387,7 +387,7 @@ function resume(state, ctx){
 // commissioner anyone's (someone who couldn't make it). Allowed until
 // the draft is done, so it can be set in the lobby ahead of time. Turned
 // on for whoever is already on the clock, it picks as soon as the worker
-// re-arms (AUTO_DRAFT_SECONDS is 0).
+// re-arms, AUTO_DRAFT_SECONDS (a beat) after they went on the clock.
 function setAutoDraft(state, a, ctx){
   if(state.phase === 'done') return fail('bad_phase');
   if(!state.config.drafters.includes(a.drafter) || typeof a.on !== 'boolean') return fail('bad_input');

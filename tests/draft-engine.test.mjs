@@ -5,7 +5,7 @@ import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/dr
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
-  autoPickTeam, isMockRoom, autoPickLimitMs, personalMockRoom, mockRoomOwner, GROUP_MOCK_ROOM
+  autoPickTeam, isMockRoom, autoPickLimitMs, AUTO_DRAFT_SECONDS, personalMockRoom, mockRoomOwner, GROUP_MOCK_ROOM
 } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
@@ -437,12 +437,13 @@ test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms 
   s = ok(s, { type: 'setAutoDraft', drafter: 'c', on: true }, COMM);
   assert.equal(autoPickLimitMs(s, 'a', false), null, 'the real room\'s clock is soft');
   assert.equal(autoPickLimitMs(s, 'b', false), null, 'bots are a mock-room thing');
-  assert.equal(autoPickLimitMs(s, 'c', false), 0, 'auto-draft picks at once');
+  assert.equal(autoPickLimitMs(s, 'c', false), AUTO_DRAFT_SECONDS * 1000);
+  assert.ok(AUTO_DRAFT_SECONDS <= 1, 'auto-draft is a beat, not a wait');
   assert.equal(autoPickLimitMs(s, 'a', true), 30000);
   assert.equal(autoPickLimitMs(s, 'b', true), 2000);
-  assert.equal(autoPickLimitMs(s, 'c', true), 0);
+  assert.equal(autoPickLimitMs(s, 'c', true), AUTO_DRAFT_SECONDS * 1000);
   s = ok(s, { type: 'setAutoDraft', drafter: 'b', on: true }, COMM);
-  assert.equal(autoPickLimitMs(s, 'b', true), 0, 'whichever comes first');
+  assert.equal(autoPickLimitMs(s, 'b', true), AUTO_DRAFT_SECONDS * 1000, 'whichever comes first');
   const old = live();
   delete old.autoDraft;
   assert.equal(autoPickLimitMs(old, 'a', false), null);

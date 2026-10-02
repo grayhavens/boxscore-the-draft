@@ -42,9 +42,10 @@ export function mockRoomOwner(room, drafters){
 }
 
 // Auto-draft (state.autoDraft): a drafter who turns it on, in any room,
-// is drafted for this long after going on the clock. No wait: over a long
-// draft even a few seconds a pick adds up, so the room picks and moves on.
-export const AUTO_DRAFT_SECONDS = 0;
+// is drafted for this long after going on the clock. Just a beat: long
+// enough to see who's up and for the board to settle, so it reads as a
+// pick rather than a skip, but not enough to add up over a long draft.
+export const AUTO_DRAFT_SECONDS = 0.75;
 
 // How long after `owner` goes on the clock the room drafts for them, in
 // ms, or null when nobody will: the soonest of auto-draft (any room), a
