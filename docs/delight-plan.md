@@ -84,8 +84,13 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
   eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
   lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
-  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). Other drafters' turns keep the compact card / desktop
-  strip.
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). On a phone, other drafters' turns keep the compact card.
+  **Desktop and tablet keep the hero up for every turn** (changed after Phase 1 shipped): someone else's turn is
+  "Mo is on the clock" with a neutral ring (gold means you), and every pick lands on it ("Mo's pick is in", plus when you
+  pick next), holding for 6s (`LAND_HOLD_MS`) before the clock rises back in for whoever's up (`fxHandoff`). The card
+  is 252px at every state; who's picking and the commissioner's Pick for ride along its bottom. A chevron in its corner
+  minimizes it to the old one-line strip (gold on your own turn), remembered per device (`draftHeroMin`, localStorage
+  `draftHeroMin`); the strip's chevron brings it back.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
   last 8 seconds and the beat; the nudge at zero stays. Over time it holds 0:00 in red.
