@@ -57,7 +57,7 @@ import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
-import { escapeHtml as esc, EASE_SPRING } from './utils.js';
+import { escapeHtml as esc, EASE_SPRING, EASE_IN_OUT } from './utils.js';
 import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed, atSpeed } from './motion-fx.js';
 import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml, clockMiniHtml } from './ui.js';
 
@@ -165,7 +165,8 @@ const ui = {
   queueDrag: null,        // team id being dragged in the queue
   queueFocus: null,       // team id to refocus in the queue after a keyboard reorder
   landed: null,           // my pick just landed: { slot, team, auto, count, clock } while the next drafter picks
-  lastClock: null         // the on-the-clock ring's last { sec, total }, for the landing to fade out from
+  lastClock: null,        // the on-the-clock ring's last { sec, total }, for the landing to fade out from
+  landTimer: null         // ends the landing's hold (noteLanding)
 };
 
 // Which side panels are folded away (desktop/tablet only), remembered per
@@ -467,7 +468,7 @@ function shellHtml(){
         <div id="dr-pool" class="dr-pool"></div>
       </section>
       <section class="dr-col dr-center">
-        <div id="dr-clock"></div>
+        <div id="dr-clock"><div id="dr-clock-main"></div><div id="dr-clock-extra"></div></div>
         <div class="dr-board-scroll" id="dr-board-scroll"><div id="dr-board"></div></div>
       </section>
       <aside class="dr-col dr-right">
@@ -761,17 +762,31 @@ function writeInCardHtml(d, filtered){
 
 // ---- Center: clock card, up next, board ----
 
+// The clock region is two parts: the card itself (#dr-clock-main) and
+// what goes under it (#dr-clock-extra: who's picking under a landing, the
+// proxy button, the paused banner). Changes underneath then never rebuild
+// the card, which would cut short a landing that's still playing.
+function setClockRegions(d){
+  const [main, extra] = clockCardParts(d);
+  setRegion('dr-clock-main', main);
+  setRegion('dr-clock-extra', extra);
+}
+
 // The on-the-clock display. Desktop and tablet get a one-line strip (who,
 // which pick, the timer); the phone shell gets a compact two-row card, since
 // a strip's worth of text doesn't fit a phone's width.
-function clockCardHtml(d){
+function clockCardParts(d){
   const { s } = d;
   const phone = isPhone();
+  // My pick's landing comes first, even over the draft ending: it plays in
+  // full before the card catches up (landedFor).
+  const landed = landedFor(d);
+  if(landed && s.phase !== 'draft') return [landedHeroHtml(d, landed), ''];
   if(s.phase === 'done'){
     const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`;
-    return phone
+    return [phone
       ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow win">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`
-      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow win">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`;
+      : `<div class="dr-clock-card done strip"><span class="dr-eyebrow win">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`, ''];
   }
   const info = d.clockInfo;
   const natural = drafterNaturalOwner(d, info.slot);
@@ -790,6 +805,14 @@ function clockCardHtml(d){
     ? `<button class="dr-btn dr-btn-gold dr-proxy-btn" onclick="draftProxy()" aria-label="${d.proxy ? 'Cancel picking' : `Pick for ${esc(drafterName(info.owner))}`}">${proxyLabel}</button>` : '';
   const banners = `${d.proxy ? `<div class="dr-proxy-note">Commissioner: picking for ${esc(drafterName(info.owner))}</div>` : ''}
     ${!s.clock.running ? '<div class="dr-paused">Draft paused by the commissioner. The clock is stopped.</div>' : ''}`;
+  if(landed){
+    // Back to back at the turn of the snake, it's my clock running under it.
+    const who = info.owner === d.me ? 'You’re on the clock again' : `${esc(drafterName(info.owner))} is picking…`;
+    return [landedHeroHtml(d, landed), `
+    <div class="dr-next-up${info.owner === d.me ? ' mine' : ''}"><span class="draft-live-dot" aria-hidden="true"></span><span class="dr-next-up-who">${who}</span><span class="dr-timer" id="dr-timer">0:00</span></div>
+    ${proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
+    ${banners}`];
+  }
   if(d.myTurn){
     const next = myNextSlot(d, info.slot);
     const sub = [
@@ -802,17 +825,10 @@ function clockCardHtml(d){
     // Rendered full; updateClock sets the time right after, so the region's
     // HTML stays the same from tick to tick and isn't rebuilt.
     const total = clockLimitMs(d) / 1000;
-    return `${clockHeroHtml({ clockHtml: draftClockHtml({ secondsLeft: total, total }), title: 'You’re on the clock', sub })}${banners}`;
-  }
-  const landed = landedFor(d);
-  if(landed){
-    return `${landedHeroHtml(d, landed)}
-    <div class="dr-next-up"><span class="draft-live-dot" aria-hidden="true"></span><span class="dr-next-up-who">${esc(drafterName(info.owner))} is picking…</span><span class="dr-timer" id="dr-timer">0:00</span></div>
-    ${proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
-    ${banners}`;
+    return [clockHeroHtml({ clockHtml: draftClockHtml({ secondsLeft: total, total }), title: 'You’re on the clock', sub }), banners];
   }
   if(phone){
-    return `
+    return [`
     <div class="dr-clock-card">
       <div class="dr-clock-main">
         <div class="dr-eyebrow">${eyebrow}</div>
@@ -824,19 +840,18 @@ function clockCardHtml(d){
         <div class="dr-timer" id="dr-timer">0:00</div>
         <div class="dr-bar"><span id="dr-bar"></span></div>
       </div>
-    </div>
+    </div>`, `
     ${proxyBtn ? `<div class="dm-proxy">${proxyBtn}</div>` : ''}
-    ${banners}`;
+    ${banners}`];
   }
-  return `
+  return [`
     <div class="dr-clock-card strip">
       <span class="dr-eyebrow">${eyebrow}</span>
       <span class="dr-clock-name"><span class="dr-clock-who">${esc(drafterName(info.owner))}</span>${autoBadge}</span>
       ${via ? `<span class="dr-clock-sub">via ${esc(drafterName(via))}</span>` : ''}
       ${proxyBtn}
       <span class="dr-strip-timer"><span class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</span><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
-    </div>
-    ${banners}`;
+    </div>`, banners];
 }
 
 // The ring turns red for the last 8 seconds.
@@ -852,13 +867,21 @@ function myNextSlot(d, slot){
 
 const pickCount = d => Object.keys(d.s.picks).length;
 
-// My pick, landed (docs/delight-plan.md, Phase 1): the hero stays on it
-// while the next drafter picks, until another pick lands or I'm up again.
+// My pick, landed (docs/delight-plan.md, Phase 1). For its first few
+// seconds (`until`) the hero holds it whatever else happens: the next
+// drafter picking in a second (a bot, auto-draft), me back on the clock at
+// the turn of the snake, even the draft ending. The draft doesn't wait: the
+// board, the rail and the clocks under it keep going, and the card catches
+// up once the hold ends (fxLandingExit). After that it stays only while the next
+// drafter is still picking.
 function landedFor(d){
   const l = ui.landed;
-  if(!l || d.s.phase !== 'draft' || d.myTurn || pickCount(d) !== l.count) return null;
+  if(!l) return null;
   const pick = d.s.picks[l.slot];
-  return pick && pick.team === l.team ? l : null;
+  if(!pick || pick.team !== l.team) return null;   // undone or changed
+  if(Date.now() < l.until) return l;
+  if(d.s.phase !== 'draft' || d.myTurn || pickCount(d) !== l.count) return null;
+  return l;
 }
 
 // The hero turned into the landing. The clock and title are still in it,
@@ -866,8 +889,6 @@ function landedFor(d){
 function landedHeroHtml(d, l){
   const team = teamById(d.s.pool, l.team);
   if(!team) return '';
-  const next = myNextSlot(d, l.slot);
-  const away = next < 0 ? 0 : next - d.clockInfo.slot;
   const c = l.clock || { sec: 0, total: 1 };
   return clockHeroHtml({
     clockHtml: draftClockHtml({ secondsLeft: c.sec, total: c.total, hurry: c.sec <= HURRY_SEC }),
@@ -877,9 +898,19 @@ function landedHeroHtml(d, l){
       badgeHtml: tileHtml(team, 'xl'),
       title: l.auto ? 'Auto-picked for you' : 'Your pick is in',
       sub: `${team.name} · ${leagueUi(team.league).label} · Pick ${pickLabel(l.slot, d.n)}`,
-      next: next < 0 ? 'That was your last pick' : `You pick again at ${pickLabel(next, d.n)} · ${away} pick${away === 1 ? '' : 's'} away`
+      // Frozen while the landing holds, so picks landing under it don't rebuild the hero.
+      next: Date.now() < l.until ? l.nextText : nextPickText(d, l.slot)
     })
   });
+}
+
+// "You pick again at 2.07 · 12 picks away", from where the clock is now.
+function nextPickText(d, slot){
+  const next = myNextSlot(d, slot);
+  if(next < 0) return 'That was your last pick';
+  const away = d.clockInfo ? next - d.clockInfo.slot : 0;
+  if(away <= 0) return `You’re up again at ${pickLabel(next, d.n)}`;
+  return `You pick again at ${pickLabel(next, d.n)} · ${away} pick${away === 1 ? '' : 's'} away`;
 }
 
 // ---- Phone: the pinned mini clock ----
@@ -1352,7 +1383,7 @@ function phoneShellHtml(){
   return `
     <div class="dm" data-tab="${ui.mobileTab}">
       <div class="dm-top">
-        <div id="dr-clock"></div>
+        <div id="dr-clock"><div id="dr-clock-main"></div><div id="dr-clock-extra"></div></div>
         <div id="dm-rail"></div>
         <div id="dm-mini" class="dm-mini"></div>
         <div class="dm-tabs">${tab('pick', 'Pick')}${tab('board', 'Board')}${tab('team', 'My team')}</div>
@@ -1409,7 +1440,7 @@ function renderPhone(d){
   shell.dataset.tab = ui.mobileTab;
   shell.querySelectorAll('.dm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.mobileTab));
   renderPool(d);
-  setRegion('dr-clock', clockCardHtml(d));
+  setClockRegions(d);
   setRegion('dm-rail', railHtml(d));
   setRegion('dm-mini', miniHtml(d));
   pinPhoneTop();
@@ -1456,7 +1487,7 @@ function renderLive(d){
   updateTabs();
   renderPool(d);
   setRegion('dr-autodraft', autoDraftHtml(d));
-  setRegion('dr-clock', clockCardHtml(d));
+  setClockRegions(d);
   const hadBoard = regionHtml.has('dr-board');
   setRegion('dr-board', boardHtml(d));
   patchRegion('dr-roster', rosterHtml(d));
@@ -1513,8 +1544,10 @@ function render(){
     return;
   }
   if(ui.shell === 'lobby') ui.shell = null;
+  const leaving = landingSnapshot();
   if(isPhone()) renderPhone(d); else renderLive(d);
   playDraftEvents(d, events);
+  if(leaving) fxLandingExit(leaving, events.some(e => e.type === 'clock'));
   renderCommBar(d);
   renderModal(d);
   renderTeamSheet(d);
@@ -1660,7 +1693,13 @@ function noteLanding(d, events){
   const e = events.find(x => x.type === 'pick' && x.owner === d.me);
   if(e){
     const pick = d.s.picks[e.slot];
-    ui.landed = { slot: e.slot, team: e.team, auto: !!pick.auto, count: pickCount(d), clock: ui.lastClock };
+    // Long enough for the whole landing (after any scroll back up), and a
+    // beat to read it; without motion, just long enough to read.
+    const wait = e.sent && e.sent.scrollUntil ? Math.max(0, e.sent.scrollUntil - performance.now()) : 0;
+    const hold = fxOn() ? wait + LAND_HOLD_MS : LAND_HOLD_STILL_MS;
+    ui.landed = { slot: e.slot, team: e.team, auto: !!pick.auto, count: pickCount(d), clock: ui.lastClock, until: Date.now() + hold, nextText: nextPickText(d, e.slot) };
+    clearTimeout(ui.landTimer);
+    ui.landTimer = setTimeout(scheduleRender, hold + 30);
   }
   const start = d.clockInfo ? railStart(d) : null;
   fx.railShift = start !== null && fx.railStart !== null ? start - fx.railStart : 0;
@@ -1772,6 +1811,10 @@ const LAND = {
   text: 560,
   nextAfter: 650  // the "You pick again" pill, after the crest lands
 };
+// How long the hero holds the landing before catching up with the room:
+// the whole sequence, then a beat to read it.
+const LAND_HOLD_MS = LAND.settle + LAND.flyAt + LAND.fly + LAND.nextAfter + LAND.text + 900;
+const LAND_HOLD_STILL_MS = 2500;
 
 // Your pick is in: the clock and title fade back, the team's orb blooms
 // behind the hero, the crest you tapped flies into its center and a gold
@@ -1836,6 +1879,63 @@ function fxRowGone(sent){
     .filter(el => el.getBoundingClientRect().top >= row.rect.top - 1)
     .slice(0, 12)
     .forEach(el => play(el, [{ transform: `translateY(${row.rect.height}px)` }, { transform: 'none' }], { duration: 380 }));
+}
+
+// Leaving the landing (its hold is over, or the next drafter has picked):
+// rather than cut to the next card, a frozen copy of the landing fades out
+// over it while the clock area eases to its new height and the new card
+// comes in underneath. Back to back at the turn the card's frame doesn't
+// change, so the landing dissolves into my clock: the ring pops in, the
+// title rises and a gold ring pulses. Anything else (the next drafter's
+// card, the finished draft) rises in as the area shrinks.
+// Even curves (ease in and out): a front-loaded ease-out made the area
+// drop most of its height in the first frames, which read as a jolt.
+const EXIT = { fade: 460, resize: 560, inDelay: 180, in: 480 };
+
+// Taken before each render while a landing shows, to fade out if it goes.
+function landingSnapshot(){
+  const box = document.getElementById('dr-clock');
+  if(!box || !box.querySelector('#dr-clock-main .clock-hero.landed') || !fxOn()) return null;
+  const ghost = box.cloneNode(true);
+  ghost.removeAttribute('id');
+  ghost.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  ghost.classList.add('clock-ghost');
+  ghost.setAttribute('aria-hidden', 'true');
+  return { box, ghost, height: box.getBoundingClientRect().height, html: regionHtml.get('dr-clock-main') };
+}
+
+function fxLandingExit(snap, clockEvent){
+  const { box, ghost } = snap;
+  // Still landed (or a new landing of mine): nothing is leaving.
+  if(!box.isConnected || regionHtml.get('dr-clock-main') === snap.html || box.querySelector('#dr-clock-main .clock-hero.landed')) return;
+  atSpeed(1, () => {
+    const to = box.getBoundingClientRect().height;
+    box.classList.add('fx-exit');
+    box.appendChild(ghost);
+    if(Math.abs(to - snap.height) > 1){
+      box.style.height = `${snap.height}px`;
+      box.getBoundingClientRect();
+      box.style.height = `${to}px`;
+    }
+    play(ghost, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.97)' }], { duration: EXIT.fade, easing: EASE_IN_OUT, fill: 'forwards' });
+    const hero = box.querySelector('#dr-clock-main .clock-hero:not(.landed)');
+    if(hero){
+      // fxOnTheClock already brings it in when I've only just gone on the clock.
+      if(!clockEvent){
+        pop(hero.querySelector('.draft-clock'), { from: 0.85, delay: EXIT.inDelay, duration: 520 });
+        stagger(hero.querySelectorAll('.clock-hero-title, .clock-hero-sub'), RISE_14, { step: 90, delay: EXIT.inDelay + 120, duration: 500 });
+        ringPulse(hero, { delay: EXIT.resize + 40, iterations: 1 });
+      }
+    } else {
+      stagger([...box.querySelectorAll('#dr-clock-main > *, #dr-clock-extra > *')], [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 60, delay: EXIT.inDelay, duration: EXIT.in });
+    }
+  });
+  setTimeout(() => {
+    ghost.remove();
+    box.classList.remove('fx-exit');
+    box.style.height = '';
+    if(ui.shell === 'phone') pinPhoneTop();
+  }, Math.max(EXIT.fade, EXIT.resize) + 20);
 }
 
 // The phone's pick rail: the slot just picked gets its team chip, then the
@@ -2360,6 +2460,7 @@ export function setDraftActive(on){
     renderTeamSheet(null);
     clearInterval(clockTimer);
     clearInterval(ui.revealTimer);
+    clearTimeout(ui.landTimer);
     closeDraftConnection();
     if(unsubscribe){ unsubscribe(); unsubscribe = null; }
     ui.shell = null;

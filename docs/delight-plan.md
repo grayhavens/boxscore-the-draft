@@ -84,7 +84,16 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
   eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
   lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
-  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). Other drafters' turns keep the compact card / desktop
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`).
+- **Hold and catch up:** the landing always plays in full. For its length (`LAND_HOLD_MS`, about 3.4s, plus the scroll
+  back up) the hero holds it even if the next drafter picks a second later (a bot, auto-draft), you're back on the
+  clock at the turn of the snake, or the draft ends. The draft doesn't wait: the board, rail and clocks keep going, and
+  the line under the hero says who's picking now ("You’re on the clock again", in gold, with your clock running at the
+  turn). Then the card catches up (`fxLandingExit`, also used whenever a landing ends): a frozen copy of the landing
+  fades out over the new card while the clock area eases to its new height, both on even ease-in-out curves (an
+  ease-out dropped most of the height in the first frames and read as a jolt). Back to back, the landing dissolves
+  into your clock (ring pops in, title rises, one gold pulse); otherwise the next card rises in as the area shrinks. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
+  changes underneath never rebuild a landing mid-play. Other drafters' turns keep the compact card / desktop
   strip.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
