@@ -821,17 +821,21 @@ function formatChipUpcomingParts(d, timeTbd){
 // it) adds the chevron + click-through — see the .linkable/.live CSS
 // for how the two combine differently on hover.
 function paintStatusSlot(el, { label, value, valueClass, live, linkable, onClick }){
-  el.className = 'status-slot' + (linkable ? ' linkable' : '') + (live ? ' live' : '');
+  const cls = 'status-slot' + (linkable ? ' linkable' : '') + (live ? ' live' : '');
   const dotHtml = live ? '<span class="dot pulse"></span>' : '';
   const chevHtml = linkable ? '<span class="chev">&rsaquo;</span>' : '';
   const valClass = 'meta-value' + (valueClass ? ' ' + valueClass : '');
-  el.innerHTML = `<span class="meta-label${live ? ' live' : ''}">${dotHtml}${label}</span><span class="${valClass}">${value}${chevHtml}</span>`;
+  const html = `<span class="meta-label${live ? ' live' : ''}">${dotHtml}${label}</span><span class="${valClass}">${value}${chevHtml}</span>`;
+  // The live sweep repaints every row every 20s; rewriting an unchanged
+  // slot would restart its live dot's pulse each time.
+  if(el.className !== cls) el.className = cls;
+  if(el._html !== html){ el.innerHTML = html; el._html = html; }
   el.onclick = linkable ? onClick : null;
 }
 
 function clearStatusSlot(el){
   el.className = 'status-slot';
-  el.innerHTML = '';
+  if(el._html !== ''){ el.innerHTML = ''; el._html = ''; }
   el.onclick = null;
 }
 

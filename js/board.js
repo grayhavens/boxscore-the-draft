@@ -772,6 +772,8 @@ function showView(view){
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   paintTabPill(view);
   updateUrlParam('view', view === 'board' ? null : view);
+  // A tab tapped from the team page leaves it behind.
+  updateUrlParam('tp', null);
   setChatActive(view === 'chat');
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }

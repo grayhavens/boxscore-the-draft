@@ -220,13 +220,15 @@ function renderGolfRowStatus(teamKey){
   const board = golfStore.current && golfStore.current.board;
   if(!p || !board || (board.status === 'pre' && !p.teeTime)){
     el.className = 'status-slot';
-    el.innerHTML = '';
+    if(el._html !== ''){ el.innerHTML = ''; el._html = ''; }
     return;
   }
   const live = board.status === 'in' && p.state === 'in';
   el.className = 'status-slot' + (live ? ' live' : '');
   const value = board.status === 'pre' ? esc(shortName(board.name)) : `${esc(p.finish || '—')}${p.toPar ? ' &middot; ' + esc(p.toPar) : ''}`;
-  el.innerHTML = `<span class="meta-label${live ? ' live' : ''}">${live ? '<span class="dot pulse"></span>' : ''}${esc(roundLabel(board, p))}</span><span class="meta-value">${value}</span>`;
+  const html = `<span class="meta-label${live ? ' live' : ''}">${live ? '<span class="dot pulse"></span>' : ''}${esc(roundLabel(board, p))}</span><span class="meta-value">${value}</span>`;
+  // Unchanged: leave it, so the live dot's pulse isn't restarted.
+  if(el._html !== html){ el.innerHTML = html; el._html = html; }
 }
 
 const shortName = name => String(name || '').replace(/\s+(pres\.|presented)\s.*$/i, '');

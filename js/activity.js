@@ -106,14 +106,15 @@ function loadFeed(){
   return { snapshot: null, events: [] };
 }
 
-function saveFeed(){
-  try { localStorage.setItem(FEED_KEY, JSON.stringify(feed)); } catch (e){}
-}
-
+// True when it changed what the feed shows, so callers repaint only then
+// (a repaint of an open Points tab is a full render).
 function applyServerState(state){
   if(!state || !Array.isArray(state.events)) return false;
-  feed = { snapshot: state.snapshot || null, events: state.events };
-  saveFeed();
+  const next = { snapshot: state.snapshot || null, events: state.events };
+  const json = JSON.stringify(next);
+  if(json === JSON.stringify(feed)) return false;
+  feed = next;
+  try { localStorage.setItem(FEED_KEY, json); } catch (e){}
   return true;
 }
 
@@ -431,15 +432,23 @@ let running = false;
 
 // Called at boot, whenever the Points tab opens, and when the app comes
 // back to the foreground — it throttles itself.
-export async function runActivityDetection(force){
+function canDetect(force){
   // An older class's totals would rewind the shared feed and history.
-  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
-  if(!force && Date.now() - lastRun < DETECT_COOLDOWN_MS) return;
+  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return false;
+  return !!force || Date.now() - lastRun >= DETECT_COOLDOWN_MS;
+}
+
+export async function runActivityDetection(force){
+  if(!canDetect(force)) return;
   running = true;
   lastRun = Date.now();
   try {
-    const [server, snapshot] = await Promise.all([fetchState(), buildSnapshot()]);
-    if(server) applyServerState(server);
+    // The feed shows as soon as it lands, not once the snapshot is built.
+    const shown = fetchState().then(state => {
+      if(state && applyServerState(state)) refreshActivityUi();
+      return state;
+    });
+    const [server, snapshot] = await Promise.all([shown, buildSnapshot()]);
     if(!server || !snapshot) return;
 
     const prev = server.snapshot;
@@ -723,6 +732,9 @@ export function startActivity(){
   loadActivity();
   setTimeout(() => runActivityDetection(), 6000);
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible'){ loadActivity(); runActivityDetection(); }
+    // A detection run fetches the feed itself, so only one GET goes out.
+    if(document.visibilityState !== 'visible') return;
+    if(canDetect()) runActivityDetection();
+    else loadActivity();
   });
 }
