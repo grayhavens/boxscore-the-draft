@@ -118,8 +118,9 @@ const GUIDE = [
     points: [
       'Press and hold a message to react to it. Tap one to copy it.',
       'Use the GIF button to send a GIF.',
+      'Type @ to tag someone. They get an alert, and the Chat tab shows @ until they’ve seen it.',
       'Share to chat in a game’s box score posts the score as it stands. Its live line catches up once the game moves on.',
-      'The Chat tab shows how many messages you haven’t read.'
+      'The Chat tab shows how many messages you haven’t read, or @ when one tags you.'
     ],
     go: ['Go to Chat', "switchView('chat')"]
   },
@@ -127,11 +128,11 @@ const GUIDE = [
     id: 'draft', icon: 'draft', title: 'Draft room',
     lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
     points: [
-      'Mock Draft is always open: practice against bots whenever you like.',
+      'Mock Draft is always open: your own practice room against bots, whenever you like. Nobody else sees it.',
       'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
       'Once the commissioner sets the next draft’s time, Home counts down to it, and your phone tells you if alerts are on.',
       'While the real draft is live, a banner on every page takes you back to it.',
-      'Can’t make it, or stepping away? Turn on Auto-draft (under My queue, in My team on a phone, or in the lobby) and the room picks for you a few seconds after you’re up: your top queued team that fits, else the best one left.',
+      'Can’t make it, or stepping away? Turn on Auto-draft (under My queue, in My team on a phone, or in the lobby) and the room picks for you the moment you’re up: your top queued team that fits, else the best one left.',
       'Tap any team, in the list, the board or a roster, for a quick outlook, its last season, its record so far and its title odds.',
       'Tap Scoring under the room’s title to check what each league’s teams are worth.',
       'Download the board as a spreadsheet once it’s done.'
@@ -152,13 +153,13 @@ const GUIDE = [
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat, and when the draft’s time is set.',
+    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat or tags you, and when the draft’s time is set.',
     points: [
       'Turn them on in Settings, under Alerts. Each device is set up on its own.',
       'On iPhone, alerts only work in the app added to your Home Screen.'
     ],
     pre: {
-      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat, and when the draft’s time is set.',
+      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat or tags you, and when the draft’s time is set.',
       points: [
         'Turn them on in Settings, under Alerts. Each device is set up on its own.',
         'On iPhone, alerts only work in the app added to your Home Screen.',

@@ -61,7 +61,7 @@ import { GROUPS, GROUP_IDS, isKnownGroup, adminSecretName } from '../js/groups.j
 import { APP_VERSION } from '../js/version.js';
 import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
-import { loadDevices, removeDevice, deviceId, pushService, pushEnabled, pushToDrafters } from './web-push.js';
+import { loadDevices, removeDevice, deviceId, pushService, pushEnabled, pushToDrafters, wantsAlert } from './web-push.js';
 import { claimAlertEnabled } from './claims.js';
 import { loadAccess, changeAccess } from './access-code.js';
 import { loadWelcomed, clearWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
@@ -151,6 +151,7 @@ async function groupStatus(env, id, deps){
       chat: devices.filter(x => x.prefs && x.prefs.chat).length,
       draft: devices.filter(x => x.prefs && x.prefs.draft).length,
       points: devices.filter(x => x.prefs && x.prefs.points).length,
+      mention: devices.filter(x => wantsAlert(x.prefs, 'mention')).length,
       lastRegistered: devices.reduce((m, x) => Math.max(m, x.at || 0), 0) || null,
       // Each device, by a hashed id: never its endpoint.
       deviceList: await Promise.all(devices.map(async x => ({
@@ -159,7 +160,8 @@ async function groupStatus(env, id, deps){
         at: x.at || null,
         chat: !!(x.prefs && x.prefs.chat),
         draft: !!(x.prefs && x.prefs.draft),
-        points: !!(x.prefs && x.prefs.points)
+        points: !!(x.prefs && x.prefs.points),
+        mention: wantsAlert(x.prefs, 'mention')
       })))
     };
   }));

@@ -15,6 +15,7 @@ import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderLiveBundle } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 const ESPN_EPL_STANDINGS_CACHE_KEY = 'teamDashboardEspnEplStandingsCache';
 // Standings can move the moment a match ends, so this stays on the same
 // hourly cadence as NFL's ESPN-sourced cache (ESPN_NFL_STANDINGS_TTL_MS
@@ -25,7 +26,7 @@ export const eplStandingsCache = { table: null, error: false, loading: false, fe
 let eplStandingsPromise = null;
 
 export function eplStandingsIsFresh(){
-  return !!eplStandingsCache.table && !!eplStandingsCache.fetchedAt && (Date.now() - eplStandingsCache.fetchedAt) < EPL_STANDINGS_TTL_MS;
+  return !!eplStandingsCache.table && !!eplStandingsCache.fetchedAt && isFreshAt(eplStandingsCache.fetchedAt, EPL_STANDINGS_TTL_MS);
 }
 
 function saveEplStandingsCache(){

@@ -21,10 +21,11 @@
    ============================================================ */
 import { groupCaps } from '../js/groups.js';
 import { parseSports, sportsCaps } from '../js/sports.js';
+import { GROUP_MOCK_ROOM } from '../js/draft-rules.js';
 
 // The rooms a save updates at once. Any other room picks it up the next
 // time someone connects.
-const SYNCED_ROOMS = ['main', 'mock-1'];
+const SYNCED_ROOMS = ['main', GROUP_MOCK_ROOM];
 
 export function sportsKey(group){
   return `sports@${group}`;

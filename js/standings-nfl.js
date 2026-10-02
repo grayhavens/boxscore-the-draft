@@ -40,6 +40,7 @@ import { renderStandings, standingsDataChanged } from './board.js';
 import { liveDataCache, renderStats } from './live-data.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
+import { isFreshAt } from './cache-fresh.js';
 // Standard NFL win-percentage formula (a tie counts as half a win and
 // half a loss) — null with no games played yet rather than 0, so a
 // still-winless-but-untested team doesn't outrank one that hasn't
@@ -85,7 +86,7 @@ export const espnNflStandingsCache = { rows: null, error: false, loading: false,
 let espnNflStandingsPromise = null;
 
 function espnNflStandingsIsFresh(){
-  return !!espnNflStandingsCache.rows && !!espnNflStandingsCache.fetchedAt && (Date.now() - espnNflStandingsCache.fetchedAt) < ESPN_NFL_STANDINGS_TTL_MS;
+  return !!espnNflStandingsCache.rows && !!espnNflStandingsCache.fetchedAt && isFreshAt(espnNflStandingsCache.fetchedAt, ESPN_NFL_STANDINGS_TTL_MS);
 }
 
 function saveEspnNflStandingsCache(){
@@ -197,7 +198,7 @@ export const espnNflDivisionCache = { divisions: null, error: false, loading: fa
 let espnNflDivisionPromise = null;
 
 function espnNflDivisionIsFresh(){
-  return !!espnNflDivisionCache.divisions && !!espnNflDivisionCache.fetchedAt && (Date.now() - espnNflDivisionCache.fetchedAt) < ESPN_NFL_DIVISIONS_TTL_MS;
+  return !!espnNflDivisionCache.divisions && !!espnNflDivisionCache.fetchedAt && isFreshAt(espnNflDivisionCache.fetchedAt, ESPN_NFL_DIVISIONS_TTL_MS);
 }
 
 function saveEspnNflDivisionCache(){

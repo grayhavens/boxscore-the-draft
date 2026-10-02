@@ -262,3 +262,16 @@ export function nextGameHtml({ when, home, ownBadgeHtml, oppBadgeHtml, oppName, 
     + `<div class="ng-row">${ownBadgeHtml}<span class="ng-vs">${home ? 'vs' : 'at'}</span>${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span>${rightHtml}</div>`
     + (subHtml ? `<div class="ng-sub">${subHtml}</div>` : '');
 }
+
+// Mention: a tag inside a chat message ("@Isaac"). `me` marks one that
+// tags you, in gold.
+export function mentionHtml({ label, me = false }){
+  return `<span class="mention${me ? ' me' : ''}">${escapeHtml(label)}</span>`;
+}
+
+// MentionList: the names offered above a chat composer while an "@" is
+// being typed. Each option carries data-mention (its id); `active` is the
+// highlighted one, which Enter or Tab picks.
+export function mentionListHtml({ options, active = 0 }){
+  return options.map((o, i) => `<button type="button" class="mention-opt${i === active ? ' active' : ''}" data-mention="${escapeHtml(o.id)}" role="option" aria-selected="${i === active}"><span class="mention-opt-name">@${escapeHtml(o.name)}</span>${o.sub ? `<span class="mention-opt-sub">${escapeHtml(o.sub)}</span>` : ''}</button>`).join('');
+}

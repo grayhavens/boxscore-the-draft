@@ -298,6 +298,7 @@
   /* Motion. Mirror any new curve in js/utils.js for the Web Animations API. */
   --ease-push: cubic-bezier(0.22, 0.7, 0.25, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);    /* leaving: a sheet closing */
 }
 :root[data-theme="light"]{
   --splash-ink: #0B0C0F;

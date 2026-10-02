@@ -58,9 +58,13 @@ import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
 
-import { backLinkHtml } from './ui.js';
+import { backLinkHtml, buttonHtml } from './ui.js';
+import { GROUP_MOCK_ROOM } from './draft-rules.js';
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
+// Everyone's Mock Draft is their own room; this shared one is for a dry
+// run with the whole group (docs/draft-day-runbook.md).
+const REHEARSAL_NOTE = 'A shared mock room for a dry run with the whole group. Anyone in it can run it. Everyone else\u2019s Mock Draft is their own, private room.';
 
 // The system admin page (boxscore.space/admin, js/system-admin.js) opens
 // this page with a signed commissioner token in the URL fragment, which
@@ -451,6 +455,11 @@ function draftSectionHtml(){
       <div class="admin-status-note">${note}</div>
       ${'poll' in st && st.phase !== 'draft' ? pollEditorHtml(st.poll, st.scheduledAt) : ''}
       ${'scheduledAt' in st && st.phase !== 'draft' ? scheduleEditorHtml(st.scheduledAt) : ''}
+    </div>
+    <div class="admin-league">
+      <h3 class="admin-league-title">Group rehearsal</h3>
+      <div class="admin-status-note">${REHEARSAL_NOTE}</div>
+      ${buttonHtml({ label: 'Open rehearsal room', variant: 'secondary', cls: 'admin-draft-cta', onclick: `goToDraftRoom('${GROUP_MOCK_ROOM}')` })}
     </div>
   `;
 }
@@ -1292,7 +1301,10 @@ function deskDraftHtml(){
         <h1>${title}</h1>
         <div class="admin-desk-lede">${note}</div>
       </div>
-      <button type="button" class="admin-desk-btn solid lg" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
+      <div class="admin-desk-head-actions">
+        <button type="button" class="admin-desk-btn outline lg" onclick="goToDraftRoom('${GROUP_MOCK_ROOM}')" title="${REHEARSAL_NOTE}">Group rehearsal</button>
+        <button type="button" class="admin-desk-btn solid lg" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
+      </div>
     </div>
     ${deskAttentionHtml()}
     <div class="admin-desk-strip">${strip}</div>

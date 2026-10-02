@@ -476,7 +476,7 @@ body{
   justify-content: center;
   cursor: pointer;
   color: var(--star-idle);
-  transition: color 0.15s ease, background 0.15s ease, transform 0.15s cubic-bezier(0.34,1.56,0.64,1);
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s var(--ease-spring);
 }
 
 .favorite-star svg{ width: 18px; height: 18px; }
@@ -660,7 +660,7 @@ body{
   border-radius: 8px;
   background: var(--seg-thumb);
   box-shadow: var(--seg-thumb-shadow);
-  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.34s var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -2341,6 +2341,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 /* Headers: eyebrow, title, a line under it, the main action on the right. */
 .admin-desk-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-desk-head-actions{ display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-desk-titles{ display: flex; flex-direction: column; gap: 6px; }
 .admin-desk-titles h1{
   margin: 0;
@@ -2930,7 +2931,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ob-hero-rankline{ display: flex; align-items: baseline; gap: 8px; }
 .ob-hero-rank, .ob-hero-total{
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: var(--fs-hero);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -3472,7 +3473,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   from{ transform: translateX(34px); opacity: 0; }
   to{ transform: translateX(0); opacity: 1; }
 }
-.view-push-in{ animation: view-push-in 0.34s cubic-bezier(0.22, 0.7, 0.25, 1); }
+.view-push-in{ animation: view-push-in 0.34s var(--ease-push); }
 @media (prefers-reduced-motion: reduce){ .view-push-in{ animation: none; } }
 
 .team-page-nav{
@@ -4032,6 +4033,44 @@ html.chat-kb .tab-bar{ display: none; }
   border: 1px solid var(--accent-border);
   padding: 7px 11px;
 }
+
+/* ---- Mentions (js/chat.js, js/chat-mentions.js) ---- */
+/* Mention: a tag in a message. Gold when it tags you (`.me`). */
+.mention{ font-weight: 800; }
+.mention.me{ color: var(--accent); }
+/* A message that tags you: outlined in gold, since gold means you. */
+.chat-bubble.tags-me{ border: 1px solid var(--accent-border); padding: 7px 11px; }
+/* MentionList: names offered above the composer while an "@" is typed,
+   taking its height out of the message list's like the GIF panel. */
+.mention-list{
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1) max(12px, calc((100% - 720px) / 2));
+  border-top: 1px solid var(--hairline);
+  background: var(--bg);
+}
+.mention-list[hidden]{ display: none; }
+.mention-opt{
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  font: var(--type-body);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mention-opt.active{ background: var(--surface-2); }
+.mention-opt-sub{ font: var(--type-meta); color: var(--text-mute); }
 
 .chat-composer{
   flex: 0 0 auto;
@@ -5081,6 +5120,22 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
 .dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
+/* The lobby's commissioner controls: buttons, then the clock, on one line.
+   Under 600px a two-column grid (the primary button across both when the
+   rest pair up), so no control is left on a line by itself. */
+.dr-lobby-actions{ display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.dr-action-group{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.dr-action-group:empty{ display: none; }
+.dr-narrow-only{ display: none; }
+@media (max-width: 600px){
+  .dr-wide-only{ display: none; }
+  .dr-narrow-only{ display: flex; }
+  .dr-lobby-actions{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dr-action-group{ display: contents; }
+  .dr-lobby-actions .dr-btn{ width: 100%; padding: 0 10px; }
+  .dr-lobby-actions.span .dr-btn-primary{ grid-column: 1 / -1; }
+  .dr-lobby-actions .dr-inline{ justify-content: space-between; min-width: 0; }
+}
 
 /* Live room layout */
 .dr-layout{
@@ -5362,19 +5417,13 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-proxy-btn{ margin-top: 10px; height: 32px; }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
-/* Auto-draft: my switch (under My queue, and the lobby), the note on
-   the clock card when it's about to pick for me, and the board tag. */
-.dr-auto{ display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 0 0 12px; border-radius: var(--r-sm); background: var(--seg-track); border: 1px solid transparent; }
-.dr-auto.on{ background: var(--accent-soft); border-color: var(--accent-border); }
-.dr-auto-main{ flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.dr-auto-main b{ font-size: var(--fs-13); color: var(--text); }
-.dr-auto.on .dr-auto-main b{ color: var(--accent); }
-.dr-auto-main span{ font-size: var(--fs-12); color: var(--text-sub); line-height: 1.35; }
+/* Auto-draft: my switch (under My queue, and the lobby), the AUTO tag
+   beside the name on the clock card, and the board's dot. */
+.dr-auto{ display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; margin: 14px 0 0; border-radius: var(--r-sm); background: var(--seg-track); }
+.dr-auto-label{ font: var(--type-meta); font-size: var(--fs-13); color: var(--text); }
 .dr-auto .switch{ flex: 0 0 auto; }
 .dr-lobby .dr-auto{ margin: 0; }
-.dr-auto.compact{ padding: 8px 12px; margin: 14px 0 0; }
-.dr-auto.compact .dr-auto-main span{ font-size: var(--fs-11); }
-.dr-auto-note button{ font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.dr-clock-name .dr-badge{ font-family: var(--font-ui); font-weight: 700; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
 /* A dot rather than a word: board columns are too narrow for a tag. */
 .dr-auto-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: middle; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }
@@ -5600,10 +5649,10 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   html[data-nav="back"]::view-transition-old(root){ animation-name: vt-out-right; animation-duration: 240ms; }
   html[data-nav="back"]::view-transition-new(root){ animation-name: vt-in-left; }
 
-  html[data-nav="push"]::view-transition-old(root){ animation: vt-push-old 400ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
-  html[data-nav="push"]::view-transition-new(root){ animation: vt-push-new 400ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
-  html[data-nav="pop"]::view-transition-old(root){ animation: vt-pop-old 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; z-index: 1; }
-  html[data-nav="pop"]::view-transition-new(root){ animation: vt-pop-new 340ms cubic-bezier(0.22, 0.7, 0.25, 1) both; }
+  html[data-nav="push"]::view-transition-old(root){ animation: vt-push-old 400ms var(--ease-push) both; }
+  html[data-nav="push"]::view-transition-new(root){ animation: vt-push-new 400ms var(--ease-push) both; }
+  html[data-nav="pop"]::view-transition-old(root){ animation: vt-pop-old 340ms var(--ease-push) both; z-index: 1; }
+  html[data-nav="pop"]::view-transition-new(root){ animation: vt-pop-new 340ms var(--ease-push) both; }
 
   /* Where View Transitions exist they replace the tab fade (R5) and the
      team views' slide-in (.view-push-in) — both would otherwise play a
@@ -5738,8 +5787,28 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
    (view-transition-name tp-crest / tp-name), on the push's own timing. */
 @media (prefers-reduced-motion: no-preference){
   ::view-transition-group(tp-crest),
-  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: cubic-bezier(0.22, 0.7, 0.25, 1); }
+  ::view-transition-group(tp-name){ animation-duration: 400ms; animation-timing-function: var(--ease-push); }
 }
+
+/* Pull to refresh (js/pull-refresh.js): the launch splash's mark, 44px, in
+   the gap the page leaves as it's pulled down. Its geometry is the
+   splash's (#launch-splash .ls-*) at 22%, drawn finished here; the pull
+   scrubs a paused build toward this. */
+.ptr{
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 10px); z-index: 5;
+  width: 44px; height: 44px; margin-left: -22px;
+  opacity: 0; pointer-events: none;
+  --ls-ink: var(--splash-ink); --ls-sq: var(--brand-square);
+}
+.ptr-mark{ position: absolute; left: 0; top: 0; width: 200px; height: 200px; transform: scale(0.22); transform-origin: 0 0; }
+.ptr .ls-logo{ position: absolute; inset: 0; transform-origin: 50% 50%; }
+.ptr .ls-tl, .ptr .ls-br{ position: absolute; width: 45px; height: 45px; overflow: hidden; }
+.ptr .ls-tl > i, .ptr .ls-br > i{ position: absolute; inset: 0; box-sizing: border-box; }
+.ptr .ls-tl{ left: 43px; top: 43px; }
+.ptr .ls-tl > i{ border-top: 13px solid var(--ls-ink); border-left: 13px solid var(--ls-ink); border-top-left-radius: 13px; }
+.ptr .ls-br{ left: 112px; top: 112px; }
+.ptr .ls-br > i{ border-bottom: 13px solid var(--ls-ink); border-right: 13px solid var(--ls-ink); border-bottom-right-radius: 13px; }
+.ptr .ls-sq{ position: absolute; left: 79.5px; top: 79.5px; width: 41px; height: 41px; border-radius: 9px; background: var(--ls-sq); }
 
 /* Points: a row climbing the board rides over the rows it passes. */
 .fx-rise{ position: relative; z-index: 2; }
@@ -5840,7 +5909,7 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   .modal-overlay.open{ animation: overlay-in 380ms ease backwards; }
   .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }
   .modal-overlay.closing{ animation: overlay-out 280ms ease forwards; }
-  .modal-overlay.closing .modal{ animation: sheet-down 280ms cubic-bezier(0.32, 0, 0.67, 0) forwards; }
+  .modal-overlay.closing .modal{ animation: sheet-down 280ms var(--ease-in) forwards; }
 
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }
@@ -6045,7 +6114,7 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-faq-item summary{
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px; cursor: pointer; list-style: none;
-  font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--text);
+  font-size: var(--fs-15); font-weight: 700; line-height: 1.35; color: var(--text);
 }
 .landing-faq-item summary::-webkit-details-marker{ display: none; }
 .landing-faq-item summary::after{

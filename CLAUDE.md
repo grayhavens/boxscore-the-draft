@@ -197,6 +197,16 @@ The system admin page can delete a message for everyone: the room broadcasts `{t
 keeps the deleted ids (pruned with the messages) in the `history` frame's `deleted` list, for the same reason, so a
 device that was away drops its cached copy.
 
+**Chat mentions** (`js/chat-mentions.js`, pure and shared with the worker and tests): typing `@` in the composer opens a
+list of the group above it, and a sent message carries `mentions`, the drafter ids its text tags (ids, since names have
+spaces and a roster confirm can rename a spot). The worker keeps only real drafters (`parseMentions`) in a `mentions`
+column. Anyone tagged gets a "Josh mentioned you" alert instead of the chat one (`splitRecipients`), its own `mention`
+switch in Settings → Alerts, on by default for a device that never set it (`wantsAlert` in `worker/web-push.js`), and
+mention alerts stack apart from chat's in `sw.js`. A message that tags you is outlined in gold and the Chat badge reads
+`@` while one is unread. `@everyone` is the commissioner's: offered only on a device with the password saved, sent with
+it as `auth`, and dropped by the room (the message still posts) unless `checkCommissionerSecret` passes. **Deploy the
+worker first:** an old worker ignores `mentions`, so tags would neither highlight nor alert.
+
 **Shared games in chat** (`js/game-card.js`, `worker/chat-game.js`): Game Details' "Share to chat" button posts the
 game right away (no caption step) and jumps to the Chat tab. The message's `game` field is a snapshot of the game
 at that moment (league, ESPN event id, state, status, both sides' team key/name/abbr/score), shown as a frozen card that
@@ -251,12 +261,14 @@ column with a Draft/Scoring switch and league chips. Its writes (marks, adjustme
 a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker adds that to the system admin log as
 `Commissioner`; a write with no note isn't logged. **Deploy the worker first** (an old one ignores the note). See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
-Settings' Draft tile offers Mock Draft (room `mock-1`) or Live Draft (`main`). Mock rooms (`isMockRoom`:
+Settings' Draft tile (and the Home draft card) offers Mock Draft or Live Draft (`main`). Mock Draft opens the drafter's
+own room, `mock-<id>` (`personalMockRoom`), which nobody else is sent to and which starts with everyone else as a bot;
+the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from Commissioner → Draft. Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 **Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
-`AUTO_DRAFT_SECONDS` (5s) after they go on the clock, from their queue or else the best team that fits, through the
+the moment they go on the clock (`AUTO_DRAFT_SECONDS`, 0.75s: a beat so it reads as a pick), from their queue or else the best team that fits, through the
 same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
 (`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
@@ -355,7 +367,7 @@ ignore tiebreakers. Only for a league whose season is under way and not locked.
 orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
 cover is off on this page). Swiping the hero sideways moves through your own teams in Home's order (dots under it; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
-top stretches it. The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
+top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
 game counts down every second, Overview leads with Path to points (`teamPathToPoints` in `js/lines.js`: every rule as
 locked, live, in reach or off, with On the line's distance as its note) and the last five games as bars; every result
 row is on Full schedule.

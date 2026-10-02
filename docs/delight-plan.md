@@ -115,6 +115,8 @@ The hero bloom, stat roll, form cascade and shared-element push already exist. K
   gradient and its bloom copy are gone. The hero keeps the app's season-phase pill in its meta line, and the orb uses
   `--orb-blur` (64) rather than 72. The notch cover is hidden on this page (`:has()`), and the compact bar covers that
   strip once the hero has scrolled off.
+- **Pull:** pull to refresh (motion Phase 5, `PULL_VIEWS` in `js/board.js`) is off on the team page, so the two pulls
+  never fight.
 - **Swipe:** off on a team you don't own (no dots), rather than running through a league of other people's teams.
   Past 24 teams the dots become "3 of 30". It wraps around, keeps the open tab when the next team has it, and
   replaces `tp` in the URL. The Standings row transform still works: its fixed layer now uses `padding-top` instead
