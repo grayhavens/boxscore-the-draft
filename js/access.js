@@ -13,7 +13,7 @@
    through here only if the code was rotated or enforcing turned on. A
    failed check never blocks boot (the worker still does the refusing).
    ============================================================ */
-import { DASHBOARD_WORKER_BASE } from './worker-base.js';
+import { chatWorkerBase } from './worker-base.js';
 import { LEGACY_GROUP_ID } from './groups.js';
 
 import { buttonHtml } from './ui.js';
@@ -57,7 +57,7 @@ async function check(groupId, supplied){
     const params = new URLSearchParams();
     if(groupId !== LEGACY_GROUP_ID) params.set('group', groupId);
     if(supplied) params.set('gc', supplied);
-    const res = await fetch(`${DASHBOARD_WORKER_BASE}/access/check?${params}`, { cache: 'no-store' });
+    const res = await fetch(`${chatWorkerBase()}/access/check?${params}`, { cache: 'no-store' });
     if(!res.ok) return null;
     const data = await res.json();
     return data && typeof data.required === 'boolean' ? data : null;

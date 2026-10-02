@@ -7,7 +7,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, sheetSettled, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -1545,11 +1545,68 @@ function setTopPlayIndex(index){
 }
 window.setTopPlayIndex = setTopPlayIndex;
 
-// eventId is passed in explicitly by both callers (renderNext's LIVE
-// entry chip and renderForm's "Most Recent Result" link) rather than
-// read off bundle.espnLive here, so this works the same way for a
-// currently-live game and a past completed one — bundle.espnLive only
-// ever describes today's/the current game.
+// Everything a Game Details sheet paints from: ESPN's summary plus, for
+// MLB and NHL, the clips/decisions from the league's own feed. Awaited
+// together rather than rendered progressively, so the sheet only ever
+// paints once — the extra requests only happen for MLB/NHL games, and
+// only when a drafter actually opens Game Details.
+// MLB: resolve the same game on MLB's own Stats API (by team name + start
+// time, then join scoring plays to clips by GUID — see js/mlb-stats.js)
+// for its Top Play clips plus the W/L/SV decisions and venue/attendance/
+// duration line, all riding the same live-feed request.
+// NHL gets the same treatment from the NHL's own data (js/nhl-clips.js)
+// — matched by common name ("Sabres") + start time rather than MLB's full
+// name, since that's what the NHL's feed carries.
+async function loadGameDetail(leagueKey, eventId){
+  const summary = await GAME_DETAIL_LEAGUES[leagueKey].fetchSummary(FLAT_SCHEDULE_LEAGUES[leagueKey].sportPath, eventId);
+  const hasBothTeams = summary && summary.teams.length === 2;
+  const awayTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'away') || {}) : {};
+  const homeTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'home') || {}) : {};
+  let extras = null;
+  if(hasBothTeams && leagueKey === 'mlb') extras = await fetchMlbGameExtras(summary.date, awayTeam.name, homeTeam.name);
+  else if(hasBothTeams && leagueKey === 'nhl') extras = await fetchNhlGameExtras(summary.date, awayTeam.mascot, homeTeam.mascot);
+  return { summary, extras };
+}
+
+// A load started a moment early (a finger landing on a card, below) is
+// picked up by the open that follows; anything older is refetched, since
+// a live game's box score moves.
+const GAME_DETAIL_PREFETCH_MS = 10000;
+const gameDetailLoads = new Map(); // eventId -> { at, promise }
+
+function gameDetailLoad(teamKey, eventId){
+  const key = String(eventId);
+  const hit = gameDetailLoads.get(key);
+  if(hit && Date.now() - hit.at < GAME_DETAIL_PREFETCH_MS) return hit.promise;
+  const promise = loadGameDetail(TEAM_META[teamKey].leagueKey, eventId)
+    .catch(() => ({ summary: null, extras: null }))
+    .then(r => { if(!r.summary) gameDetailLoads.delete(key); return r; });
+  gameDetailLoads.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
+// Touching anything that opens Game Details starts its fetch right then,
+// the 50-150ms before the tap registers, so the box score is more often
+// already in hand when the sheet opens.
+const GAME_DETAIL_ONCLICK = /openGameDetail\('([^']+)',\s*'([^']+)'\)/;
+document.addEventListener('pointerdown', (e) => {
+  const target = e.target.closest && e.target.closest('[onclick*="openGameDetail("]');
+  const m = target && GAME_DETAIL_ONCLICK.exec(target.getAttribute('onclick'));
+  const meta = m && TEAM_META[m[1]];
+  if(meta && GAME_DETAIL_LEAGUES[meta.leagueKey] && FLAT_SCHEDULE_LEAGUES[meta.leagueKey]) gameDetailLoad(m[1], m[2]);
+}, { passive: true, capture: true });
+
+// How long a tap waits for the box score before opening the sheet without
+// it. Data in time: the sheet slides up already holding it, at its final
+// height. Otherwise it opens on a skeleton and the box score fades in
+// once the sheet has landed (painted mid-slide, it makes the slide stutter).
+const GAME_DETAIL_HEAD_START_MS = 120;
+
+// eventId is passed in explicitly by every caller (renderNext's LIVE
+// entry chip, renderForm's "Most Recent Result" link, a Scores card)
+// rather than read off bundle.espnLive here, so this works the same way
+// for a currently-live game and a past completed one — bundle.espnLive
+// only ever describes today's/the current game.
 export async function openGameDetail(teamKey, eventId){
   const meta = TEAM_META[teamKey];
   const gameDetail = GAME_DETAIL_LEAGUES[meta && meta.leagueKey];
@@ -1560,60 +1617,64 @@ export async function openGameDetail(teamKey, eventId){
   const el = document.getElementById('game-detail-content');
   if(!overlay || !el) return;
 
+  // Guards the awaits below — if the sheet gets closed, or reopened for
+  // a different game, while a request is in flight, its result is stale
+  // and shouldn't paint over whatever's showing now.
+  el.dataset.activeEvent = String(eventId);
+  const stale = () => el.dataset.activeEvent !== String(eventId);
+
+  const load = gameDetailLoad(teamKey, eventId);
+  const early = await Promise.race([load, new Promise(r => setTimeout(r, GAME_DETAIL_HEAD_START_MS, null))]);
+  if(stale()) return;
+
+  const paint = ({ summary, extras }, fadeIn) => {
+    // situation (down/distance, balls/strikes/etc.) only ever comes from
+    // the *current* scoreboard fetch (see fetchEspnScoreboard/
+    // findEspnScoreboardLine in js/espn.js) — meaningful only when this
+    // sheet's game is that same still-live one; a past completed game
+    // (opened from "Most Recent Result") has none to show.
+    const freshLine = liveDataCache[teamKey] && liveDataCache[teamKey].espnLive;
+    const situation = (freshLine && String(freshLine.eventId) === String(eventId)) ? freshLine.situation : null;
+    // Default the team-toggle to this team's own side, resolved the same
+    // way the rest of this app identifies a team's ESPN row (findRow,
+    // matched by name) rather than via bundle.espnLive's isHome — that
+    // only describes today's/the current game, not necessarily this one.
+    const row = flatSchedule.findRow(meta);
+    renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, extras);
+    // Off again once it has played, or every later repaint (the team
+    // toggle, a live refresh) would fade in too.
+    el.classList.toggle('gd-fade-in', !!fadeIn);
+    clearTimeout(el._fadeIn);
+    if(fadeIn) el._fadeIn = setTimeout(() => el.classList.remove('gd-fade-in'), 400);
+  };
+
   // Unless the golfer sheet is underneath holding the scroll lock, take
   // it here.
-  if(!isSheetOpen(overlay) && !isSheetOpen(document.getElementById('modal-overlay'))){
+  const opening = !isSheetOpen(overlay);
+  if(opening && !isSheetOpen(document.getElementById('modal-overlay'))){
     gameDetailOwnsLock = true;
     lockBodyScroll();
   }
-  openSheetOverlay(overlay);
-  // Guards the fetch below — if the sheet gets closed, or reopened for a
-  // different game, while this request is in flight, its result is
-  // stale and shouldn't paint over whatever's showing now.
-  el.dataset.activeEvent = String(eventId);
+
+  if(early){
+    // Painted in the same task as the open, so the sheet slides up with
+    // it at its real height (watchSheetHeight treats it as part of opening).
+    paint(early, false);
+    openSheetOverlay(overlay);
+    return;
+  }
+
   // Tall enough to fill the sheet's max-height, so it opens at the size
   // a box score will need and the real content fills in without moving it
   // (a short result glides the sheet down to size — see watchSheetHeight
-  // in js/utils.js).
+  // in js/sheet.js).
   el.innerHTML = `<div class="modal-body gd-loading">${skeletonLinesHtml(6)}</div>`;
+  openSheetOverlay(overlay);
 
-  const summary = await gameDetail.fetchSummary(flatSchedule.sportPath, eventId);
-  if(el.dataset.activeEvent !== String(eventId)) return;
-
-  // MLB-only: resolve the same game on MLB's own Stats API (by team
-  // name + start time, then join scoring plays to clips by GUID — see
-  // js/mlb-stats.js) and fetch its Top Play clips plus the W/L/SV
-  // decisions and venue/attendance/duration line — all one call, all
-  // riding the same live-feed request. Awaited here rather than
-  // rendered progressively after the fact, so this sheet only ever
-  // paints once — the extra requests only happen for MLB games, and
-  // only when a drafter actually opens Game Details, same on-demand
-  // cost profile as the boxscore fetch itself.
-  // NHL gets the same treatment from the NHL's own data (js/nhl-clips.js)
-  // — matched by common name ("Sabres") + start time rather than MLB's
-  // full name, since that's what the NHL's feed carries.
-  const hasBothTeams = summary && summary.teams.length === 2;
-  const awayTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'away') || {}) : {};
-  const homeTeam = hasBothTeams ? (summary.teams.find(t => t.homeAway === 'home') || {}) : {};
-  let extras = null;
-  if(hasBothTeams && meta.leagueKey === 'mlb') extras = await fetchMlbGameExtras(summary.date, awayTeam.name, homeTeam.name);
-  else if(hasBothTeams && meta.leagueKey === 'nhl') extras = await fetchNhlGameExtras(summary.date, awayTeam.mascot, homeTeam.mascot);
-  if(el.dataset.activeEvent !== String(eventId)) return;
-
-  // situation (down/distance, balls/strikes/etc.) only ever comes from
-  // the *current* scoreboard fetch (see fetchEspnScoreboard/
-  // findEspnScoreboardLine in js/espn.js) — meaningful only when this
-  // sheet's game is that same still-live one; a past completed game
-  // (opened from "Most Recent Result") has none to show.
-  const freshLine = liveDataCache[teamKey] && liveDataCache[teamKey].espnLive;
-  const situation = (freshLine && String(freshLine.eventId) === String(eventId)) ? freshLine.situation : null;
-
-  // Default the team-toggle to this team's own side, resolved the same
-  // way the rest of this app identifies a team's ESPN row (findRow,
-  // matched by name) rather than via bundle.espnLive's isHome — that
-  // only describes today's/the current game, not necessarily this one.
-  const row = flatSchedule.findRow(meta);
-  renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, extras);
+  const result = await load;
+  await sheetSettled(overlay);
+  if(stale()) return;
+  paint(result, opening);
 }
 window.openGameDetail = openGameDetail;
 

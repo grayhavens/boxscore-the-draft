@@ -5502,9 +5502,10 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-trade-col select{ height: 38px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; font-size: var(--fs-16); }
 .dr-trade-preview{ padding: 10px 12px; border-radius: var(--r-sm); background: var(--seg-track); font-size: var(--fs-13); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team */
+/* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team.
+   .dm-top stays above the Pick tab's filter row (.dr-scope, z-index 25 for its menus). */
 .dm{ display: block; padding-bottom: 24px; }
-.dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.dm-top{ position: sticky; top: 0; z-index: 30; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
 /* While the on-the-clock card is up, the top block sticks only once the card
    and rail are off screen (--dm-stick, set by pinPhoneTop in js/draft.js),
    leaving a band above the tabs where the mini clock shows. */
@@ -5546,7 +5547,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dm[data-tab="team"] .dm-pane[data-pane="team"]{ display: flex; }
 .dm .dr-search{ height: 44px; }
 .dm .dr-ltab{ height: 40px; }
-.dm .dr-scope{ min-height: 40px; z-index: 4; }   /* over the rows (for its menus), under the pinned top block (5) */
+.dm .dr-scope{ min-height: 40px; }
 .dm .dr-dd-btn, .dm .dr-sort-btn{ height: 40px; }
 /* Phone: menus open full width under the scope row. */
 .dm .dr-dd{ position: static; }
@@ -6010,6 +6011,11 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   .modal-overlay.open .modal{ animation: sheet-spring 500ms var(--ease-sheet) backwards; }
   .modal-overlay.closing{ animation: overlay-out 280ms ease forwards; }
   .modal-overlay.closing .modal{ animation: sheet-down 280ms var(--ease-in) forwards; }
+  /* Game Details opens at full height, so on the shared timing it covers
+     twice the distance of a short sheet in the same time and reads as a
+     snap. It gets a longer, softer slide of its own. */
+  .modal-overlay.stacked.open:not(.closing){ animation-duration: 480ms; }
+  .modal-overlay.stacked.open:not(.closing) .modal{ animation-duration: 680ms; }
 
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *){ animation: sheet-row-in 420ms var(--ease-out) 385ms backwards; }
   .modal-overlay.entering :is(.ob-sheet-league, .cmp-pick-list > *, #identity-sheet-rows > *):nth-child(1){ animation-delay: 160ms; }
@@ -6022,6 +6028,12 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
 @keyframes overlay-out{ to{ background-color: rgba(var(--overlay-rgb), 0); } }
 @keyframes sheet-spring{ from{ transform: translateY(100%); } to{ transform: translateY(0); } }
 @keyframes sheet-down{ to{ transform: translateY(100%); } }
+/* A box score that arrives after Game Details has landed (openGameDetail
+   in js/live-data.js) eases in instead of popping over the skeleton. */
+@media (prefers-reduced-motion: no-preference){
+  .gd-fade-in > *{ animation: gd-fade-in 260ms var(--ease-out) backwards; }
+}
+@keyframes gd-fade-in{ from{ opacity: 0; transform: translateY(6px); } }
 @keyframes sheet-row-in{ from{ opacity: 0; transform: translateY(14px); } }
 
 /* ============================================================
