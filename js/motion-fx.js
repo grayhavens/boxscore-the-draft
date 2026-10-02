@@ -19,6 +19,14 @@ import { EASE_OUT, EASE_SPRING, EASE_IN_OUT } from './utils.js';
 let speed = 1;
 export function setMotionSpeed(k){ speed = k > 0 ? k : 1; }
 
+// Run `fn` with effects at speed `k`, e.g. a big moment that shouldn't be
+// rushed in a 2× mock room.
+export function atSpeed(k, fn){
+  const was = speed;
+  speed = k;
+  try { return fn(); } finally { speed = was; }
+}
+
 export const fxOn = () => canAnimateLive() && !document.hidden;
 
 // The one place durations and delays get scaled. `fill` defaults to

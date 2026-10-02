@@ -5546,7 +5546,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dm[data-tab="team"] .dm-pane[data-pane="team"]{ display: flex; }
 .dm .dr-search{ height: 44px; }
 .dm .dr-ltab{ height: 40px; }
-.dm .dr-scope{ min-height: 40px; }
+.dm .dr-scope{ min-height: 40px; z-index: 4; }   /* over the rows (for its menus), under the pinned top block (5) */
 .dm .dr-dd-btn, .dm .dr-sort-btn{ height: 40px; }
 /* Phone: menus open full width under the scope row. */
 .dm .dr-dd{ position: static; }

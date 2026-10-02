@@ -81,7 +81,10 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   hero and rail have scrolled off (a negative `top`, set by `pinPhoneTop`). What stays pinned is a slim bar with the same
   clock (`clockMiniHtml`, over where the rail was; tap it to go back up) and the Pick / Board / My team tabs under it,
   taking their own room above the list so no row or button is ever under the bar. Drafting from down the list scrolls back up to the hero (420ms) before
-  the landing plays, the crest still flying from where you tapped. Other drafters' turns keep the compact card / desktop
+  the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
+  eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
+  lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). Other drafters' turns keep the compact card / desktop
   strip.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red

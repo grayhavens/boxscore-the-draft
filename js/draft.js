@@ -58,7 +58,7 @@ import {
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
 } from './draft-client.js';
 import { escapeHtml as esc, EASE_SPRING } from './utils.js';
-import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed } from './motion-fx.js';
+import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed, atSpeed } from './motion-fx.js';
 import { floatPillHtml, buttonHtml, switchHtml, draftClockHtml, setDraftClock, clockHeroHtml, pickLandingHtml, snakeRailHtml, clockMiniHtml } from './ui.js';
 
 const LEAGUE_UI = {
@@ -882,7 +882,7 @@ function syncMini(){
 
 // Back up to the hero: eased over `ms` when motion is on (so the landing
 // knows when to start), else at once. Returns how long it takes.
-const SCROLL_UP_MS = 420;
+const SCROLL_UP_MS = 650;
 function scrollToClock(){
   const sc = root();
   const from = sc ? sc.scrollTop : 0;
@@ -891,7 +891,9 @@ function scrollToClock(){
   const t0 = performance.now();
   const step = now => {
     const k = Math.min(1, (now - t0) / SCROLL_UP_MS);
-    sc.scrollTop = from * Math.pow(1 - k, 3);
+    // Ease in and out, so it leaves the list gently and settles on the hero.
+    const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    sc.scrollTop = from * (1 - eased);
     if(k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -1696,6 +1698,20 @@ function fxPick(d, e, key){
 
 const RISE_14 = [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }];
 const LAND_EASE = 'cubic-bezier(0.34, 1.4, 0.64, 1)';
+// The landing's beats. It always plays at full length, a mock room's 2×
+// included, since it's the moment the pick is yours.
+const LAND = {
+  settle: 150,    // after scrolling back up, a breath before it starts
+  fadeOut: 320,   // the clock and title fade back...
+  shrink: 480,    // ...and shrink to 0.85
+  orbIn: 900,     // the orb fades in...
+  orbGrow: 1400,  // ...while it grows from 0.2
+  flyAt: 220,     // the crest leaves once the orb is on its way
+  fly: 900,       // and takes this long to land
+  textStep: 110,
+  text: 560,
+  nextAfter: 650  // the "You pick again" pill, after the crest lands
+};
 
 // Your pick is in: the clock and title fade back, the team's orb blooms
 // behind the hero, the crest you tapped flies into its center and a gold
@@ -1711,28 +1727,28 @@ function fxLanding(e){
     hero.classList.add('land-wait');
     setTimeout(() => {
       hero.classList.remove('land-wait');
-      if(hero.isConnected) playLanding(hero, e, true);
-    }, wait);
-    return wait + 720;
+      if(hero.isConnected) atSpeed(1, () => playLanding(hero, e, true));
+    }, wait + LAND.settle);
+    return wait + LAND.settle + LAND.flyAt + LAND.fly;
   }
-  return playLanding(hero, e, false);
+  return atSpeed(1, () => playLanding(hero, e, false));
 }
 
 function playLanding(hero, e, scrolled){
   hero.querySelectorAll('.clock-hero-clock, .clock-hero-head').forEach(el => {
-    play(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 260 });
-    play(el, [{ transform: 'none' }, { transform: 'scale(0.85)' }], { duration: 400 });
+    play(el, [{ opacity: 1 }, { opacity: 0 }], { duration: LAND.fadeOut });
+    play(el, [{ transform: 'none' }, { transform: 'scale(0.85)' }], { duration: LAND.shrink });
   });
   const orb = hero.querySelector('.pick-landing-orb');
-  play(orb, [{ transform: 'scale(0.2)' }, { transform: 'none' }], { duration: 1100 });
-  play(orb, [{ opacity: 0, offset: 0 }], { duration: 700 });
+  play(orb, [{ transform: 'scale(0.2)' }, { transform: 'none' }], { duration: LAND.orbGrow, delay: 80 });
+  play(orb, [{ opacity: 0, offset: 0 }], { duration: LAND.orbIn, delay: 80 });
   const badge = hero.querySelector('.pick-landing-badge');
-  const flown = e.sent && flyTo(e.sent.ghost, e.sent.rect, badge.querySelector('.dr-tile'), { duration: 720, easing: LAND_EASE });
-  const land = flown || 320;
-  if(!flown) pop(badge, { from: 0.6, delay: 120 });
-  ringPulse(badge, { delay: land, iterations: 1 });
-  stagger(hero.querySelectorAll('.pick-landing-title, .pick-landing-sub'), RISE_14, { step: 90, delay: land, duration: 500 });
-  play(hero.querySelector('.pick-landing-next'), RISE_14, { duration: 500, delay: Math.max(1200, land + 400) });
+  const flown = e.sent && flyTo(e.sent.ghost, e.sent.rect, badge.querySelector('.dr-tile'), { duration: LAND.fly, delay: LAND.flyAt, easing: LAND_EASE });
+  const land = flown || LAND.flyAt + 400;
+  if(!flown) pop(badge, { from: 0.6, delay: LAND.flyAt, duration: 560 });
+  ringPulse(badge, { delay: land, iterations: 1, duration: 1000 });
+  stagger(hero.querySelectorAll('.pick-landing-title, .pick-landing-sub'), RISE_14, { step: LAND.textStep, delay: land - 120, duration: LAND.text });
+  play(hero.querySelector('.pick-landing-next'), RISE_14, { duration: LAND.text, delay: land + LAND.nextAfter });
   // After scrolling up, the row is long out of sight.
   if(!scrolled) fxRowGone(e.sent);
   return land;
