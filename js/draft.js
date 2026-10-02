@@ -837,33 +837,47 @@ function landedHeroHtml(d, l){
 
 // ---- Phone: the pinned mini clock ----
 
-// The hero is too tall to pin over the list, so it scrolls away with it
-// (.dm-top:has(.clock-hero)). Once it's mostly out of sight, a slim bar
-// slides down from the top with the same clock: yours while you're up, the
-// next drafter's while your pick is landed. Tapping it goes back up.
+// The hero is too tall to pin over the list. While it's up, the phone's top
+// block still sticks, but only once the hero and the rail have scrolled off:
+// what stays pinned is a band just above the Pick / Board / My team tabs,
+// where a slim bar with the same clock fades in over the rail (yours while
+// you're up, the next drafter's while your pick is landed). The band takes
+// its own room above the list, so nothing is ever hidden under it. Tapping
+// the bar goes back up.
 function miniHtml(d){
   if(d.myTurn) return clockMiniHtml({ label: 'You’re on the clock', sub: `Pick ${pickLabel(d.clockInfo.slot, d.n)}`, mine: true, onclick: 'draftToClock()' });
   if(landedFor(d)) return clockMiniHtml({ label: `${drafterName(d.clockInfo.owner)} is picking…`, live: true, onclick: 'draftToClock()' });
   return '';
 }
 
-let heroObserver = null, watchedHero = null;
-function watchHero(){
-  const hero = document.querySelector('#dr-clock .clock-hero');
-  if(hero === watchedHero) return;
-  if(!heroObserver && 'IntersectionObserver' in window){
-    heroObserver = new IntersectionObserver(entries => {
-      const e = entries[entries.length - 1];
-      const mini = document.getElementById('dm-mini');
-      // Only once it's gone off the top, not while it's below (it never is).
-      if(mini) mini.classList.toggle('show', e.target.isConnected && e.intersectionRatio < 0.4 && e.boundingClientRect.top < e.rootBounds.top + 1);
-    }, { root: root(), threshold: [0, 0.4, 1] });
+const MINI_BAND = 60;   // the bar (44) with 6 above it and the top block's 10 gap under it
+let miniStickAt = null, miniScrollBound = false;
+
+// After each phone render: where the top block sticks (--dm-stick, negative,
+// so the hero and rail scroll off first), where the bar sits in it, and the
+// scroll offset that pins it.
+function pinPhoneTop(){
+  const sc = root(), top = sc && sc.querySelector('.dm-top');
+  const tabs = top && top.querySelector('.dm-tabs');
+  if(!tabs) return;
+  if(!miniScrollBound){ sc.addEventListener('scroll', syncMini, { passive: true }); miniScrollBound = true; }
+  if(!top.querySelector('.clock-hero')){
+    top.style.removeProperty('--dm-stick');
+    miniStickAt = null;
+  } else {
+    const at = tabs.offsetTop - MINI_BAND;
+    top.style.setProperty('--dm-stick', `${-at}px`);
+    top.style.setProperty('--dm-mini-top', `${at}px`);
+    // The top block's own place in the scroller (it leads .dm), so this holds even while it's stuck.
+    const dm = top.parentElement;
+    miniStickAt = dm.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop + at;
   }
-  if(!heroObserver) return;
-  if(watchedHero) heroObserver.unobserve(watchedHero);
-  watchedHero = hero;
-  if(hero) heroObserver.observe(hero);
-  else { const mini = document.getElementById('dm-mini'); if(mini) mini.classList.remove('show'); }
+  syncMini();
+}
+
+function syncMini(){
+  const mini = document.getElementById('dm-mini');
+  if(mini) mini.classList.toggle('show', miniStickAt !== null && root().scrollTop >= miniStickAt - 2);
 }
 
 // Back up to the hero: eased over `ms` when motion is on (so the landing
@@ -1288,10 +1302,10 @@ function phoneShellHtml(){
   const tab = (key, label) => `<button class="dm-tab${ui.mobileTab === key ? ' on' : ''}" data-tab="${key}" onclick="draftMobileTab('${key}')">${label}</button>`;
   return `
     <div class="dm" data-tab="${ui.mobileTab}">
-      <div id="dm-mini" class="dm-mini"></div>
       <div class="dm-top">
         <div id="dr-clock"></div>
         <div id="dm-rail"></div>
+        <div id="dm-mini" class="dm-mini"></div>
         <div class="dm-tabs">${tab('pick', 'Pick')}${tab('board', 'Board')}${tab('team', 'My team')}</div>
       </div>
       <section class="dm-pane" data-pane="pick">
@@ -1349,7 +1363,7 @@ function renderPhone(d){
   setRegion('dr-clock', clockCardHtml(d));
   setRegion('dm-rail', railHtml(d));
   setRegion('dm-mini', miniHtml(d));
-  watchHero();
+  pinPhoneTop();
   setRegion('dr-autodraft', autoDraftHtml(d));
   setRegion('dm-queue-top', phoneQueueHtml(d));
   setRegion('dm-board', phoneBoardHtml(d));

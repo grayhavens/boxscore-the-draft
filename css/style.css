@@ -5505,28 +5505,32 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Draft room: phone shell (<=700px) — a compact clock over Pick / Board / My team */
 .dm{ display: block; padding-bottom: 24px; }
 .dm-top{ position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 16px 0; display: flex; flex-direction: column; gap: 10px; }
-/* The on-the-clock card is too tall to pin over the list: it scrolls away. */
-.dm-top:has(.clock-hero){ position: relative; }
-/* ClockMini (clockMiniHtml): pinned in its place once the hero is out of
-   sight. The wrapper is zero-height and sticky, so the bar floats over the
-   list without taking room; it slides down when .dm-mini.show. */
-.dm-mini{ position: sticky; top: 0; z-index: 6; height: 0; }
-.clock-mini{
-  display: flex; align-items: center; gap: 8px; width: calc(100% - 32px); margin: 8px 16px 0; padding: 0 14px; height: 44px;
-  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); box-shadow: var(--shadow-tip);
-  font: inherit; font-size: var(--fs-13); font-weight: 700; color: var(--text); text-align: left; cursor: pointer;
-  opacity: 0; transform: translateY(-120%); pointer-events: none;
-  transition: opacity 200ms var(--ease-out), transform 320ms var(--ease-out);
+/* While the on-the-clock card is up, the top block sticks only once the card
+   and rail are off screen (--dm-stick, set by pinPhoneTop in js/draft.js),
+   leaving a band above the tabs where the mini clock shows. */
+.dm-top:has(.clock-hero){ top: var(--dm-stick, 0px); }
+.dm-mini{
+  position: absolute; left: 0; right: 0; top: var(--dm-mini-top, 0px); z-index: 1;
+  height: 50px; padding: 6px 16px 0; box-sizing: border-box; background: var(--bg);
+  opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease-out);
 }
-.dm-mini.show .clock-mini{ opacity: 1; transform: none; pointer-events: auto; }
-/* An opaque gold, so the list doesn't show through the tint. */
-.clock-mini.mine{ background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: var(--accent-border); }
+.dm-mini:empty{ display: none; }
+.dm-mini.show{ opacity: 1; pointer-events: auto; }
+/* ClockMini (clockMiniHtml): who's up, a short line and the clock. */
+.clock-mini{
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 0 14px; height: 44px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline);
+  font: inherit; font-size: var(--fs-13); font-weight: 700; color: var(--text); text-align: left; cursor: pointer;
+  transform: translateY(-8px); transition: transform 320ms var(--ease-out);
+}
+.dm-mini.show .clock-mini{ transform: none; }
+.clock-mini.mine{ background: var(--accent-soft); border-color: var(--accent-border); }
 .clock-mini.mine .clock-mini-label{ color: var(--accent); }
 .clock-mini-label{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock-mini-sub{ flex: none; font-weight: 600; color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .clock-mini-time{ margin-left: auto; font-family: var(--font-display); font-size: var(--fs-17); font-variant-numeric: tabular-nums; transition: color 300ms; }
 .clock-mini-time.hurry{ color: var(--live); }
-@media (prefers-reduced-motion: reduce){ .clock-mini{ transition: none; } }
+@media (prefers-reduced-motion: reduce){ .dm-mini, .clock-mini{ transition: none; } }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .dm-top .dr-clock-name{ font-size: var(--fs-20); }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
