@@ -5677,24 +5677,41 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 
 /* Team crest ↔ Team page container transform (js/team-page.js,
    expandFromRow/collapseToRow). While it runs the team page is a fixed
-   layer over the view the tap came from, at exactly its in-flow spot at scroll 0:
-   the view's own column (--tp-l/--tp-w), pushed down by --tp-t, with the
-   screen around it painted --bg. The clip-path that grows it out of the
-   row is animated on it from JS. .tp-still holds off .view-push-in, which
-   would otherwise restart whenever the layer's display changes. */
+   layer over the whole screen, over the view the tap came from, with its
+   content at exactly its in-flow spot at scroll 0: .tp-clip is padded by
+   the view's own column (--tp-l/--tp-w) and pushed down by --tp-t, and
+   paints --bg. The page grows out of the row through two nested clips
+   that only ever translate (the layer's edge clips the left and top,
+   .tp-clip's the right and bottom, and the content moves back by both), so
+   the whole thing runs on the compositor: an animated clip-path would be
+   redrawn on the main thread every frame, and stutter whenever anything
+   else runs. The fixed compact bar's containing block is the moving
+   content while it runs, so it's put back at the screen's top left by
+   hand (--tp-bx/--tp-by/--tp-vw). .tp-still holds off .view-push-in,
+   which would otherwise restart whenever the layer's display changes. */
 .view.tp-layer{
   display: block;
-  position: fixed; top: 0; bottom: 0; left: var(--tp-l); width: var(--tp-w);
-  padding-top: var(--tp-t); box-sizing: border-box;
+  position: fixed; inset: 0;
   overflow: hidden;
-  background: var(--bg); box-shadow: 0 0 0 100vmax var(--bg);
   z-index: 150;
+}
+.view.tp-layer > .tp-clip{
+  position: absolute; inset: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: var(--tp-t) calc(100% - var(--tp-l) - var(--tp-w)) 0 var(--tp-l);
+  background: var(--bg);
+}
+.view.tp-layer .compact-bar{
+  top: var(--tp-by); left: var(--tp-bx); right: auto; width: var(--tp-vw);
+  padding-left: calc(max(var(--page-pad), (var(--tp-vw) - 1400px) / 2) - 6px);
+  padding-right: calc(max(var(--page-pad), (var(--tp-vw) - 1400px) / 2) - 6px);
 }
 .view.tp-under{ display: block; }
 .view.tp-layer, .view.tp-still{ animation: none !important; }
 #tp-fx{ position: fixed; inset: 0; z-index: 151; pointer-events: none; }
 #tp-fx > *{ position: fixed; margin: 0; box-sizing: border-box; }
-#tp-fx .tp-veil{ inset: 0; }
+#tp-fx .tp-veil{ inset: 0; transform-origin: 0 0; }
 #tp-fx .tp-ghost{ background: transparent; }
 #tp-fx .tp-fly{ flex: none; transform-origin: 0 0; }
 

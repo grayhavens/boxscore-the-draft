@@ -136,7 +136,10 @@ export function rollNumbers(el, { duration = 700, delay = 0 } = {}){
   paint(0);
   const step = now => {
     if(!el.isConnected || el.textContent !== shown) return;
-    const k = Math.max(0, Math.min(1, (now - t0) / ms));
+    // Waiting out the delay: the zeros are already up, and rewriting them
+    // every frame would only cost a layout.
+    if(now < t0){ requestAnimationFrame(step); return; }
+    const k = Math.min(1, (now - t0) / ms);
     if(k >= 1){ el.textContent = text; return; }
     paint(k);
     requestAnimationFrame(step);
