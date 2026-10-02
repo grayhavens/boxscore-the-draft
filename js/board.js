@@ -67,7 +67,6 @@ import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefres
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
 import { isLeagueFrozen } from './frozen-cache.js';
-import { setDraftActive } from './draft.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
 import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, isDraftPollOpen, voteDraftPoll, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
@@ -752,6 +751,26 @@ export function renderStandings(){
 
 // ---- Bottom tab navigation ----
 
+// The draft room (js/draft.js and the pool, scouting, outlooks and
+// spreadsheet code under it, about a third of the app's script) loads the
+// first time it opens rather than at every launch. Once the app is idle
+// its files are fetched ahead (modulepreload: downloaded and compiled,
+// not run), so the first open is still quick.
+let draftModule = null;
+function setDraftActive(on){
+  if(!on && !draftModule) return;
+  if(!draftModule) draftModule = import('./draft.js');
+  // Both directions chain on the one import, so they land in order.
+  draftModule.then(m => m.setDraftActive(on), e => { console.error('[Draft] failed to load', e); draftModule = null; });
+}
+function preloadDraftRoom(){
+  if(draftModule) return;
+  const link = document.createElement('link');
+  link.rel = 'modulepreload';
+  link.href = new URL('./draft.js', import.meta.url).href;
+  document.head.appendChild(link);
+}
+
 // Tab bar order, left to right: a switch between two of these slides
 // toward the tapped tab (see js/motion.js); any other switch (Draft,
 // Admin, Scoring, or leaving one of those) crossfades instead.
@@ -898,6 +917,7 @@ paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
 enableNavMotion();
+(window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
 maybeShowWelcome();
 startActivity();
 startHistory();
@@ -962,32 +982,32 @@ setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsDa
 // whatever needs it once a lock actually happens.
 checkSeasonLocks();
 
-// Both ticks below already patch the Teams tab's own row-status pills
-// and an open team modal in place (see js/live-data.js) — Live Now
-// needs the same treatment, since it's a second screen reading the
-// exact same liveDataCache rather than its own fetch loop. Cheap to
-// just re-run its render whenever it's the active view: it's a sweep
-// over already-cached data, not a fetch.
+// Both ticks below already patch Home's row-status pills and an open
+// team page in place (see js/live-data.js). Scores reads the scoreboards
+// the live sweep refreshes, so that loop re-runs its render while it's
+// the active view: a pass over cached data that only writes what changed.
 //
 // Both loops sit out while the app is hidden (a backgrounded desktop tab
 // would otherwise keep fetching all day); coming back runs a sweep at once.
 // A tick still waiting on a slow network is left to finish rather than
 // stacking another one on top of it every interval.
-function paintingLoop(tick){
+function paintingLoop(tick, { paintsScores = true } = {}){
   let running = false;
   return async () => {
     if(running || document.visibilityState === 'hidden') return;
     running = true;
     try {
       await tick();
-      if(isViewActive('live-now')) renderLiveNow();
+      if(paintsScores && isViewActive('live-now')) renderLiveNow();
     } finally {
       running = false;
     }
   };
 }
 
-const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick);
+// Scores reads the day's scoreboards, not team bundles, so a team's
+// refetch has nothing to repaint there.
+const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick, { paintsScores: false });
 backgroundRefreshAndPaint();
 setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 

@@ -13,7 +13,8 @@
 
    Always reads the live room ('main'), whatever ?room= the page was
    opened on: a mock room has no schedule. Fetched at boot, when the app
-   comes back to the foreground, and every few minutes; the card's
+   comes back to the foreground, and every few minutes (one request shared
+   with js/draft-live.js's banner, see fetchLiveRoomStatus); the card's
    "in 3 days" line is re-rendered every minute without refetching.
    ============================================================ */
 import { chatWorkerBase } from './api.js';
@@ -56,7 +57,14 @@ export function setKnownDraftStatus(status){
   if(!status) return;
   // An older worker has no poll either.
   confirmedPoll = status.poll || null;
-  schedule = { scheduledAt: status.scheduledAt ?? null, phase: status.phase || null, poll: confirmedPoll };
+  setSchedule({ scheduledAt: status.scheduledAt ?? null, phase: status.phase || null, poll: confirmedPoll });
+}
+
+// Repaints Home's card only when something it shows changed: the status
+// is re-read every 20s while a draft is live.
+function setSchedule(next){
+  if(JSON.stringify(next) === JSON.stringify(schedule)) return;
+  schedule = next;
   notify();
 }
 
@@ -106,39 +114,64 @@ export function voteDraftPoll(drafter, picks){
     else {
       schedule = { ...schedule, poll: confirmedPoll };
       notify();
-      refresh();
+      // A status already in the air was asked for before this vote;
+      // read the room again once it's back.
+      if(inFlight) inFlight.then(() => refresh());
+      else refresh();
     }
   });
 }
 
-async function refresh(){
-  if(document.visibilityState !== 'visible') return;
+// The live room's GET /draft/status, shared with js/draft-live.js's banner
+// so the two don't each poll it: callers arriving while one is in the air
+// share it, and `maxAgeMs` lets a caller take an answer that recent.
+// Resolves { ok, status, data } (status 0 when offline).
+let inFlight = null;
+let lastAnswer = null;
+export function fetchLiveRoomStatus(maxAgeMs = 0){
+  if(lastAnswer && Date.now() - lastFetch < maxAgeMs) return Promise.resolve(lastAnswer);
+  if(inFlight) return inFlight;
   lastFetch = Date.now();
   const epoch = voteEpoch;
-  try {
-    const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_ROOM}`), { cache: 'no-store' });
-    if(!res.ok) return;
-    const data = await res.json();
-    // Fetched while a vote was in the air: its poll may predate the vote,
-    // so take everything but the poll.
-    if(epoch !== voteEpoch){
-      schedule = { ...schedule, scheduledAt: data.scheduledAt ?? null, phase: data.phase || null };
-      notify();
-      return;
+  inFlight = (async () => {
+    let answer = { ok: false, status: 0, data: null };
+    try {
+      const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_ROOM}`), { cache: 'no-store' });
+      answer = { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
+    } catch (e){
+      // Offline: keep what we had.
     }
-    // An older worker has no scheduledAt; treat it as unset.
-    setKnownDraftStatus(data);
-  } catch (e){
-    // Offline: keep what we had.
+    if(answer.ok) applyStatus(answer.data, epoch);
+    lastAnswer = answer;
+    return answer;
+  })().finally(() => { inFlight = null; });
+  return inFlight;
+}
+
+function applyStatus(data, epoch){
+  // Fetched while a vote was in the air: its poll may predate the vote,
+  // so take everything but the poll.
+  if(epoch !== voteEpoch){
+    setSchedule({ ...schedule, scheduledAt: data.scheduledAt ?? null, phase: data.phase || null });
+    return;
   }
+  // An older worker has no scheduledAt; treat it as unset.
+  setKnownDraftStatus(data);
+}
+
+// The banner re-reads the status every 20-90s whenever it's on the live
+// room, so this one's own poll usually finds a fresh answer and sends nothing.
+function refresh(maxAgeMs = 0){
+  if(document.visibilityState !== 'visible') return;
+  fetchLiveRoomStatus(maxAgeMs);
 }
 
 export function initDraftSchedule(){
   refresh();
-  setInterval(refresh, POLL_MS);
+  setInterval(() => refresh(POLL_MS / 2), POLL_MS);
   setInterval(() => { if(schedule.scheduledAt) notify(); }, TICK_MS);
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible' && Date.now() - lastFetch > TICK_MS) refresh();
+    if(document.visibilityState === 'visible') refresh(TICK_MS);
   });
 }
 
