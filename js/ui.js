@@ -328,11 +328,10 @@ export function setDraftClock(el, { secondsLeft, total, hurry = false }){
 // it turns into once a pick is in; with it, the clock and title are
 // kept but hidden, so the landing can fade them out. `others` is someone
 // else's turn (a neutral ring, since gold means you). `cornerHtml` sits in
-// the top-right corner and `footHtml` along the bottom, both over the
-// landing. Trusted markup.
-export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '', others = false, cornerHtml = '', footHtml = '' }){
-  const cls = ['clock-hero', landingHtml ? 'landed' : '', others ? 'others' : '', footHtml ? 'has-foot' : ''].filter(Boolean).join(' ');
-  return `<section class="${cls}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}${cornerHtml ? `<div class="clock-hero-corner">${cornerHtml}</div>` : ''}${footHtml ? `<div class="clock-hero-foot">${footHtml}</div>` : ''}</section>`;
+// the top-right corner, over the landing. Trusted markup.
+export function clockHeroHtml({ clockHtml, title, sub = '', landingHtml = '', others = false, cornerHtml = '' }){
+  const cls = ['clock-hero', landingHtml ? 'landed' : '', others ? 'others' : ''].filter(Boolean).join(' ');
+  return `<section class="${cls}"><div class="clock-hero-clock">${clockHtml}</div><div class="clock-hero-head"><h3 class="clock-hero-title">${escapeHtml(title)}</h3>${sub ? `<p class="clock-hero-sub">${escapeHtml(sub)}</p>` : ''}</div>${landingHtml}${cornerHtml ? `<div class="clock-hero-corner">${cornerHtml}</div>` : ''}</section>`;
 }
 
 // PickLanding: a pick, landed: the team's orb, its badge at 72px,

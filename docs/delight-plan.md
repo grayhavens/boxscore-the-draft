@@ -84,11 +84,23 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
   eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
   lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
-  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). On a phone, other drafters' turns keep the compact card.
-  **Desktop and tablet keep the hero up for every turn** (changed after Phase 1 shipped): someone else's turn is
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`).
+- **Hold and catch up:** the landing always plays in full. For its length (`LAND_HOLD_MS`, about 3.4s, plus the scroll
+  back up) the hero holds it even if the next drafter picks a second later (a bot, auto-draft), you're back on the
+  clock at the turn of the snake, or the draft ends. The draft doesn't wait: the board, rail and clocks keep going, and
+  the line under the hero says who's picking now ("You’re on the clock again", in gold, with your clock running at the
+  turn). Then the card catches up (`fxClockSwap`, used whenever the clock card changes size: a landing ending, and going on
+  the clock, where the small card or strip grows into the hero the same way): a frozen copy of the landing
+  fades out over the new card while the clock area eases to its new height, both on even ease-in-out curves (an
+  ease-out dropped most of the height in the first frames and read as a jolt). Back to back, the landing dissolves
+  into your clock (ring pops in, title rises, one gold pulse); otherwise the next card rises in as the area shrinks. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
+  changes underneath never rebuild a landing mid-play. On a phone, other drafters' turns keep the compact card.
+- **Desktop and tablet keep the hero up for every turn** (changed after Phase 1 shipped): someone else's turn is
   "Mo is on the clock" with a neutral ring (gold means you), and every pick lands on it ("Mo's pick is in", plus when you
-  pick next), holding for 6s (`LAND_HOLD_MS`) before the clock rises back in for whoever's up (`fxHandoff`). The card
-  is 252px at every state; who's picking and the commissioner's Pick for ride along its bottom. A chevron in its corner
+  pick next). Every landing holds at least 6s (`DESK_LAND_HOLD_MS`), then the card catches up to whoever's up through
+  the same `fxClockSwap` (gold glow only for your own clock). Your own landing isn't cut short by a pick landing under it;
+  someone else's gives way at once when you go on the clock. The card is 252px in every state; who's picking and the
+  commissioner's Pick for (`#dr-clock-extra`, as `.dr-hero-foot`) lie over its bottom edge. A chevron in its corner
   minimizes it to the old one-line strip (gold on your own turn), remembered per device (`draftHeroMin`, localStorage
   `draftHeroMin`); the strip's chevron brings it back.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's

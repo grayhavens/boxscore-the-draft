@@ -5920,21 +5920,35 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 /* Someone else's turn (desktop): a neutral ring, since gold means you. */
 .clock-hero.others .draft-clock-ring{ stroke: var(--text-sub); }
 .clock-hero.others .draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
-/* Desktop and tablet: the minimize button in the corner, and a foot along the
-   bottom (who's picking under a landing, the commissioner's Pick for). The
-   foot gets its own room so the card's height never changes. */
+/* Desktop and tablet: the minimize button in the corner, and the foot
+   (who's picking under a landing, the commissioner's Pick for) laid over the
+   hero's bottom edge from #dr-clock-extra, so the card's height never changes. */
 .clock-hero-corner{ position: absolute; top: 10px; right: 10px; z-index: 2; }
 .clock-hero-min svg{ transform: rotate(180deg); }
+.dr-layout #dr-clock{ position: relative; }
 .dr-layout .clock-hero{ height: 252px; }
-.clock-hero.has-foot{ padding-bottom: 46px; }
-.clock-hero.has-foot .pick-landing{ padding-bottom: 46px; }
-.clock-hero-foot{ position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; display: flex; justify-content: center; }
-.clock-hero-foot .dr-next-up{ margin: 0; width: 100%; max-width: 520px; padding: 6px 8px 6px 14px; background: rgba(var(--hero-fade-rgb), 0.55); }
-.clock-hero-foot .dr-proxy-btn{ margin: 0; height: 30px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .clock-hero{ padding-bottom: 46px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .pick-landing{ padding-bottom: 46px; }
+.dr-hero-foot{ position: absolute; left: 12px; right: 12px; top: 194px; height: 46px; z-index: 3; display: flex; align-items: center; justify-content: center; }
+.dr-hero-foot .dr-next-up{ margin: 0; width: 100%; max-width: 520px; padding: 6px 8px 6px 14px; background: rgba(var(--hero-fade-rgb), 0.55); }
+.dr-hero-foot .dr-proxy-btn{ margin: 0; height: 30px; }
 /* Under the landing: who's picking now, with their clock. */
 .dr-next-up{ margin-top: 8px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
 .dr-next-up-who{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dr-next-up .dr-timer{ font-size: var(--fs-16); }
+/* Desktop: the commissioner's Pick sits at the end of the line, as in the strip. */
+.dr-next-up .dr-proxy-btn{ flex: none; height: 30px; margin: -4px -6px -4px 4px; }
+/* The clock card changing size (fxClockSwap: going on the clock, leaving a
+   landing): the clock area eases to its new height while a frozen copy of
+   the old card (.clock-ghost) fades out over the new one. */
+.fx-swap{ position: relative; overflow: hidden; flex-shrink: 0; transition: height 560ms var(--ease-in-out); }
+/* (flex-shrink: on desktop the clock sits in a column with the board, and overflow: hidden would let it be squeezed.) */
+.clock-ghost{ position: absolute; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; }
+@media (prefers-reduced-motion: reduce){ .fx-swap{ transition: none; } }
+/* Back to back at the turn of the snake: it's your own clock under the landing. */
+.dr-next-up.mine{ border-color: var(--accent-border); }
+.dr-next-up.mine .dr-next-up-who{ color: var(--accent); }
+.dr-next-up.mine .draft-live-dot{ background: var(--accent); }
 
 /* SnakeRail (snakeRailHtml): the phone's pick order, three back to twelve. */
 .snake-rail{ margin: 0 -16px; padding: 0 16px; overflow: hidden; }
