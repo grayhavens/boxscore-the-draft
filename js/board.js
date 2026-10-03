@@ -76,6 +76,8 @@ import { ACTIVE_SEASON_ID, ACTIVE_SEASON } from './season.js';
 import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
+import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
+import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
@@ -275,6 +277,23 @@ function draftWhenHtml(){
     </div>`;
 }
 
+// The "playoffs are set" cards (js/postseason.js): one per league whose
+// field is set and whose reveal this device hasn't seen yet.
+function renderPlayoffsHome(){
+  const el = document.getElementById('playoffs-home');
+  if(!el) return;
+  const html = postseasonHomeHtml(LEAGUES.map(l => l.key));
+  el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
+}
+onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
+
+// A playoffs card's tap: Standings, on that league, where the reveal plays.
+window.openPlayoffs = key => {
+  setStandingsFilter(key);
+  window.scrollTo(0, 0);
+  switchView('standings');
+};
+
 function renderDraftHome(){
   const el = document.getElementById('draft-home');
   if(!el) return;
@@ -302,6 +321,7 @@ export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
 
+  renderPlayoffsHome();
   renderDraftHome();
 
   // A league shown without being drafted (js/sports.js) has nothing of
@@ -411,8 +431,14 @@ export const LEAGUE_FULL_LABELS = {
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-function leagueBlockHtml(league, bodyHtml){
+// NFL and CFB get a slot for the Regular | Postseason switch once a
+// playoff field is set (js/postseason.js), filled once the playoffs reveal
+// (js/postseason-reveal.js) has introduced it; the season label moves under
+// the name to make room. `afterHtml` sits below the card (the postseason's drafted
+// table), the two kept together in the grid.
+function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
+  const fieldSet = postseasonFieldSet(league.key);
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
@@ -424,18 +450,33 @@ function leagueBlockHtml(league, bodyHtml){
     ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
     : '';
 
-  return `
-    <div class="league">
-      <div class="league-tab standings-league-tab">
-        <div class="league-tab-top">
+  const topHtml = fieldSet
+    ? `<div class="league-tab-top ps-top">
+          <div class="ps-title"><div class="league-tab-left">${headerLabel}</div><span class="n">${league.season}</span></div>
+          <div class="ps-phase-slot">${postseasonToggleHtml(league.key)}</div>
+        </div>`
+    : `<div class="league-tab-top">
           <div class="league-tab-left">${headerLabel}</div>
           <span class="n">${league.season}</span>
-        </div>
+        </div>`;
+  const cardHtml = `
+    <div class="league" data-league="${league.key}">
+      <div class="league-tab standings-league-tab">
+        ${topHtml}
         ${priorSeasonNoteHtml}${frozenNoteHtml}
       </div>
       ${bodyHtml}
     </div>
   `;
+  return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
+}
+
+// NFL / CFB: the ladder in place of the card's body while Postseason is
+// picked; otherwise null, and the card renders as it always has.
+function postseasonBlockHtml(league){
+  ensurePostseason(league.key);
+  if(postseasonPhase(league.key) !== 'post') return null;
+  return leagueBlockHtml(league, postseasonCardHtml(league.key), { afterHtml: postseasonDraftedHtml(league.key) });
 }
 
 // Shared render body for the 4 "flat" ESPN-standings leagues (NBA/NHL/
@@ -508,6 +549,8 @@ function renderFlatLeagueBlock(league, api){
 let standingsFilterKey = 'all';
 
 export function setStandingsFilter(key){
+  endPostseasonReveal();
+  if(key !== standingsFilterKey){ resetPostseasonStages(); replayReveals(); }
   standingsFilterKey = key;
   updateUrlParam('league', key === 'all' ? null : key);
   renderStandings();
@@ -538,7 +581,8 @@ export function standingsDataChanged(){
 
 export function renderStandings(){
   const container = document.getElementById('standings-content');
-  if(!container || !isViewActive('standings')) return;
+  // The playoffs reveal holds the card it's playing in until it ends.
+  if(!container || !isViewActive('standings') || postseasonRevealBusy()) return;
 
   const chipsHtml = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
@@ -566,6 +610,8 @@ export function renderStandings(){
     }
 
     if(league.key === 'cfb'){
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
       // Each mode has its own ESPN cache — the AP Top 25 (rankings) and
       // "Person" (full-roster records) are two different ESPN endpoints
       // (js/standings-cfb.js's header comment), so each is gated on its
@@ -642,6 +688,8 @@ export function renderStandings(){
     }
 
     if(league.key === 'nfl'){
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
       // Nested: pick AFC/NFC/Person first, then (for AFC/NFC) Divisions
       // vs. that conference's Full ranking — see js/standings-nfl.js's
       // header comment. "Divisions" reads the much heavier
@@ -750,11 +798,14 @@ export function renderStandings(){
   // The row is rebuilt below, so carry its sideways scroll across.
   const oldTabs = container.querySelector('.filter-chips');
   const tabsScroll = oldTabs ? oldTabs.scrollLeft : 0;
+  const ladders = keepPostseason(container);
   container.innerHTML = `
     <div class="standings-filter-row"><div class="filter-chips" role="tablist">${chipsHtml}</div></div>
     <div class="standings-grid">${blocksHtml}</div>
   `;
   container.querySelector('.filter-chips').scrollLeft = tabsScroll;
+  restorePostseason(container, ladders);
+  maybeStartPostseasonReveal(container, standingsFilterKey);
 }
 
 // ---- Bottom tab navigation ----
@@ -795,6 +846,7 @@ export function switchView(view){
 window.switchView = switchView;
 
 function showView(view){
+  if(view !== 'standings') endPostseasonReveal();
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   paintTabPill(view);
@@ -805,6 +857,7 @@ function showView(view){
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
+  if(view === 'board') renderPlayoffsHome();
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
   if(view === 'admin') showAdminPage();

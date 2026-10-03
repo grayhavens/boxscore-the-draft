@@ -1,0 +1,1016 @@
+{
+ "nfl": {
+  "events": [
+   {
+    "id": "401772979",
+    "date": "2026-01-10T21:30Z",
+    "headline": "NFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "29",
+      "abbr": "CAR",
+      "location": "Carolina",
+      "name": "Panthers",
+      "displayName": "Carolina Panthers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/car.png",
+      "score": 31,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "8-9"
+     },
+     {
+      "id": "14",
+      "abbr": "LAR",
+      "location": "Los Angeles",
+      "name": "Rams",
+      "displayName": "Los Angeles Rams",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lar.png",
+      "score": 34,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772981",
+    "date": "2026-01-11T01:00Z",
+    "headline": "NFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "3",
+      "abbr": "CHI",
+      "location": "Chicago",
+      "name": "Bears",
+      "displayName": "Chicago Bears",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/chi.png",
+      "score": 31,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "11-6"
+     },
+     {
+      "id": "9",
+      "abbr": "GB",
+      "location": "Green Bay",
+      "name": "Packers",
+      "displayName": "Green Bay Packers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/gb.png",
+      "score": 27,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "9-7-1"
+     }
+    ]
+   },
+   {
+    "id": "401772977",
+    "date": "2026-01-11T18:00Z",
+    "headline": "AFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "30",
+      "abbr": "JAX",
+      "location": "Jacksonville",
+      "name": "Jaguars",
+      "displayName": "Jacksonville Jaguars",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/jax.png",
+      "score": 24,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "13-4"
+     },
+     {
+      "id": "2",
+      "abbr": "BUF",
+      "location": "Buffalo",
+      "name": "Bills",
+      "displayName": "Buffalo Bills",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/buf.png",
+      "score": 27,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772980",
+    "date": "2026-01-11T21:30Z",
+    "headline": "NFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "21",
+      "abbr": "PHI",
+      "location": "Philadelphia",
+      "name": "Eagles",
+      "displayName": "Philadelphia Eagles",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/phi.png",
+      "score": 19,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "11-6"
+     },
+     {
+      "id": "25",
+      "abbr": "SF",
+      "location": "San Francisco",
+      "name": "49ers",
+      "displayName": "San Francisco 49ers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sf.png",
+      "score": 23,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772978",
+    "date": "2026-01-12T01:15Z",
+    "headline": "AFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "17",
+      "abbr": "NE",
+      "location": "New England",
+      "name": "Patriots",
+      "displayName": "New England Patriots",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png",
+      "score": 16,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "24",
+      "abbr": "LAC",
+      "location": "Los Angeles",
+      "name": "Chargers",
+      "displayName": "Los Angeles Chargers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lac.png",
+      "score": 3,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "11-6"
+     }
+    ]
+   },
+   {
+    "id": "401772976",
+    "date": "2026-01-13T01:15Z",
+    "headline": "AFC Wild Card Playoffs",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "23",
+      "abbr": "PIT",
+      "location": "Pittsburgh",
+      "name": "Steelers",
+      "displayName": "Pittsburgh Steelers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/pit.png",
+      "score": 6,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "10-7"
+     },
+     {
+      "id": "34",
+      "abbr": "HOU",
+      "location": "Houston",
+      "name": "Texans",
+      "displayName": "Houston Texans",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/hou.png",
+      "score": 30,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772982",
+    "date": "2026-01-17T21:30Z",
+    "headline": "AFC Divisional Playoffs",
+    "week": 2,
+    "state": "post",
+    "detail": "Final/OT",
+    "sides": [
+     {
+      "id": "7",
+      "abbr": "DEN",
+      "location": "Denver",
+      "name": "Broncos",
+      "displayName": "Denver Broncos",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/den.png",
+      "score": 33,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "2",
+      "abbr": "BUF",
+      "location": "Buffalo",
+      "name": "Bills",
+      "displayName": "Buffalo Bills",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/buf.png",
+      "score": 30,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772984",
+    "date": "2026-01-18T01:00Z",
+    "headline": "NFC Divisional Playoffs",
+    "week": 2,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "26",
+      "abbr": "SEA",
+      "location": "Seattle",
+      "name": "Seahawks",
+      "displayName": "Seattle Seahawks",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sea.png",
+      "score": 41,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "25",
+      "abbr": "SF",
+      "location": "San Francisco",
+      "name": "49ers",
+      "displayName": "San Francisco 49ers",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sf.png",
+      "score": 6,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772983",
+    "date": "2026-01-18T20:00Z",
+    "headline": "AFC Divisional Playoffs",
+    "week": 2,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "17",
+      "abbr": "NE",
+      "location": "New England",
+      "name": "Patriots",
+      "displayName": "New England Patriots",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png",
+      "score": 28,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "34",
+      "abbr": "HOU",
+      "location": "Houston",
+      "name": "Texans",
+      "displayName": "Houston Texans",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/hou.png",
+      "score": 16,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772985",
+    "date": "2026-01-18T23:30Z",
+    "headline": "NFC Divisional Playoffs",
+    "week": 2,
+    "state": "post",
+    "detail": "Final/OT",
+    "sides": [
+     {
+      "id": "3",
+      "abbr": "CHI",
+      "location": "Chicago",
+      "name": "Bears",
+      "displayName": "Chicago Bears",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/chi.png",
+      "score": 17,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "11-6"
+     },
+     {
+      "id": "14",
+      "abbr": "LAR",
+      "location": "Los Angeles",
+      "name": "Rams",
+      "displayName": "Los Angeles Rams",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lar.png",
+      "score": 20,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772986",
+    "date": "2026-01-25T20:00Z",
+    "headline": "AFC Championship",
+    "week": 3,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "7",
+      "abbr": "DEN",
+      "location": "Denver",
+      "name": "Broncos",
+      "displayName": "Denver Broncos",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/den.png",
+      "score": 7,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "17",
+      "abbr": "NE",
+      "location": "New England",
+      "name": "Patriots",
+      "displayName": "New England Patriots",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png",
+      "score": 10,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "14-3"
+     }
+    ]
+   },
+   {
+    "id": "401772987",
+    "date": "2026-01-25T23:30Z",
+    "headline": "NFC Championship",
+    "week": 3,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "26",
+      "abbr": "SEA",
+      "location": "Seattle",
+      "name": "Seahawks",
+      "displayName": "Seattle Seahawks",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sea.png",
+      "score": 31,
+      "winner": true,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "14",
+      "abbr": "LAR",
+      "location": "Los Angeles",
+      "name": "Rams",
+      "displayName": "Los Angeles Rams",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/lar.png",
+      "score": 27,
+      "winner": false,
+      "home": false,
+      "rank": null,
+      "record": "12-5"
+     }
+    ]
+   },
+   {
+    "id": "401772988",
+    "date": "2026-02-08T23:30Z",
+    "headline": "Super Bowl LX",
+    "week": 5,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "17",
+      "abbr": "NE",
+      "location": "New England",
+      "name": "Patriots",
+      "displayName": "New England Patriots",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/ne.png",
+      "score": 13,
+      "winner": false,
+      "home": true,
+      "rank": null,
+      "record": "14-3"
+     },
+     {
+      "id": "26",
+      "abbr": "SEA",
+      "location": "Seattle",
+      "name": "Seahawks",
+      "displayName": "Seattle Seahawks",
+      "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/sea.png",
+      "score": 29,
+      "winner": true,
+      "home": false,
+      "rank": null,
+      "record": "14-3"
+     }
+    ]
+   }
+  ],
+  "seeds": {
+   "2": {
+    "seed": 6,
+    "conf": "AFC",
+    "record": "12-5",
+    "abbr": "BUF",
+    "location": "Buffalo",
+    "name": "Bills",
+    "displayName": "Buffalo Bills",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png"
+   },
+   "3": {
+    "seed": 2,
+    "conf": "NFC",
+    "record": "11-6",
+    "abbr": "CHI",
+    "location": "Chicago",
+    "name": "Bears",
+    "displayName": "Chicago Bears",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png"
+   },
+   "7": {
+    "seed": 1,
+    "conf": "AFC",
+    "record": "14-3",
+    "abbr": "DEN",
+    "location": "Denver",
+    "name": "Broncos",
+    "displayName": "Denver Broncos",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/den.png"
+   },
+   "9": {
+    "seed": 7,
+    "conf": "NFC",
+    "record": "9-7-1",
+    "abbr": "GB",
+    "location": "Green Bay",
+    "name": "Packers",
+    "displayName": "Green Bay Packers",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png"
+   },
+   "14": {
+    "seed": 5,
+    "conf": "NFC",
+    "record": "12-5",
+    "abbr": "LAR",
+    "location": "Los Angeles",
+    "name": "Rams",
+    "displayName": "Los Angeles Rams",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png"
+   },
+   "17": {
+    "seed": 2,
+    "conf": "AFC",
+    "record": "14-3",
+    "abbr": "NE",
+    "location": "New England",
+    "name": "Patriots",
+    "displayName": "New England Patriots",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png"
+   },
+   "21": {
+    "seed": 3,
+    "conf": "NFC",
+    "record": "11-6",
+    "abbr": "PHI",
+    "location": "Philadelphia",
+    "name": "Eagles",
+    "displayName": "Philadelphia Eagles",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png"
+   },
+   "23": {
+    "seed": 4,
+    "conf": "AFC",
+    "record": "10-7",
+    "abbr": "PIT",
+    "location": "Pittsburgh",
+    "name": "Steelers",
+    "displayName": "Pittsburgh Steelers",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png"
+   },
+   "24": {
+    "seed": 7,
+    "conf": "AFC",
+    "record": "11-6",
+    "abbr": "LAC",
+    "location": "Los Angeles",
+    "name": "Chargers",
+    "displayName": "Los Angeles Chargers",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png"
+   },
+   "25": {
+    "seed": 6,
+    "conf": "NFC",
+    "record": "12-5",
+    "abbr": "SF",
+    "location": "San Francisco",
+    "name": "49ers",
+    "displayName": "San Francisco 49ers",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png"
+   },
+   "26": {
+    "seed": 1,
+    "conf": "NFC",
+    "record": "14-3",
+    "abbr": "SEA",
+    "location": "Seattle",
+    "name": "Seahawks",
+    "displayName": "Seattle Seahawks",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png"
+   },
+   "29": {
+    "seed": 4,
+    "conf": "NFC",
+    "record": "8-9",
+    "abbr": "CAR",
+    "location": "Carolina",
+    "name": "Panthers",
+    "displayName": "Carolina Panthers",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/car.png"
+   },
+   "30": {
+    "seed": 3,
+    "conf": "AFC",
+    "record": "13-4",
+    "abbr": "JAX",
+    "location": "Jacksonville",
+    "name": "Jaguars",
+    "displayName": "Jacksonville Jaguars",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png"
+   },
+   "34": {
+    "seed": 5,
+    "conf": "AFC",
+    "record": "12-5",
+    "abbr": "HOU",
+    "location": "Houston",
+    "name": "Texans",
+    "displayName": "Houston Texans",
+    "logo": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png"
+   }
+  }
+ },
+ "cfb": {
+  "events": [
+   {
+    "id": "401779840",
+    "date": "2025-12-20T01:00Z",
+    "headline": "College Football Playoff First Round Game",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "201",
+      "abbr": "OU",
+      "location": "Oklahoma",
+      "name": "Sooners",
+      "displayName": "Oklahoma Sooners",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/201.png",
+      "score": 24,
+      "winner": false,
+      "home": true,
+      "rank": 8,
+      "record": "10-3"
+     },
+     {
+      "id": "333",
+      "abbr": "ALA",
+      "location": "Alabama",
+      "name": "Crimson Tide",
+      "displayName": "Alabama Crimson Tide",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+      "score": 34,
+      "winner": true,
+      "home": false,
+      "rank": 9,
+      "record": "11-3"
+     }
+    ]
+   },
+   {
+    "id": "401779843",
+    "date": "2025-12-21T00:30Z",
+    "headline": "College Football Playoff First Round Game",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "2483",
+      "abbr": "ORE",
+      "location": "Oregon",
+      "name": "Ducks",
+      "displayName": "Oregon Ducks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+      "score": 51,
+      "winner": true,
+      "home": true,
+      "rank": 5,
+      "record": "12-1"
+     },
+     {
+      "id": "256",
+      "abbr": "JMU",
+      "location": "James Madison",
+      "name": "Dukes",
+      "displayName": "James Madison Dukes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/256.png",
+      "score": 34,
+      "winner": false,
+      "home": false,
+      "rank": 12,
+      "record": "12-2"
+     }
+    ]
+   },
+   {
+    "id": "401779842",
+    "date": "2025-12-20T20:30Z",
+    "headline": "College Football Playoff First Round Game",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "145",
+      "abbr": "MISS",
+      "location": "Ole Miss",
+      "name": "Rebels",
+      "displayName": "Ole Miss Rebels",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/145.png",
+      "score": 41,
+      "winner": true,
+      "home": true,
+      "rank": 6,
+      "record": "12-1"
+     },
+     {
+      "id": "2655",
+      "abbr": "TULN",
+      "location": "Tulane",
+      "name": "Green Wave",
+      "displayName": "Tulane Green Wave",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2655.png",
+      "score": 10,
+      "winner": false,
+      "home": false,
+      "rank": 11,
+      "record": "11-3"
+     }
+    ]
+   },
+   {
+    "id": "401779841",
+    "date": "2025-12-20T17:00Z",
+    "headline": "College Football Playoff First Round Game",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "245",
+      "abbr": "TA&M",
+      "location": "Texas A&M",
+      "name": "Aggies",
+      "displayName": "Texas A&M Aggies",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/245.png",
+      "score": 3,
+      "winner": false,
+      "home": true,
+      "rank": 7,
+      "record": "11-2"
+     },
+     {
+      "id": "2390",
+      "abbr": "MIA",
+      "location": "Miami",
+      "name": "Hurricanes",
+      "displayName": "Miami Hurricanes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "score": 10,
+      "winner": true,
+      "home": false,
+      "rank": 10,
+      "record": "11-2"
+     }
+    ]
+   },
+   {
+    "id": "401769070",
+    "date": "2026-01-01T00:30Z",
+    "headline": "College Football Playoff Quarterfinal at the Goodyear Cotton Bowl Classic",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "194",
+      "abbr": "OSU",
+      "location": "Ohio State",
+      "name": "Buckeyes",
+      "displayName": "Ohio State Buckeyes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+      "score": 14,
+      "winner": false,
+      "home": true,
+      "rank": 2,
+      "record": "12-2"
+     },
+     {
+      "id": "2390",
+      "abbr": "MIA",
+      "location": "Miami",
+      "name": "Hurricanes",
+      "displayName": "Miami Hurricanes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "score": 24,
+      "winner": true,
+      "home": false,
+      "rank": 10,
+      "record": "12-2"
+     }
+    ]
+   },
+   {
+    "id": "401769072",
+    "date": "2026-01-01T21:00Z",
+    "headline": "College Football Playoff Quarterfinal at the Rose Bowl Presented by Prudential",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "84",
+      "abbr": "IU",
+      "location": "Indiana",
+      "name": "Hoosiers",
+      "displayName": "Indiana Hoosiers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+      "score": 38,
+      "winner": true,
+      "home": true,
+      "rank": 1,
+      "record": "14-0"
+     },
+     {
+      "id": "333",
+      "abbr": "ALA",
+      "location": "Alabama",
+      "name": "Crimson Tide",
+      "displayName": "Alabama Crimson Tide",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+      "score": 3,
+      "winner": false,
+      "home": false,
+      "rank": 9,
+      "record": "11-4"
+     }
+    ]
+   },
+   {
+    "id": "401769073",
+    "date": "2026-01-02T01:00Z",
+    "headline": "College Football Playoff Quarterfinal at the Allstate Sugar Bowl",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "61",
+      "abbr": "UGA",
+      "location": "Georgia",
+      "name": "Bulldogs",
+      "displayName": "Georgia Bulldogs",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
+      "score": 34,
+      "winner": false,
+      "home": true,
+      "rank": 3,
+      "record": "12-2"
+     },
+     {
+      "id": "145",
+      "abbr": "MISS",
+      "location": "Ole Miss",
+      "name": "Rebels",
+      "displayName": "Ole Miss Rebels",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/145.png",
+      "score": 39,
+      "winner": true,
+      "home": false,
+      "rank": 6,
+      "record": "13-1"
+     }
+    ]
+   },
+   {
+    "id": "401769071",
+    "date": "2026-01-01T17:00Z",
+    "headline": "College Football Playoff Quarterfinal at the Capital One Orange Bowl",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "2641",
+      "abbr": "TTU",
+      "location": "Texas Tech",
+      "name": "Red Raiders",
+      "displayName": "Texas Tech Red Raiders",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2641.png",
+      "score": 0,
+      "winner": false,
+      "home": true,
+      "rank": 4,
+      "record": "12-2"
+     },
+     {
+      "id": "2483",
+      "abbr": "ORE",
+      "location": "Oregon",
+      "name": "Ducks",
+      "displayName": "Oregon Ducks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+      "score": 23,
+      "winner": true,
+      "home": false,
+      "rank": 5,
+      "record": "13-1"
+     }
+    ]
+   },
+   {
+    "id": "401769075",
+    "date": "2026-01-09T00:30Z",
+    "headline": "College Football Playoff Semifinal at the Vrbo Fiesta Bowl",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "145",
+      "abbr": "MISS",
+      "location": "Ole Miss",
+      "name": "Rebels",
+      "displayName": "Ole Miss Rebels",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/145.png",
+      "score": 27,
+      "winner": false,
+      "home": true,
+      "rank": 6,
+      "record": "13-2"
+     },
+     {
+      "id": "2390",
+      "abbr": "MIA",
+      "location": "Miami",
+      "name": "Hurricanes",
+      "displayName": "Miami Hurricanes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "score": 31,
+      "winner": true,
+      "home": false,
+      "rank": 10,
+      "record": "13-2"
+     }
+    ]
+   },
+   {
+    "id": "401769074",
+    "date": "2026-01-10T00:30Z",
+    "headline": "College Football Playoff Semifinal at the Chick-fil-A Peach Bowl",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "84",
+      "abbr": "IU",
+      "location": "Indiana",
+      "name": "Hoosiers",
+      "displayName": "Indiana Hoosiers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+      "score": 56,
+      "winner": true,
+      "home": true,
+      "rank": 1,
+      "record": "15-0"
+     },
+     {
+      "id": "2483",
+      "abbr": "ORE",
+      "location": "Oregon",
+      "name": "Ducks",
+      "displayName": "Oregon Ducks",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+      "score": 22,
+      "winner": false,
+      "home": false,
+      "rank": 5,
+      "record": "13-2"
+     }
+    ]
+   },
+   {
+    "id": "401769076",
+    "date": "2026-01-20T00:30Z",
+    "headline": "College Football Playoff National Championship Presented by AT&T",
+    "week": 1,
+    "state": "post",
+    "detail": "Final",
+    "sides": [
+     {
+      "id": "84",
+      "abbr": "IU",
+      "location": "Indiana",
+      "name": "Hoosiers",
+      "displayName": "Indiana Hoosiers",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+      "score": 27,
+      "winner": true,
+      "home": true,
+      "rank": 1,
+      "record": "16-0"
+     },
+     {
+      "id": "2390",
+      "abbr": "MIA",
+      "location": "Miami",
+      "name": "Hurricanes",
+      "displayName": "Miami Hurricanes",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "score": 21,
+      "winner": false,
+      "home": false,
+      "rank": 10,
+      "record": "13-3"
+     }
+    ]
+   }
+  ]
+ }
+}

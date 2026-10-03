@@ -48,6 +48,7 @@ import { favoriteStarHtml } from './favorites.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
+import { postseasonTeamHtml, postseasonTeamOpened, onPostseasonData } from './postseason.js';
 import { currentProfileId } from './identity.js';
 import { attachDrag, releaseDirection } from './gestures.js';
 import {
@@ -152,6 +153,7 @@ window.openTeamPage = openTeamPage;
 const BACK_LABELS = { board: 'Home', standings: 'Standings', 'live-now': 'Scores', overall: 'Points' };
 
 function setTeamPageState(teamKey, originView){
+  postseasonTeamOpened(teamKey);
   state.teamKey = teamKey;
   state.originView = originView;
   state.originScrollY = window.scrollY;
@@ -237,6 +239,12 @@ function teamSource(el){
   if(side){
     const owner = side.querySelector('.tg-owner');
     return { el: side, crest: side.querySelector('.badge'), name: side.querySelector('.tg-name'), owner: owner && owner.textContent.trim() ? owner : null };
+  }
+  // A Standings postseason ladder chip: just its crest flies.
+  const chip = el.closest('.ps-chip');
+  if(chip){
+    const crest = chip.querySelector('.badge');
+    return crest ? { el: chip, crest } : null;
   }
   const row = el.closest('.standings-row, .team, .cmp-team');
   const crest = row && row.querySelector('.badge');
@@ -757,6 +765,12 @@ function renderTeamPage({ refresh = false } = {}){
   playStatsRoll();
 }
 
+// The NFL/CFB bracket landing fills in an open page's Postseason section.
+onPostseasonData(key => {
+  const meta = TEAM_META[state.teamKey];
+  if(meta && meta.leagueKey === key) writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(state.teamKey));
+});
+
 // The live-data refresh ticks (js/live-data.js) repaint just these two.
 setTeamPageRefresher(teamKey => {
   if(teamKey !== state.teamKey) return;
@@ -1025,6 +1039,7 @@ function renderTabBody(){
 
   if(state.activeTab === 'schedule'){
     if(!same) el.innerHTML = scheduleTabHtml(teamKey);
+    writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(teamKey));
     writeHtml(document.getElementById('ptp-section'), pathSectionHtml(teamKey));
     writeHtml(document.getElementById('form-section'), recentFormHtml(teamKey, bundle));
     writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
@@ -1177,13 +1192,15 @@ function recentFormHtml(teamKey, bundle){
       </div>`;
 }
 
-// The Overview tab's sections, empty: renderTabBody fills each one. Recent
-// form leads, then Path to points: what this team is worth to its owner,
+// The Overview tab's sections, empty: renderTabBody fills each one. During
+// an NFL or CFB postseason a team in the field leads with its Postseason
+// section (js/postseason.js). Recent form comes next, then Path to points: what this team is worth to its owner,
 // rule by rule, with On the line's distance on each (folded to one row
 // until it's opened). News follows, and shows even while the schedule is
 // loading or unavailable.
 function scheduleTabHtml(teamKey){
   return `
+    <div id="ps-section"></div>
     <div id="form-section"></div>
     <div id="ptp-section" data-team="${teamKey}"></div>
     <div class="modal-section-title spaced">News</div>

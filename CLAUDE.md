@@ -16,7 +16,7 @@ There is no build/lint/test tooling in this repo — there's nothing to run befo
 change beyond loading the page.
 
 **Draft tests:** `node --test tests/draft-engine.test.mjs tests/draft-export.test.mjs tests/draft-sheets.test.mjs tests/draft-poll.test.mjs tests/draft-time-alert.test.mjs`
-(`node --test tests/*.test.mjs` runs every pure-logic test, including `tests/web-push.test.mjs`)
+(`node --test tests/*.test.mjs` runs every pure-logic test, including `tests/web-push.test.mjs` and `tests/postseason-math.test.mjs`)
 (pure logic, no dependencies).
 **Draft rehearsal:** `node tools/rehearse-draft.mjs --chaos 2` runs a full automated draft with injected
 failures against a running `wrangler dev`; `--preflight` is the draft-morning smoke test. The commissioner's
@@ -394,6 +394,29 @@ still accept `source: 'manual'` if that comes back. `champions[@<group>]:seasons
 commissioner password). Recording the app's season the first time alerts the whole group (every device with alerts
 on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
+
+**Postseason ladder** (`js/postseason.js`, pure `js/postseason-math.js`, tests `tests/postseason-math.test.mjs`): once
+ESPN has an NFL or CFP bracket (`fetchEspnPostseason` in `js/espn.js`, fetched December through February only), those
+Standings cards get a Regular | Postseason toggle (Regular is the old card, untouched; it opens on Postseason). The
+toggle is introduced by the **playoffs reveal** (`js/postseason-reveal.js`): the first time a device opens that league's
+Standings tab after the field is set, an ~8s announcement plays in the card (hero strip, opening on the league's own
+logo: the NFL's shield from ESPN with "Playoffs" under it, or the CFP's emblem and wordmark from `icons/cfp-*.png`
+(ESPN has no CFP logo; stacked in light theme, side by side in dark), which later flies down to become the ladder's
+title (the stage name sits under it), then the seeded field, how many of
+your teams made it, a loud toggle that flips to Postseason, and the same badges travelling into their ladder rungs). Until
+it has played (`bxPsReveal:<league>:<year>` in localStorage) the card shows no toggle. It holds Standings re-renders while
+it runs (`postseasonRevealBusy`), ends at once on a toggle tap, league switch or leaving the tab, and reduced motion skips
+it.
+Since someone away for weeks lands on Home, not Standings, Home leads with a gold "The NFL playoffs are set" card per league
+(`postseasonHomeHtml`, `#playoffs-home`: the logo, how many of your teams are in, their badges) until that league's
+reveal has been seen; a tap (`openPlayoffs` in `js/board.js`) opens Standings on the league, where the reveal plays. Postseason is a ladder of every playoff team, with a scrubber that replays the rounds, a
+champion moment and a drafted table (gold locked, blue in play). Points come from the group's own `LEAGUE_SCORING` rules,
+matched by label to a round (`milestonesFor`); they're the ladder's own math, not League Facts marks. A chip opens the
+team page, whose Overview leads with a Postseason section at the ladder's stage. The ladder updates in place while you
+scrub, and `keepPostseason`/`restorePostseason` carry it across a Standings re-render. Local dev and Pages previews can
+replay a past season with `?psyear=2025`, and `?psreveal=1` replays the playoffs reveal on every load and every
+visit to the league's tab (on last season's postseason unless `?psyear` says otherwise). Both stick on that device across reloads
+until `?psreveal=0` / `?psyear=0`.
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
