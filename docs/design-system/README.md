@@ -47,7 +47,7 @@ It ships as an installed **iOS PWA**: phone-first, one-handed, dark by default w
 - **Shadows** only on things that float: modals (`0 24px 64px /50%`), sheets (upward), popovers. The segmented thumb gets a 1px drop.
 - **Callouts** (peek banner, prior-season note) = soft tint fill + matching 1px border + colored text, radius 10. Never a left-border stripe.
 - **Badges.** Teams are rounded squares (44px / r13; 26px / r8 compact) in the team's own primary color with its abbreviation in the secondary color, or a bare crest with a drop shadow.
-- **Selection.** Filter chips go solid gold. Segmented controls are a recessed track with a raised neutral thumb (deliberately quieter than gold). Tab bar: one gold-tint pill behind the active tab.
+- **Selection.** Filter tabs get a 2px gold underline on a hairline. Segmented controls are a recessed track with a raised neutral thumb (deliberately quieter than gold). Tab bar: one gold-tint pill behind the active tab.
 - **Hover:** a faint ink wash (`rgba(ink,0.03–0.04)`), or text → `--text`; ghost chips tint to surface-2 and turn gold. **Press:** buttons scale 0.97 (icon buttons 0.92, cards 0.985) over 120ms plus a `--press` tint; star springs to 1.18.
 - **Focus:** 2px bg gap + 2px gold ring. Inputs: gold-soft border + 3px soft halo.
 - **Motion (the "flash").** Easing: `--ease-out` (0.22,1,0.36,1) for nearly everything; `--ease-spring` (overshoot) for the tab pill, odometer digits and reaction picker; iOS `--ease-sheet` for sheets. Durations: 120 press / 200 UI / 320–420 moves / 500 sheets. Signature moments:

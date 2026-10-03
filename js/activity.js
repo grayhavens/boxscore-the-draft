@@ -67,7 +67,7 @@ import { eplStandingsCache, fetchEplStandingsTable } from './standings-epl.js';
 import { espnCfbRecordsCache, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-cbb.js';
 
-import { activityRowHtml } from './ui.js';
+import { activityRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 const FEED_KEY = 'teamDashboardActivityFeed';
 const SEEN_KEY = 'teamDashboardActivitySeen';
 const HOME_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -621,6 +621,8 @@ function myLiveNote(events){
 export function setActivityFilter(key){
   listFilter = ['all', 'mine', 'locked', 'rank'].includes(key) ? key : 'all';
   if(window.renderOverallStandings) window.renderOverallStandings();
+  const tabs = document.querySelector('#overall-content .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setActivityFilter = setActivityFilter;
 
@@ -646,8 +648,8 @@ export function activityPanelHtml(){
     body = `<div class="ob-idle-block"><div class="ob-idle-title">Nothing here yet</div><div class="ob-idle-body">No scoring lines have moved for this filter.</div></div>`;
   }
   return `
-    <div class="filter-chips sm act-filters">${FILTERS.map(f =>
-      `<button type="button" class="filter-chip ${f.key === listFilter ? 'active' : ''}" onclick="setActivityFilter('${f.key}')">${f.label}</button>`
+    <div class="filter-chips" role="tablist">${FILTERS.map(f =>
+      filterTabHtml({ label: f.label, active: f.key === listFilter, onclick: `setActivityFilter('${f.key}')` })
     ).join('')}</div>
     ${body}
     <div class="act-foot">Only changes that move points. Game results stay on Scores.</div>

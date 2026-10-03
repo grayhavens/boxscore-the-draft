@@ -58,7 +58,8 @@ import {
 
 import {
   backLinkHtml, teamBadgeHtml as badgeHtml, teamOrbHtml, compactBarHtml, pageDotsHtml, sectionCardHtml,
-  pathToPointsHtml, formStripHtml, countdownHtml, tickCountdowns, nextGameHtml
+  pathToPointsHtml, formStripHtml, countdownHtml, tickCountdowns, nextGameHtml,
+  filterTabHtml, revealActiveTab
 } from './ui.js';
 // Every league with a verified roster/team-stats source (see this
 // file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
@@ -1049,7 +1050,12 @@ function renderTabBody(){
       el.innerHTML = `<div class="placeholder-tab">A full roster for this league isn't built yet — check back once it gets its own design pass.</div>`;
       return;
     }
+    // The group tabs are rebuilt here, so carry their sideways scroll across.
+    const oldTabs = el.querySelector('.filter-chips');
+    const tabsScroll = oldTabs ? oldTabs.scrollLeft : 0;
     el.innerHTML = squadTabHtml(teamKey);
+    const tabs = el.querySelector('.filter-chips');
+    if(tabs) tabs.scrollLeft = tabsScroll;
     ensureRoster(teamKey);
     if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
     return;
@@ -1843,6 +1849,8 @@ function squadPositionGroups(items){
 export function setSquadFilter(key){
   state.squadFilter = key;
   renderTabBody();
+  const tabs = document.querySelector('#team-page-tab-body .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setSquadFilter = setSquadFilter;
 
@@ -2020,7 +2028,7 @@ function depthChartGridHtml(groupLabel, items, meta){
 // teaser from — see keyPlayers above) skip the curated-teaser +
 // separate full-screen pattern EPL uses below entirely: the whole
 // roster is listed right here in the tab, narrowed by the same
-// filter-chip look every other jump-nav in this app already uses,
+// underline tabs as Home and Standings' league filter,
 // instead of a "Full roster ›" link off to its own screen. For NFL,
 // Offense/Defense/Special Teams render as a real depth-chart grid
 // (see depthChartGridHtml) once nflverse's data has loaded; Injured
@@ -2038,7 +2046,7 @@ function fullRosterHtml(entry, meta){
   // time this renders for a team.
   const filter = groups.includes(state.squadFilter) ? state.squadFilter : groups[0];
   const chips = groups.map(g => {
-    return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setSquadFilter('${g.replace(/'/g, '')}')">${g}</div>`;
+    return filterTabHtml({ label: g, active: g === filter, onclick: `setSquadFilter('${g.replace(/'/g, '')}')` });
   }).join('');
 
   const hasDepthChart = meta.leagueKey === 'nfl' && getTeamDepthChart(meta).length > 0;
@@ -2067,7 +2075,7 @@ function fullRosterHtml(entry, meta){
 
   const body = filter ? (sectionHtml(filter) || `<div class="no-live-note">No players in this group.</div>`) : `<div class="no-live-note">No players in this group.</div>`;
 
-  return `<div class="filter-chips">${chips}</div>${body}${footer}`;
+  return `<div class="filter-chips" role="tablist">${chips}</div>${body}${footer}`;
 }
 
 function squadTabHtml(teamKey){
@@ -2177,16 +2185,16 @@ function renderFullSchedule(filter){
   const bundle = liveDataCache[teamKey];
   const sched = bundle && bundle.espnSchedule;
 
-  const chips = ['all', 'results', 'fixtures'].map(key => {
-    const label = key === 'all' ? 'All' : (key === 'results' ? 'Results' : 'Fixtures');
-    return `<div class="filter-chip ${key === filter ? 'active' : ''}" onclick="setFullScheduleFilter('${key}')">${label}</div>`;
+  const chips = ['all', 'results', 'upcoming'].map(key => {
+    const label = key === 'all' ? 'All' : (key === 'results' ? 'Results' : 'Upcoming');
+    return filterTabHtml({ label, active: key === filter, onclick: `setFullScheduleFilter('${key}')` });
   }).join('');
 
   let bodyHtml = `<div class="loading-note">Loading schedule…</div>`;
   if(sched){
     const events = [...sched.recent.map(e => ({ ...e, played: true })), ...sched.upcoming.map(e => ({ ...e, played: false }))]
       .sort((a, b) => new Date(a.date) - new Date(b.date));
-    const shown = events.filter(e => filter === 'all' || (filter === 'results' && e.played) || (filter === 'fixtures' && !e.played));
+    const shown = events.filter(e => filter === 'all' || (filter === 'results' && e.played) || (filter === 'upcoming' && !e.played));
 
     let lastMonth = null;
     bodyHtml = shown.map(evt => {
@@ -2207,7 +2215,7 @@ function renderFullSchedule(filter){
       <h1>Schedule</h1>
       <div class="page-sub">${meta.name}</div>
     </div>
-    <div class="filter-chips">${chips}</div>
+    <div class="filter-chips" role="tablist">${chips}</div>
     <div class="tab-body fit">${bodyHtml}</div>
   `;
 }
@@ -2222,6 +2230,8 @@ function renderFullSchedule(filter){
 
 export function setFullSquadFilter(key){
   renderFullSquad(key);
+  const tabs = document.querySelector('#team-squad-content .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setFullSquadFilter = setFullSquadFilter;
 
@@ -2235,7 +2245,7 @@ function renderFullSquad(filter){
   const groups = ['all', ...new Set((entry && entry.items || []).map(p => p.position).filter(Boolean))];
   const chips = groups.map(g => {
     const label = g === 'all' ? 'All' : g;
-    return `<div class="filter-chip ${g === filter ? 'active' : ''}" onclick="setFullSquadFilter('${g.replace(/'/g, '')}')">${label}</div>`;
+    return filterTabHtml({ label, active: g === filter, onclick: `setFullSquadFilter('${g.replace(/'/g, '')}')` });
   }).join('');
 
   let bodyHtml = `<div class="loading-note">Loading squad…</div>`;
@@ -2246,6 +2256,9 @@ function renderFullSquad(filter){
     bodyHtml = `<div class="no-live-note">Squad list isn't available for this team right now.</div>`;
   }
 
+  // The tabs are rebuilt below, so carry their sideways scroll across.
+  const oldTabs = el.querySelector('.filter-chips');
+  const tabsScroll = oldTabs ? oldTabs.scrollLeft : 0;
   el.innerHTML = `
     <div class="team-page-nav">
       ${backLinkHtml({ label: meta.name, onclick: 'backFromFullScreen()' })}
@@ -2254,8 +2267,9 @@ function renderFullSquad(filter){
       <h1>Squad</h1>
       <div class="page-sub">${meta.name}${entry && entry.items.length ? ` · ${entry.items.length} players` : ''}</div>
     </div>
-    <div class="filter-chips">${chips}</div>
+    <div class="filter-chips" role="tablist">${chips}</div>
     <div class="tab-body fit">${bodyHtml}</div>
   `;
+  el.querySelector('.filter-chips').scrollLeft = tabsScroll;
   if(!entry) ensureRoster(teamKey);
 }
