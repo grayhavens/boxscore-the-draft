@@ -160,7 +160,7 @@ test('a golfer\'s rule counts come off the finished events', () => {
   const events = [
     ev('a', '1'),                                  // win
     ev('b', 'CUT'),                                // missed cut
-    ev('c', '1', { major: true }),                 // major win: win + major win + top 10
+    ev('c', '1', { major: true }),                 // major win: only the major win
     ev('d', 'T15', { major: true }),               // top 20
     ev('e', 'T7', { major: true }),                // top 10, not also top 20
     ev('f', 'CUT', { major: true }),               // major missed cut
@@ -169,7 +169,7 @@ test('a golfer\'s rule counts come off the finished events', () => {
     ev('i', '1', { status: 'in' })                 // still being played
   ];
   assert.deepEqual(golferAwardCounts(events, '1'), {
-    win: 3, majorWin: 1, majorTop10: 2, majorTop20: 1, majorMissedCut: 1, missedCut: 1, tourChampionship: 1, fedexCup: 1
+    win: 2, majorWin: 1, majorTop10: 1, majorTop20: 1, majorMissedCut: 1, missedCut: 1, tourChampionship: 1, fedexCup: 1
   });
   assert.equal(golferAwardCounts(events, '999').win, 0);
   assert.equal(fedexSeasonDone(events), true);

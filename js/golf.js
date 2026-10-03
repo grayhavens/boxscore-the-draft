@@ -256,8 +256,8 @@ export function fedexTable(events){
 
 // How many times a golfer hit each `golfAuto` rule (js/seasons/pga.js)
 // over the finished events. Finish tiers don't stack except as the plan
-// says (docs/golf-plan.md): a major win is also a tournament win and a
-// top 10; a top 10 is not also a top 20. A withdrawal or DQ isn't a
+// says (docs/golf-plan.md): a major win is only a major win (+5, not
+// also a tournament win or a top 10); a top 10 is not also a top 20. A withdrawal or DQ isn't a
 // missed cut, and an event the golfer didn't start counts for nothing.
 export function golferAwardCounts(events, athleteId){
   const n = { win: 0, majorWin: 0, majorTop10: 0, majorTop20: 0, majorMissedCut: 0, missedCut: 0, tourChampionship: 0, fedexCup: 0 };
@@ -266,9 +266,10 @@ export function golferAwardCounts(events, athleteId){
     if(isMissedCut(r.finish)){ n[r.major ? 'majorMissedCut' : 'missedCut']++; return; }
     if(pos === null) return;
     if(r.tourChampionship){ n.tourChampionship++; if(pos === 1) n.fedexCup++; }
-    if(pos === 1) n.win++;
-    if(r.major){
-      if(pos === 1) n.majorWin++;
+    // A major win scores the major's +5 instead of the normal win's +2,
+    // and the top 10 / top 20 tiers are for everyone else.
+    if(pos === 1) n[r.major ? 'majorWin' : 'win']++;
+    else if(r.major){
       if(pos <= 10) n.majorTop10++;
       else if(pos <= 20) n.majorTop20++;
     }
