@@ -179,7 +179,10 @@ function seasonLabel(league, year){
 // drafterIds:  who is allowed to own teams (DRAFT_TEAMS ids)
 // espn:        async (league) => normalized team list (fetchEspnTeams, or a stub)
 // overrides:   { 'league:Name': espnTeamId } for teams ESPN couldn't place unaided
-export async function buildSeason({ result, prev, year, drafterIds, espn, overrides = {}, allowPartial = false }){
+// onlyDrafted: keep only the leagues the draft's caps include (a group that
+// doesn't draft every sport; its undrafted sports come back as scores-only
+// tabs from the Commissioner page, js/seasons/index.js).
+export async function buildSeason({ result, prev, year, drafterIds, espn, overrides = {}, allowPartial = false, onlyDrafted = false }){
   const problems = [];
   const notes = [];
   const picks = (result.picks || []).slice().sort((a, b) => a.slot - b.slot);
@@ -275,7 +278,7 @@ export async function buildSeason({ result, prev, year, drafterIds, espn, overri
 
   // Favorite-only teams (nobody's roster) carry over untouched, at the end of their league.
   const favorites = Object.entries(prev.TEAM_META).filter(([, m]) => m.favoriteOnly);
-  const leagues = prev.LEAGUES.map(l => {
+  const leagues = prev.LEAGUES.filter(l => !onlyDrafted || caps[l.key] > 0).map(l => {
     const teams = (keysByLeague[l.key] || []).slice();
     favorites.forEach(([key, m]) => { if(m.leagueKey === l.key){ meta[key] = m; teams.push(key); } });
     return { key: l.key, label: l.label, season: seasonLabel(l.key, year), teams };
@@ -310,7 +313,10 @@ function entryLine(key, entry){
   return `  ${key}: { ${body} }`;
 }
 
-export function renderSeasonModule({ built, year, prevYear, roomLabel, generatedOn }){
+// prevFile: the module the scoring rules are copied from (another group's
+// first class copies The Draft's, './2026.js'). addPgaScoring: the class has
+// golfers and the previous scoring has no PGA Tour rules yet.
+export function renderSeasonModule({ built, year, prevYear, roomLabel, generatedOn, prevFile = `./${prevYear}.js`, addPgaScoring = false }){
   const keys = Object.keys(built.meta);
   const lines = keys.map((k, i) => entryLine(k, built.meta[k]) + (i < keys.length - 1 ? ',' : '') + (built.meta[k].__generated ? ' // generated from ESPN — check name/colors' : ''));
   const leagues = built.leagues.map(l => `  { key:${q(l.key)}, label:${q(l.label)}, season:${q(l.season)}, teams:[${l.teams.map(q).join(', ')}] }`).join(',\n');
@@ -323,7 +329,7 @@ export function renderSeasonModule({ built, year, prevYear, roomLabel, generated
    Scoring rules start as a copy of the ${prevYear} class's; give this
    class its own LEAGUE_SCORING here if the rules change.
    ============================================================ */
-import { LEAGUE_SCORING as PREVIOUS_SCORING } from './${prevYear}.js';
+import { LEAGUE_SCORING as PREVIOUS_SCORING } from '${prevFile}';${addPgaScoring ? "\nimport { PGA_SCORING } from './pga.js';" : ''}
 
 export const TEAM_META = {
 ${lines.join('\n')}
@@ -335,21 +341,71 @@ ${leagues}
 
 export const PRIOR_SEASON_DISPLAY_LEAGUES = [${built.priorSeasonLeagues.map(q).join(', ')}];
 
-export const LEAGUE_SCORING = PREVIOUS_SCORING;
+export const LEAGUE_SCORING = ${addPgaScoring ? '{ ...PREVIOUS_SCORING, pga: PGA_SCORING }' : 'PREVIOUS_SCORING'};
 `;
 }
 
-// Adds the new class to The Draft's registry (js/seasons/the-draft.js) — idempotent.
-export function updateRegistry(source, year){
-  if(source.includes(`'./${year}.js'`)) return source;
-  const importLine = `import * as s${year} from './${year}.js';`;
-  const importRe = /^import \* as s\d+ from '\.\/\d+\.js';$/gm;
+// Adds the new class to a registry file (js/seasons/the-draft.js, or another
+// group's js/seasons/<group>.js) — idempotent. `file` is the class module.
+export function updateRegistry(source, year, file = `${year}.js`){
+  if(source.includes(`'./${file}'`)) return source;
+  const importLine = `import * as s${year} from './${file}';`;
+  const importRe = /^import \* as s\d+ from '\.\/[\w-]+\.js';$/gm;
   let last = null, m;
   while((m = importRe.exec(source))) last = m;
-  if(!last) throw new Error('could not find the season imports in js/seasons/the-draft.js');
+  if(!last) throw new Error('could not find the season imports in the registry file');
   let out = source.slice(0, last.index + last[0].length) + '\n' + importLine + source.slice(last.index + last[0].length);
   const entryRe = /(  '\d+': \{ id: '\d+', label: '[^']*', \.\.\.s\d+ \})(\n\};)/;
-  if(!entryRe.test(out)) throw new Error('could not find the SEASONS map in js/seasons/the-draft.js');
+  if(!entryRe.test(out)) throw new Error('could not find the SEASONS map in the registry file');
   out = out.replace(entryRe, `$1,\n  '${year}': { id: '${year}', label: '${year} Draft', ...s${year} }$2`);
   return out;
+}
+
+// ---- Groups other than The Draft ----
+
+// The class module for a group's draft: The Draft's are js/seasons/<year>.js,
+// every other group's js/seasons/<group>-<year>.js.
+export const seasonFileFor = (group, year, legacyGroup) => group === legacyGroup ? `${year}.js` : `${group}-${year}.js`;
+
+// A group's first registry file (js/seasons/<group>.js), the counterpart of
+// the-draft.js. js/seasons/index.js imports it by group id.
+export function renderGroupRegistry({ group, name, year }){
+  return `/* ============================================================
+   ${name}'s draft classes, oldest first. Generated by
+   tools/export-draft.mjs, which appends each new class here and lists
+   this file in js/seasons/index.js. Add a class by creating
+   js/seasons/${group}-<year>.js (exporting TEAM_META, LEAGUES,
+   LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES).
+   ============================================================ */
+import * as s${year} from './${group}-${year}.js';
+
+export const GROUP_SEASONS = {
+  '${year}': { id: '${year}', label: '${year} Draft', ...s${year} }
+};
+`;
+}
+
+// Lists a group's registry in js/seasons/index.js (OTHER_GROUP_SEASONS) — idempotent.
+export function updateIndexRegistry(source, group){
+  const name = `${group.toUpperCase()}_SEASONS`;
+  if(source.includes(`from './${group}.js'`)) return source;
+  const anchor = "import { preDraftClass, withScoresOnly } from './pre-draft.js';";
+  if(!source.includes(anchor)) throw new Error('could not find the imports in js/seasons/index.js');
+  let out = source.replace(anchor, `${anchor}\nimport { GROUP_SEASONS as ${name} } from './${group}.js';`);
+  const empty = 'const OTHER_GROUP_SEASONS = {};';
+  const filled = /(const OTHER_GROUP_SEASONS = \{[^}]*?)(\n\};)/;
+  if(out.includes(empty)) out = out.replace(empty, `const OTHER_GROUP_SEASONS = {\n  ${group}: ${name}\n};`);
+  else if(filled.test(out)) out = out.replace(filled, `$1,\n  ${group}: ${name}$2`);
+  else throw new Error('could not find OTHER_GROUP_SEASONS in js/seasons/index.js');
+  return out;
+}
+
+// Adds files to sw.js's SHELL_FILES after `anchor`, skipping any already there.
+export function addShellFiles(source, files, anchor){
+  const line = f => `  './js/seasons/${f}',\n`;
+  const missing = files.filter(f => !source.includes(`'./js/seasons/${f}'`));
+  if(!missing.length) return source;
+  const at = line(anchor);
+  if(!source.includes(at)) return source;
+  return source.replace(at, at + missing.map(line).join(''));
 }

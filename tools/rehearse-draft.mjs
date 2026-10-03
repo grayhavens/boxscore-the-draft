@@ -438,10 +438,9 @@ async function main(){
   const seqs = Object.values(bots).map(b => b.seq);
   check('every connected drafter ended on the same state', seqs.every(x => x === boss.seq), `commissioner seq ${boss.seq}, drafters ${[...new Set(seqs)].join('/')}`);
 
-  if(GROUP !== LEGACY_GROUP_ID) console.log('\nExport dry-run skipped: tools/export-draft.mjs has no group support yet.');
-  else if(!flags.has('no-export')){
+  if(!flags.has('no-export')){
     console.log('\nExport dry-run against this room…');
-    const run = spawnSync('node', ['tools/export-draft.mjs', '--result', `${BASE}/draft/result?room=${ROOM}${GROUP_QS}`, '--dry-run'], { cwd: root, encoding: 'utf8' });
+    const run = spawnSync('node', ['tools/export-draft.mjs', '--group', GROUP, '--result', `${BASE}/draft/result?room=${ROOM}${GROUP_QS}`, '--dry-run'], { cwd: root, encoding: 'utf8' });
     const out = (run.stdout || '') + (run.stderr || '');
     const summary = out.split('\n').find(l => /team entries/.test(l)) || '';
     check('the export accepts this draft', run.status === 0, run.status === 0 ? summary.trim() : out.split('\n').filter(l => /^\s*- /.test(l)).slice(0, 3).join(' | ') || out.trim().slice(-200));
