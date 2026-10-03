@@ -2939,7 +2939,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   transition: transform 640ms var(--ease-spring), opacity 420ms, filter 420ms;
 }
 .ps-chip.tap{ cursor: pointer; }
-.ps-chip-badge{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px transparent; transition: box-shadow 400ms; }
+.ps-chip-badge{ display: block; border-radius: 9px; transition: filter 400ms, box-shadow 400ms; }
 .ps-chip-badge .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-chip-owner{ font-size: 9px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 10px; }
 .ps-chip.mine .ps-chip-owner{ color: var(--accent); }
@@ -2948,16 +2948,11 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 /* Loses first, then grays: the fade waits for the move. */
 .ps-chip.just-out{ transition-delay: 0ms, 500ms, 500ms; }
 .ps-chip.champ{ transition-delay: 250ms, 0ms, 0ms; }
-.ps-chip.champ .ps-chip-badge{ box-shadow: 0 0 0 2px var(--accent); }
+/* The champion: a soft gold glow that follows its crest (not a box). */
+.ps-chip.champ .ps-chip-badge{ filter: drop-shadow(0 0 6px var(--accent-glow)); }
 .ps-chip.dim{ opacity: 0.2; }
 .ps-chip.out.dim{ opacity: 0.12; }
 
-.ps-fx{ position: absolute; left: 7px; top: 0; width: 26px; height: 26px; pointer-events: none; }
-.ps-ring{
-  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); opacity: 0;
-  animation: ps-ring 1.4s var(--ease-out) both;
-}
-@keyframes ps-ring{ from{ transform: scale(1); opacity: 0.9; } to{ transform: scale(3.2); opacity: 0; } }
 
 .ps-champ{
   max-height: 0; opacity: 0; transform: translateY(16px); overflow: hidden;
@@ -3005,7 +3000,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 @media (prefers-reduced-motion: reduce){
   .ps-chip, .ps-thumb, .ps-champ{ transition-timing-function: var(--ease-out); }
-  .ps-ring{ display: none; }
 }
 
 .ps-drafted{ display: flex; flex-direction: column; gap: 8px; }

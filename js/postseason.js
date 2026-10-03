@@ -31,7 +31,7 @@ import { findNflTeamKeyByEspnAbbr } from './standings-nfl.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { currentProfileId } from './identity.js';
 import { canAnimateLive } from './motion.js';
-import { fxOn, once } from './motion-fx.js';
+import { fxOn, once, burst, pop, later } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
 import {
   POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, topRung, matchups
@@ -418,7 +418,6 @@ export function postseasonCardHtml(key){
         ${rungs}
         <div class="ps-pairs">${pairsHtml(S, pos)}</div>
         ${S.teams.map(t => chipHtml(key, t, pos, spot)).join('')}
-        <div class="ps-fx" aria-hidden="true"></div>
       </div>
       ${champCardHtml(key, S)}
       ${scrubHtml(key, S)}
@@ -602,20 +601,22 @@ function cancelCount(){
   counting = null;
 }
 
-// The champion springs up (CSS), three gold rings ripple out of its
-// badge once, the card opens below the ladder and the owner's haul counts up.
-// Every time stage 4 is reached; the ripples skip reduced motion.
+// The champion springs up to the Champion rung (CSS); as it lands its crest
+// pops and a ring of gold sparks bursts out of it. The card opens below the
+// ladder and the owner's haul counts up. Every time stage 4 is reached; the
+// pop and sparks skip reduced motion (fxOn).
+const LAND_MS = 900; // the chip's 250ms delay + its spring settling
 function playChampion(key){
   const el = document.querySelector(`.ps[data-ps="${key}"]`);
   const chip = el && el.querySelector('.ps-chip.champ');
   if(!chip || !canAnimateLive()) return;
-  const fx = el.querySelector('.ps-fx');
-  fx.innerHTML = '';
-  fx.style.transform = chip.style.transform.replace(/scale\([^)]*\)/, '');
-  if(fxOn()){
-    fx.innerHTML = [0, 1, 2].map(i => `<span class="ps-ring" style="animation-delay:${750 + i * 300}ms"></span>`).join('');
-    setTimeout(() => { if(fx.isConnected) fx.innerHTML = ''; }, 3000);
-  }
+  const crest = chip.querySelector('.ps-chip-badge');
+  later(LAND_MS, () => {
+    if(!crest.isConnected || !chip.classList.contains('champ')) return;
+    pop(crest, { scale: 1.14, duration: 460 });
+    burst(crest, { count: 10, radius: 30, duration: 720 });
+    burst(crest, { count: 8, radius: 20, duration: 620, delay: 90 });
+  });
   const badge = el.querySelector('.ps-champ-badge');
   if(badge){
     badge.classList.remove('glow');
