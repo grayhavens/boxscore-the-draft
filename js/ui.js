@@ -8,7 +8,7 @@
    Helpers land here as screens move over (docs/design-system-plan.md, Step
    3). A component the app doesn't render yet gets its helper together with
    its first screen, so nothing here is untested markup. Still to come:
-   filter chips, scope chip, tag, the ghost icon button, live dot, team badge and row,
+   scope chip, tag, the ghost icon button, live dot, team badge and row,
    league card, game card, points table, split bar, activity row, banner,
    sheet, settings row and page header. The segmented control (and the count
    badge inside it) already live in js/utils.js (segmentedControlHtml), which
@@ -54,6 +54,31 @@ export function iconButtonHtml({ icon, label, onclick, cls = '' }){
 export function switchHtml({ on = false, label = '', onclick = null } = {}){
   if(!onclick) return `<span class="switch${on ? ' on' : ''}" aria-hidden="true"></span>`;
   return `<button type="button" class="switch${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${escapeHtml(label)}" onclick="${onclick}"></button>`;
+}
+
+// FilterTab: one underline tab of a filter row (leagues, roster groups,
+// schedule, Activity), inside `<div class="filter-chips" role="tablist">`.
+export function filterTabHtml({ label, active = false, onclick }){
+  return `<button type="button" role="tab" aria-selected="${!!active}" class="filter-chip${active ? ' active' : ''}" onclick="${onclick}">${escapeHtml(label)}</button>`;
+}
+
+// Scrolls a tab row sideways so its selected tab is fully on screen (the
+// row only, never the page, which scrollIntoView would also move).
+// `from` is where the row was scrolled before a re-render rebuilt it.
+export function revealActiveTab(row, from = row.scrollLeft){
+  const tab = row && row.querySelector('.filter-chip.active');
+  if(!tab) return;
+  row.scrollLeft = from;
+  from = row.scrollLeft;
+  const pad = parseFloat(getComputedStyle(row).paddingLeft) || 0;
+  const left = tab.getBoundingClientRect().left - row.getBoundingClientRect().left + from;
+  const view = row.clientWidth;
+  let to = from;
+  if(left - pad < from) to = left - pad;
+  else if(left + tab.offsetWidth + pad > from + view) to = left + tab.offsetWidth + pad - view;
+  if(to === from) return;
+  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  row.scrollTo({ left: to, behavior: smooth ? 'smooth' : 'auto' });
 }
 
 // Tag: one shape for every status pill (10px/800 uppercase). Variants:

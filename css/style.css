@@ -230,12 +230,22 @@ body{
   transition: transform var(--dur-press) var(--ease-out);
 }
 
-/* ---- League filter chips (mobile jump-nav) ---- */
+/* ---- Filter tabs (league jump-nav, roster and schedule filters) ----
+   Text labels on a hairline that runs edge to edge, the selected one
+   underlined in gold. The negative margin bleeds the row past the page
+   padding it sits in (body, or .standings-filter-row, both --page-pad).
+   The hairline is a background, not a border: the row scrolls sideways,
+   so it clips anything outside its padding box, and the gold underline
+   has to sit on top of the hairline. Same weight in both states so a
+   label never shifts when picked, and a 23px line plus the padding makes
+   each tab a 44px tap target. */
 .filter-chips{
   display: flex;
-  gap: 8px;
+  gap: 20px;
   overflow-x: auto;
-  padding: 6px 2px 18px;
+  margin: 0 calc(-1 * var(--page-pad)) 18px;
+  padding: 0 var(--page-pad);
+  background: linear-gradient(var(--hairline), var(--hairline)) bottom / 100% 1px no-repeat;
   scrollbar-width: none;
 }
 
@@ -243,36 +253,27 @@ body{
 
 .filter-chip{
   flex: 0 0 auto;
-  font-family: var(--font-ui);
-  font-size: var(--fs-13);
-  font-weight: 600;
-  letter-spacing: 0.1px;
-  color: var(--text-sub);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--r-pill);
-  padding: 8px 16px;
+  position: relative;
+  background: none;
+  border: none;
+  padding: 10px 0 11px;
+  font: 700 var(--fs-14)/23px var(--font-ui);
+  color: var(--text-mute);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+  transition: color var(--dur-ui) var(--ease-out);
 }
-
-.filter-chip:active{
-  background: var(--press);
-  color: var(--text);
-}
-
-/* Persistent selection (Standings' league filter) rather than the
-   touch feedback above — filled solid so it reads as "on" even after
-   you lift your finger, not just a footprint from the last :active tap. */
-/* Compact density, for a chip row that has to fit one phone width
-   (Points > Activity's four filters). */
-.filter-chips.sm{ gap: 6px; }
-.filter-chips.sm .filter-chip{ font-size: var(--fs-12); font-weight: 700; padding: 6px 11px; }
-.filter-chip.active{
-  background: var(--accent-fill);
-  border-color: var(--accent-fill);
-  color: var(--on-accent);
+.filter-chip:active{ color: var(--text-sub); }
+.filter-chip.active{ color: var(--text); }
+.filter-chip.active::after{
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .leagues{
@@ -2705,6 +2706,10 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   will-change: transform;
   isolation: isolate;
 }
+/* The row is sticky with an opaque background, so the gap below the
+   tabs' hairline goes outside it, or rows would vanish 18px early. */
+.standings-filter-row{ margin-bottom: 18px; }
+.standings-filter-row > .filter-chips{ margin-bottom: 0; }
 
 .standings-toggle{
   display: flex;
@@ -3573,6 +3578,13 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
 
 .tab-body{ padding: 14px 20px 26px; min-height: 330px; }
 .tab-body.fit{ min-height: 0; }
+/* The roster's group tabs (.filter-chips) sit inside this padding
+   as well as the page's, so they bleed past both to run edge to edge. */
+.tab-body > .filter-chips{
+  margin-left: calc(-1 * (var(--page-pad) + 20px));
+  margin-right: calc(-1 * (var(--page-pad) + 20px));
+  padding: 0 calc(var(--page-pad) + 20px);
+}
 .team-page-tabs{ margin: 16px 20px 0; }
 
 /* TeamOrb (teamOrbHtml in js/ui.js): a team's own color, blurred, behind a
@@ -4586,8 +4598,7 @@ html.chat-kb .tab-bar{ display: none; }
 .set-theme.on .set-theme-label{ color: var(--text); }
 
 .set-chips{ display: flex; flex-wrap: wrap; gap: 8px; }
-/* Same look as .filter-chip / .filter-chip.active (Home, Standings), so a
-   selected choice reads the same everywhere in the app. */
+/* A settings choice: pill, solid gold when picked. */
 .set-chip{
   font-family: var(--font-ui);
   font-size: var(--fs-13);
@@ -5017,7 +5028,6 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-link.unseen .act-link-go{ color: var(--accent); }
 
 /* Points > Activity */
-.act-filters{ padding-bottom: 14px; }
 .act-group{ padding: 0; overflow: hidden; margin-bottom: 14px; }
 .act-row{
   display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: start;

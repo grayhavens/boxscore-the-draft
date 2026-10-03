@@ -87,7 +87,7 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
-import { teamRowHtml } from './ui.js';
+import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
@@ -200,6 +200,7 @@ let boardFilterKey = 'all';
 export function setBoardFilter(key){
   boardFilterKey = key;
   renderBoard();
+  revealActiveTab(document.getElementById('filter-chips'));
 }
 window.setBoardFilter = setBoardFilter;
 
@@ -309,7 +310,7 @@ export function renderBoard(){
   if(boardFilterKey !== 'all' && !boardLeagues.some(l => l.key === boardFilterKey)) boardFilterKey = 'all';
   chipsEl.innerHTML = ['all'].concat(boardLeagues.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
-    return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
+    return filterTabHtml({ label, active: key === boardFilterKey, onclick: `setBoardFilter('${key}')` });
   }).join('');
 
   let shownLeagues = boardFilterKey === 'all' ? boardLeagues : boardLeagues.filter(l => l.key === boardFilterKey);
@@ -510,6 +511,8 @@ export function setStandingsFilter(key){
   standingsFilterKey = key;
   updateUrlParam('league', key === 'all' ? null : key);
   renderStandings();
+  const tabs = document.querySelector('#standings-content .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setStandingsFilter = setStandingsFilter;
 
@@ -539,7 +542,7 @@ export function renderStandings(){
 
   const chipsHtml = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
-    return `<div class="filter-chip ${key === standingsFilterKey ? 'active' : ''}" onclick="setStandingsFilter('${key}')">${label}</div>`;
+    return filterTabHtml({ label, active: key === standingsFilterKey, onclick: `setStandingsFilter('${key}')` });
   }).join('');
 
   const shownLeagues = standingsFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === standingsFilterKey);
@@ -744,10 +747,14 @@ export function renderStandings(){
     return leagueBlockHtml(league, `<div class="no-live-note">No data available.</div>`);
   }).join('');
 
+  // The row is rebuilt below, so carry its sideways scroll across.
+  const oldTabs = container.querySelector('.filter-chips');
+  const tabsScroll = oldTabs ? oldTabs.scrollLeft : 0;
   container.innerHTML = `
-    <div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>
+    <div class="standings-filter-row"><div class="filter-chips" role="tablist">${chipsHtml}</div></div>
     <div class="standings-grid">${blocksHtml}</div>
   `;
+  container.querySelector('.filter-chips').scrollLeft = tabsScroll;
 }
 
 // ---- Bottom tab navigation ----
