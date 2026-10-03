@@ -1365,7 +1365,8 @@ function parseEspnGameMedia(data){
     ? article.links.web.href.replace(/^http:/, 'https:')
     : null;
   const linkUrl = videoUrl || articleUrl;
-  const linkLabel = videoUrl ? 'Watch highlights' : 'Read full recap';
+  // Before kickoff the article is ESPN's preview (type "Preview"), not a recap.
+  const linkLabel = videoUrl ? 'Watch highlights' : (article && article.type === 'Preview' ? 'Read preview' : 'Read full recap');
 
   return { photoUrl, recapHeadline, recapSummary, linkUrl, linkLabel };
 }
