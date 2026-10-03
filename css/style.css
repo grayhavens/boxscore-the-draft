@@ -2948,6 +2948,12 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 /* Loses first, then grays: the fade waits for the move. */
 .ps-chip.just-out{ transition-delay: 0ms, 500ms, 500ms; }
 .ps-chip.champ{ transition-delay: 250ms, 0ms, 0ms; }
+/* The champion moment's bloom and ripples (playChampion), centered on the
+   landed crest: a zero-size anchor, with each layer centered on it. */
+.ps-fx{ position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.ps-bloom, .ps-ring{ position: absolute; border-radius: 50%; opacity: 0; will-change: transform, opacity; }
+.ps-bloom{ left: -36px; top: -36px; width: 72px; height: 72px; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
+.ps-ring{ left: -20px; top: -20px; width: 40px; height: 40px; box-sizing: border-box; border: 1.5px solid var(--accent); }
 /* The champion: a soft gold glow that follows its crest (not a box). */
 .ps-chip.champ .ps-chip-badge{ filter: drop-shadow(0 0 6px var(--accent-glow)); }
 .ps-chip.dim{ opacity: 0.2; }

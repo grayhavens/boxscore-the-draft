@@ -31,7 +31,7 @@ import { findNflTeamKeyByEspnAbbr } from './standings-nfl.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { currentProfileId } from './identity.js';
 import { canAnimateLive } from './motion.js';
-import { fxOn, once, burst, pop, later } from './motion-fx.js';
+import { fxOn, once, play, pop, later } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
 import {
   POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, topRung, matchups
@@ -601,10 +601,13 @@ function cancelCount(){
   counting = null;
 }
 
-// The champion springs up to the Champion rung (CSS); as it lands its crest
-// pops and a ring of gold sparks bursts out of it. The card opens below the
-// ladder and the owner's haul counts up. Every time stage 4 is reached; the
-// pop and sparks skip reduced motion (fxOn).
+// The champion springs up to the Champion rung (CSS). Once it has landed,
+// a soft gold bloom swells behind its crest and three thin rings ripple out
+// from the crest's center, one pass each, while the crest gives a gentle
+// pop. Then the card opens below the ladder and the owner's haul counts up.
+// Every time stage 4 is reached. The bloom and rings are transform and
+// opacity only (smooth on the compositor), placed from the crest's landed
+// position so they never chase a moving chip; reduced motion skips them.
 const LAND_MS = 900; // the chip's 250ms delay + its spring settling
 function playChampion(key){
   const el = document.querySelector(`.ps[data-ps="${key}"]`);
@@ -612,10 +615,28 @@ function playChampion(key){
   if(!chip || !canAnimateLive()) return;
   const crest = chip.querySelector('.ps-chip-badge');
   later(LAND_MS, () => {
-    if(!crest.isConnected || !chip.classList.contains('champ')) return;
-    pop(crest, { scale: 1.14, duration: 460 });
-    burst(crest, { count: 10, radius: 30, duration: 720 });
-    burst(crest, { count: 8, radius: 20, duration: 620, delay: 90 });
+    if(!crest.isConnected || !chip.classList.contains('champ') || !fxOn()) return;
+    const ladder = el.querySelector('.ps-ladder');
+    const lr = ladder.getBoundingClientRect(), cr = crest.getBoundingClientRect();
+    const fx = document.createElement('div');
+    fx.className = 'ps-fx';
+    fx.setAttribute('aria-hidden', 'true');
+    fx.style.transform = `translate(${cr.left - lr.left + cr.width / 2}px, ${cr.top - lr.top + cr.height / 2}px)`;
+    fx.innerHTML = '<span class="ps-bloom"></span>' + '<span class="ps-ring"></span>'.repeat(3);
+    ladder.insertBefore(fx, ladder.querySelector('.ps-chip'));
+    const anims = [
+      play(fx.querySelector('.ps-bloom'), [
+        { opacity: 0, transform: 'scale(0.4)' },
+        { opacity: 1, transform: 'scale(1.15)', offset: 0.35 },
+        { opacity: 0, transform: 'scale(1.8)' }
+      ], { duration: 1300, fill: 'both' }),
+      ...[...fx.querySelectorAll('.ps-ring')].map((ring, i) => play(ring, [
+        { opacity: 0.9, transform: 'scale(1)' },
+        { opacity: 0, transform: 'scale(2.4)' }
+      ], { duration: 1400, delay: i * 240, fill: 'both' }))
+    ];
+    pop(crest, { scale: 1.1, duration: 560 });
+    Promise.all(anims.map(a => a && a.finished)).then(() => fx.remove(), () => fx.remove());
   });
   const badge = el.querySelector('.ps-champ-badge');
   if(badge){
