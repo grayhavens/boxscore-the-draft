@@ -21,7 +21,7 @@
    State (which two drafters) lives in js/overall.js; this module only
    turns rows into HTML.
    ============================================================ */
-import { LEAGUE_SCORING, TEAM_META } from './data.js';
+import { LEAGUE_SCORING, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
 import { leagueSeasonUnderway } from './league-facts.js';
 import { ordinal, teamBadgeHtml } from './utils.js';
 import { isLeagueLocked, getLockedBonusHolder } from './season-lock.js';
@@ -42,6 +42,8 @@ import {
   fetchEspnNhlStandingsCached, fetchEspnNhlDivisionStandingsCached, nhlConferences
 } from './standings-nhl.js';
 import { obLeagueColor, obLeagueFullName } from './overall.js';
+import { golfStore, computePgaDrafterCombined } from './golf-view.js';
+import { fedexSeasonDone } from './golf.js';
 
 import { backLinkHtml } from './ui.js';
 // Only leagues that score today. MLB and WNBA are deliberately absent:
@@ -112,6 +114,20 @@ function bonusRace(src){
   };
 }
 
+// PGA Tour's bonus (most combined FedEx Cup points) isn't a standings
+// race, so it sits outside BONUS_SOURCES. It's Live from the first
+// scored event of this year's season and Locked once the TOUR
+// Championship is done. Nothing while the league is still on last
+// season's data.
+function golfBonus(){
+  const scoring = LEAGUE_SCORING.pga;
+  if(!scoring || !scoring.bonus || PRIOR_SEASON_DISPLAY_LEAGUES.includes('pga')) return null;
+  if(!golfStore.events || golfStore.season !== new Date().getFullYear()) return null;
+  const lead = computePgaDrafterCombined()[0];
+  if(!lead || !lead.points || !lead.found) return null;
+  return { holderId: lead.id, pts: scoring.bonus.pts, label: scoring.bonus.label, locked: fedexSeasonDone(golfStore.events) };
+}
+
 // Who holds each league's bonus right now, from the LIVE table — what
 // js/season-lock.js freezes into a league's lock. undefined when there's
 // nothing to freeze (no bonus race in this league, its season isn't
@@ -139,6 +155,8 @@ export function bonusStandings(){
     const race = bonusRace(src);
     if(race.active && race.holderId) out[src.key] = { holderId: race.holderId, pts: race.pts, label: race.label, locked: race.locked };
   });
+  const golf = golfBonus();
+  if(golf) out.pga = golf;
   return out;
 }
 

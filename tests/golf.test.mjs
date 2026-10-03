@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   parseCalendar, fedexSeasonEvents, condenseLeaderboard, parseLeaderboard, parseGolferRecord,
-  finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship
+  finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone
 } from '../js/golf.js';
 import { updateSeason } from '../worker/golf.js';
 
@@ -153,4 +153,25 @@ test('updateSeason: an event in progress is returned but not stored; future ones
   assert.ok(Object.keys(r.events[0].results).length > 0);
   assert.equal(r.events[1].status, 'pre');
   assert.equal(r.events[1].results, undefined);
+});
+
+test('a golfer\'s rule counts come off the finished events', () => {
+  const ev = (id, finish, extra = {}) => ({ id, name: id, status: 'post', major: false, tourChampionship: false, results: { 1: [finish, 0] }, ...extra });
+  const events = [
+    ev('a', '1'),                                  // win
+    ev('b', 'CUT'),                                // missed cut
+    ev('c', '1', { major: true }),                 // major win: only the major win
+    ev('d', 'T15', { major: true }),               // top 20
+    ev('e', 'T7', { major: true }),                // top 10, not also top 20
+    ev('f', 'CUT', { major: true }),               // major missed cut
+    ev('g', 'WD'),                                 // not a missed cut
+    ev('h', '1', { tourChampionship: true }),      // TOUR Championship win: field + FedEx Cup + win
+    ev('i', '1', { status: 'in' })                 // still being played
+  ];
+  assert.deepEqual(golferAwardCounts(events, '1'), {
+    win: 2, majorWin: 1, majorTop10: 1, majorTop20: 1, majorMissedCut: 1, missedCut: 1, tourChampionship: 1, fedexCup: 1
+  });
+  assert.equal(golferAwardCounts(events, '999').win, 0);
+  assert.equal(fedexSeasonDone(events), true);
+  assert.equal(fedexSeasonDone(events.slice(0, 3)), false);
 });

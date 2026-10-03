@@ -24,7 +24,7 @@ hit the same rule several times in a season (a new `golfAuto` rule shape that co
 | **Bonus:** most combined FedEx Cup points | +5 |
 
 Assumptions to confirm: the major finish tiers don't stack (a top 10 is +2, not +3); a major win
-earns the tournament win too (+2 +5); FedEx playoff events count as tournament wins; the FedEx Cup
+replaces the tournament win (+5, not +2 +5), and top 10 / top 20 go to non-winners; FedEx playoff events count as tournament wins; the FedEx Cup
 winner is the TOUR Championship winner; a withdrawal or DQ isn't a missed cut; the Zurich Classic
 (two-man teams) credits both players with the team's finish.
 
@@ -68,7 +68,15 @@ Still to verify: a live leaderboard mid-round (`today`, `thru`). Capture a fixtu
    otherwise meet golfers), the class needs `LEAGUE_SCORING.pga` (step 5), and the export tool has no
    group support yet (it writes The Draft's registry).
 4. **UI:** stat strip, golfer page, FedEx standings (`js/standings-pga.js`), Scores tournament card, live state.
-5. **Scoring:** `golfAuto` rules, Points sheet, overall totals, the feature guide entry.
+   Built before this audit (2026-10-03), despite the old note: the golfer sheet, tournament sheet, FedEx Cup and
+   Drafted standings, Home row status and the Scores tournament card, all in `js/golf-view.js`.
+5. **Scoring:** done 2026-10-03. `golfAuto` rules are read by `getLeagueRuleTeams` (`js/league-facts.js`): a golfer's
+   key appears once per time they hit a rule (counts from `golferAwardCounts`, `js/golf.js`), so the Points tab
+   itemizes each win and `teamPointsSplit` multiplies. Always Locked (finished events are final). Nothing counts
+   while pga is in `PRIOR_SEASON_DISPLAY_LEAGUES` or the loaded season isn't this year's. The +5 bonus
+   (`golfBonus` in `js/compare.js`) is Live from the first scored event and Locked after the TOUR Championship.
+   The admin page shows golf rules as automatic. Still open: the feature guide entry.
+   A major win scores +5 in place of the +2 win, and top 10 / top 20 are for non-winners (Josh, 2026-10-03).
 
 Steps 1–3 are enough for Season Ticket's draft; golf scores from the 2027 season, so 4 and 5 can follow,
 but both must land before the draft is exported into a class.
