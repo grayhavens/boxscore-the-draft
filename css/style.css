@@ -3769,8 +3769,6 @@ button.fs-col:hover{ background: var(--hover); }
 }
 .ng-sub{ margin-top: 10px; font-size: var(--fs-11); font-weight: 500; color: var(--text-mute); }
 
-/* Countdown (countdownHtml): ticks once a second. */
-.countdown{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; color: var(--text-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .news-card{
   background: var(--surface);
