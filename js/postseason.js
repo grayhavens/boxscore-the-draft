@@ -604,7 +604,8 @@ function cancelCount(){
 // The champion springs up to the Champion rung (CSS). Once it has landed,
 // a soft gold bloom swells behind its crest and three thin rings ripple out
 // from the crest's center, one pass each, while the crest gives a gentle
-// pop. Then the card opens below the ladder and the owner's haul counts up.
+// pop and the Champion rung brightens for a moment. Then the card opens
+// below the ladder and the owner's haul counts up.
 // Every time stage 4 is reached. The bloom and rings are transform and
 // opacity only (smooth on the compositor), placed from the crest's landed
 // position so they never chase a moving chip; reduced motion skips them.
@@ -632,10 +633,22 @@ function playChampion(key){
       ], { duration: 1300, fill: 'both' }),
       ...[...fx.querySelectorAll('.ps-ring')].map((ring, i) => play(ring, [
         { opacity: 0.9, transform: 'scale(1)' },
-        { opacity: 0, transform: 'scale(2.4)' }
+        { opacity: 0, transform: 'scale(3)' }
       ], { duration: 1400, delay: i * 240, fill: 'both' }))
     ];
     pop(crest, { scale: 1.1, duration: 560 });
+    // The Champion rung brightens for a moment: an extra layer of its gold
+    // fading in and out under its label (opacity only).
+    const rung = el.querySelector('.ps-rung[data-rung="4"]');
+    if(rung){
+      const flash = document.createElement('span');
+      flash.className = 'ps-rung-flash';
+      rung.prepend(flash);
+      const a = play(flash, [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0 }], { duration: 1200, fill: 'both' });
+      anims.push(a);
+      if(a) a.finished.then(() => flash.remove(), () => flash.remove());
+      else flash.remove();
+    }
     Promise.all(anims.map(a => a && a.finished)).then(() => fx.remove(), () => fx.remove());
   });
   const badge = el.querySelector('.ps-champ-badge');
