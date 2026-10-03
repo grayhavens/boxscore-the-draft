@@ -637,10 +637,16 @@ function playChampion(key){
       ], { duration: 1400, delay: i * 240, fill: 'both' }))
     ];
     pop(crest, { scale: 1.1, duration: 560 });
-    // The Champion rung brightens for a moment: an extra layer of its gold
-    // fading in and out under its label (opacity only).
+    // The Champion rung pops: the whole box swells a little and springs back
+    // while it lights up, an extra layer of gold with a gold edge and a soft
+    // glow outside it fading in and out under its label (opacity only).
     const rung = el.querySelector('.ps-rung[data-rung="4"]');
     if(rung){
+      const base = rung.style.transform || 'none';
+      const at = k => base === 'none' ? `scale(${k})` : `${base} scale(${k})`;
+      anims.push(play(rung, [
+        { transform: at(1) }, { transform: at(1.045), offset: 0.3 }, { transform: at(0.995), offset: 0.7 }, { transform: at(1) }
+      ], { duration: 760, easing: 'ease-out' }));
       const flash = document.createElement('span');
       flash.className = 'ps-rung-flash';
       rung.prepend(flash);
