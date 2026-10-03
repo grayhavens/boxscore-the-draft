@@ -604,8 +604,9 @@ function cancelCount(){
 // The champion springs up to the Champion rung (CSS). Once it has landed,
 // a soft gold bloom swells behind its crest and three thin rings ripple out
 // from the crest's center, one pass each, while the crest gives a gentle
-// pop and the Champion rung brightens for a moment. Then the card opens
-// below the ladder and the owner's haul counts up.
+// pop, the Champion rung pops and lights up and the card's border pulses
+// gold. Then the champion card opens below the ladder and the owner's haul
+// counts up.
 // Every time stage 4 is reached. The bloom and rings are transform and
 // opacity only (smooth on the compositor), placed from the crest's landed
 // position so they never chase a moving chip; reduced motion skips them.
@@ -654,6 +655,19 @@ function playChampion(key){
       anims.push(a);
       if(a) a.finished.then(() => flash.remove(), () => flash.remove());
       else flash.remove();
+    }
+    // And the whole card's border pulses gold once.
+    const card = el.closest('.league');
+    if(card){
+      const edge = document.createElement('span');
+      edge.className = 'ps-card-pulse';
+      edge.setAttribute('aria-hidden', 'true');
+      card.classList.add('ps-pulsing');
+      card.appendChild(edge);
+      const a = play(edge, [{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: 1200, fill: 'both' });
+      const drop = () => { edge.remove(); card.classList.remove('ps-pulsing'); };
+      if(a) a.finished.then(drop, drop);
+      else drop();
     }
     Promise.all(anims.map(a => a && a.finished)).then(() => fx.remove(), () => fx.remove());
   });
