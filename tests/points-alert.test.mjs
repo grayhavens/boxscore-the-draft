@@ -45,3 +45,17 @@ test('zero deltas, strangers and stale events never alert', () => {
   assert.deepEqual(pointsAlerts([rule('x', [{ id: 'nobody', pts: 2, prov: true }])], ids, NOW), []);
   assert.deepEqual(pointsAlerts([rule('x', [{ id: 'josh', pts: 2, prov: true }], NOW - POINTS_ALERT_MAX_AGE_MS - 1)], ids, NOW), []);
 });
+
+test('a rank move alerts a drafter at most once a day', () => {
+  const into1st = (id, ts) => ({ id, type: 'rank', ts, title: 'Sam moves into 1st projected', drafterId: 'sam', deltas: [], moves: [{ id: 'sam', from: 2, to: 1 }] });
+  const earlier = [into1st('r0', NOW - 60 * 1000)];
+  assert.deepEqual(pointsAlerts([into1st('r1', NOW)], ids, NOW, earlier), []);
+  // Two in one batch: still one.
+  const [alert] = pointsAlerts([into1st('r1', NOW), into1st('r2', NOW)], ids, NOW);
+  assert.equal(alert.payload.title, 'Sam moves into 1st projected');
+  // Yesterday's doesn't count against today.
+  assert.equal(pointsAlerts([into1st('r1', NOW)], ids, NOW, [into1st('r0', NOW - 26 * 60 * 60 * 1000)]).length, 1);
+  // Rule changes still alert alongside.
+  const rl = rule('Lions take the NFC North lead', [{ id: 'sam', pts: 2, prov: true }]);
+  assert.equal(pointsAlerts([into1st('r1', NOW), rl], ids, NOW, earlier)[0].payload.title, 'Lions take the NFC North lead');
+});

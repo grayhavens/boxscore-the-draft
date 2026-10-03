@@ -9,7 +9,9 @@
    one landed PUT is one alert per drafter however many events it
    carried, so a busy night of results doesn't buzz anyone ten times.
    Rank moves only alert for 1st place: smaller shuffles ride along with
-   nearly every rule change and would just be noise.
+   nearly every rule change and would just be noise. And only once a day
+   (Central time, like the Race chart): a drafter already alerted about a
+   rank move that day by an earlier PUT isn't alerted about another.
 
    Pure (no KV, no fetch) so tests/points-alert.test.mjs can check it.
    ============================================================ */
@@ -17,6 +19,8 @@
 export const POINTS_ALERT_URL = './?view=overall&seg=activity';
 // A client clock far off, or a feed replayed late, shouldn't alert.
 export const POINTS_ALERT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+import { historyDay } from '../js/race-math.js';
 
 const signed = n => (n > 0 ? '+' : '−') + Math.abs(n);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -40,12 +44,22 @@ function singleBody(part){
   return `${signed(pts)} live ${Math.abs(pts) === 1 ? 'point' : 'points'} for you.`;
 }
 
-// [{ drafterId, payload }] for a batch of new events.
-export function pointsAlerts(events, drafterIds, now = Date.now()){
+// [{ drafterId, payload }] for a batch of new events. `earlier` is the
+// feed as it stood before them, for the once-a-day rank rule.
+export function pointsAlerts(events, drafterIds, now = Date.now(), earlier = []){
   const fresh = events.filter(e => e && typeof e.ts === 'number' && now - e.ts <= POINTS_ALERT_MAX_AGE_MS);
+  const rankDays = drafterId => new Set(earlier.filter(e => e && e.type === 'rank' && typeof e.ts === 'number' && partFor(e, drafterId))
+    .map(e => historyDay(e.ts)));
   const out = [];
   drafterIds.forEach(drafterId => {
-    const parts = fresh.map(e => partFor(e, drafterId)).filter(Boolean);
+    const alerted = rankDays(drafterId);
+    const parts = fresh.map(e => partFor(e, drafterId)).filter(Boolean).filter(p => {
+      if(p.e.type !== 'rank') return true;
+      const day = historyDay(p.e.ts);
+      if(alerted.has(day)) return false;
+      alerted.add(day);
+      return true;
+    });
     if(!parts.length) return;
     let title, body;
     if(parts.length === 1){

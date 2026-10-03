@@ -222,7 +222,7 @@ Settings → Alerts lets each device opt into "My draft pick" (you went on the c
 draft room), "My points" and "Chat messages" (skipped for anyone with the app on screen: `js/chat.js` sends a
 `presence` frame the chat room tracks per socket). "My points" (`worker/points-alert.js`, hidden before a group's
 first draft) rides on the Activity PUT: once it lands, each drafter its new events touched gets one alert for the batch
-(rank moves only for 1st place), opening Points → Activity. Standard Web Push with VAPID and aes128gcm written
+(rank moves only for 1st place, at most once a day), opening Points → Activity. Standard Web Push with VAPID and aes128gcm written
 on WebCrypto, no dependencies; subscriptions live in `LEAGUE_FACTS` KV per drafter (`push:<drafter>`,
 `push@<group>:<drafter>` for other groups). Needs the worker secrets `VAPID_PUBLIC_KEY` /
 `VAPID_PRIVATE_KEY` (`node tools/vapid-keys.mjs` makes a pair; never rotate it casually, since that

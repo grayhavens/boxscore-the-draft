@@ -1098,7 +1098,7 @@ async function handleActivity(request, env, group, headers, waitUntil){
     // after the response: an alert failing must never fail the write.
     const added = incoming.filter(e => !seen.has(e.id));
     if(added.length && pushEnabled(env)){
-      waitUntil(Promise.all(pointsAlerts(added, drafterIds).map(({ drafterId, payload }) =>
+      waitUntil(Promise.all(pointsAlerts(added, drafterIds, Date.now(), stored.events).map(({ drafterId, payload }) =>
         pushToDrafters(env, group, [drafterId], 'points', payload, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'points' })
       )).catch(e => console.warn('[activity] points alerts failed', e)));
     }
