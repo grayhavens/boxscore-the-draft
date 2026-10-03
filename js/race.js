@@ -1,7 +1,7 @@
 /* ============================================================
    Points tab → Race segment (docs/points-race-plan.md): every drafter's
    projected points (or rank) over the season, a month window with chips
-   and a season minimap, Replay, and the Points table re-sorted to the
+   Replay, and the Points table re-sorted to the
    day being scrubbed.
 
    History comes from the worker (GET /points/history, one sample per
@@ -34,7 +34,7 @@ import { isFreshAt } from './cache-fresh.js';
 // so text and strokes stay their designed size on a tablet or desktop
 // and only the plot widens; the height grows a little with it, capped.
 // The handoff's 310 x 232 phone layout is the minimum.
-const TOP = 14, MINI_H = 30, PLOT_L = 4;
+const TOP = 14, PLOT_L = 4;
 const MIN_W = 310, MIN_H = 232, MAX_H = 340;
 let W = MIN_W, H = MIN_H, BOT = H - 28, TICK_Y = H - 10, PLOT_W = W - 14;
 
@@ -46,7 +46,6 @@ function measure(){
   TICK_Y = H - 10;
   PLOT_W = W - 14;
   part('chart').setAttribute('viewBox', `0 0 ${W} ${H}`);
-  part('mini-svg').setAttribute('viewBox', `0 0 ${W} ${MINI_H}`);
 }
 const PAN_MS = 480;
 const SIM_START = '2026-09-01';
@@ -183,7 +182,6 @@ function cardHtml(){
         <button type="button" class="race-chip all" data-month="all" onclick="raceMonth('all')">All</button>
       </div>
       <div class="race-plot" data-race="plot"><svg viewBox="0 0 ${MIN_W} ${MIN_H}" data-race="chart" aria-label="Points race chart"></svg></div>
-      <div class="race-mini" data-race="mini"><svg viewBox="0 0 ${MIN_W} ${MINI_H}" data-race="mini-svg" aria-hidden="true"></svg></div>
     </div>
     <div data-race="table"></div>
   `;
@@ -200,9 +198,6 @@ function draw(){
   measure();
   const c = currentDay();
   part('chart').innerHTML = chartSvg(c);
-  const mini = part('mini');
-  mini.hidden = zoom !== 'month';
-  if(!mini.hidden) part('mini-svg').innerHTML = miniSvg();
   const day = Math.round(c);
   const isToday = day === series.today && !replaying;
   const date = fmtDay(series.origin + day);
@@ -329,35 +324,6 @@ function chartSvg(c){
     });
   }
   return out.join('');
-}
-
-// The season so far, small: where the window sits, tap to jump. It spans
-// the recorded history, not the whole class (All shows the future), so
-// it fills its width from the first week on.
-const miniSpan = () => [-MONTH_PAD, series.today + MONTH_PAD];
-
-function miniSvg(){
-  const [sa, sb] = miniSpan();
-  const x = t => PLOT_L + (t - sa) / (sb - sa) * PLOT_W;
-  let lo = Infinity, hi = -Infinity;
-  series.ids.forEach(id => series.proj[id].forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
-  if(hi - lo < 1){ hi += 1; lo -= 1; }
-  const y = v => 3 + (1 - (v - lo) / (hi - lo)) * (MINI_H - 6);
-  const step = series.today > 120 ? 3 : 1;
-  const line = id => {
-    const p = [];
-    for(let d = 0; d < series.today; d += step) p.push(`${f1(x(d))} ${f1(y(series.proj[id][d]))}`);
-    p.push(`${f1(x(series.today))} ${f1(y(series.proj[id][series.today]))}`);
-    return 'M' + p.join(' L');
-  };
-  const me = currentDraftTeamId;
-  const x0 = x(win[0]), x1 = x(win[1]), xt = x(series.today);
-  return series.ids.filter(id => id !== me).map(id => `<path class="race-mini-line" d="${line(id)}"></path>`).join('')
-    + (series.ids.includes(me) ? `<path class="race-mini-line me" d="${line(me)}"></path>` : '')
-    + `<line class="race-today" x1="${f1(xt)}" x2="${f1(xt)}" y1="0" y2="${MINI_H}"></line>`
-    + `<rect class="race-mini-mask" x="-2" y="0" width="${f1(Math.max(0, x0 + 2))}" height="${MINI_H}"></rect>`
-    + `<rect class="race-mini-mask" x="${f1(x1)}" y="0" width="${f1(Math.max(0, W + 2 - x1))}" height="${MINI_H}"></rect>`
-    + `<rect class="race-mini-win" x="${f1(x0)}" y="0.5" width="${f1(Math.max(2, x1 - x0))}" height="${MINI_H - 1}" rx="5"></rect>`;
 }
 
 // The Points table for the day on screen. Rows that change place glide
@@ -507,11 +473,6 @@ function bind(){
     focus = label.dataset.focus;
     lastTableKey = '';
     draw();
-  });
-  part('mini').addEventListener('click', e => {
-    const [sa, sb] = miniSpan();
-    const t = sa + plotFraction(e, part('mini')) * (sb - sa);
-    raceMonth(monthIndexAt(months, Math.max(0, Math.min(series.today, t))));
   });
 }
 

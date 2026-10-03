@@ -199,7 +199,6 @@
   --race-ghost: rgba(var(--ink-rgb), 0.07);
   --race-grid: rgba(var(--ink-rgb), 0.05);
   --race-today: rgba(var(--ink-rgb), 0.22);
-  --race-mini: rgba(var(--ink-rgb), 0.12);
   --on-accent: #0A0B0D;
   --hover: rgba(var(--ink-rgb), 0.04);
   /* The two desktop consoles' sidebars (Commissioner, system admin). */
