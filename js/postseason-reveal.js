@@ -128,7 +128,7 @@ function start(key, card){
     <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}">
       <div class="ps-hero-in">
         <div class="ps-hero-head">
-          <div class="ps-hero-eyebrow">Field set · ${year}–${String(year + 1).slice(2)}</div>
+          <div class="ps-hero-eyebrow">Field set · ${year + 1}</div>
           ${logo
             ? `<div class="ps-hero-title" aria-label="${title}"><span class="ps-hero-logo-slot${logo.wordmark ? ' mark' : ''}"></span><span class="ps-hero-word-slot${logo.wordmark ? ' mark' : ''}">${logo.wordmark ? '' : 'Playoffs'}</span></div>`
             : `<div class="ps-hero-title">${titleHtml(title)}</div>`}
@@ -138,7 +138,7 @@ function start(key, card){
           <div class="ps-hero-word">${logo.wordmark ? imgs(logo.wordmark) : titleHtml('Playoffs')}</div>
         </div>` : ''}
         <div class="ps-hero-grid"></div>
-        ${showMine ? `<div class="ps-hero-mine"><span>${mine}</span><span>${mine === 1 ? 'of your teams is' : 'of your teams are'} in the field</span></div>` : ''}
+        ${showMine ? `<div class="ps-hero-mine"><span>${mine}</span><span>${mine === 1 ? 'of your teams is' : 'of your teams are'} in</span></div>` : ''}
       </div>
     </div>`);
   const heroEl = card.querySelector('.ps-hero');

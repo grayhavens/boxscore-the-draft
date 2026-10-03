@@ -672,7 +672,7 @@ export function postseasonHomeHtml(leagueKeys){
       <button type="button" class="ps-home" onclick="openPlayoffs('${key}')">
         ${logo ? `<span class="ps-home-logo">${logoImgsHtml(logo.emblem)}</span>` : ''}
         <span class="ps-home-text">
-          <span class="ps-home-eyebrow">Field set · ${year}–${String(year + 1).slice(2)}</span>
+          <span class="ps-home-eyebrow">Field set · ${year + 1}</span>
           <span class="ps-home-title">${title}</span>
           <span class="ps-home-sub">${sub}</span>
         </span>
