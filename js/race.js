@@ -351,7 +351,10 @@ function miniSvg(){
     return 'M' + p.join(' L');
   };
   const me = currentDraftTeamId;
-  const x0 = x(win[0]), x1 = x(win[1]), xt = x(series.today);
+  // The window can reach past the minimap's span (a month view runs to
+  // month's end, after today), so keep its box inside the card.
+  const clampX = v => Math.min(W - 0.5, Math.max(0.5, v));
+  const x0 = clampX(x(win[0])), x1 = clampX(x(win[1])), xt = x(series.today);
   return series.ids.filter(id => id !== me).map(id => `<path class="race-mini-line" d="${line(id)}"></path>`).join('')
     + (series.ids.includes(me) ? `<path class="race-mini-line me" d="${line(me)}"></path>` : '')
     + `<line class="race-today" x1="${f1(xt)}" x2="${f1(xt)}" y1="0" y2="${MINI_H}"></line>`
