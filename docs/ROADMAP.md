@@ -37,4 +37,4 @@ As of 2026-10-03 (`main` at bc1f761, PR #222). No open PRs or GitHub issues; no 
 
 ## Branches
 
-- `design-handoff` (remote): one commit (screenshots, tokens, brief for Claude Design), 39 commits behind `main`. Leftover from the design system import; owner says it can be deleted.
+- Only `main` (plus this docs branch). `design-handoff` was deleted 2026-10-03 (its one commit, `ae0f222`, was a design system import leftover).
