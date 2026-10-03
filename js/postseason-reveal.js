@@ -41,7 +41,7 @@ import { reducedMotion } from './utils.js';
 import { escapeHtml } from './escape.js';
 import { renderStandings } from './board.js';
 import {
-  bracketFor, snap, postseasonYear, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
+  bracketFor, snap, seasonLabelYear, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
   postseasonToggleHtml, postseasonCardHtml, showFieldSet, onPostseasonPhaseTap
 } from './postseason.js';
 
@@ -110,7 +110,6 @@ function titleHtml(text){
 
 function start(key, card){
   markRevealSeen(key);
-  const year = postseasonYear();
   const S = snap(key, 0);
   const nfl = key === 'nfl';
   // Hero order: the AFC then the NFC, each by seed (seeds 1-6, 7-12 for the CFP).
@@ -128,7 +127,7 @@ function start(key, card){
     <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}">
       <div class="ps-hero-in">
         <div class="ps-hero-head">
-          <div class="ps-hero-eyebrow">Field set · ${year + 1}</div>
+          <div class="ps-hero-eyebrow">Field set · ${seasonLabelYear(key)}</div>
           ${logo
             ? `<div class="ps-hero-title" aria-label="${title}"><span class="ps-hero-logo-slot${logo.wordmark ? ' mark' : ''}"></span><span class="ps-hero-word-slot${logo.wordmark ? ' mark' : ''}">${logo.wordmark ? '' : 'Playoffs'}</span></div>`
             : `<div class="ps-hero-title">${titleHtml(title)}</div>`}

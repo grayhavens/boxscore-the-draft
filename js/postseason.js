@@ -22,7 +22,7 @@
    keepPostseason/restorePostseason carry the live node across one when
    the bracket hasn't changed.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING, PRE_DRAFT } from './data.js';
+import { TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING, PRE_DRAFT, leagueOf } from './data.js';
 import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { teamBadgeHtml as uiBadgeHtml, tagHtml } from './ui.js';
 import { escapeHtml } from './escape.js';
@@ -131,6 +131,14 @@ export function ensurePostseason(key){
     standingsDataChanged();
     listeners.forEach(fn => fn(key));
   }, () => { c.loading = false; c.failedAt = Date.now(); });
+}
+
+// The year the reveal and Home card label the playoffs with: the draft
+// class's own season for the league (its card's "'26 Season" → 2026), not
+// ESPN's, so it always matches the label on the Standings card.
+export function seasonLabelYear(key){
+  const m = /'(\d{2})/.exec(leagueOf(key).season || '');
+  return m ? 2000 + Number(m[1]) : postseasonYear();
 }
 
 // The league's logo for the playoffs reveal, each part as { light, dark }:
@@ -663,7 +671,6 @@ export function postseasonHomeHtml(leagueKeys){
     const S = snap(key, 0);
     const mine = S.teams.filter(t => t.mine).sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99));
     const logo = postseasonLogo(key);
-    const year = postseasonYear();
     const title = key === 'nfl' ? 'The NFL playoffs are set' : 'The College Football Playoff is set';
     const sub = PRE_DRAFT || !currentProfileId ? `${S.teams.length} teams are in`
       : mine.length ? `You have ${mine.length} ${mine.length === 1 ? 'team' : 'teams'} in`
@@ -672,7 +679,7 @@ export function postseasonHomeHtml(leagueKeys){
       <button type="button" class="ps-home" onclick="openPlayoffs('${key}')">
         ${logo ? `<span class="ps-home-logo">${logoImgsHtml(logo.emblem)}</span>` : ''}
         <span class="ps-home-text">
-          <span class="ps-home-eyebrow">Field set · ${year + 1}</span>
+          <span class="ps-home-eyebrow">Field set · ${seasonLabelYear(key)}</span>
           <span class="ps-home-title">${title}</span>
           <span class="ps-home-sub">${sub}</span>
         </span>
