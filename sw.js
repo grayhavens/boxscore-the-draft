@@ -3,10 +3,11 @@
    origin (ESPN, the worker, KLIPY) is left alone and always goes straight
    to the network; we never cache or intercept those. The shell itself is network-first: every load fetches the
    latest deployed files and refreshes the cache, falling back to the
-   cache only when there's no connectivity — a cache-first strategy
+   cache only when there's no connectivity, or when the page itself is
+   slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v38';
+const CACHE_NAME = 'boxscore-v40';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -99,6 +100,8 @@ const SHELL_FILES = [
   './js/rank.js',
   './js/race.js',
   './js/race-math.js',
+  './js/since.js',
+  './js/since-math.js',
   './js/lines.js',
   './js/history.js',
   './js/champions.js',
@@ -127,23 +130,101 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Launching on a bad connection: if the page itself hasn't arrived within
+// NAV_TIMEOUT_MS, that launch runs entirely from the cache, page and every
+// script, so it opens at once and never mixes a new file with an old one.
+// Only decided at the page load (per client); a load that got the page
+// from the network fetches the rest the usual network-first way.
+const NAV_TIMEOUT_MS = 3000;
+const cacheOnlyClients = new Set();
+// Kept in the cache too: iOS stops an idle service worker, and a page that
+// later loads a script on demand (the draft room) must still get the
+// cached one.
+const CACHE_ONLY_KEY = './__cache-only-clients';
+let cacheOnlyLoaded = null;
+function loadCacheOnly(){
+  if(!cacheOnlyLoaded){
+    cacheOnlyLoaded = caches.match(CACHE_ONLY_KEY)
+      .then((res) => (res ? res.json() : []))
+      .then((ids) => { ids.forEach((id) => cacheOnlyClients.add(id)); })
+      .catch(() => {});
+  }
+  return cacheOnlyLoaded;
+}
+function saveCacheOnly(){
+  return caches.open(CACHE_NAME).then((cache) => cache.put(CACHE_ONLY_KEY, new Response(JSON.stringify([...cacheOnlyClients]))));
+}
+
+function networkFirst(request, key){
+  return fetch(request).then((res) => {
+    if(res.ok){
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(key, copy));
+    }
+    return res;
+  });
+}
+
+function cachedOrIndex(key){
+  return caches.match(key).then((cached) => cached || caches.match('./index.html'));
+}
+
+function navigate(event){
+  const key = './index.html';
+  const clientId = event.resultingClientId;
+  // A page that arrives after its launch went to the cache isn't stored:
+  // the cache would then hold a new page over the old scripts.
+  const network = fetch(event.request).then((res) => {
+    if(res.ok && !cacheOnlyClients.has(clientId)){
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(key, copy));
+    }
+    return res;
+  });
+  // Without the id of the page being loaded its scripts couldn't be kept
+  // to the cache too, so wait for the network as before.
+  if(!clientId) return network.catch(() => cachedOrIndex(key));
+  const slow = new Promise((resolve) => setTimeout(resolve, NAV_TIMEOUT_MS))
+    .then(() => caches.match(key))
+    .then((cached) => {
+      if(!cached) return network;
+      cacheOnlyClients.add(clientId);
+      saveCacheOnly();
+      return cached;
+    });
+  return Promise.race([network, slow]).catch(() => cachedOrIndex(key));
+}
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if(event.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
   // Page loads are cached under the one shell key rather than per URL, so
   // every ?view=/&team= combination doesn't leave its own copy behind.
-  const key = event.request.mode === 'navigate' ? './index.html' : event.request;
-  event.respondWith(
-    fetch(event.request).then((res) => {
-      if(res.ok){
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(key, copy));
-      }
-      return res;
-    }).catch(() => caches.match(key).then((cached) => cached || caches.match('./index.html')))
-  );
+  if(event.request.mode === 'navigate'){
+    event.respondWith(navigate(event));
+    event.waitUntil(pruneClients());
+    return;
+  }
+  event.respondWith(loadCacheOnly().then(() => {
+    if(cacheOnlyClients.has(event.clientId)) return caches.match(event.request).then((cached) => cached || fetch(event.request));
+    return networkFirst(event.request, event.request).catch(() => cachedOrIndex(event.request));
+  }));
 });
+
+// A closed page's id is never seen again.
+async function pruneClients(){
+  // Only ids known before the lookup: a page loading right now may not
+  // be listed yet.
+  await loadCacheOnly();
+  const known = [...cacheOnlyClients];
+  if(!known.length) return;
+  const open = new Set((await self.clients.matchAll({ includeUncontrolled: true })).map((c) => c.id));
+  const gone = known.filter((id) => !open.has(id));
+  if(!gone.length) return;
+  gone.forEach((id) => cacheOnlyClients.delete(id));
+  await saveCacheOnly();
+}
 
 /* ---- Push alerts (worker/web-push.js sends them, js/push.js opts in) ----
    Payload: { kind: 'chat' | 'draft' | 'draft-time' | 'points' | 'champion' | 'test', title, body, url, tag }.

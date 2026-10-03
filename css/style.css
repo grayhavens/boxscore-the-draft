@@ -230,12 +230,22 @@ body{
   transition: transform var(--dur-press) var(--ease-out);
 }
 
-/* ---- League filter chips (mobile jump-nav) ---- */
+/* ---- Filter tabs (league jump-nav, roster and schedule filters) ----
+   Text labels on a hairline that runs edge to edge, the selected one
+   underlined in gold. The negative margin bleeds the row past the page
+   padding it sits in (body, or .standings-filter-row, both --page-pad).
+   The hairline is a background, not a border: the row scrolls sideways,
+   so it clips anything outside its padding box, and the gold underline
+   has to sit on top of the hairline. Same weight in both states so a
+   label never shifts when picked, and a 23px line plus the padding makes
+   each tab a 44px tap target. */
 .filter-chips{
   display: flex;
-  gap: 8px;
+  gap: 20px;
   overflow-x: auto;
-  padding: 6px 2px 18px;
+  margin: 0 calc(-1 * var(--page-pad)) 18px;
+  padding: 0 var(--page-pad);
+  background: linear-gradient(var(--hairline), var(--hairline)) bottom / 100% 1px no-repeat;
   scrollbar-width: none;
 }
 
@@ -243,36 +253,27 @@ body{
 
 .filter-chip{
   flex: 0 0 auto;
-  font-family: var(--font-ui);
-  font-size: var(--fs-13);
-  font-weight: 600;
-  letter-spacing: 0.1px;
-  color: var(--text-sub);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--r-pill);
-  padding: 8px 16px;
+  position: relative;
+  background: none;
+  border: none;
+  padding: 10px 0 11px;
+  font: 700 var(--fs-14)/23px var(--font-ui);
+  color: var(--text-mute);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+  transition: color var(--dur-ui) var(--ease-out);
 }
-
-.filter-chip:active{
-  background: var(--press);
-  color: var(--text);
-}
-
-/* Persistent selection (Standings' league filter) rather than the
-   touch feedback above — filled solid so it reads as "on" even after
-   you lift your finger, not just a footprint from the last :active tap. */
-/* Compact density, for a chip row that has to fit one phone width
-   (Points > Activity's four filters). */
-.filter-chips.sm{ gap: 6px; }
-.filter-chips.sm .filter-chip{ font-size: var(--fs-12); font-weight: 700; padding: 6px 11px; }
-.filter-chip.active{
-  background: var(--accent-fill);
-  border-color: var(--accent-fill);
-  color: var(--on-accent);
+.filter-chip:active{ color: var(--text-sub); }
+.filter-chip.active{ color: var(--text); }
+.filter-chip.active::after{
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .leagues{
@@ -2705,6 +2706,10 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   will-change: transform;
   isolation: isolate;
 }
+/* The row is sticky with an opaque background, so the gap below the
+   tabs' hairline goes outside it, or rows would vanish 18px early. */
+.standings-filter-row{ margin-bottom: 18px; }
+.standings-filter-row > .filter-chips{ margin-bottom: 0; }
 
 .standings-toggle{
   display: flex;
@@ -3556,6 +3561,8 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
   gap: 10px;
 }
 .game-card.live{ border-color: var(--live-border); }
+/* The live line spans the card, "View boxscore" on the right edge. */
+.game-card > .next-match{ flex: 1; min-width: 0; }
 .game-card-eyebrow{
   font-size: var(--fs-10);
   font-weight: 800;
@@ -3571,6 +3578,13 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
 
 .tab-body{ padding: 14px 20px 26px; min-height: 330px; }
 .tab-body.fit{ min-height: 0; }
+/* The roster's group tabs (.filter-chips) sit inside this padding
+   as well as the page's, so they bleed past both to run edge to edge. */
+.tab-body > .filter-chips{
+  margin-left: calc(-1 * (var(--page-pad) + 20px));
+  margin-right: calc(-1 * (var(--page-pad) + 20px));
+  padding: 0 calc(var(--page-pad) + 20px);
+}
 .team-page-tabs{ margin: 16px 20px 0; }
 
 /* TeamOrb (teamOrbHtml in js/ui.js): a team's own color, blurred, behind a
@@ -3756,6 +3770,8 @@ button.fs-col:hover{ background: var(--hover); }
 
 /* NextGame (nextGameHtml) inside the team page's game card. */
 .game-card.next-game{ display: block; }
+.game-card.clickable{ cursor: pointer; }
+.game-card.clickable:active{ background-image: linear-gradient(var(--press), var(--press)); transform: scale(0.985); }
 .ng-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .ng-title{ font-family: var(--font-display); font-size: var(--fs-16); font-weight: 700; }
 .ng-when{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
@@ -4580,8 +4596,7 @@ html.chat-kb .tab-bar{ display: none; }
 .set-theme.on .set-theme-label{ color: var(--text); }
 
 .set-chips{ display: flex; flex-wrap: wrap; gap: 8px; }
-/* Same look as .filter-chip / .filter-chip.active (Home, Standings), so a
-   selected choice reads the same everywhere in the app. */
+/* A settings choice: pill, solid gold when picked. */
 .set-chip{
   font-family: var(--font-ui);
   font-size: var(--fs-13);
@@ -4730,7 +4745,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 @media (prefers-reduced-motion: reduce){
   .board > .view.active:not(.view-push-in){ animation: none; }
   .skel-dot{ animation: none; }
-  .news-card:active, .tg-row.clickable:active .tg-card,
+  .news-card:active, .tg-row.clickable:active .tg-card, .game-card.clickable:active,
   .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
   .chat-send:active, .peek-banner button:active, .icon-btn:active, .modal-close:active,
   .picker-hit:active .settings-icon, .tab-btn:active .tab-icon{ transform: none; }
@@ -5011,7 +5026,6 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-link.unseen .act-link-go{ color: var(--accent); }
 
 /* Points > Activity */
-.act-filters{ padding-bottom: 14px; }
 .act-group{ padding: 0; overflow: hidden; margin-bottom: 14px; }
 .act-row{
   display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: start;
@@ -5674,6 +5688,9 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .dr-clock-card.strip .dr-clock-sub{ margin: 0; white-space: nowrap; }
 .dr-clock-card.strip .dr-proxy-btn{ margin: 0 0 0 4px; height: 30px; }
 .dr-strip-timer{ margin-left: auto; display: flex; align-items: center; gap: 12px; }
+/* Minimized hero: your own turn is the gold strip; the chevron brings the hero back. */
+.dr-clock-card.strip.mine{ background: var(--accent-soft); border-color: var(--accent-border); }
+.dr-strip-expand{ flex: none; }
 .dr-download-btn{ flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
 .dr-strip-timer .dr-timer{ font-size: 26px; }
 .dr-strip-timer .dr-bar{ width: 90px; margin: 0; }
@@ -5912,10 +5929,38 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .pick-landing-title{ font-family: var(--font-display); font-size: 24px; font-weight: 700; letter-spacing: -0.4px; }
 .pick-landing-sub{ font-size: 13px; font-weight: 600; color: var(--text-sub); }
 .pick-landing-next{ margin-top: 8px; padding: 4px 10px; border-radius: var(--r-pill); background: rgba(var(--hero-fade-rgb), 0.55); font-size: 11px; font-weight: 700; color: var(--text); }
+/* Someone else's turn (desktop): a neutral ring, since gold means you. */
+.clock-hero.others .draft-clock-ring{ stroke: var(--text-sub); }
+.clock-hero.others .draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
+/* Desktop and tablet: the minimize button in the corner, and the foot
+   (who's picking under a landing, the commissioner's Pick for) laid over the
+   hero's bottom edge from #dr-clock-extra, so the card's height never changes. */
+.clock-hero-corner{ position: absolute; top: 10px; right: 10px; z-index: 2; }
+.clock-hero-min svg{ transform: rotate(180deg); }
+.dr-layout #dr-clock{ position: relative; }
+.dr-layout .clock-hero{ height: 252px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .clock-hero{ padding-bottom: 46px; }
+.dr-layout #dr-clock:has(.dr-hero-foot) .pick-landing{ padding-bottom: 46px; }
+.dr-hero-foot{ position: absolute; left: 12px; right: 12px; top: 194px; height: 46px; z-index: 3; display: flex; align-items: center; justify-content: center; }
+.dr-hero-foot .dr-next-up{ margin: 0; width: 100%; max-width: 520px; padding: 6px 8px 6px 14px; background: rgba(var(--hero-fade-rgb), 0.55); }
+.dr-hero-foot .dr-proxy-btn{ margin: 0; height: 30px; }
 /* Under the landing: who's picking now, with their clock. */
 .dr-next-up{ margin-top: 8px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); }
 .dr-next-up-who{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dr-next-up .dr-timer{ font-size: var(--fs-16); }
+/* Desktop: the commissioner's Pick sits at the end of the line, as in the strip. */
+.dr-next-up .dr-proxy-btn{ flex: none; height: 30px; margin: -4px -6px -4px 4px; }
+/* The clock card changing size (fxClockSwap: going on the clock, leaving a
+   landing): the clock area eases to its new height while a frozen copy of
+   the old card (.clock-ghost) fades out over the new one. */
+.fx-swap{ position: relative; overflow: hidden; flex-shrink: 0; transition: height 560ms var(--ease-in-out); }
+/* (flex-shrink: on desktop the clock sits in a column with the board, and overflow: hidden would let it be squeezed.) */
+.clock-ghost{ position: absolute; left: 0; right: 0; top: 0; z-index: 2; pointer-events: none; }
+@media (prefers-reduced-motion: reduce){ .fx-swap{ transition: none; } }
+/* Back to back at the turn of the snake: it's your own clock under the landing. */
+.dr-next-up.mine{ border-color: var(--accent-border); }
+.dr-next-up.mine .dr-next-up-who{ color: var(--accent); }
+.dr-next-up.mine .draft-live-dot{ background: var(--accent); }
 
 /* SnakeRail (snakeRailHtml): the phone's pick order, three back to twelve. */
 .snake-rail{ margin: 0 -16px; padding: 0 16px; overflow: hidden; }
@@ -6877,3 +6922,89 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
   font: inherit; font-size: var(--fs-16);
 }
 .access-error{ min-height: 1.3em; margin: 0; font-size: var(--fs-13); color: var(--loss); }
+
+/* ---- Since last night (js/since.js, docs/delight-plan.md Phase 4) ----
+   UpdateStack (updateStackHtml): a full-view scrim over Home with a stack
+   of UpdateCards to swipe away. js/since.js places the cards (inline
+   transform/opacity, CSS transitions) and adds .done to fade it out. */
+.update-stack{ position: fixed; inset: 0; z-index: 250; }
+.update-stack-scrim{
+  position: absolute; inset: 0;
+  background: rgba(var(--overlay-rgb), 0.7);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transition: opacity 450ms var(--ease-out);
+}
+.update-stack-wrap{
+  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 84px);
+  max-width: 440px; margin: 0 auto;
+  transition: opacity 300ms var(--ease-out), transform 450ms var(--ease-out);
+}
+.update-stack.done .update-stack-scrim{ opacity: 0; }
+.update-stack.done .update-stack-wrap{ opacity: 0; transform: translateY(-20px); }
+.update-stack.done{ pointer-events: none; }
+.update-stack-head{ display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; }
+.update-stack-title{ margin: 0; font: 700 var(--fs-22)/1.1 var(--font-display); letter-spacing: -0.3px; color: var(--text); }
+.update-stack-eyebrow{ display: block; margin-bottom: 4px; font: 800 var(--fs-11) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.update-stack-clear{ padding: 4px 0; background: none; border: 0; cursor: pointer; font: 700 var(--fs-13) var(--font-ui); color: var(--text-sub); }
+.update-stack-clear:hover{ color: var(--text); }
+.update-stack-cards{ position: relative; height: 270px; touch-action: none; }
+.update-stack-cards > .update-card{
+  position: absolute; inset: 0; cursor: grab;
+  transform: translateY(130%); opacity: 0;
+  transition: transform 600ms var(--ease-out), opacity 400ms var(--ease-out);
+}
+.update-stack-cards > .update-card:active{ cursor: grabbing; }
+.update-stack-hint{ margin-top: 52px; text-align: center; font: 600 var(--fs-13) var(--font-ui); color: var(--text-mute); }
+.update-stack-hint b{ color: var(--text-sub); font-variant-numeric: tabular-nums; }
+
+/* UpdateCard (updateCardHtml): radius 20, a soft team orb top right, the
+   meta row pinned to the bottom. .flat is the sheet list's static card. */
+.update-card{
+  position: relative; box-sizing: border-box; overflow: hidden;
+  padding: 20px; border-radius: var(--r-lg);
+  background: var(--surface-2); border: 1px solid var(--hairline-strong);
+  box-shadow: var(--shadow-modal);
+}
+.update-card-orb{ width: 240px; height: 240px; right: -90px; top: -110px; }
+.update-card-badge{ position: relative; display: inline-flex; }
+.update-card-badge > .badge{ flex-basis: 48px; width: 48px; height: 48px; border-radius: 14px; box-shadow: var(--crest-shadow); }
+.update-card-badge > .act-tile{ width: 48px; height: 48px; border-radius: 14px; font-size: var(--fs-13); }
+.update-card-title{ position: relative; margin: 18px 0 6px; font: 700 var(--fs-24)/1.15 var(--font-display); letter-spacing: -0.4px; color: var(--text); }
+.update-card-body{ position: relative; font: 500 var(--fs-15)/1.4 var(--font-ui); color: var(--text-sub); text-wrap: pretty; }
+.update-card-meta{
+  position: absolute; left: 20px; right: 20px; bottom: 18px;
+  display: flex; gap: 8px; align-items: center;
+  font: 700 var(--fs-12) var(--font-ui); color: var(--text-mute);
+}
+.update-card-corner{ position: absolute; top: 20px; right: 20px; font: 800 var(--fs-13) var(--font-ui); color: var(--accent); }
+/* UpdateStats (updateStatsHtml): the summary card's numbers, pinned to the bottom. */
+.update-card-stats{
+  position: absolute; left: 20px; right: 20px; bottom: 18px;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding-top: 14px; border-top: 1px solid var(--hairline);
+}
+.update-stat{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.update-stat + .update-stat{ padding-left: 14px; border-left: 1px solid var(--hairline); }
+.update-stat-value{ font: 700 var(--fs-22)/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--text); }
+.update-stat-value.live{ color: var(--provisional); }
+.update-stat-value.locked{ color: var(--accent); }
+.update-stat-label{ font: 700 var(--fs-11) var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
+.update-card.flat{ box-shadow: none; }
+.update-card.flat + .update-card.flat{ margin-top: 10px; }
+.update-card.flat .update-card-title{ margin-top: 14px; font-size: var(--fs-20); }
+.update-card.flat :is(.update-card-meta, .update-card-stats){ position: relative; left: auto; right: auto; bottom: auto; margin-top: 14px; }
+.update-list{ padding: 4px 16px 16px; }
+
+/* RankBadge (rankBadgeHtml): your rank in a gold square. */
+.badge.rank-badge{ background: var(--accent-fill); color: var(--on-accent); border-color: transparent; font-size: var(--fs-20); }
+
+/* UpdatesPill (updatesPillHtml): beside the Home title, reopens the stack. */
+.updates-pill{ cursor: pointer;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--accent-soft); border: 1px solid var(--accent-border);
+  font: 800 var(--fs-11) var(--font-ui); color: var(--accent);
+}
+
+/* Home's rows wait hidden under the stack, then cascade in (js/since.js). */
+html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{ visibility: hidden; }
+#since-pill:empty{ display: none; }

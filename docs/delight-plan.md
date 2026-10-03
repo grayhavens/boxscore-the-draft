@@ -84,8 +84,25 @@ Extends motion-plan Phase 1. Hook into `draftEvents` / `playDraftEvents`.
   the landing plays, the crest still flying from where you tapped. The landing is slower than the prototype's numbers, tuned on a phone: a 650ms
   eased scroll, a 150ms settle, then the orb over 0.9–1.4s and the crest's 900ms flight starting 220ms in, the text as it
   lands and the pill 650ms after (`LAND` in `js/draft.js`, about 2.8s in all). It always plays at full length, even
-  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`). Other drafters' turns keep the compact card / desktop
-  strip.
+  in a mock room's 2× (`atSpeed` in `js/motion-fx.js`).
+- **Hold and catch up:** the landing always plays in full. For its length (`LAND_HOLD_MS`, about 3.4s, plus the scroll
+  back up) the hero holds it even if the next drafter picks a second later (a bot, auto-draft), you're back on the
+  clock at the turn of the snake, or the draft ends. The draft doesn't wait: the board, rail and clocks keep going, and
+  the line under the hero says who's picking now ("You’re on the clock again", in gold, with your clock running at the
+  turn). Then the card catches up (`fxClockSwap`, used whenever the clock card changes size: a landing ending, and going on
+  the clock, where the small card or strip grows into the hero the same way): a frozen copy of the landing
+  fades out over the new card while the clock area eases to its new height, both on even ease-in-out curves (an
+  ease-out dropped most of the height in the first frames and read as a jolt). Back to back, the landing dissolves
+  into your clock (ring pops in, title rises, one gold pulse); otherwise the next card rises in as the area shrinks. The clock region is split into the card (`#dr-clock-main`) and what's under it (`#dr-clock-extra`), so
+  changes underneath never rebuild a landing mid-play. On a phone, other drafters' turns keep the compact card.
+- **Desktop and tablet keep the hero up for every turn** (changed after Phase 1 shipped): someone else's turn is
+  "Mo is on the clock" with a neutral ring (gold means you), and every pick lands on it ("Mo's pick is in", plus when you
+  pick next). Every landing holds at least 6s (`DESK_LAND_HOLD_MS`), then the card catches up to whoever's up through
+  the same `fxClockSwap` (gold glow only for your own clock). Your own landing isn't cut short by a pick landing under it;
+  someone else's gives way at once when you go on the clock. The card is 252px in every state; who's picking and the
+  commissioner's Pick for (`#dr-clock-extra`, as `.dr-hero-foot`) lie over its bottom edge. A chevron in its corner
+  minimizes it to the old one-line strip (gold on your own turn), remembered per device (`draftHeroMin`, localStorage
+  `draftHeroMin`); the strip's chevron brings it back.
 - **Clock:** `draftClockHtml` / `setDraftClock` in `js/ui.js`; `updateClock` ticks it (no re-render), and the region's
   HTML stays the same from tick to tick. The old last-5-seconds gold urgency (`fxUrgency`) is replaced by the red
   last 8 seconds and the beat; the nudge at zero stays. Over time it holds 0:00 in red.
@@ -222,7 +239,23 @@ Long press already opens the seven reactions. Change how it behaves:
 
 ## Phase 4: Since last night (prototype 03): Home, `js/board.js`
 
-This shows on the **first open of a calendar day** (Central time, like Points history) when at least one event since your last visit involves you. Store `bx-last-seen` (an ISO timestamp) in localStorage, and write it once the stack is cleared or skipped. Don't show it before a group's first draft, while the draft card leads Home, or while a draft is live.
+**Status: done** (2026-10-02), reworked from "first open of the day" into **Since last time** (`js/since.js`, pure
+half `js/since-math.js`), since people won't open the app every day:
+- **When:** back after 8 hours or more (`AWAY_MS`), once per visit baseline. The stack drops in only when something
+  above a single game happened (a lock or clinch, a postseason game or upset, two or more games against one drafter)
+  or your rank moved; otherwise only the pill. Header: "Notable results" over "Since last time".
+- **Summary card first** (prototype Option B): your rank as the badge with the move top right, "You're up to 3rd" /
+  "Still 5th, 3 closer", who you passed and the gap, then Points (blue), Locked (gold) and your teams' Record along the
+  bottom (`updateStatsHtml`). Without ranks yet (they wait 3.5s on every scoring input) it reads "Your teams went 4–6".
+- **Then up to four, in order:** locks and clinches; postseason games and upsets (AP ranks at game time, so college
+  only); a series against one drafter ("Drew beat you 3–1", more games first); a single game against a drafter's team
+  ("Lost to Patrick's Rangers away"); anything else.
+- **Inputs:** games from each of your teams' ESPN schedules (one fetch per team however long you were away; the
+  schedule parser now carries the opponent's id, AP ranks and season type). The summary and locks compare today with
+  `bx-last-seen` (`{ at, ranks, totals, lockedTotals, locked }`), written whenever the app is put away, not the
+  Activity feed, which keeps only the group's last 150 events. The feed still supplies clinches and a lock's exact points.
+- **The pill isn't sticky:** tapping it reopens the cards once and removes it; it's also gone the next time the app is
+  put away.
 
 **Data.** Your events from `js/activity.js` since `bx-last-seen`, newest first, at most 5. Map each to a card:
 

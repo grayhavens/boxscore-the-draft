@@ -62,12 +62,12 @@ import {
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
 import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
 import { startActivity } from './activity.js';
+import { startSince } from './since.js';
 import { startHistory } from './history.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
 import { isLeagueFrozen } from './frozen-cache.js';
-import { setDraftActive } from './draft.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
 import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, isDraftPollOpen, voteDraftPoll, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
@@ -87,7 +87,7 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
-import { teamRowHtml } from './ui.js';
+import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
@@ -200,6 +200,7 @@ let boardFilterKey = 'all';
 export function setBoardFilter(key){
   boardFilterKey = key;
   renderBoard();
+  revealActiveTab(document.getElementById('filter-chips'));
 }
 window.setBoardFilter = setBoardFilter;
 
@@ -309,7 +310,7 @@ export function renderBoard(){
   if(boardFilterKey !== 'all' && !boardLeagues.some(l => l.key === boardFilterKey)) boardFilterKey = 'all';
   chipsEl.innerHTML = ['all'].concat(boardLeagues.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
-    return `<div class="filter-chip ${key === boardFilterKey ? 'active' : ''}" onclick="setBoardFilter('${key}')">${label}</div>`;
+    return filterTabHtml({ label, active: key === boardFilterKey, onclick: `setBoardFilter('${key}')` });
   }).join('');
 
   let shownLeagues = boardFilterKey === 'all' ? boardLeagues : boardLeagues.filter(l => l.key === boardFilterKey);
@@ -510,6 +511,8 @@ export function setStandingsFilter(key){
   standingsFilterKey = key;
   updateUrlParam('league', key === 'all' ? null : key);
   renderStandings();
+  const tabs = document.querySelector('#standings-content .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setStandingsFilter = setStandingsFilter;
 
@@ -539,7 +542,7 @@ export function renderStandings(){
 
   const chipsHtml = ['all'].concat(LEAGUES.map(l => l.key)).map(key => {
     const label = key === 'all' ? 'All' : (FILTER_CHIP_LABELS[key] || LEAGUES.find(l => l.key === key).label);
-    return `<div class="filter-chip ${key === standingsFilterKey ? 'active' : ''}" onclick="setStandingsFilter('${key}')">${label}</div>`;
+    return filterTabHtml({ label, active: key === standingsFilterKey, onclick: `setStandingsFilter('${key}')` });
   }).join('');
 
   const shownLeagues = standingsFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === standingsFilterKey);
@@ -744,13 +747,37 @@ export function renderStandings(){
     return leagueBlockHtml(league, `<div class="no-live-note">No data available.</div>`);
   }).join('');
 
+  // The row is rebuilt below, so carry its sideways scroll across.
+  const oldTabs = container.querySelector('.filter-chips');
+  const tabsScroll = oldTabs ? oldTabs.scrollLeft : 0;
   container.innerHTML = `
-    <div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>
+    <div class="standings-filter-row"><div class="filter-chips" role="tablist">${chipsHtml}</div></div>
     <div class="standings-grid">${blocksHtml}</div>
   `;
+  container.querySelector('.filter-chips').scrollLeft = tabsScroll;
 }
 
 // ---- Bottom tab navigation ----
+
+// The draft room (js/draft.js and the pool, scouting, outlooks and
+// spreadsheet code under it, about a third of the app's script) loads the
+// first time it opens rather than at every launch. Once the app is idle
+// its files are fetched ahead (modulepreload: downloaded and compiled,
+// not run), so the first open is still quick.
+let draftModule = null;
+function setDraftActive(on){
+  if(!on && !draftModule) return;
+  if(!draftModule) draftModule = import('./draft.js');
+  // Both directions chain on the one import, so they land in order.
+  draftModule.then(m => m.setDraftActive(on), e => { console.error('[Draft] failed to load', e); draftModule = null; });
+}
+function preloadDraftRoom(){
+  if(draftModule) return;
+  const link = document.createElement('link');
+  link.rel = 'modulepreload';
+  link.href = new URL('./draft.js', import.meta.url).href;
+  document.head.appendChild(link);
+}
 
 // Tab bar order, left to right: a switch between two of these slides
 // toward the tapped tab (see js/motion.js); any other switch (Draft,
@@ -772,6 +799,8 @@ function showView(view){
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   paintTabPill(view);
   updateUrlParam('view', view === 'board' ? null : view);
+  // A tab tapped from the team page leaves it behind.
+  updateUrlParam('tp', null);
   setChatActive(view === 'chat');
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
@@ -896,8 +925,10 @@ paintIdentityChrome(currentDraftTeamId);
 initChat();
 applyUrlState();
 enableNavMotion();
+(window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
 maybeShowWelcome();
 startActivity();
+startSince();
 startHistory();
 
 // Every standings/rankings/season-phase cache, kicked off regardless of
@@ -960,32 +991,32 @@ setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsDa
 // whatever needs it once a lock actually happens.
 checkSeasonLocks();
 
-// Both ticks below already patch the Teams tab's own row-status pills
-// and an open team modal in place (see js/live-data.js) — Live Now
-// needs the same treatment, since it's a second screen reading the
-// exact same liveDataCache rather than its own fetch loop. Cheap to
-// just re-run its render whenever it's the active view: it's a sweep
-// over already-cached data, not a fetch.
+// Both ticks below already patch Home's row-status pills and an open
+// team page in place (see js/live-data.js). Scores reads the scoreboards
+// the live sweep refreshes, so that loop re-runs its render while it's
+// the active view: a pass over cached data that only writes what changed.
 //
 // Both loops sit out while the app is hidden (a backgrounded desktop tab
 // would otherwise keep fetching all day); coming back runs a sweep at once.
 // A tick still waiting on a slow network is left to finish rather than
 // stacking another one on top of it every interval.
-function paintingLoop(tick){
+function paintingLoop(tick, { paintsScores = true } = {}){
   let running = false;
   return async () => {
     if(running || document.visibilityState === 'hidden') return;
     running = true;
     try {
       await tick();
-      if(isViewActive('live-now')) renderLiveNow();
+      if(paintsScores && isViewActive('live-now')) renderLiveNow();
     } finally {
       running = false;
     }
   };
 }
 
-const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick);
+// Scores reads the day's scoreboards, not team bundles, so a team's
+// refetch has nothing to repaint there.
+const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick, { paintsScores: false });
 backgroundRefreshAndPaint();
 setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
 

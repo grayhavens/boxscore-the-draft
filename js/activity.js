@@ -67,7 +67,7 @@ import { eplStandingsCache, fetchEplStandingsTable } from './standings-epl.js';
 import { espnCfbRecordsCache, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-cbb.js';
 
-import { activityRowHtml } from './ui.js';
+import { activityRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 const FEED_KEY = 'teamDashboardActivityFeed';
 const SEEN_KEY = 'teamDashboardActivitySeen';
 const HOME_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -106,14 +106,15 @@ function loadFeed(){
   return { snapshot: null, events: [] };
 }
 
-function saveFeed(){
-  try { localStorage.setItem(FEED_KEY, JSON.stringify(feed)); } catch (e){}
-}
-
+// True when it changed what the feed shows, so callers repaint only then
+// (a repaint of an open Points tab is a full render).
 function applyServerState(state){
   if(!state || !Array.isArray(state.events)) return false;
-  feed = { snapshot: state.snapshot || null, events: state.events };
-  saveFeed();
+  const next = { snapshot: state.snapshot || null, events: state.events };
+  const json = JSON.stringify(next);
+  if(json === JSON.stringify(feed)) return false;
+  feed = next;
+  try { localStorage.setItem(FEED_KEY, json); } catch (e){}
   return true;
 }
 
@@ -142,6 +143,15 @@ export function markActivitySeen(quiet){
 // The worker answers this GET with Cache-Control: no-store.
 function fetchState(){
   return fetchJSON(withGroupQuery(`${chatWorkerBase()}/activity`));
+}
+
+// The feed's events after `ts` for Since last night (js/since.js), each
+// with `myPts`: what it moved `drafterId`'s points by (0 if nothing).
+export function activityEventsSince(ts, drafterId){
+  return visibleEvents().filter(e => e.ts > ts).map(e => {
+    const d = (e.deltas || []).find(x => x.id === drafterId);
+    return { ...e, myPts: d ? d.pts : 0 };
+  });
 }
 
 export async function loadActivity(){
@@ -238,6 +248,20 @@ function holderName(holder){
   return TEAM_META[holder] ? TEAM_META[holder].name : holder;
 }
 
+// Projected ranks and totals from the last snapshot this device built
+// with trustworthy totals (js/since.js keeps them as a visit's baseline).
+let latestTotals = null;
+export function latestPointsSnapshot(){ return latestTotals; }
+
+// The same snapshot, for Since last night's morning check. Its `totals`
+// and `ranks` are null until every input has loaded.
+export async function buildPointsSnapshot(){
+  if(isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return null;
+  const snapshot = await buildSnapshot();
+  if(snapshot && snapshot.totals) latestTotals = { at: Date.now(), ranks: snapshot.ranks, totals: snapshot.totals, lockedTotals: snapshot.lockedTotals, locked: snapshot.locked };
+  return snapshot;
+}
+
 async function buildSnapshot(){
   await Promise.allSettled(
     TRACKED.flatMap(cfg => cfg.load())
@@ -328,7 +352,7 @@ function diffSnapshots(prev, next, ts){
       const owner = ownerOf(now);
       if(!owner) return;
       events.push({
-        id: id(), type: 'rule', ts, league: leagueKey, teamKey: now, drafterId: owner,
+        id: id(), type: 'rule', clinch: true, ts, league: leagueKey, teamKey: now, drafterId: owner,
         title: `${holderName(now)} clinch a playoff spot`, sub: '',
         deltas: [delta(owner, rule.pts, true)], moves: []
       });
@@ -431,15 +455,24 @@ let running = false;
 
 // Called at boot, whenever the Points tab opens, and when the app comes
 // back to the foreground — it throttles itself.
-export async function runActivityDetection(force){
+function canDetect(force){
   // An older class's totals would rewind the shared feed and history.
-  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
-  if(!force && Date.now() - lastRun < DETECT_COOLDOWN_MS) return;
+  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return false;
+  return !!force || Date.now() - lastRun >= DETECT_COOLDOWN_MS;
+}
+
+export async function runActivityDetection(force){
+  if(!canDetect(force)) return;
   running = true;
   lastRun = Date.now();
   try {
-    const [server, snapshot] = await Promise.all([fetchState(), buildSnapshot()]);
-    if(server) applyServerState(server);
+    // The feed shows as soon as it lands, not once the snapshot is built.
+    const shown = fetchState().then(state => {
+      if(state && applyServerState(state)) refreshActivityUi();
+      return state;
+    });
+    const [server, snapshot] = await Promise.all([shown, buildSnapshot()]);
+    if(snapshot && snapshot.totals) latestTotals = { at: Date.now(), ranks: snapshot.ranks, totals: snapshot.totals, lockedTotals: snapshot.lockedTotals, locked: snapshot.locked };
     if(!server || !snapshot) return;
 
     const prev = server.snapshot;
@@ -621,6 +654,8 @@ function myLiveNote(events){
 export function setActivityFilter(key){
   listFilter = ['all', 'mine', 'locked', 'rank'].includes(key) ? key : 'all';
   if(window.renderOverallStandings) window.renderOverallStandings();
+  const tabs = document.querySelector('#overall-content .filter-chips');
+  if(tabs) revealActiveTab(tabs);
 }
 window.setActivityFilter = setActivityFilter;
 
@@ -646,8 +681,8 @@ export function activityPanelHtml(){
     body = `<div class="ob-idle-block"><div class="ob-idle-title">Nothing here yet</div><div class="ob-idle-body">No scoring lines have moved for this filter.</div></div>`;
   }
   return `
-    <div class="filter-chips sm act-filters">${FILTERS.map(f =>
-      `<button type="button" class="filter-chip ${f.key === listFilter ? 'active' : ''}" onclick="setActivityFilter('${f.key}')">${f.label}</button>`
+    <div class="filter-chips" role="tablist">${FILTERS.map(f =>
+      filterTabHtml({ label: f.label, active: f.key === listFilter, onclick: `setActivityFilter('${f.key}')` })
     ).join('')}</div>
     ${body}
     <div class="act-foot">Only changes that move points. Game results stay on Scores.</div>
@@ -723,6 +758,9 @@ export function startActivity(){
   loadActivity();
   setTimeout(() => runActivityDetection(), 6000);
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible'){ loadActivity(); runActivityDetection(); }
+    // A detection run fetches the feed itself, so only one GET goes out.
+    if(document.visibilityState !== 'visible') return;
+    if(canDetect()) runActivityDetection();
+    else loadActivity();
   });
 }

@@ -802,6 +802,9 @@ export async function fetchEspnEplStandings(){
 // opponentLogoUrl, opponentAbbr, opponentShortName, ownScore, oppScore,
 // venueName, broadcast }],
 // recent newest-first, upcoming soonest-first.
+// A Top 25 rank (1–25), or null: ESPN sends 99 for unranked.
+const curatedRank = c => (c && c.curatedRank && c.curatedRank.current >= 1 && c.curatedRank.current <= 25) ? c.curatedRank.current : null;
+
 export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
   const normalize = event => {
     const comp = event.competitions && event.competitions[0];
@@ -823,6 +826,15 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
       opponentShortName: opponent.team.shortDisplayName || null,
       ownScore: self.score ? Number(self.score.displayValue) : null,
       oppScore: opponent.score ? Number(opponent.score.displayValue) : null,
+      // For Since last time (js/since.js): who the opponent is (to find
+      // its drafter), both sides' AP rank where the league has one (an
+      // upset), and 3 for a postseason game.
+      opponentId: opponent.team.id || null,
+      opponentNickname: opponent.team.name || null,
+      opponentLocation: opponent.team.location || null,
+      ownRank: curatedRank(self),
+      oppRank: curatedRank(opponent),
+      seasonType: (event.seasonType && Number(event.seasonType.type)) || (event.season && Number(event.season.type)) || null,
       venueName: comp.venue ? comp.venue.fullName : null,
       broadcast: broadcast && broadcast.media ? broadcast.media.shortName : null
     };
@@ -1353,7 +1365,8 @@ function parseEspnGameMedia(data){
     ? article.links.web.href.replace(/^http:/, 'https:')
     : null;
   const linkUrl = videoUrl || articleUrl;
-  const linkLabel = videoUrl ? 'Watch highlights' : 'Read full recap';
+  // Before kickoff the article is ESPN's preview (type "Preview"), not a recap.
+  const linkLabel = videoUrl ? 'Watch highlights' : (article && article.type === 'Preview' ? 'Read preview' : 'Read full recap');
 
   return { photoUrl, recapHeadline, recapSummary, linkUrl, linkLabel };
 }

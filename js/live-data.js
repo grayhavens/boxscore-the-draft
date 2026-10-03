@@ -257,7 +257,7 @@ export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetche
 // Mirrors liveDataCache to localStorage — one key per team — so a
 // team's last-known result survives across browser sessions, rather
 // than every fresh page load starting blank until that team's turn
-// comes up in the staggered background refresh (see REFRESH_STEP_MS
+// comes up in the background refresh (see backgroundRefreshTick
 // below), which can take up to ~15 minutes. This is a per-browser
 // convenience cache, not shared state — every viewer still fetches
 // their own fresh data on the same schedule as before; this only
@@ -716,9 +716,11 @@ export function renderNext(teamKey, meta, bundle, elId){
     // than stacked below in its own bordered card. Same plain
     // .boxscore-link treatment (and "View boxscore" wording) as the
     // "Most Recent Result" row below, rather than its own heavier pill —
-    // one CTA style for "open Game Details" everywhere it appears.
+    // one CTA style for "open Game Details" everywhere it appears. Just a
+    // label: the team page's whole card is the tap (renderNextGame in
+    // js/team-page.js), so a second handler here would open it twice.
     const detailHtml = (gameDetail && line.eventId) ? `
-      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View boxscore <span class="chev">›</span></div>
+      <div class="boxscore-link">View boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
       <div class="nm-left">
@@ -821,17 +823,21 @@ function formatChipUpcomingParts(d, timeTbd){
 // it) adds the chevron + click-through — see the .linkable/.live CSS
 // for how the two combine differently on hover.
 function paintStatusSlot(el, { label, value, valueClass, live, linkable, onClick }){
-  el.className = 'status-slot' + (linkable ? ' linkable' : '') + (live ? ' live' : '');
+  const cls = 'status-slot' + (linkable ? ' linkable' : '') + (live ? ' live' : '');
   const dotHtml = live ? '<span class="dot pulse"></span>' : '';
   const chevHtml = linkable ? '<span class="chev">&rsaquo;</span>' : '';
   const valClass = 'meta-value' + (valueClass ? ' ' + valueClass : '');
-  el.innerHTML = `<span class="meta-label${live ? ' live' : ''}">${dotHtml}${label}</span><span class="${valClass}">${value}${chevHtml}</span>`;
+  const html = `<span class="meta-label${live ? ' live' : ''}">${dotHtml}${label}</span><span class="${valClass}">${value}${chevHtml}</span>`;
+  // The live sweep repaints every row every 20s; rewriting an unchanged
+  // slot would restart its live dot's pulse each time.
+  if(el.className !== cls) el.className = cls;
+  if(el._html !== html){ el.innerHTML = html; el._html = html; }
   el.onclick = linkable ? onClick : null;
 }
 
 function clearStatusSlot(el){
   el.className = 'status-slot';
-  el.innerHTML = '';
+  if(el._html !== ''){ el.innerHTML = ''; el._html = ''; }
   el.onclick = null;
 }
 
@@ -1746,18 +1752,43 @@ const LIVE_TEAM_KEYS = Object.keys(TEAM_META).filter(k => {
   const meta = TEAM_META[k];
   return !!FLAT_SCHEDULE_LEAGUES[meta.leagueKey] || meta.sportsdbId || meta.rundownTeamId;
 });
-export const REFRESH_STEP_MS = LIVE_TEAM_KEYS.length ? MIN_REFRESH_CYCLE_MS / LIVE_TEAM_KEYS.length : MIN_REFRESH_CYCLE_MS;
-let refreshCursor = 0;
+// Only the teams someone can see get the rotation: the rows on Home (the
+// viewer's roster and favorites, about 25) and an open team page. Every
+// other team's bundle is restored from localStorage and refetched when
+// its page opens (ensureBundle in js/team-page.js), and nothing else reads
+// it. Rotating all ~183 meant a request every 1.6s, around the clock,
+// on every phone with the app open. Each tick refreshes the visible team
+// whose last full fetch is oldest, once it's MIN_REFRESH_CYCLE_MS old;
+// most ticks find nothing due and cost nothing. `lastFull` is kept here
+// rather than read off bundle.fetchedAt, which the live sweep bumps every
+// 20s without refetching the schedule.
+export const REFRESH_STEP_MS = 1500;
+const lastFull = new Map();   // teamKey -> ms of its last full fetch this session
+const LIVE_TEAM_SET = new Set(LIVE_TEAM_KEYS);
 
+function visibleTeamKeys(){
+  const keys = [...document.querySelectorAll('.status-slot[id^="row-status-"]')].map(el => el.id.slice('row-status-'.length));
+  const page = document.getElementById('team-page-content');
+  if(page && page.dataset.activeTeam && document.getElementById('view-team-page')?.classList.contains('active')) keys.push(page.dataset.activeTeam);
+  return keys.filter(k => LIVE_TEAM_SET.has(k));
+}
+
+// Resolves true when it fetched a team (false when nothing was due).
 export async function backgroundRefreshTick(){
-  if(LIVE_TEAM_KEYS.length === 0) return;
-  const teamKey = LIVE_TEAM_KEYS[refreshCursor % LIVE_TEAM_KEYS.length];
-  refreshCursor++;
+  const now = Date.now();
+  let teamKey = null, oldest = Infinity;
+  for(const key of visibleTeamKeys()){
+    const at = lastFull.get(key) || 0;
+    if(now - at >= MIN_REFRESH_CYCLE_MS && at < oldest){ oldest = at; teamKey = key; }
+  }
+  if(!teamKey) return false;
+  lastFull.set(teamKey, now);
 
   const bundle = await fetchTeamBundle(teamKey);
-  if(!bundle) return;
+  if(!bundle) return true;
   renderRowStatus(teamKey, bundle);
   refreshOpenTeamPageIfActive(teamKey, bundle);
+  return true;
 }
 
 // The Team Page (js/team-page.js) marks its mount point with
@@ -1775,13 +1806,12 @@ function refreshOpenTeamPageIfActive(teamKey, bundle){
 }
 
 /* ---- Fast live-scoreboard sweep ----
-   backgroundRefreshTick above cycles through one team's full bundle
-   (a real per-team schedule fetch) every REFRESH_STEP_MS, so with 183
-   teams now in the rotation any single team's turn only comes up
-   roughly once every 5 minutes — fine for "last result"/"next match",
-   far too slow for "the score just changed." This sweep closes that
+   backgroundRefreshTick above refetches each visible team's full bundle
+   (a real per-team schedule fetch) once every MIN_REFRESH_CYCLE_MS —
+   fine for "last result"/"next match", far too slow for "the score just
+   changed." This sweep closes that
    gap cheaply instead of just shortening MIN_REFRESH_CYCLE_MS (which
-   would mean re-fetching all 183 teams' full schedules 15x more
+   would mean re-fetching every team's full schedule 15x more
    often for no reason — that data doesn't move mid-game): it re-reads
    the same shared, already-cached-per-league scoreboard
    (fetchEspnScoreboardCached/ESPN_SCOREBOARD_TTL_MS above) every
@@ -1795,10 +1825,9 @@ function refreshOpenTeamPageIfActive(teamKey, bundle){
 
    Only patches a team that already has a cached bundle (from a prior
    backgroundRefreshTick or an opened team page) — a team with no bundle
-   yet yields no row-status element worth patching in place, and its
-   own turn in the slower rotation above will populate it soon
-   regardless (LIVE_TEAM_KEYS is 183 teams over a 5-minute cycle, so
-   at most ~1.6s away at any given moment). */
+   yet yields no row-status element worth patching in place, and the
+   rotation above fetches any visible team it hasn't fetched yet within
+   a tick or two of it appearing. */
 export const LIVE_SWEEP_INTERVAL_MS = 20 * 1000;
 const FLAT_SCHEDULE_SPORT_PATHS = [...new Set(Object.values(FLAT_SCHEDULE_LEAGUES).map(cfg => cfg.sportPath))];
 

@@ -58,7 +58,7 @@ import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
 
-import { backLinkHtml, buttonHtml } from './ui.js';
+import { backLinkHtml, buttonHtml, filterTabHtml } from './ui.js';
 import { GROUP_MOCK_ROOM } from './draft-rules.js';
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
@@ -394,9 +394,9 @@ function leagueSectionHtml(league){
 function filterChipsHtml(){
   const chipsHtml = SCORING_LEAGUES.map(l => {
     const label = FILTER_CHIP_LABELS[l.key] || l.label;
-    return `<div class="filter-chip ${l.key === lastLeague ? 'active' : ''}" onclick="setAdminFilter('${l.key}')">${label}</div>`;
+    return filterTabHtml({ label, active: l.key === lastLeague, onclick: `setAdminFilter('${l.key}')` });
   }).join('');
-  return `<div class="standings-filter-row"><div class="filter-chips">${chipsHtml}</div></div>`;
+  return `<div class="standings-filter-row"><div class="filter-chips" role="tablist">${chipsHtml}</div></div>`;
 }
 
 // ---- Draft section ----

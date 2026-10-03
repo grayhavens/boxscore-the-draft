@@ -444,11 +444,11 @@ function refreshTodayScopeChrome(){
   const rowsEl = document.getElementById('today-scope-sheet-rows');
   if(rowsEl){
     // Nobody has a drafted roster before the first draft, so no Drafted row.
-    rowsEl.innerHTML = (PRE_DRAFT
+    writeHtml(rowsEl, (PRE_DRAFT
       ? todayScopeRowHtml('all', 'All teams', 'Every team', scopeIsAll())
       : todayScopeRowHtml('all', 'All teams', 'Every drafted team, every owner', scopeIsAll())
         + todayScopeRowHtml('mine', 'Drafted Teams', 'Your own drafted roster', scopeFilter.mine))
-      + todayScopeRowHtml('fav', 'Favorites', 'Teams you’ve starred', scopeFilter.fav);
+      + todayScopeRowHtml('fav', 'Favorites', 'Teams you’ve starred', scopeFilter.fav));
   }
 }
 
@@ -533,6 +533,18 @@ function emptyHtml(hasGames){
 // working — only the label the user reads says "Today"). ----
 let renderToken = 0;
 
+// The background loops repaint this view every couple of seconds, almost
+// always with nothing changed. Rewriting identical markup would cut off a
+// running effect, reset a pressed card and can swallow a tap that lands
+// mid-swap, so a write only happens when the markup is new.
+const written = new WeakMap();
+function writeHtml(el, html){
+  if(!el || written.get(el) === html) return false;
+  el.innerHTML = html;
+  written.set(el, html);
+  return true;
+}
+
 export async function renderLiveNow(){
   const subEl = document.getElementById('live-now-sub');
   const controlsEl = document.getElementById('live-now-controls');
@@ -577,7 +589,7 @@ export async function renderLiveNow(){
       ? `${leagueCount} league${leagueCount === 1 ? '' : 's'} · ${inScope.length} game${inScope.length === 1 ? '' : 's'}`
       : 'No games in this scope';
   }
-  if(controlsEl) controlsEl.innerHTML = controlsHtml(liveCount);
+  writeHtml(controlsEl, controlsHtml(liveCount));
   refreshTodayScopeChrome();
 
   let shown = inScope;
@@ -585,7 +597,7 @@ export async function renderLiveNow(){
   if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
   if(filterKey === 'completed') shown = shown.filter(g => g.state === 'final');
 
-  if(!shown.length){ listEl.innerHTML = emptyHtml(inScope.length > 0); scoresPrimed = true; return; }
+  if(!shown.length){ writeHtml(listEl, emptyHtml(inScope.length > 0)); scoresPrimed = true; return; }
 
   // Every filter groups by league; a live game keeps its "LIVE" rail
   // label and node on the row itself rather than a section of its own.
@@ -596,22 +608,25 @@ export async function renderLiveNow(){
     html.push(sectionHtml(league.label, games));
   });
 
-  listEl.innerHTML = html.join('');
+  const changed = writeHtml(listEl, html.join(''));
   scoresPrimed = true;
-  playScoreEffects(listEl, shown.filter(g => endedNow.has(`${g.day}:${g.id}`)));
+  if(changed) playScoreEffects(listEl, shown.filter(g => endedNow.has(`${g.day}:${g.id}`)));
 }
 
 // ---- Live effects (docs/motion-plan.md, Phase 2) ----
 // Played on the freshly written list. Each ends on what the plain render
 // already shows, so with motion off (or the page hidden) nothing is lost.
 function playScoreEffects(listEl, ended){
-  if(!fxOn()) return;
+  const settleDigits = () => listEl.querySelectorAll('.odo-strip[data-to]').forEach(s => s.style.setProperty('--n', s.dataset.to));
+  // The strips are written parked on the old digit, so with effects off
+  // they still have to move to the new score, just at once.
+  if(!fxOn()){ settleDigits(); return; }
   // Goal: the digits roll, the card flashes a gold ring, and a "+N" floats
   // off the score. Two frames: the strips have to paint on the old digit
   // before moving.
   if(listEl.querySelector('[data-scored]')){
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      listEl.querySelectorAll('.odo-strip[data-to]').forEach(s => s.style.setProperty('--n', s.dataset.to));
+      settleDigits();
       listEl.querySelectorAll('.tg-score[data-scored]').forEach(s => {
         playClass(s.closest('.tg-card'), 'just-scored');
         if(s.dataset.delta) floatUp(s.closest('.tg-side'), scoreBumpHtml({ n: s.dataset.delta }), { delay: 50 });
