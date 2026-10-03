@@ -3556,6 +3556,8 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
   gap: 10px;
 }
 .game-card.live{ border-color: var(--live-border); }
+/* The live line spans the card, "View boxscore" on the right edge. */
+.game-card > .next-match{ flex: 1; min-width: 0; }
 .game-card-eyebrow{
   font-size: var(--fs-10);
   font-weight: 800;
@@ -3756,6 +3758,8 @@ button.fs-col:hover{ background: var(--hover); }
 
 /* NextGame (nextGameHtml) inside the team page's game card. */
 .game-card.next-game{ display: block; }
+.game-card.clickable{ cursor: pointer; }
+.game-card.clickable:active{ background-image: linear-gradient(var(--press), var(--press)); transform: scale(0.985); }
 .ng-head{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .ng-title{ font-family: var(--font-display); font-size: var(--fs-16); font-weight: 700; }
 .ng-when{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
@@ -4732,7 +4736,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 @media (prefers-reduced-motion: reduce){
   .board > .view.active:not(.view-push-in){ animation: none; }
   .skel-dot{ animation: none; }
-  .news-card:active, .tg-row.clickable:active .tg-card,
+  .news-card:active, .tg-row.clickable:active .tg-card, .game-card.clickable:active,
   .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
   .chat-send:active, .peek-banner button:active, .icon-btn:active, .modal-close:active,
   .picker-hit:active .settings-icon, .tab-btn:active .tab-icon{ transform: none; }

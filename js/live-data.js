@@ -716,9 +716,11 @@ export function renderNext(teamKey, meta, bundle, elId){
     // than stacked below in its own bordered card. Same plain
     // .boxscore-link treatment (and "View boxscore" wording) as the
     // "Most Recent Result" row below, rather than its own heavier pill —
-    // one CTA style for "open Game Details" everywhere it appears.
+    // one CTA style for "open Game Details" everywhere it appears. Just a
+    // label: the team page's whole card is the tap (renderNextGame in
+    // js/team-page.js), so a second handler here would open it twice.
     const detailHtml = (gameDetail && line.eventId) ? `
-      <div class="boxscore-link" onclick="openGameDetail('${teamKey}', '${line.eventId}')">View boxscore <span class="chev">›</span></div>
+      <div class="boxscore-link">View boxscore <span class="chev">›</span></div>
     ` : '';
     el.innerHTML = `
       <div class="nm-left">

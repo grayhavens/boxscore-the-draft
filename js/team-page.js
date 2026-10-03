@@ -790,6 +790,14 @@ function renderNextGame(teamKey){
   card.classList.toggle('live', live);
   card.classList.toggle('upcoming', !live);
   card.classList.toggle('next-game', !!evt);
+  // A tap anywhere on the card opens the game's Game Details (the preview
+  // before it starts, the box score while it's on), like every other game
+  // in the app.
+  const eventId = live ? bundle.espnLive.eventId : evt && evt.id;
+  const tap = eventId && GAME_DETAIL_LEAGUES[meta.leagueKey] ? `openGameDetail('${teamKey}', '${eventId}')` : null;
+  card.classList.toggle('clickable', !!tap);
+  if(tap) card.setAttribute('onclick', tap);
+  else card.removeAttribute('onclick');
   if(!evt){
     if(!card.querySelector('#team-page-next')) card.innerHTML = '<div class="next-match" id="team-page-next"></div>';
     writeRendered(card.querySelector('#team-page-next'), id => renderNext(teamKey, meta, bundle, id));
