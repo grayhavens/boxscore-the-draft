@@ -38,7 +38,8 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
   draft), `node tools/outlooks.mjs facts --league nfl` / `apply <file.json>`, `node tools/golfer-pool.mjs`,
   `node tools/vapid-keys.mjs`.
 - **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check.
-- **Deploy:** site = push to `main` (Cloudflare Pages auto-deploys). Worker = `cd worker && npx wrangler deploy`.
+- **Deploy:** site = push to `main` (Pages project `boxscorethedraft`, no build command; every branch/PR gets a
+  preview at `<branch>.boxscorethedraft.pages.dev`). Worker = `cd worker && npx wrangler deploy`.
   **Deploy the worker before the site** whenever both change.
 
 ## Folder structure

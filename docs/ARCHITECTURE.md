@@ -85,7 +85,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 
 | Service | Used for | Called from | Auth | Caching / limits |
 |---|---|---|---|---|
-| ESPN hidden site API (`site.api.espn.com`, `site.web.api.espn.com` for golf) | standings, schedules, live state, summaries, golf | browser (worker for golf season) | none | client memory + localStorage; rate limit unknown (TODO: confirm with owner) |
+| ESPN hidden site API (`site.api.espn.com`, `site.web.api.espn.com` for golf) | standings, schedules, live state, summaries, golf | browser (worker for golf season) | none | client memory + localStorage; no published rate limit (none known to the owner); keep calls cached |
 | TheRundown | fallback for CFB FCS team and College Basketball | worker | `THERUNDOWN_API_KEY` | edge 60s / 1h; comment cites a 20,000 data-point/day budget |
 | TheSportsDB V2 | deprecated fallback in `fetchTeamBundle` | worker | `SPORTSDB_API_KEY` | edge 24h / 60s |
 | nflverse-data (GitHub releases) | NFL injuries, depth charts | worker (no CORS upstream) | none | edge 2h / 3h; depth chart read as a stream, newest snapshot only |
@@ -109,9 +109,12 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 
 ## Deployment
 
-- **Static site:** Cloudflare Pages, auto-deploys from `main`. No build step. Project domain
-  `boxscorethedraft.pages.dev`; groups on `<id>.boxscore.space`; `boxscore.space` → `landing.html`.
-  Pages build settings: TODO: confirm with owner.
+- **Static site:** Cloudflare Pages project `boxscorethedraft`, Git-connected to `grayhavens/boxscore-the-draft`.
+  Production branch `main`; build command, output dir and root dir all empty (serves the repo root as is).
+  Preview deployments for every branch and PR (with PR comments), on `<branch>.boxscorethedraft.pages.dev`.
+  Custom domains: `boxscore.space`, `www.boxscore.space`, `thedraft.boxscore.space`, `seasonticket.boxscore.space`.
+  A new group needs its subdomain added to the Pages project. `boxscore.space` → `landing.html`.
+  (Read from the Cloudflare API, 2026-10-03.)
 - **Worker:** `cd worker && npx wrangler deploy` (name `team-dashboard-rundown-proxy`, `workers_dev = true`, plus
   zone route `boxscore.space/api/admin/*`). Always deploy the worker **before** the site when a change touches both.
 - After a worker address change, update `DASHBOARD_WORKER_BASE` in `js/worker-base.js`.

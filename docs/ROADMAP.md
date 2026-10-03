@@ -23,15 +23,18 @@ As of 2026-10-03 (`main` at bc1f761, PR #222). No open PRs or GitHub issues; no 
 - Design system Step 3: moving screens to `js/ui.js` as they're touched; several spec components have no helper yet (inferred, design-system-plan.md).
 - Pre-draft hygiene for the next live draft: verify ranked team lists, re-run `tools/golfer-pool.mjs` and outlooks (draft-room-plan.md "Before draft day", CLAUDE.md).
 
+## Next up
+
+- Golf steps 4–5: golfer UI (`js/standings-pga.js` doesn't exist), `golfAuto` scoring wired into Points; must land before Season Ticket's draft is exported (golf-plan.md). Export tool also lacks group support (golf-plan.md). Owner: needed relatively soon, not critical.
+
 ## Not started
 
-- Delight Phase 3: chat hold-and-slide reactions + swipe to reply (`replyTo` not in code) (inferred, delight-plan.md).
-- Delight Phase 5: landing page hero redesign (headline copy not in code) (inferred, delight-plan.md).
-- Delight Phase 6: champion crowned full-screen moment — must be ready before the first league locks (inferred, delight-plan.md).
-- Golf steps 4–5: golfer UI (`js/standings-pga.js` doesn't exist), `golfAuto` scoring wired into Points; must land before Season Ticket's draft is exported (golf-plan.md). Export tool also lacks group support (golf-plan.md).
+- Delight Phase 3: chat hold-and-slide reactions + swipe to reply (`replyTo` not in code) (planned, not a priority yet; keep the plan details, delight-plan.md).
+- Delight Phase 5: landing page hero redesign (headline copy not in code) (planned, not a priority yet; keep the plan details, delight-plan.md).
+- Delight Phase 6: champion crowned full-screen moment — must be ready before the first league locks (planned, not a priority yet; keep the plan details, delight-plan.md).
 - Postseason `fact` events in Activity (deferred, points-ux-plan.md).
-- Draft-room open items: draft date/cutover, old-class fidelity, worker allowlists vs. season keys, EPL/WNBA 2027 field check (draft-room-plan.md "Open items"; status TODO: confirm with owner).
+- Draft-room open items: draft date/cutover, old-class fidelity, worker allowlists vs. season keys, EPL/WNBA 2027 field check (draft-room-plan.md "Open items"). Still open; to address at the end of this draft year / before next season.
 
 ## Branches
 
-- `design-handoff` (remote): one commit (screenshots, tokens, brief for Claude Design), 39 commits behind `main`. Status TODO: confirm with owner.
+- `design-handoff` (remote): one commit (screenshots, tokens, brief for Claude Design), 39 commits behind `main`. Leftover from the design system import; owner says it can be deleted.
