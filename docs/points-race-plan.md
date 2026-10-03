@@ -3,7 +3,7 @@
 Branch: `points-race`. Source: Claude Design handoff `design_handoff_points_race`
 (README + `Points Race v3.dc.html` + screenshots). It adds a third segment to the Points tab
 (**Standings · Activity · Race**): a chart of every drafter's projected points (or rank) over the
-season, a month window with chips and a season minimap, Replay, and the standings table re-sorted
+season, a month window with chips, Replay, and the standings table re-sorted
 to the scrubbed day.
 
 Same rule as `docs/points-ux-plan.md`: wherever the handoff draws something the app already has,
@@ -36,7 +36,7 @@ use that component.
    positioned rows. Column widths stay ours (38/34/38). "Show top 5 / all" is dropped: it would be
    a pattern the Standings table doesn't have.
 5. **Themeable chart colors.** No literal `rgba(255,255,255,…)`. New chart tokens in both themes
-   (dim line, ghost line, grid, today line, minimap mask), used as `var()` in the SVG.
+   (dim line, ghost line, grid, today line), used as `var()` in the SVG.
 6. **Simulated mode.** With Points Tab Data set to Fake (`obMode === 'simulated'`), the Race reads
    a seeded generated history (the prototype's generator, ported), so it can be previewed before
    real history piles up.
@@ -81,7 +81,7 @@ so the Y floor is 0 only when nobody is below it.
   when `PRE_DRAFT`.
 - History fetch with a localStorage copy (paint immediately, refresh in the background), like
   every other worker read.
-- Race card: title row, Points | Rank compact seg, Replay pill, month chips, SVG chart, minimap.
+- Race card: title row, Points | Rank compact seg, Replay pill, month chips, SVG chart.
 - Chart: focus coloring (you = accent, focused = text, others dim), the focused drafter's
   locked step line and live hatching, rank mode curves, TODAY line, future ghost, lock
   diamonds, head labels (tap to focus).
@@ -95,8 +95,8 @@ so the Y floor is 0 only when nobody is below it.
   resize, so on iPad/desktop text keeps its size and the plot widens instead of the whole drawing
   scaling up.
 - Race is the third segment (after Activity), by request.
-- The minimap spans the recorded history (first sample → today), not the whole class: early in the
-  season a whole-class minimap is a sliver at one end. The future still shows in All.
+- The season minimap under the chart was removed (2026-10-03): the month chips and All already
+  move around the season, and on a phone it was a thin strip with little to read.
 - Replay runs 2–6s depending on how much history there is; under reduced motion it jumps to today.
 - Empty/short history state: "History starts {date}" in place of the chart when there are fewer
   than 2 days.

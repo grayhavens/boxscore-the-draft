@@ -3054,9 +3054,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .race-chip.all{ flex: none; min-width: 44px; }
 .race-chip.active{ background: var(--seg-thumb); box-shadow: var(--seg-thumb-shadow); color: var(--text); }
 .race-plot{ touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-.race-plot svg, .race-mini svg{ display: block; width: 100%; height: auto; overflow: visible; }
-.race-mini{ cursor: pointer; }
-.race-mini[hidden]{ display: none; }
+.race-plot svg{ display: block; width: 100%; height: auto; overflow: visible; }
 
 .race-grid{ stroke: var(--race-grid); }
 .race-base{ stroke: var(--hairline-strong); }
@@ -3094,10 +3092,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .race-label.me{ fill: var(--accent); font-weight: 800; }
 .race-label .v{ font-family: var(--font-display); font-weight: 600; fill: var(--text-mute); }
 .race-label.focus .v, .race-label.me .v{ fill: var(--text); }
-.race-mini-line{ fill: none; stroke: var(--race-mini); stroke-width: 1; }
-.race-mini-line.me{ stroke: var(--accent); stroke-width: 1.5; }
-.race-mini-mask{ fill: var(--surface); opacity: 0.6; }
-.race-mini-win{ fill: rgba(var(--ink-rgb), 0.04); stroke: var(--text); stroke-opacity: 0.4; stroke-width: 1; }
 .race-idle{ margin-top: 0; margin-bottom: 14px; }
 
 /* -- Quick sheet (#ob-sheet-overlay) -- */
