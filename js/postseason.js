@@ -603,7 +603,7 @@ function cancelCount(){
 }
 
 // The champion springs up (CSS), three gold rings ripple out of its
-// badge, the card opens below the ladder and the owner's haul counts up.
+// badge once, the card opens below the ladder and the owner's haul counts up.
 // Every time stage 4 is reached; the ripples skip reduced motion.
 function playChampion(key){
   const el = document.querySelector(`.ps[data-ps="${key}"]`);
@@ -614,7 +614,7 @@ function playChampion(key){
   fx.style.transform = chip.style.transform.replace(/scale\([^)]*\)/, '');
   if(fxOn()){
     fx.innerHTML = [0, 1, 2].map(i => `<span class="ps-ring" style="animation-delay:${750 + i * 300}ms"></span>`).join('');
-    setTimeout(() => { if(fx.isConnected) fx.innerHTML = ''; }, 4600);
+    setTimeout(() => { if(fx.isConnected) fx.innerHTML = ''; }, 3000);
   }
   const badge = el.querySelector('.ps-champ-badge');
   if(badge){

@@ -2954,8 +2954,8 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 .ps-fx{ position: absolute; left: 7px; top: 0; width: 26px; height: 26px; pointer-events: none; }
 .ps-ring{
-  position: absolute; inset: 0; border-radius: 8px; border: 2px solid var(--accent); opacity: 0;
-  animation: ps-ring 1.4s var(--ease-out) 2 both;
+  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); opacity: 0;
+  animation: ps-ring 1.4s var(--ease-out) both;
 }
 @keyframes ps-ring{ from{ transform: scale(1); opacity: 0.9; } to{ transform: scale(3.2); opacity: 0; } }
 
@@ -2969,10 +2969,12 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   border-radius: var(--r-md); background: var(--accent-soft); border: 1px solid var(--accent-border);
 }
 .ps-champ-badge{ flex: none; border-radius: 13px; }
-.ps-champ-badge.glow{ animation: ps-glow 1.8s ease-in-out 1.2s 3; }
+/* A soft glow that follows the crest's own outline (a drop shadow, not a
+   box), fading in and out so nothing snaps on or off at either end. */
+.ps-champ-badge.glow{ animation: ps-glow 1.8s ease-in-out 1.2s 2; }
 @keyframes ps-glow{
-  0%, 100%{ box-shadow: 0 0 0 2px var(--accent), 0 0 0 0 transparent; }
-  50%{ box-shadow: 0 0 0 2px var(--accent), 0 0 18px 4px var(--accent-glow); }
+  0%, 100%{ filter: drop-shadow(0 0 0 transparent); }
+  50%{ filter: drop-shadow(0 0 10px var(--accent-glow)); }
 }
 .ps-champ-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ps-champ-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
