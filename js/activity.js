@@ -6,7 +6,8 @@
    clinches the playoffs), the +5 league bonus flips between drafters, a
    league locks (its Live points become Locked: type 'lock'), or a
    drafter makes a notable projected-rank move (into/out of 1st, or 2+
-   places — anything smaller is left to the Table's arrows).
+   places — anything smaller is left to the Table's arrows). Rank moves
+   show as one event per day, each drafter's net move for the day.
 
    It renders as the Activity half of the Points tab (js/overall.js's
    Table | Activity switch), plus the slim link row on Home.
@@ -95,7 +96,7 @@ function countsEvent(e){
 // by then, and would otherwise log lines nobody holds).
 function visibleEvents(){
   if(PRE_DRAFT) return [];
-  return feed.events.filter(countsEvent);
+  return consolidateRankMoves(feed.events.filter(countsEvent));
 }
 
 function loadFeed(){
@@ -379,20 +380,8 @@ function diffSnapshots(prev, next, ts){
     const moves = Object.keys(next.ranks)
       .filter(d => prev.ranks[d] !== undefined && prev.ranks[d] !== next.ranks[d] && prev.totals[d] !== next.totals[d])
       .map(d => ({ id: d, from: prev.ranks[d], to: next.ranks[d] }));
-    const notable = moves.filter(m => (m.from === 1) !== (m.to === 1) || Math.abs(m.from - m.to) >= 2);
-    if(notable.length){
-      const weight = m => (m.to === 1 ? 100 : 0) + Math.abs(m.from - m.to);
-      const top = notable.slice().sort((a, b) => weight(b) - weight(a))[0];
-      const up = top.from > top.to;
-      events.push({
-        id: id(), type: 'rank', ts, league: '', teamKey: '', drafterId: top.id,
-        title: top.to === 1
-          ? `${drafterName(top.id)} moves into 1st projected`
-          : `${drafterName(top.id)} ${up ? 'moves up to' : 'drops to'} ${ordinal(top.to)} projected`,
-        sub: moves.length > 1 ? `${moves.length} drafters changed places` : '',
-        deltas: [], moves
-      });
-    }
+    const ev = rankEvent(moves, id(), ts);
+    if(ev) events.push(ev);
   }
 
   // A league locked: every drafter's Live points there are now Locked.
@@ -413,6 +402,50 @@ function diffSnapshots(prev, next, ts){
     });
   }
   return events;
+}
+
+// A rank event for these moves, or null when none is notable: into or
+// out of 1st, or 2+ places.
+function rankEvent(moves, eventId, ts){
+  const notable = moves.filter(m => (m.from === 1) !== (m.to === 1) || Math.abs(m.from - m.to) >= 2);
+  if(!notable.length) return null;
+  const weight = m => (m.to === 1 ? 100 : 0) + Math.abs(m.from - m.to);
+  const top = notable.slice().sort((a, b) => weight(b) - weight(a))[0];
+  const up = top.from > top.to;
+  return {
+    id: eventId, type: 'rank', ts, league: '', teamKey: '', drafterId: top.id,
+    title: top.to === 1
+      ? `${drafterName(top.id)} moves into 1st projected`
+      : `${drafterName(top.id)} ${up ? 'moves up to' : 'drops to'} ${ordinal(top.to)} projected`,
+    sub: moves.length > 1 ? `${moves.length} drafters changed places` : '',
+    deltas: [], moves
+  };
+}
+
+// One rank event per day: the day's rank events folded into each
+// drafter's net move, from where they started the day's first event to
+// where they ended its last. A day that nets out to nothing notable drops.
+function consolidateRankMoves(events){
+  const byDay = new Map();
+  events.forEach(e => {
+    if(e.type !== 'rank') return;
+    const day = new Date(e.ts).toDateString();
+    if(!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(e);
+  });
+  const keep = new Map();
+  byDay.forEach(dayEvents => {
+    if(dayEvents.length === 1){ keep.set(dayEvents[0], dayEvents[0]); return; }
+    const sorted = dayEvents.slice().sort((a, b) => a.ts - b.ts);
+    const net = new Map();
+    sorted.forEach(e => (e.moves || []).forEach(m => {
+      const n = net.get(m.id);
+      net.set(m.id, { id: m.id, from: n ? n.from : m.from, to: m.to });
+    }));
+    const latest = sorted[sorted.length - 1];
+    keep.set(latest, rankEvent([...net.values()].filter(m => m.from !== m.to), latest.id, latest.ts));
+  });
+  return events.flatMap(e => e.type !== 'rank' ? [e] : (keep.get(e) ? [keep.get(e)] : []));
 }
 
 // "Chiefs lock in Division title" — the biggest drafted placement the
