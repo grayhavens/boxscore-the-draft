@@ -299,24 +299,47 @@ export function topRung(teams){
   return teams.reduce((m, t) => Math.max(m, t.rung), 0);
 }
 
+// The games still to be played between two teams on the same rung, as
+// [higher seed, lower seed] pairs: the ladder sits them side by side on a
+// shared backing. A game counts once both sides are known at this stage.
+export function matchups(teams, games){
+  const byId = Object.fromEntries(teams.map(t => [t.id, t]));
+  return (games || []).filter(g => !g.final && g.top.team && g.bot.team).map(g => {
+    const a = byId[g.top.team.id], b = byId[g.bot.team.id];
+    if(!a || !b || a.rung !== b.rung || a.rung !== g.round - 1) return null;
+    return [a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99));
+  }).filter(Boolean);
+}
+
 // Where each team's chip sits on the ladder: `fx`, its center as a share of
 // the chip lane's width (the rung labels sit to its right), and `y`, px from
 // the ladder's top. Rungs top to bottom are `top` (topRung) … first round,
-// `rungH` tall; up to six chips share a row, more wrap into two. Teams sort
-// by conference, then seed, within a rung.
-export function ladderLayout(teams, { rungH = 84, top = 4 } = {}){
+// `rungH` tall. Within a rung the two sides of each game still to play sit
+// together (matchups), games and lone teams in order of conference, then
+// best seed; up to six chips share a row, more wrap into two without
+// splitting a game.
+export function ladderLayout(teams, { rungH = 84, top = 4, games = [] } = {}){
+  const seed = t => t.seed ?? 99;
+  const pairs = matchups(teams, games);
+  const paired = new Set(pairs.flat().map(t => t.id));
   const byRung = {};
-  teams.forEach(t => { (byRung[t.rung] = byRung[t.rung] || []).push(t); });
+  pairs.forEach(p => { (byRung[p[0].rung] = byRung[p[0].rung] || []).push(p); });
+  teams.filter(t => !paired.has(t.id)).forEach(t => { (byRung[t.rung] = byRung[t.rung] || []).push([t]); });
   const pos = {};
-  Object.entries(byRung).forEach(([k, list]) => {
-    list.sort((a, b) => (a.conf || '').localeCompare(b.conf || '') || (a.seed ?? 99) - (b.seed ?? 99) || a.abbr.localeCompare(b.abbr));
-    const perRow = list.length > 6 ? Math.ceil(list.length / 2) : list.length;
-    const rows = Math.ceil(list.length / perRow);
-    const y0 = (top - Number(k)) * rungH;
-    list.forEach((t, i) => {
-      const col = i % perRow, row = Math.floor(i / perRow);
-      pos[t.id] = { fx: (col + 0.5) / perRow, y: y0 + (rows === 2 ? 4 + row * 40 : 26) };
+  Object.entries(byRung).forEach(([k, units]) => {
+    units.sort((a, b) => (a[0].conf || '').localeCompare(b[0].conf || '') || seed(a[0]) - seed(b[0]) || a[0].abbr.localeCompare(b[0].abbr));
+    const total = units.reduce((n, u) => n + u.length, 0);
+    const rows = [[]];
+    let first = 0;
+    units.forEach(u => {
+      if(total > 6 && rows.length === 1 && first >= Math.ceil(total / 2)) rows.push([]);
+      rows[rows.length - 1].push(...u);
+      if(rows.length === 1) first += u.length;
     });
+    const y0 = (top - Number(k)) * rungH;
+    rows.forEach((row, r) => row.forEach((t, i) => {
+      pos[t.id] = { fx: (i + 0.5) / row.length, y: y0 + (rows.length === 2 ? 4 + r * 40 : 26) };
+    }));
   });
   return pos;
 }

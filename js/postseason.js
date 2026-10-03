@@ -34,7 +34,7 @@ import { canAnimateLive } from './motion.js';
 import { fxOn, once } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
 import {
-  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, topRung
+  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, topRung, matchups
 } from './postseason-math.js';
 
 const RUNG_H = 84;
@@ -326,6 +326,17 @@ function chipView(t, pos, spot){
   return { cls: cls.join(' '), transform: `translate(calc((100cqw - var(--ps-label-w)) * ${p.fx.toFixed(4)} - 20px), ${p.y}px) scale(${scale})` };
 }
 
+// A faint backing behind the two sides of each game still to play, so the
+// pairs read as matchups.
+function pairsHtml(S, pos){
+  const lane = '(100cqw - var(--ps-label-w))';
+  return matchups(S.teams, S.games).map(([a, b]) => {
+    const pa = pos[a.id], pb = pos[b.id];
+    if(!pa || !pb || pa.y !== pb.y) return '';
+    return `<span class="ps-pair" style="transform:translate(calc(${lane} * ${pa.fx.toFixed(4)} - 24px), ${pa.y - 2}px);width:calc(${lane} * ${(pb.fx - pa.fx).toFixed(4)} + 48px)"></span>`;
+  }).join('');
+}
+
 function chipHtml(key, t, pos, spot){
   const v = chipView(t, pos, spot);
   const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
@@ -392,7 +403,7 @@ export function postseasonCardHtml(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const top = topRung(S.teams);
-  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top });
+  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games });
   const rungs = [4, 3, 2, 1, 0].map(k => `
     <div class="${rungClasses(k, S, top)}" data-rung="${k}" style="${rungStyle(k, top)}">
       <div class="ps-rung-label"><span>${S.L.rungs[k]}</span><span class="ps-rung-pts">${rungPts(k, S)}</span></div>
@@ -405,6 +416,7 @@ export function postseasonCardHtml(key){
       </div>
       <div class="ps-ladder" style="height:${(top + 1) * RUNG_H}px">
         ${rungs}
+        <div class="ps-pairs">${pairsHtml(S, pos)}</div>
         ${S.teams.map(t => chipHtml(key, t, pos, spot)).join('')}
         <div class="ps-fx" aria-hidden="true"></div>
       </div>
@@ -454,7 +466,7 @@ function paint(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const top = topRung(S.teams);
-  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top });
+  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games });
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${(top + 1) * RUNG_H}px`;
   const replay = el.querySelector('.ps-replay');
@@ -464,6 +476,12 @@ function paint(key){
     r.className = rungClasses(k, S, top);
     r.style.transform = rungStyle(k, top).split(':')[1];
   });
+  const pairs = el.querySelector('.ps-pairs');
+  const pairsNow = pairsHtml(S, pos);
+  if(pairs && pairs.dataset.html !== pairsNow){
+    pairs.innerHTML = pairsNow;
+    pairs.dataset.html = pairsNow;
+  }
   S.teams.forEach(t => {
     const chip = el.querySelector(`.ps-chip[data-team="${t.id}"]`);
     if(!chip) return;

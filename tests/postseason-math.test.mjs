@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  buildBracket, snapshot, latestStage, milestonesFor, parseScoreboardEvent, postseasonStarted, ladderLayout, topRung
+  buildBracket, snapshot, latestStage, milestonesFor, parseScoreboardEvent, postseasonStarted, ladderLayout, topRung, matchups
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-2025.json'), 'utf8'));
@@ -162,4 +162,37 @@ test('the ladder only grows to the highest rung anyone has reached', () => {
   const S0 = snapshot(b, 0, opts(NFL_RULES, NFL_OWNERS));
   const pos = ladderLayout(S0.teams, { top: 1 });
   assert.ok(S0.teams.filter(t => t.rung === 1).every(t => pos[t.id].y === 26));
+});
+
+// Chips in one row, left to right.
+const rowOf = (pos, teams, y) => teams.filter(t => pos[t.id].y === y).sort((a, b) => pos[a.id].fx - pos[b.id].fx).map(t => t.abbr);
+
+test('opponents sit side by side: NFL Wild Card and Divisional', () => {
+  const S0 = snapshot(nfl(), 0, opts(NFL_RULES, NFL_OWNERS));
+  const pos0 = ladderLayout(S0.teams, { top: 1, games: S0.games });
+  const wc = S0.teams.filter(t => t.rung === 0);
+  // AFC games on the first row (2v7, 3v6, 4v5), the NFC's on the second.
+  assert.deepEqual(rowOf(pos0, wc, 84 + 4), ['NE', 'LAC', 'JAX', 'BUF', 'PIT', 'HOU']);
+  assert.deepEqual(rowOf(pos0, wc, 84 + 44), ['CHI', 'GB', 'PHI', 'SF', 'CAR', 'LAR']);
+  assert.equal(matchups(S0.teams, S0.games).length, 6);
+
+  const S1 = snapshot(nfl(), 1, opts(NFL_RULES, NFL_OWNERS));
+  const pos1 = ladderLayout(S1.teams, { top: 1, games: S1.games });
+  const div = S1.teams.filter(t => t.rung === 1);
+  assert.deepEqual(rowOf(pos1, div, 4), ['DEN', 'BUF', 'NE', 'HOU']);
+  assert.deepEqual(rowOf(pos1, div, 44), ['SEA', 'SF', 'CHI', 'LAR']);
+});
+
+test('opponents sit side by side: CFP first round and quarterfinals', () => {
+  const S0 = snapshot(cfb(), 0, opts(CFB_RULES, {}));
+  const pos0 = ladderLayout(S0.teams, { top: 1, games: S0.games });
+  const r1 = S0.teams.filter(t => t.rung === 0);
+  const rows = [...new Set(r1.map(t => pos0[t.id].y))].sort((a, b) => a - b).map(y => rowOf(pos0, r1, y));
+  assert.deepEqual(rows, [['ORE', 'JMU', 'MISS', 'TULN'], ['TA&M', 'MIA', 'OU', 'ALA']]);
+
+  const S1 = snapshot(cfb(), 1, opts(CFB_RULES, {}));
+  const pos1 = ladderLayout(S1.teams, { top: 1, games: S1.games });
+  const qf = S1.teams.filter(t => t.rung === 1);
+  const qrows = [...new Set(qf.map(t => pos1[t.id].y))].sort((a, b) => a - b).map(y => rowOf(pos1, qf, y));
+  assert.deepEqual(qrows, [['IU', 'ALA', 'OSU', 'MIA'], ['UGA', 'MISS', 'TTU', 'ORE']]);
 });
