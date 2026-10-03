@@ -372,7 +372,7 @@ orb, that folds into a fixed compact bar as you scroll (one passive listener wri
 cover is off on this page). Swiping sideways anywhere on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
 top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
-game counts down every second, Overview leads with the last five games as bars (every result row is on Full schedule),
+game card shows the opponent with the date and time (no crest for the team itself), Overview leads with the last five games as bars (every result row is on Full schedule),
 then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, live, in reach or off, with On the line's
 distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device
 remembers the choice (localStorage `bx-ptp-open`).

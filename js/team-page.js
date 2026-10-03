@@ -58,7 +58,7 @@ import {
 
 import {
   backLinkHtml, teamBadgeHtml as badgeHtml, teamOrbHtml, compactBarHtml, pageDotsHtml, sectionCardHtml,
-  pathToPointsHtml, formStripHtml, countdownHtml, tickCountdowns, nextGameHtml,
+  pathToPointsHtml, formStripHtml, nextGameHtml,
   filterTabHtml, revealActiveTab
 } from './ui.js';
 // Every league with a verified roster/team-stats source (see this
@@ -751,7 +751,6 @@ function renderTeamPage({ refresh = false } = {}){
     bindPageSwipe();
     crossFadeOrb(fromColor);
     applyScroll();
-    startCountdowns();
   }
   playHeroOpen();
   playSwipeIn();
@@ -785,7 +784,7 @@ function renderStatStrip(teamKey){
     + (path ? cell(path.now < 0 ? '&minus;' + Math.abs(path.now) : path.now, 'Points', 'pts') : ''));
 }
 
-// The next game with a countdown to it, or the league's own live line
+// The next game's date, time and opponent, or the league's own live line
 // while a game is on (and for the few teams with no ESPN schedule).
 function renderNextGame(teamKey){
   const card = document.getElementById('team-page-game-card');
@@ -810,15 +809,12 @@ function renderNextGame(teamKey){
     writeRendered(card.querySelector('#team-page-next'), id => renderNext(teamKey, meta, bundle, id));
     return;
   }
-  const at = new Date(evt.date).getTime();
   const opp = evt.opponentShortName || evt.opponentName;
   card.innerHTML = nextGameHtml({
     when: nextWhen(evt),
     home: evt.isHome,
-    ownBadgeHtml: teamBadgeHtml(meta),
     oppBadgeHtml: badgeHtml({ crestSrc: evt.opponentLogoUrl, name: evt.opponentName, style: NEUTRAL_BADGE_STYLE, text: evt.opponentAbbr || abbrFromName(evt.opponentName) }),
     oppName: opp,
-    rightHtml: evt.timeTbd || !Number.isFinite(at) ? '<span class="countdown">TBD</span>' : countdownHtml({ at }),
     subHtml: [evt.venueName, evt.broadcast].filter(Boolean).join(' &middot; ')
   });
 }
@@ -1012,17 +1008,6 @@ window.teamPageJump = i => {
   if(i === state.teamIndex || gesture || rowMotion) return;
   leaveTo(i, i > state.teamIndex ? 1 : -1);
 };
-
-// The next game's countdown ticks once a second while the page is up.
-let countdownTimer = null;
-function startCountdowns(){
-  if(countdownTimer) return;
-  countdownTimer = setInterval(() => {
-    const page = document.getElementById('view-team-page');
-    if(!page || !page.classList.contains('active')){ clearInterval(countdownTimer); countdownTimer = null; return; }
-    if(!document.hidden) tickCountdowns(page);
-  }, 1000);
-}
 
 function renderTabBody(){
   const el = document.getElementById('team-page-tab-body');

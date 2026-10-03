@@ -274,32 +274,12 @@ export function formStripHtml({ games, per, slots = 5 }){
   return `<div class="form-strip-bars">${empty}${cols}</div>`;
 }
 
-// "2d 04:12:09" until a start time, "04:12:09" on the day itself.
-export function countdownText(ms){
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400), p = n => String(n).padStart(2, '0');
-  return `${d ? d + 'd ' : ''}${p(Math.floor(s % 86400 / 3600))}:${p(Math.floor(s % 3600 / 60))}:${p(s % 60)}`;
-}
-
-// Countdown: ticks to `at` (ms). The page that shows it calls
-// tickCountdowns once a second while it's visible.
-export function countdownHtml({ at, now = Date.now() }){
-  return `<span class="countdown" data-at="${Number(at)}">${countdownText(at - now)}</span>`;
-}
-
-export function tickCountdowns(root, now = Date.now()){
-  root.querySelectorAll('.countdown[data-at]').forEach(el => {
-    const text = countdownText(Number(el.dataset.at) - now);
-    if(el.textContent !== text) el.textContent = text;
-  });
-}
-
-// NextGame: the card body for a team's next game: its badge, vs/at, the
-// opponent's badge and name, and `rightHtml` (the countdown) on the right,
-// under a header with `when`. Badges and rightHtml are trusted.
-export function nextGameHtml({ when, home, ownBadgeHtml, oppBadgeHtml, oppName, rightHtml = '', subHtml = '' }){
+// NextGame: the card body for a team's next game: vs/at, the opponent's
+// badge and name, under a header with `when`. No badge for the team itself:
+// it only shows on that team's own page. The badge is trusted.
+export function nextGameHtml({ when, home, oppBadgeHtml, oppName, subHtml = '' }){
   return `<div class="ng-head"><span class="ng-title">Next game</span><span class="ng-when">${escapeHtml(when)}</span></div>`
-    + `<div class="ng-row">${ownBadgeHtml}<span class="ng-vs">${home ? 'vs' : 'at'}</span>${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span>${rightHtml}</div>`
+    + `<div class="ng-row"><span class="ng-vs">${home ? 'vs' : 'at'}</span>${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span></div>`
     + (subHtml ? `<div class="ng-sub">${subHtml}</div>` : '');
 }
 

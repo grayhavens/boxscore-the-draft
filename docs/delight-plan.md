@@ -211,7 +211,7 @@ The hero bloom, stat roll, form cascade and shared-element push already exist. K
 
 Negative rules (relegated, last in the division) show as "−3" and stay `off` unless you're in them, which makes them `live`. When a state changes between refreshes, reuse On the line's flip.
 
-**Next game.** Your badge, then vs/at, then the opponent's badge (34px, r11), the opponent's name and a countdown on the right. The countdown is 15px Space Grotesk 700, tabular, `--text-sub`, formatted `Nd HH:MM:SS` (drop `Nd` on game day) and ticking every second while the page is visible. A live game uses the existing live game card instead.
+**Next game.** vs/at, then the opponent's badge (34px, r11) and name, under a header with the date and time. No badge for the team itself, since the page is already that team's, and no countdown (both were tried and dropped). A live game uses the existing live game card instead.
 
 **Form strip** (`formStripHtml`). The last 5 games as five columns.
 - Each column is a 60px-tall bar area with a 1px `--divider` midline. A win bar grows up from the midline in `--win`, a loss bar grows down in `--loss`, and a draw is a 4% `--draw` tick.
