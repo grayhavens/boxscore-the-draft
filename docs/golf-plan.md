@@ -68,7 +68,15 @@ Still to verify: a live leaderboard mid-round (`today`, `thru`). Capture a fixtu
    otherwise meet golfers), the class needs `LEAGUE_SCORING.pga` (step 5), and the export tool has no
    group support yet (it writes The Draft's registry).
 4. **UI:** stat strip, golfer page, FedEx standings (`js/standings-pga.js`), Scores tournament card, live state.
-5. **Scoring:** `golfAuto` rules, Points sheet, overall totals, the feature guide entry.
+   Built before this audit (2026-10-03), despite the old note: the golfer sheet, tournament sheet, FedEx Cup and
+   Drafted standings, Home row status and the Scores tournament card, all in `js/golf-view.js`.
+5. **Scoring:** done 2026-10-03. `golfAuto` rules are read by `getLeagueRuleTeams` (`js/league-facts.js`): a golfer's
+   key appears once per time they hit a rule (counts from `golferAwardCounts`, `js/golf.js`), so the Points tab
+   itemizes each win and `teamPointsSplit` multiplies. Always Locked (finished events are final). Nothing counts
+   while pga is in `PRIOR_SEASON_DISPLAY_LEAGUES` or the loaded season isn't this year's. The +5 bonus
+   (`golfBonus` in `js/compare.js`) is Live from the first scored event and Locked after the TOUR Championship.
+   The admin page shows golf rules as automatic. Still open: the feature guide entry.
+   Reading of "Top 10 in a major": a major win also counts as a top 10 (+2 +5 +2).
 
 Steps 1–3 are enough for Season Ticket's draft; golf scores from the 2027 season, so 4 and 5 can follow,
 but both must land before the draft is exported into a class.

@@ -236,7 +236,9 @@ including across sessions.
   `js/golf-api.js` fetches. The worker's `/golf/season/<year>` (`worker/golf.js`) condenses finished FedEx Cup
   events into KV (`golf:<year>`) so phones never pull whole leaderboards; the live one comes straight from ESPN. Use
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
-  `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id.
+  `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
+  (`js/seasons/pga.js`) resolve in `getLeagueRuleTeams` from `golferAwardCounts` (`js/golf.js`), one entry per occurrence;
+  the +5 bonus is `golfBonus` in `js/compare.js`.
 - **TheSportsDB** is deprecated as a source: its only remaining caller is `fetchTeamBundle`'s
   fallback branch in `js/live-data.js`, reached when a team with a `sportsdbId` fails to resolve an
   ESPN row on a given refresh.

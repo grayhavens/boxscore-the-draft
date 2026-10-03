@@ -253,3 +253,30 @@ export function fedexTable(events){
   rows.forEach((r, i) => { r.rank = i > 0 && r.points === rows[i - 1].points ? rows[i - 1].rank : i + 1; });
   return rows;
 }
+
+// How many times a golfer hit each `golfAuto` rule (js/seasons/pga.js)
+// over the finished events. Finish tiers don't stack except as the plan
+// says (docs/golf-plan.md): a major win is also a tournament win and a
+// top 10; a top 10 is not also a top 20. A withdrawal or DQ isn't a
+// missed cut, and an event the golfer didn't start counts for nothing.
+export function golferAwardCounts(events, athleteId){
+  const n = { win: 0, majorWin: 0, majorTop10: 0, majorTop20: 0, majorMissedCut: 0, missedCut: 0, tourChampionship: 0, fedexCup: 0 };
+  golferResults(events.filter(e => e.status !== 'canceled' && e.status !== 'pre' && e.status !== 'in'), athleteId).forEach(r => {
+    const pos = finishPosition(r.finish);
+    if(isMissedCut(r.finish)){ n[r.major ? 'majorMissedCut' : 'missedCut']++; return; }
+    if(pos === null) return;
+    if(r.tourChampionship){ n.tourChampionship++; if(pos === 1) n.fedexCup++; }
+    if(pos === 1) n.win++;
+    if(r.major){
+      if(pos === 1) n.majorWin++;
+      if(pos <= 10) n.majorTop10++;
+      else if(pos <= 20) n.majorTop20++;
+    }
+  });
+  return n;
+}
+
+// Whether the TOUR Championship has been played: the season is over.
+export function fedexSeasonDone(events){
+  return events.some(e => e.tourChampionship && e.status === 'post');
+}
