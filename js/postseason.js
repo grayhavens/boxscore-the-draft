@@ -326,14 +326,14 @@ function chipView(t, pos, spot){
   return { cls: cls.join(' '), transform: `translate(calc((100cqw - var(--ps-label-w)) * ${p.fx.toFixed(4)} - 20px), ${p.y}px) scale(${scale})` };
 }
 
-// A faint backing behind the two sides of each game still to play, so the
-// pairs read as matchups.
+// A small gray "v" between the two sides of each game still to play, so the
+// pairs read as matchups without boxing anything in.
 function pairsHtml(S, pos){
   const lane = '(100cqw - var(--ps-label-w))';
   return matchups(S.teams, S.games).map(([a, b]) => {
     const pa = pos[a.id], pb = pos[b.id];
     if(!pa || !pb || pa.y !== pb.y) return '';
-    return `<span class="ps-pair" style="transform:translate(calc(${lane} * ${pa.fx.toFixed(4)} - 24px), ${pa.y - 2}px);width:calc(${lane} * ${(pb.fx - pa.fx).toFixed(4)} + 48px)"></span>`;
+    return `<span class="ps-vs" style="transform:translate(calc(${lane} * ${((pa.fx + pb.fx) / 2).toFixed(4)} - 6px), ${pa.y + 7}px)">v</span>`;
   }).join('');
 }
 
