@@ -16,7 +16,8 @@
    Options
      --base <url>       the worker (default http://localhost:8787, i.e. `cd worker && npx wrangler dev --var ADMIN_PASSWORD:testpw`)
      --origin <url>     Origin header to send; must be one the worker allows (default http://localhost:8934)
-     --password <pw>    ADMIN_PASSWORD (default: $ADMIN_PASSWORD, or "testpw" against localhost)
+     --password <pw>    the group's commissioner password: ADMIN_PASSWORD, or ADMIN_PASSWORD_<GROUP> for another group (default: $ADMIN_PASSWORD, or "testpw" against localhost)
+     --group <id>       rehearse another group (e.g. seasonticket): its drafters, sports, caps and pool (default: The Draft)
      --room <name>      throwaway room to use (default rehearsal-<timestamp>); never use "main"
      --chaos 0|1|2      how much to go wrong (default 1)
      --human <drafter>  leave that drafter's picks to a human at the printed URL
@@ -34,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { onTheClock } from '../js/draft-engine.js';
 import { availableTeams, ownerOf, totalPicks, pickLabel } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
-import { DRAFT_TEAMS } from '../js/data.js';
+import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, groupCaps } from '../js/groups.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +55,10 @@ const PASSWORD = opt.password || process.env.ADMIN_PASSWORD || (isLocal ? 'testp
 const ROOM = opt.room || 'rehearsal-' + Date.now().toString(36);
 const CHAOS = Number(opt.chaos ?? 1);
 const HUMAN = opt.human || null;
+const GROUP = opt.group || LEGACY_GROUP_ID;
+if(!isKnownGroup(GROUP)){ console.error(`Unknown group "${GROUP}" (see js/groups.js).`); process.exit(2); }
+// The Draft sends no group param (legacy room names); every other group names itself.
+const GROUP_QS = GROUP === LEGACY_GROUP_ID ? '' : `&group=${GROUP}`;
 const DELAY = Number(opt.delay ?? 10);
 if(!PASSWORD){ console.error('An admin password is required for a non-local worker (--password or $ADMIN_PASSWORD).'); process.exit(2); }
 if(ROOM === 'main'){ console.error('Refusing to rehearse in the real room "main".'); process.exit(2); }
@@ -87,7 +92,7 @@ class Client {
     this.onState = null;
     this.authWaiter = null;
   }
-  wsUrl(){ return `${BASE.replace(/^http/, 'ws')}/draft/ws?room=${ROOM}`; }
+  wsUrl(){ return `${BASE.replace(/^http/, 'ws')}/draft/ws?room=${ROOM}${GROUP_QS}`; }
   connect(){
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(this.wsUrl(), { headers: { Origin: ORIGIN } });
@@ -141,7 +146,7 @@ async function preflight(){
   check('a wrong admin password is refused', denied === false);
   const ok = await boss.auth();
   check('the admin password is accepted (ADMIN_PASSWORD is set)', ok === true);
-  const res = await fetch(`${BASE}/draft/result?room=${ROOM}`, { headers: { Origin: ORIGIN } });
+  const res = await fetch(`${BASE}/draft/result?room=${ROOM}${GROUP_QS}`, { headers: { Origin: ORIGIN } });
   check('/draft/result answers', res.ok, `HTTP ${res.status}`);
   boss.close();
   return checks.every(c => c.ok);
@@ -352,8 +357,9 @@ async function main(){
   const t0 = Date.now();
 
   console.log('\nSetting up the room…');
-  const pool = buildDraftPool();
-  const drafters = DRAFT_TEAMS.map(d => d.id);
+  const gcaps = groupCaps(GROUP);
+  const pool = buildDraftPool(gcaps ? Object.keys(gcaps).filter(k => gcaps[k] > 0) : undefined);
+  const drafters = drafterIdsFor(GROUP);
   let r = await boss.act(null, { type: 'setConfig', drafters });
   check('configure the ten drafters', r.ok, r.error || '');
   r = await boss.act(null, { type: 'setPool', teams: pool });
@@ -425,16 +431,17 @@ async function main(){
   check('only the commissioner made pick-for-someone picks', proxies <= (tally['proxy-picks-sent'] || 0), `${proxies} in the result, ${tally['proxy-picks-sent'] || 0} sent`);
   check('no unexpected rejections', !Object.keys(tally).some(k => k.startsWith('UNEXPECTED')), Object.keys(tally).filter(k => k.startsWith('UNEXPECTED')).join(', '));
 
-  const result = await (await fetch(`${BASE}/draft/result?room=${ROOM}`, { headers: { Origin: ORIGIN } })).json();
+  const result = await (await fetch(`${BASE}/draft/result?room=${ROOM}${GROUP_QS}`, { headers: { Origin: ORIGIN } })).json();
   check('/draft/result reports a complete draft', result.complete && result.picks.length === total, `${result.picks.length} picks`);
   const resultMatches = result.picks.every(p => final.picks[p.slot] && final.picks[p.slot].team === p.team.id && final.picks[p.slot].by === p.drafter);
   check('/draft/result matches what every client saw', resultMatches);
   const seqs = Object.values(bots).map(b => b.seq);
   check('every connected drafter ended on the same state', seqs.every(x => x === boss.seq), `commissioner seq ${boss.seq}, drafters ${[...new Set(seqs)].join('/')}`);
 
-  if(!flags.has('no-export')){
+  if(GROUP !== LEGACY_GROUP_ID) console.log('\nExport dry-run skipped: tools/export-draft.mjs has no group support yet.');
+  else if(!flags.has('no-export')){
     console.log('\nExport dry-run against this room…');
-    const run = spawnSync('node', ['tools/export-draft.mjs', '--result', `${BASE}/draft/result?room=${ROOM}`, '--dry-run'], { cwd: root, encoding: 'utf8' });
+    const run = spawnSync('node', ['tools/export-draft.mjs', '--result', `${BASE}/draft/result?room=${ROOM}${GROUP_QS}`, '--dry-run'], { cwd: root, encoding: 'utf8' });
     const out = (run.stdout || '') + (run.stderr || '');
     const summary = out.split('\n').find(l => /team entries/.test(l)) || '';
     check('the export accepts this draft', run.status === 0, run.status === 0 ? summary.trim() : out.split('\n').filter(l => /^\s*- /.test(l)).slice(0, 3).join(' | ') || out.trim().slice(-200));
