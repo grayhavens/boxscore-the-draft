@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn } from '../tools/draft-export-lib.mjs';
+import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles } from '../tools/draft-export-lib.mjs';
 import { buildDraftPool } from '../js/draft-pool.js';
 
 const DRAFTERS = ['a', 'b'];
@@ -247,4 +247,56 @@ test('golfer picks export as PGA Tour entries in a new league tab', async () => 
   assert.equal(built.generated.length, 1, 'only the Cardinals came from ESPN');
   const src = renderSeasonModule({ built, year: 2026, prevYear: 2025, roomLabel: 'test', generatedOn: 'today' });
   assert.match(src, /kind:'golfer'/);
+});
+
+// ---- Groups other than The Draft ----
+
+test('onlyDrafted keeps just the leagues the draft had caps for', async () => {
+  const result = goodResult();
+  result.config.caps = { nfl: 1, mcbb: 1 };
+  result.picks = result.picks.filter(p => p.team.league !== 'cfb').map((p, i) => ({ ...p, slot: i }));
+  const all = await build(result, { allowPartial: true });
+  assert.deepEqual(all.leagues.map(l => l.key), ['nfl', 'cfb', 'mcbb']);
+  const some = await build(result, { allowPartial: true, onlyDrafted: true });
+  assert.deepEqual(some.leagues.map(l => l.key), ['nfl', 'mcbb']);
+  assert.ok(!('okstate' in some.meta), 'a favorite in a dropped league goes with it');
+});
+
+test('a group class names its own file and adds PGA Tour scoring when the previous rules have none', async () => {
+  assert.equal(seasonFileFor('thedraft', 2026, 'thedraft'), '2026.js');
+  assert.equal(seasonFileFor('seasonticket', 2026, 'thedraft'), 'seasonticket-2026.js');
+  const built = await build(goodResult());
+  const plain = renderSeasonModule({ built, year: 2027, prevYear: 2026, roomLabel: 't', generatedOn: 'today' });
+  assert.match(plain, /from '\.\/2026\.js'/);
+  assert.match(plain, /LEAGUE_SCORING = PREVIOUS_SCORING;/);
+  const golf = renderSeasonModule({ built, year: 2026, prevYear: 2026, prevFile: './2026.js', addPgaScoring: true, roomLabel: 't', generatedOn: 'today' });
+  assert.match(golf, /import \{ PGA_SCORING \} from '\.\/pga\.js';/);
+  assert.match(golf, /LEAGUE_SCORING = \{ \.\.\.PREVIOUS_SCORING, pga: PGA_SCORING \};/);
+});
+
+test('a group registry is created once and then appended to', () => {
+  const first = renderGroupRegistry({ group: 'seasonticket', name: 'Season Ticket', year: 2026 });
+  assert.match(first, /import \* as s2026 from '\.\/seasonticket-2026\.js';/);
+  assert.match(first, /export const GROUP_SEASONS = \{\n  '2026': \{ id: '2026', label: '2026 Draft', \.\.\.s2026 \}\n\};/);
+  const next = updateRegistry(first, 2027, 'seasonticket-2027.js');
+  assert.match(next, /import \* as s2027 from '\.\/seasonticket-2027\.js';/);
+  assert.match(next, /\.\.\.s2026 \},\n  '2027': \{ id: '2027'/);
+  assert.equal(updateRegistry(next, 2027, 'seasonticket-2027.js'), next);
+});
+
+test('the seasons index lists each group once, and the real index takes it', () => {
+  const src = fs.readFileSync(new URL('../js/seasons/index.js', import.meta.url), 'utf8');
+  const once = updateIndexRegistry(src, 'seasonticket');
+  assert.match(once, /import \{ GROUP_SEASONS as SEASONTICKET_SEASONS \} from '\.\/seasonticket\.js';/);
+  assert.match(once, /const OTHER_GROUP_SEASONS = \{\n  seasonticket: SEASONTICKET_SEASONS\n\};/);
+  assert.equal(updateIndexRegistry(once, 'seasonticket'), once);
+  const two = updateIndexRegistry(once, 'otherbunch');
+  assert.match(two, /seasonticket: SEASONTICKET_SEASONS,\n  otherbunch: OTHERBUNCH_SEASONS\n\};/);
+});
+
+test('shell files are added after the anchor, once', () => {
+  const sw = "  './js/seasons/pre-draft.js',\n  './js/seasons/2026.js',\n";
+  const out = addShellFiles(sw, ['st.js', 'st-2026.js'], 'pre-draft.js');
+  assert.equal(out, "  './js/seasons/pre-draft.js',\n  './js/seasons/st.js',\n  './js/seasons/st-2026.js',\n  './js/seasons/2026.js',\n");
+  assert.equal(addShellFiles(out, ['st.js', 'st-2026.js'], 'pre-draft.js'), out);
 });
