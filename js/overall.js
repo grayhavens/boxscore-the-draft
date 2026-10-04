@@ -27,7 +27,7 @@ import { currentDraftTeamId } from './board.js';
 import { assignRank } from './rank.js';
 import { raceHtml, raceMount, raceUnmount } from './race.js';
 import { currentProfileId } from './identity.js';
-import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, renderActivityHomeLink, leagueTileHtml } from './activity.js';
+import { activityPanelHtml, activityRecentHtml, markActivitySeen, runActivityDetection, unseenCount, leagueTileHtml } from './activity.js';
 import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js';
 import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
@@ -1033,7 +1033,6 @@ function obPrimeBonus(){
   if(obBonusPrimed) return;
   obBonusPrimed = true;
   loadBonusInputs().then(() => {
-    renderActivityHomeLink();
     const view = document.getElementById('view-overall');
     if(view && view.classList.contains('active')) renderOverallStandings();
   });
