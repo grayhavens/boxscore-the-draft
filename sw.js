@@ -20,6 +20,7 @@ const SHELL_FILES = [
   './js/gestures.js',
   './js/pull-refresh.js',
   './js/cache-fresh.js',
+  './js/news-more.js',
   './js/ui.js',
   './js/icons.js',
   './js/escape.js',

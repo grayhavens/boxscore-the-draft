@@ -45,6 +45,8 @@ import { findEspnEplRow } from './standings-epl.js';
 import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
+import { fetchMoreNewsCached, safeStoryUrl } from './news-more.js';
+import { escapeHtml } from './escape.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
@@ -102,6 +104,7 @@ const EMPTY_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // it this one sits.
 const state = { teamKey: null, originView: 'board', originScrollY: 0, activeTab: 'schedule', squadFilter: null, swipeOrder: [], teamIndex: -1 };
 
+const moreNewsCache = {}; // teamKey -> stories (Perigon, via the worker)
 const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'|'error', items }
 const rosterCache = {}; // teamKey -> { status, items }
 const statsCache = {};  // teamKey -> { status, data } — `data` shape is league-specific, built in computeStatsTiles
@@ -1047,6 +1050,7 @@ function renderTabBody(){
     playPathChanges(teamKey);
     playFormGrow();
     ensureNews(teamKey);
+    ensureMoreNews(teamKey);
     return;
   }
   if(state.activeTab === 'stats'){
@@ -1385,13 +1389,39 @@ function newsTabHtml(teamKey){
   const entry = newsCache[teamKey];
   if(!entry || entry.status === 'loading') return newsSkeletonHtml();
   if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true);
-  if(entry.status === 'empty' || !entry.items.length) return newsEmptyHtml(teamKey, meta, false);
+  if(entry.status === 'empty' || !entry.items.length) return newsEmptyHtml(teamKey, meta, false) + moreNewsHtml(teamKey);
   return entry.items.slice(0, 4).map(a => `
     <div class="news-card" onclick="window.open('${(a.link || '').replace(/'/g, '&#39;')}', '_blank')">
       <div class="headline">${a.headline}</div>
       <div class="news-meta">ESPN <span class="news-dot">·</span> ${timeAgo(a.published)}</div>
     </div>
-  `).join('') + `<div class="news-footer-note">Headlines via ESPN team news</div>`;
+  `).join('') + `<div class="news-footer-note">Headlines via ESPN team news</div>` + moreNewsHtml(teamKey);
+}
+
+// Stories from beyond ESPN, under the ESPN ones. Nothing at all when the
+// worker has none for this team yet.
+function moreNewsHtml(teamKey){
+  const stories = (moreNewsCache[teamKey] || []).filter(a => safeStoryUrl(a.url)).slice(0, 4);
+  if(!stories.length) return '';
+  return `<div class="modal-section-title spaced">More news</div>` + stories.map(a => `
+    <a class="news-card link" href="${escapeHtml(a.url)}" target="_blank" rel="noopener noreferrer">
+      <div class="headline">${escapeHtml(a.title)}</div>
+      <div class="news-meta">${escapeHtml(a.source || 'News')} <span class="news-dot">·</span> ${timeAgo(a.at)}</div>
+    </a>
+  `).join('') + `<div class="news-footer-note">More headlines via Perigon</div>`;
+}
+
+// One shared read per league (js/news-more.js); repaints just the news
+// section when it lands, and only if something new arrived for this team.
+function ensureMoreNews(teamKey){
+  const meta = TEAM_META[teamKey];
+  if(!meta) return;
+  fetchMoreNewsCached(meta.leagueKey).then(teams => {
+    const stories = teams && teams[teamKey];
+    if(!stories || !stories.length || stories === moreNewsCache[teamKey]) return;
+    moreNewsCache[teamKey] = stories;
+    if(state.teamKey === teamKey && state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
+  });
 }
 
 // Each tab's fetch repaints the tab when it settles, and painting asks

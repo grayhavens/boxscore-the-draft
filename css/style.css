@@ -4130,6 +4130,7 @@ button.fs-col:hover{ background: var(--hover); }
   cursor: pointer;
 }
 .news-card + .news-card{ margin-top: 10px; }
+a.news-card.link{ display: block; color: inherit; text-decoration: none; }
 .news-card:hover{ background: var(--surface-2); }
 .news-card .headline{ font-size: var(--fs-15); font-weight: 700; line-height: 1.3; text-wrap: pretty; }
 .news-dot{ color: var(--lb-stroke); }
