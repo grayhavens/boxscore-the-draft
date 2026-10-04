@@ -934,7 +934,7 @@ const leagueName = league => LEAGUE_FULL_LABELS[league.key] || league.label;
 // Drafted teams only: favoriteOnly teams (js/data.js) have no owner and
 // never score, so they're never marked or adjusted.
 const draftedTeams = league => league.teams.filter(teamKey => !TEAM_META[teamKey].favoriteOnly);
-const manualRules = league => LEAGUE_SCORING[league.key].rules.filter(r => !r.rankAuto);
+const manualRules = league => LEAGUE_SCORING[league.key].rules.filter(r => !r.rankAuto && !r.golfAuto);
 const markedCount = league => manualRules(league).reduce((n, r) => n + (getLeagueRuleTeams(league.key, r) || []).length, 0);
 const hasAutoRules = league => LEAGUE_SCORING[league.key].rules.some(r => r.rankAuto);
 
@@ -1403,7 +1403,7 @@ function deskBadgeHtml(teamKey, cls){
 
 function deskRuleRowHtml(league, rule, index){
   const teams = getLeagueRuleTeams(league.key, rule) || [];
-  const auto = !!rule.rankAuto;
+  const auto = !!(rule.rankAuto || rule.golfAuto);
   const chips = teams.map(teamKey => `
     <span class="admin-desk-chip">
       ${deskBadgeHtml(teamKey, 'admin-desk-chip-badge')}

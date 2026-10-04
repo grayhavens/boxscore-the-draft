@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v40';
+const CACHE_NAME = 'boxscore-v43';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -106,12 +106,19 @@ const SHELL_FILES = [
   './js/history.js',
   './js/champions.js',
   './js/lines-math.js',
+  './js/postseason.js',
+  './js/postseason-math.js',
+  './js/postseason-reveal.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png',
-  './icons/logo-header-light.png'
+  './icons/logo-header-light.png',
+  './icons/cfp-emblem-dark.png',
+  './icons/cfp-emblem-light.png',
+  './icons/cfp-wordmark-dark.png',
+  './icons/cfp-wordmark-light.png'
 ];
 
 self.addEventListener('install', (event) => {

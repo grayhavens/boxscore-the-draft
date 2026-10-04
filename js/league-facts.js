@@ -57,6 +57,8 @@ import {
   computeMlbConferenceStandings, computeMlbDivisionStandings
 } from './standings-mlb.js';
 import { standingsDataChanged } from './board.js';
+import { golfStore } from './golf-view.js';
+import { golferAwardCounts } from './golf.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
@@ -440,6 +442,7 @@ export function leagueSeasonUnderway(leagueKey){
 // any league listed in LEAGUE_FACTS_LEAGUES.
 export function getLeagueRuleTeams(leagueKey, rule){
   if(!LEAGUE_FACTS_LEAGUES.includes(leagueKey)) return null;
+  if(rule.golfAuto) return golfRuleTeams(leagueKey, rule);
   if(rule.rankAuto){
     // MLB/WNBA's live ESPN data is still last season's right now (see
     // PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js) — a manual mark has an
@@ -454,11 +457,34 @@ export function getLeagueRuleTeams(leagueKey, rule){
   return currentLeagueFacts(leagueKey)[rule.label] || [];
 }
 
+// A golfAuto rule's answer (js/seasons/pga.js): each drafted golfer's
+// key, once per time they hit the rule, so a golfer with three wins is
+// three entries and the Points tab itemizes three awards. Read off the
+// season's finished events (golfStore, js/golf-view.js), so it's final
+// the moment an event is, never Live. Nothing counts while the league
+// is still on prior-season data, or while the loaded season isn't this
+// year's (January shows last season until its first event is done).
+export const isAutoRule = rule => !!(rule.rankAuto || rule.golfAuto);
+
+function golfRuleTeams(leagueKey, rule){
+  if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return [];
+  if(!golfStore.events || golfStore.season !== new Date().getFullYear()) return [];
+  const kind = rule.golfAuto.each || rule.golfAuto.once;
+  const out = [];
+  LEAGUES.filter(l => l.key === leagueKey).forEach(league => league.teams.forEach(teamKey => {
+    const meta = TEAM_META[teamKey];
+    if(!meta || meta.kind !== 'golfer') return;
+    const count = golferAwardCounts(golfStore.events, meta.espnAthleteId)[kind] || 0;
+    for(let i = 0; i < (rule.golfAuto.once ? Math.min(count, 1) : count); i++) out.push(teamKey);
+  }));
+  return out;
+}
+
 // Both resolve to whether the shared store took the change (false for a
 // no-op).
 export function addLeagueFact(leagueKey, ruleLabel, teamKey){
   const rule = findLeagueRule(leagueKey, ruleLabel);
-  if(!rule || rule.rankAuto || !teamKey) return Promise.resolve(false);
+  if(!rule || isAutoRule(rule) || !teamKey) return Promise.resolve(false);
 
   const cache = factsCacheFor(leagueKey);
   const facts = cache.data || (cache.data = currentLeagueFacts(leagueKey));
@@ -510,9 +536,11 @@ export function teamPointsSplit(teamKey){
   const split = { locked: 0, live: 0, projected: 0 };
   if(!scoring) return split;
   scoring.rules.forEach(r => {
-    if(!(getLeagueRuleTeams(meta.leagueKey, r) || []).includes(teamKey)) return;
-    if(isRuleProvisional(r, meta.leagueKey)) split.live += r.pts;
-    else split.locked += r.pts;
+    // A golfer can hit a rule more than once: one entry per time.
+    const times = (getLeagueRuleTeams(meta.leagueKey, r) || []).filter(k => k === teamKey).length;
+    if(!times) return;
+    if(isRuleProvisional(r, meta.leagueKey)) split.live += r.pts * times;
+    else split.locked += r.pts * times;
   });
   const adj = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey) ? null : getTeamAdjustment(teamKey);
   if(adj) split.locked += adj.pts;
@@ -524,6 +552,7 @@ export function teamPointsSplit(teamKey){
 // page: "1st in each conference", "Bottom 3 of the table", "Clinched on
 // ESPN".
 export function ruleAutoNote(rule){
+  if(rule.golfAuto) return 'From ESPN results';
   const spec = rule.rankAuto;
   if(!spec) return '';
   if(spec.clinched) return 'Clinched on ESPN';
@@ -569,7 +598,7 @@ export function leagueDrafterPoints(leagueKey){
 // standings table above.
 export function leagueFactRowHtml(league, rule){
   const selected = getLeagueRuleTeams(league.key, rule);
-  const isAuto = !!rule.rankAuto;
+  const isAuto = isAutoRule(rule);
 
   const chipsHtml = selected.length
     ? selected.map(teamKey => {

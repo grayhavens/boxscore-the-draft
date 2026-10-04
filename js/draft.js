@@ -1017,16 +1017,23 @@ function scrollToClock(){
   if(from <= 0) return 0;
   if(!fxOn()){ sc.scrollTop = 0; return 0; }
   const t0 = performance.now();
-  let set = from;
+  // The drafter touching the list lets go. (Not a scrollTop mismatch: the
+  // pick's own re-render shifts the content mid-flight and would read as one.)
+  let held = false;
+  const stop = () => { held = true; };
+  const evs = ['touchstart', 'wheel', 'pointerdown'];
+  evs.forEach(ev => sc.addEventListener(ev, stop, { passive: true, once: true }));
   const step = now => {
-    // The drafter scrolled while it ran: let go rather than fight them.
-    if(Math.abs(sc.scrollTop - set) > 2) return;
     const k = Math.min(1, (now - t0) / SCROLL_UP_MS);
+    if(held || k >= 1){
+      evs.forEach(ev => sc.removeEventListener(ev, stop));
+      if(!held) sc.scrollTop = 0;
+      return;
+    }
     // Ease in and out, so it leaves the list gently and settles on the hero.
     const eased = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
     sc.scrollTop = from * (1 - eased);
-    set = sc.scrollTop;
-    if(k < 1) requestAnimationFrame(step);
+    requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
   return SCROLL_UP_MS;
