@@ -33,6 +33,7 @@ import { currentProfileId } from './identity.js';
 import { canAnimateLive } from './motion.js';
 import { fxOn, once, play, pop, later } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
+import { isLeagueLocked } from './season-lock.js';
 import {
   POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, topRung, matchups
 } from './postseason-math.js';
@@ -119,8 +120,8 @@ function ttlMs(c){
 const listeners = [];
 export function onPostseasonData(fn){ listeners.push(fn); }
 
-export function ensurePostseason(key){
-  if(!POSTSEASON_LEAGUES[key] || !inWindow()) return;
+export function ensurePostseason(key, scoring = false){
+  if(!POSTSEASON_LEAGUES[key] || !(inWindow() || scoring)) return;
   const c = cacheFor(key);
   const now = Date.now();
   if(c.loading || now - c.fetchedAt < ttlMs(c) || now - c.failedAt < 5 * 60 * 1000) return;
@@ -184,6 +185,26 @@ export function postseasonLogo(key){
 export function bracketFor(key){
   if(!POSTSEASON_LEAGUES[key] || !inWindow()) return null;
   return cacheFor(key).bracket;
+}
+
+// Scoring's own read of the bracket (getLeagueRuleTeams in js/league-facts.js):
+// the teams that have earned one of the league's postseason rules, so those
+// points need no commissioner mark. Reaching a round or winning the title can't
+// be undone, so these are Locked the moment ESPN has the game final. Unlike
+// the ladder it isn't limited to December through February: once the league's
+// regular season is locked it keeps fetching (the saved copy then serves
+// every visit), so a March total doesn't drop the Super Bowl. null = this rule
+// isn't one ESPN can answer (or no data yet): the caller uses the marks alone.
+// Only the class whose season is the one ESPN is serving.
+export function postseasonRuleTeams(key, rule){
+  if(!POSTSEASON_LEAGUES[key] || PRE_DRAFT) return null;
+  if(seasonLabelYear(key) !== postseasonYear()) return null;
+  if(isLeagueLocked(key)) ensurePostseason(key, true);
+  const bracket = cacheFor(key).bracket;
+  if(!bracket) return null;
+  const s = snapshot(bracket, latestStage(bracket), { rules: LEAGUE_SCORING[key].rules, ownerOf: ownerOf(key) });
+  if(!s.milestones.some(m => m.label === rule.label)) return null;
+  return s.teams.filter(t => t.teamKey && t.milestones.find(m => m.label === rule.label).got).map(t => t.teamKey);
 }
 
 function ownerOf(key){

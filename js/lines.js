@@ -88,7 +88,7 @@ export function teamLines(teamKey){
   const out = [];
   LEAGUE_SCORING[leagueKey].rules.forEach(rule => {
     const spec = rule.rankAuto;
-    if(!spec) return;
+    if(!spec || spec.eliminated) return;
     if(spec.clinched){
       const line = playoffLine(leagueKey, teamKey);
       if(line) out.push({ rule, teamKey, leagueKey, cfg, ...line });

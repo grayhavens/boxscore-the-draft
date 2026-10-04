@@ -196,3 +196,11 @@ test('opponents sit side by side: CFP first round and quarterfinals', () => {
   const qrows = [...new Set(qf.map(t => pos1[t.id].y))].sort((a, b) => a - b).map(y => rowOf(pos1, qf, y));
   assert.deepEqual(qrows, [['IU', 'ALA', 'OSU', 'MIA'], ['UGA', 'MISS', 'TTU', 'ORE']]);
 });
+
+test('a team has earned a postseason rule exactly when its milestone is got', () => {
+  const s = snapshot(nfl(), latestStage(nfl()), opts(NFL_RULES, NFL_OWNERS));
+  const earned = label => s.teams.filter(t => t.teamKey && t.milestones.find(m => m.label === label).got).map(t => t.abbr).sort();
+  assert.deepEqual(earned('Win Super Bowl'), ['SEA']);
+  assert.deepEqual(earned('Make Super Bowl'), ['NE', 'SEA']);
+  assert.deepEqual(earned('Make conference championship'), ['DEN', 'LAR', 'NE', 'SEA']);
+});

@@ -435,7 +435,8 @@ shared across every drafter instead of living in one person's `localStorage`: ma
 a league's Results modal credits every drafter who owns an involved team automatically, stored in
 Workers KV (`LEAGUE_FACTS_LEAGUES` allowlist). `rankAuto` scoring rules (in `LEAGUE_SCORING`) skip
 manual marking entirely and are instead derived live off a loaded standings table (currently EPL
-only — see `getLeagueRuleTeams`). Every league is on this model; the older per-team
+only — see `getLeagueRuleTeams`). `rankAuto: { eliminated: true }` (WNBA "Missing the playoffs") reads ESPN's
+"Eliminated" clincher text, the mirror of `clinched`. Every league is on this model; the older per-team
 achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
 **Points history** (`worker/points-history.js`): one sample per Central-time day of every drafter's projected and
@@ -493,8 +494,10 @@ teams stay grayed on the rung where they lost, a scrubber replays the rounds, an
 (the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
 Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
 "Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
-Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`); they're the
-ladder's own math, not League Facts marks. A chip opens the team page, whose Overview leads with a Postseason section at
+Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`). They also
+score on the Points tab with no commissioner mark: `getLeagueRuleTeams` unions marks with `postseasonRuleTeams`
+(`js/postseason.js`), which reads the same bracket for the draft class whose season ESPN is serving. It keeps fetching
+past February once the league has locked, so a March total keeps the Super Bowl. Marks stay as an override. A chip opens the team page, whose Overview leads with a Postseason section at
 the ladder's stage. The ladder updates in place while you scrub; `keepPostseason`/`restorePostseason` carry it across a
 Standings re-render.
 The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
