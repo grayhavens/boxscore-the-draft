@@ -1,5 +1,5 @@
 /* ============================================================
-   Postseason ladder (Standings → NFL / College FB / College BB →
+   Postseason ladder (Standings → NFL / College FB / College BB / MLB →
    Postseason), and the team page's Postseason section. Design: the
    "Postseason standings" handoff (Regular | Postseason toggle + Ladder,
    direction 4a/4b), and its NCAA Tournament addendum (option 3a).
@@ -16,15 +16,22 @@
    The bracket is ESPN's (fetchEspnPostseason in js/espn.js), turned into
    each stage's view by the pure js/postseason-math.js. It's only fetched
    while that league's postseason can be on (football December through
-   February, the NCAA Tournament March and April); local dev and Pages
-   previews can replay any winter with ?psyear=2025 (the 2025 NFL playoffs
-   and CFP, and the NCAA Tournament of March 2026).
+   February, the NCAA Tournament March and April, MLB late September
+   through November); local dev and Pages previews can replay any winter
+   with ?psyear=2025 (the 2025 MLB postseason, NFL playoffs and CFP, and
+   the NCAA Tournament of March 2026).
 
    College Basketball differs in a few ways. Its ladder shows only drafted
    teams (68 chips would bury them), on a rung per round, the first rung
    ("Tournament") holding the First Four too and growing rows to fit.
    And its rules also score the drafted teams that missed the field
    (postseasonRuleTeams).
+
+   MLB's postseason can be one that doesn't count: while MLB is still
+   showing the season before the draft class's (PRIOR_SEASON_DISPLAY_LEAGUES
+   in js/data.js), its ladder, Home card and team pages show the real
+   postseason with who drafted each team, but no points anywhere, and say
+   so (postseasonScores). Its scoring rules never read it.
 
    A rung's points show in gold once a team has reached it (in every
    league): they're locked for that team. Only reached rungs are on the
@@ -35,13 +42,14 @@
    keepPostseason/restorePostseason carry the live node across one when
    the bracket hasn't changed.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING, PRE_DRAFT, leagueOf } from './data.js';
+import { TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
 import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { teamBadgeHtml as uiBadgeHtml, tagHtml } from './ui.js';
 import { escapeHtml } from './escape.js';
 import { fetchEspnPostseason } from './espn.js';
 import { findNflTeamKeyByEspnAbbr } from './standings-nfl.js';
 import { findCbbTeamKeyByEspnId } from './standings-cbb.js';
+import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { currentProfileId } from './identity.js';
 import { canAnimateLive } from './motion.js';
@@ -111,10 +119,27 @@ export function postseasonYear(key){
 
 // Football: December (the CFP field is set early in the month) through
 // February (the Super Bowl). The NCAA Tournament: March (Selection
-// Sunday) and April (the title game). Outside them there's no postseason
-// to fetch.
+// Sunday) and April (the title game). MLB: from September 25 (the field
+// is set in the season's last days) through November (the World Series
+// ends by early November). Outside them there's no postseason to fetch.
 function inWindow(key){
-  return previewYear(key) !== null || (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(new Date().getMonth());
+  if(previewYear(key) !== null) return true;
+  const now = new Date(), m = now.getMonth();
+  if(key === 'mlb') return m === 9 || m === 10 || (m === 8 && now.getDate() >= 25);
+  return (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(m);
+}
+
+// Does this postseason count for points? Not while the league is still
+// showing the season before the draft class's (MLB's '26 postseason for
+// the '27 class): the ladder and team pages then show no points at all.
+export function postseasonScores(key){
+  return !PRIOR_SEASON_DISPLAY_LEAGUES.includes(key);
+}
+
+// The year the reveal, Home card and labels name the postseason with: the
+// class's season when it counts (seasonLabelYear), else ESPN's own.
+function shownYear(key){
+  return postseasonScores(key) ? seasonLabelYear(key) : postseasonYear(key);
 }
 
 // ---- Data ----
@@ -193,7 +218,14 @@ const NCAA_LOGO = {
   emblem: { light: 'icons/march-madness.png', dark: 'icons/march-madness.png' },
   lockup: true
 };
-const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament' };
+// MLB's postseason lockup (the logo, "Postseason" and the year) is drawn
+// for one year, so it's keyed by ESPN's season: a year without one has no
+// logo (the title is the words alone). The dark file is the light-on-navy
+// artwork with the navy taken out.
+const MLB_LOGOS = {
+  2026: { emblem: { light: 'icons/mlb-postseason-light.png', dark: 'icons/mlb-postseason-dark.png' }, lockup: true }
+};
+const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason' };
 export const postseasonTitle = key => LOGO_TITLE[key] || 'Playoffs';
 // One logo part, both themes (CSS shows the one that matches).
 export function logoImgsHtml(part){
@@ -210,7 +242,7 @@ function ladderTitleHtml(key, S){
     <div class="ps-brand">
       <div class="ps-brand-row" aria-label="${postseasonTitle(key)}">
         <span class="ps-brand-logo${logo.lockup ? ' lockup' : ''}">${logoImgsHtml(logo.emblem)}</span>
-        ${logo.lockup ? '' : `<span class="ps-brand-word${logo.wordmark ? ' mark' : ''}">${logo.wordmark ? logoImgsHtml(logo.wordmark) : 'Playoffs'}</span>`}
+        ${logo.lockup ? '' : `<span class="ps-brand-word${logo.wordmark ? ' mark' : ''}">${logo.wordmark ? logoImgsHtml(logo.wordmark) : S.L.word || 'Playoffs'}</span>`}
       </div>
       ${stage}
     </div>`;
@@ -220,6 +252,7 @@ export function postseasonLogo(key){
   if(!bracketFor(key)) return null;
   if(key === 'cfb') return CFP_LOGO;
   if(key === 'mcbb') return NCAA_LOGO;
+  if(key === 'mlb') return MLB_LOGOS[postseasonYear(key)] || null;
   const logo = cacheFor(key).data && cacheFor(key).data.logo;
   return logo ? { emblem: logo } : null;
 }
@@ -241,7 +274,7 @@ export function bracketFor(key){
 // The NCAA's miss rule ("Don't make NCAA tournament") is every drafted
 // team of the league that isn't in the field, from the moment it's set.
 export function postseasonRuleTeams(key, rule){
-  if(!POSTSEASON_LEAGUES[key] || PRE_DRAFT) return null;
+  if(!POSTSEASON_LEAGUES[key] || PRE_DRAFT || !postseasonScores(key)) return null;
   if(seasonLabelYear(key) !== postseasonYear(key)) return null;
   if(isLeagueLocked(key)) ensurePostseason(key, true);
   const bracket = cacheFor(key).bracket;
@@ -257,17 +290,20 @@ export function postseasonRuleTeams(key, rule){
 
 function ownerOf(key){
   return t => {
-    const teamKey = key === 'nfl' ? findNflTeamKeyByEspnAbbr(t.abbr) : key === 'mcbb' ? findCbbTeamKeyByEspnId(t.id) : findCfbTeamKeyByLocation(t.location);
+    const teamKey = key === 'nfl' ? findNflTeamKeyByEspnAbbr(t.abbr) : key === 'mcbb' ? findCbbTeamKeyByEspnId(t.id)
+      : key === 'mlb' ? findFlatTeamKey('mlb', t.name) : findCfbTeamKeyByLocation(t.location);
     const meta = teamKey && TEAM_META[teamKey];
     if(!meta) return null;
     return { teamKey, owner: PRE_DRAFT || meta.favoriteOnly ? null : meta.draftTeamId };
   };
 }
 
+// A postseason that doesn't count (postseasonScores) is read with no
+// rules: no milestones, nothing locked or in play.
 export function snap(key, stage){
   const scoring = LEAGUE_SCORING[key];
   return snapshot(bracketFor(key), stage, {
-    rules: scoring ? scoring.rules : [],
+    rules: scoring && postseasonScores(key) ? scoring.rules : [],
     ownerOf: ownerOf(key),
     drafters: DRAFT_TEAMS.map(d => ({ id: d.id, name: d.name })),
     me: currentProfileId
@@ -361,6 +397,7 @@ function setPhase(key, phase){
 window.psPhase_nfl = v => setPhase('nfl', v);
 window.psPhase_cfb = v => setPhase('cfb', v);
 window.psPhase_mcbb = v => setPhase('mcbb', v);
+window.psPhase_mlb = v => setPhase('mlb', v);
 
 // Picking another league on Standings brings each ladder back to its
 // latest round.
@@ -372,7 +409,7 @@ export function resetPostseasonStages(){
 
 // ---- Markup ----
 
-const nameOf = (t, key) => (t.teamKey ? TEAM_META[t.teamKey].name : key !== 'nfl' ? t.location : t.name) || t.abbr;
+const nameOf = (t, key) => (t.teamKey ? TEAM_META[t.teamKey].name : POSTSEASON_LEAGUES[key].byLocation ? t.location : t.name) || t.abbr;
 
 export function badgeOf(t){
   if(t.teamKey) return teamBadgeHtml(TEAM_META[t.teamKey]);
@@ -475,8 +512,9 @@ function champInfo(key){
     // total stays in the drafted table below.
     ownerLine: owner ? (owner.me ? 'You' : owner.name) : 'Undrafted',
     mine: !!(owner && owner.me),
-    // What winning the title itself is worth (the rule for the final win).
-    pts: owner ? F.milestones.filter(m => m.win).reduce((n, m) => n + m.pts, 0) : null
+    // What winning the title itself is worth (the rule for the final win);
+    // nothing for a postseason that doesn't count.
+    pts: owner && postseasonScores(key) ? F.milestones.filter(m => m.win).reduce((n, m) => n + m.pts, 0) : null
   };
 }
 
@@ -543,21 +581,24 @@ export function postseasonCardHtml(key){
     </div>`;
 }
 
+// A postseason that doesn't count has no points columns, and its note
+// says so instead of explaining the colors.
 function draftedRowsHtml(key, S){
   const spot = uiFor(key).spot;
+  const scores = postseasonScores(key);
   const rows = S.drafters.filter(d => d.alive.length);
   const gone = S.drafters.filter(d => d.inField && !d.alive.length);
   const rowsHtml = rows.map(d => `
     <button type="button" class="ps-drow${spot === d.id ? ' on' : ''}${d.me ? ' me' : ''}" onclick="psSpot('${key}','${d.id}')" aria-pressed="${spot === d.id}">
       <span class="ps-dname">${d.me ? 'You' : escapeHtml(d.name)}</span>
       <span class="ps-dteams">${d.alive.map(badgeOf).join('')}</span>
-      <span class="ps-dbank">+${d.banked}</span>
-      <span class="ps-dplay">${d.inPlay ? `+${d.inPlay}` : ''}</span>
+      ${scores ? `<span class="ps-dbank">+${d.banked}</span>
+      <span class="ps-dplay">${d.inPlay ? `+${d.inPlay}` : ''}</span>` : ''}
     </button>`).join('');
   const out = gone.length ? `Out: ${gone.map(d => d.me ? 'You' : escapeHtml(d.name)).join(', ')}. ` : '';
   return {
     table: rowsHtml || '<div class="ps-dempty">No drafted teams left.</div>',
-    note: `${out}Gold is locked; blue is still in play.`
+    note: `${out}${scores ? 'Gold is locked; blue is still in play.' : `The ${postseasonYear(key)} postseason doesn’t count for points.`}`
   };
 }
 
@@ -834,7 +875,7 @@ export function restorePostseason(container, kept){
 
 // "Field set · 2026"; the NCAA's field is set on Selection Sunday.
 export function fieldSetEyebrow(key){
-  return `${key === 'mcbb' ? 'Selection Sunday' : 'Field set'} · ${seasonLabelYear(key)}`;
+  return `${key === 'mcbb' ? 'Selection Sunday' : 'Field set'} · ${shownYear(key)}`;
 }
 
 // Home leads with a card for each league whose postseason is on, for as
@@ -862,8 +903,8 @@ export function postseasonHomeHtml(leagueKeys){
     const mineIn = S.teams.filter(t => t.mine);
     const mine = mineIn.filter(t => t.alive).sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99));
     const logo = postseasonLogo(key);
-    const title = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament' }[key];
-    const eyebrow = round === 'Champion' ? `${S.stageLabel} · ${seasonLabelYear(key)}` : round ? `${round} · ${seasonLabelYear(key)}` : fieldSetEyebrow(key);
+    const title = postseasonTitle(key);
+    const eyebrow = round === 'Champion' ? `${S.stageLabel} · ${shownYear(key)}` : round ? `${round} · ${shownYear(key)}` : fieldSetEyebrow(key);
     // Once there's a champion the eyebrow says it all: no sub line.
     const sub = round === 'Champion' ? ''
       : PRE_DRAFT || !currentProfileId
@@ -872,6 +913,8 @@ export function postseasonHomeHtml(leagueKeys){
       : !started ? `You have ${plural(mineIn.length, 'team', 'teams')} in`
       : mine.length ? `You have ${plural(mine.length, 'team', 'teams')} left`
       : 'None of your teams left';
+    // A postseason that doesn't count says so under the title.
+    const noPts = postseasonScores(key) ? '' : 'Doesn’t count for points';
     return `
       <button type="button" class="ps-home" onclick="openPlayoffs('${key}')">
         ${logo ? `<span class="ps-home-logo${logo.lockup ? ' lockup' : ''}">${logoImgsHtml(logo.emblem)}</span>` : ''}
@@ -879,6 +922,7 @@ export function postseasonHomeHtml(leagueKeys){
           <span class="ps-home-eyebrow">${escapeHtml(eyebrow)}</span>
           <span class="ps-home-title">${title}</span>
           ${sub ? `<span class="ps-home-sub">${sub}</span>` : ''}
+          ${noPts ? `<span class="ps-home-sub">${noPts}</span>` : ''}
         </span>
         ${mine.length ? `<span class="ps-home-teams">${mine.slice(0, 4).map(t => `<span class="ps-home-team">${badgeOf(t)}</span>`).join('')}</span>` : ''}
         <span class="ps-home-go" aria-hidden="true">&rsaquo;</span>
@@ -937,13 +981,18 @@ export function postseasonTeamHtml(teamKey){
     const vs = op.team ? `${badgeOf(op.team)}<span>vs ${escapeHtml(nameOf(op.team, key))}</span>` : '<span>vs TBD</span>';
     if(g.final){
       steps.push(stepHtml({ dot: me.won ? 'win' : 'loss', label: escapeHtml(label), html: vs, result: `${me.won ? 'W' : 'L'} ${me.score}–${op.score}${g.ot ? ' OT' : ''}`, tone: me.won ? 'win' : 'loss' }));
+    } else if(g.begun && S.isLatest && key === 'mlb'){
+      // A series under way: its tally so far.
+      const mine = meTop ? g.scoreA : g.scoreB, theirs = meTop ? g.scoreB : g.scoreA;
+      const tally = `${mine > theirs ? 'Leads' : mine < theirs ? 'Trails' : 'Tied'} ${mine}–${theirs}`;
+      steps.push(stepHtml({ dot: g.live ? 'live' : 'next', label: escapeHtml(label), html: vs, result: g.live ? `Live · ${tally}` : tally, tone: g.live ? 'live' : 'next' }));
     } else {
       steps.push(stepHtml({ dot: g.live ? 'live' : 'next', label: escapeHtml(label), html: vs, result: g.live ? 'Live' : 'Next', tone: g.live ? 'live' : 'next' }));
     }
   });
   if(t.champion){
     const final = S.games.find(g => g.round === S.N);
-    steps.push(stepHtml({ dot: 'champ', label: 'Champion', html: `<span>${key === 'nfl' ? `Won ${escapeHtml((final && final.note) || 'the Super Bowl')}` : 'National champions'}</span>`, tone: 'accent' }));
+    steps.push(stepHtml({ dot: 'champ', label: 'Champion', html: `<span>${key === 'nfl' ? `Won ${escapeHtml((final && final.note) || 'the Super Bowl')}` : escapeHtml(S.L.champTitle)}</span>`, tone: 'accent' }));
   }
 
   const rules = t.milestones.map(m => `
@@ -954,12 +1003,16 @@ export function postseasonTeamHtml(teamKey){
     </div>`).join('');
 
   const cell = (lbl, val, cls) => `<div class="stat-cell"><div class="num ${cls}">${val}</div><div class="lbl">${lbl}</div></div>`;
+  // A postseason that doesn't count: the rounds won instead of points,
+  // and a plain "No" for whether it counts.
+  const scores = postseasonScores(key);
+  const won = t.path.filter(g => g.final && (g.top.team === t ? g.top : g.bot).won).length;
   return `
-    <div class="modal-section-title">Postseason${escapeHtml(asOf)}</div>
+    <div class="modal-section-title">${escapeHtml(scores ? 'Postseason' : `${postseasonYear(key)} Postseason`)}${escapeHtml(asOf)}</div>
     <div class="ps-tp-strip">
       ${cell('Status', escapeHtml(t.status), t.champion ? 'accent' : t.alive ? '' : 'mute')}
-      ${cell('Locked', `+${t.banked}`, 'accent')}
-      ${cell('In play', `+${t.inPlay}`, 'prov')}
+      ${scores ? cell('Locked', `+${t.banked}`, 'accent') : cell(key === 'mlb' ? 'Series won' : 'Rounds won', won, '')}
+      ${scores ? cell('In play', `+${t.inPlay}`, 'prov') : cell('Counts', 'No', 'mute')}
     </div>
     <div class="ps-tp-card">${steps.join('')}</div>
     ${t.milestones.length ? `<div class="modal-section-title spaced">Postseason points</div><div class="ps-tp-card ps-ms-list">${rules}</div>` : ''}

@@ -1,5 +1,5 @@
 /* ============================================================
-   Postseason ladder math (Standings → NFL/CFB/CBB → Postseason): pure, no
+   Postseason ladder math (Standings → NFL/CFB/CBB/MLB → Postseason): pure, no
    DOM and no fetches, shared by js/postseason.js and
    tests/postseason-math.test.mjs.
 
@@ -23,10 +23,18 @@
    and a win doesn't move a team up. And one rule scores the teams that
    aren't in the field at all ("Don't make NCAA tournament", a `miss`
    rule), which js/postseason.js answers from the bracket too.
+
+   MLB plays series, not games. ESPN's scoreboard has one event per game
+   ("ALDS - Game 2", with the series tally so far), so seriesEvents folds
+   each series into one event first (its score is the series wins) and
+   the bracket treats a series like a football game: final once someone
+   has won it. A series under way but between games is `begun`, so the
+   round reads as under way. Seeds 1 and 2 in each league skip the Wild
+   Card (byes, from the final standings like the NFL's 1 seeds).
    ============================================================ */
 
 const NFL = {
-  key: 'nfl', fieldSize: 14,
+  key: 'nfl', fieldSize: 14, byeSeeds: 1,
   rounds: ['Wild Card', 'Divisional', 'Conference', 'Super Bowl'],
   roundShort: ['WC', 'DIV', 'CONF', 'SB'],
   rungs: ['Wild Card', 'Divisional', 'Conference', 'Super Bowl', 'Champion'],
@@ -125,7 +133,36 @@ const MCBB = {
   }
 };
 
-export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB };
+// MLB: 12 teams, the Wild Card Series (best of 3), Division Series (5),
+// LCS and World Series (7). Each "game" here is a whole series
+// (seriesEvents), its headline the round: "ALWC", "NLDS", "ALCS",
+// "World Series". The rules are the ones js/playoff-series-math.js reads.
+const MLB = {
+  key: 'mlb', fieldSize: 12, byeSeeds: 2,
+  rounds: ['Wild Card', 'Division Series', 'LCS', 'World Series'],
+  roundShort: ['WC', 'DS', 'LCS', 'WS'],
+  rungs: ['Wild Card', 'Division Series', 'LCS', 'World Series', 'Champion'],
+  stages: ['Field set', 'After Wild Card', 'After Division Series', 'After LCS', 'Champion'],
+  gamesPerRound: [4, 4, 2, 1],
+  champTitle: 'World Series champions', word: 'Postseason',
+  rules: [
+    { re: /win (the )?world series/i, win: true },
+    { re: /make (the )?world series/i, reach: 4 },
+    { re: /\blcs\b/i, reach: 3 }
+  ],
+  roundOf(evt){
+    const h = evt.headline || '';
+    if(/world series/i.test(h)) return 4;
+    if(/\b(AL|NL)CS\b/.test(h)) return 3;
+    if(/\b(AL|NL)DS\b/.test(h)) return 2;
+    if(/\b(AL|NL)WC\b|wild ?card/i.test(h)) return 1;
+    return 0;
+  },
+  groupOf(evt){ const m = /^(AL|NL)/.exec(evt.headline || ''); return m ? m[1] : ''; },
+  noteOf(evt, round){ return round === 4 ? 'World Series' : ''; }
+};
+
+export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB };
 
 // The league's last round, which is also its Champion rung and the stage
 // the champion is crowned on (4 for football, 6 for the NCAA Tournament).
@@ -179,23 +216,76 @@ export function parseScoreboardEvent(event){
       record: overall ? overall.summary : null
     };
   });
+  // A playoff series' tally as of this game (MLB, seriesEvents):
+  // { need, done, wins: { espnId: n } }.
+  const ser = comp.series && comp.series.type === 'playoff' ? comp.series : null;
   return {
     id: String(event.id), date: event.date, headline: note ? note.headline : '',
     week: event.week ? num(event.week.number) : null,
     state: type.state || 'pre', detail: type.detail || type.shortDetail || '',
-    sides
+    sides,
+    ...(ser ? { series: {
+      need: ser.totalCompetitions ? Math.ceil(ser.totalCompetitions / 2) : null, done: !!ser.completed,
+      wins: Object.fromEntries((ser.competitors || []).map(c => [String(c.id), Number(c.wins) || 0]))
+    } } : {})
   };
 }
 
-// The NFL's seeds 1-7 per conference from a season's final standings
-// (ESPN's site standings, `playoffSeed`): { espnId: { seed, conf, record, … } }.
-export function parseNflSeeds(data){
+// MLB: one event per game → one per series, in parseScoreboardEvent's
+// shape, so buildBracket reads a series like a single game. A series is
+// its round ("ALDS", from "ALDS - Game 2") and its two teams. Its sides'
+// scores are series wins: the best of ESPN's tally on its latest game and
+// the finished games counted here (a missed day can't lose a win). It's
+// final ('post') once a side has the wins it needs, live ('in') while one
+// of its games is, and `begun` from its first pitch.
+const SERIES_NEED = { 1: 2, 2: 3, 3: 4, 4: 4 };
+export function seriesEvents(leagueKey, events){
+  const L = POSTSEASON_LEAGUES[leagueKey];
+  const series = new Map();
+  (events || []).forEach(evt => {
+    if(!evt || evt.sides.length !== 2) return;
+    const round = L.roundOf(evt);
+    if(!round) return;
+    const ids = evt.sides.map(s => s.id);
+    const key = `${round}:${ids.slice().sort().join('-')}`;
+    const s = series.get(key) || series.set(key, { round, games: [] }).get(key);
+    s.games.push(evt);
+  });
+  return [...series.values()].map(({ round, games }) => {
+    games.sort((x, y) => String(x.date).localeCompare(String(y.date)));
+    const first = games[0], last = games[games.length - 1];
+    const counted = {};
+    games.filter(g => g.state === 'post').forEach(g => {
+      const w = g.sides.find(x => x.winner) || null;
+      if(w && w.id) counted[w.id] = (counted[w.id] || 0) + 1;
+    });
+    const tally = (games.slice().reverse().find(g => g.series) || {}).series || null;
+    const need = (tally && tally.need) || SERIES_NEED[round] || 4;
+    const sides = first.sides.map(sd => {
+      const wins = sd.id ? Math.max(counted[sd.id] || 0, (tally && tally.wins[sd.id]) || 0) : 0;
+      return { ...sd, score: wins, winner: wins >= need };
+    });
+    const done = sides.some(sd => sd.winner);
+    return {
+      id: first.id, date: first.date, headline: (first.headline || '').split(' - ')[0],
+      week: null, detail: '', sides,
+      state: done ? 'post' : games.some(g => g.state === 'in') ? 'in' : 'pre',
+      begun: games.some(g => g.state !== 'pre'),
+      lastDate: last.date
+    };
+  });
+}
+
+// The playoff seeds per conference (the NFL's 1-7, MLB's 1-6 per league)
+// from a season's final standings (ESPN's site standings, `playoffSeed`):
+// { espnId: { seed, conf, record, … } }.
+export function parseNflSeeds(data, maxSeed = 7){
   const seeds = {};
   ((data && data.children) || []).forEach(conf => {
     ((conf.standings && conf.standings.entries) || []).forEach(e => {
       const stat = name => (e.stats || []).find(s => s.name === name);
       const seed = num(stat('playoffSeed') && stat('playoffSeed').value);
-      if(!seed || seed > 7 || !e.team) return;
+      if(!seed || seed > maxSeed || !e.team) return;
       const overall = (e.stats || []).find(s => s.type === 'total' || s.name === 'overall');
       const logo = (e.team.logos || [])[0];
       seeds[String(e.team.id)] = {
@@ -210,8 +300,9 @@ export function parseNflSeeds(data){
 
 // Events (parseScoreboardEvent) →{ league, games, teams, byes }, or null
 // before the field is set (no first-round game with both sides decided).
-// seeds: NFL only, { espnId: { seed, conf, record } } from the final
-// regular-season standings; CFB reads its seed off ESPN's CFP rank.
+// seeds: NFL and MLB, { espnId: { seed, conf, record } } from the final
+// regular-season standings; CFB reads its seed off ESPN's CFP rank. MLB's
+// events are series (seriesEvents).
 export function buildBracket(leagueKey, events, seeds = {}){
   const L = POSTSEASON_LEAGUES[leagueKey];
   if(!L) return null;
@@ -236,23 +327,25 @@ export function buildBracket(leagueKey, events, seeds = {}){
     });
     const final = evt.state === 'post' && a.score !== null && b.score !== null && !!(a.id && b.id);
     const winner = final ? (a.winner ? a.id : b.winner ? b.id : (a.score > b.score ? a.id : b.id)) : null;
+    const live = evt.state === 'in';
     games.push({
       id: evt.id, date: evt.date, round, playIn, group: L.groupOf(evt), note: L.noteOf(evt, round),
       a: a.id, b: b.id, scoreA: a.score, scoreB: b.score,
-      final, live: evt.state === 'in', winner,
+      final, live, begun: final || live || !!evt.begun, winner,
       ot: final && /OT/.test(evt.detail || '')
     });
   });
   const firstRound = games.filter(g => g.round === 1);
   if(!firstRound.some(g => g.a && g.b)) return null;
   games.sort((x, y) => x.round - y.round || String(x.date).localeCompare(String(y.date)));
-  // A bye: in the field with no first-round game. The NFL's 1 seeds are
-  // known from the standings before their first game is set. (The First
-  // Four are first-round games here, so the NCAA has no byes.)
+  // A bye: in the field with no first-round game. The NFL's 1 seeds and
+  // MLB's 1 and 2 seeds (`byeSeeds`) are known from the standings before
+  // their first game is set. (The First Four are first-round games here,
+  // so the NCAA has no byes.)
   const inRound1 = new Set(firstRound.flatMap(g => [g.a, g.b]).filter(Boolean));
-  if(leagueKey === 'nfl'){
+  if(L.byeSeeds){
     Object.entries(seeds).forEach(([id, s]) => {
-      if(s.seed === 1 && !teams[id]) teams[id] = { id, abbr: s.abbr || '', location: s.location || '', name: s.name || '', displayName: s.displayName || '', logo: s.logo || null, seed: 1, conf: s.conf || '', record: s.record || null };
+      if(s.seed <= L.byeSeeds && !teams[id]) teams[id] = { id, abbr: s.abbr || '', location: s.location || '', name: s.name || '', displayName: s.displayName || '', logo: s.logo || null, seed: s.seed, conf: s.conf || '', record: s.record || null };
     });
   }
   const byes = Object.keys(teams).filter(id => !inRound1.has(id));
@@ -275,7 +368,7 @@ export function latestStage(bracket){
 // Has any postseason game kicked off? The Standings card opens on
 // Postseason from then on.
 export function postseasonStarted(bracket){
-  return !!bracket && bracket.games.some(g => g.final || g.live);
+  return !!bracket && bracket.games.some(g => g.begun);
 }
 
 // What the Home banner calls the postseason right now: the round being
@@ -289,7 +382,7 @@ export function currentRoundName(bracket){
   if(!postseasonStarted(bracket)) return null;
   const next = bracket.games.filter(g => g.round === latest + 1);
   const playInLeft = next.some(g => g.playIn && !g.final);
-  const mainStarted = next.some(g => !g.playIn && (g.final || g.live));
+  const mainStarted = next.some(g => !g.playIn && g.begun);
   return playInLeft && !mainStarted ? 'First Four' : L.rounds[latest];
 }
 
@@ -374,7 +467,7 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
   }).sort((a, b) => (b.alive.length > 0) - (a.alive.length > 0) || (b.banked + b.inPlay) - (a.banked + a.inPlay) || b.banked - a.banked);
 
   const champ = teams.find(t => t.champion) || null;
-  const started = games.filter(g => g.round === stage + 1 && (g.final || g.live));
+  const started = games.filter(g => g.round === stage + 1 && (g.final || g.live || (isLatest && g.begun)));
   const midRound = isLatest && stage < N && started.length > 0;
   // Only First Four games so far: that's what's under way.
   const roundNow = started.length && started.every(g => g.playIn) ? 'First Four' : L.rounds[stage];
