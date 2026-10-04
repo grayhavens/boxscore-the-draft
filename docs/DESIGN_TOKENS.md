@@ -23,7 +23,7 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--hairline` / `--hairline-strong` | ink 7% / 14% | same formula | borders |
 | `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
-| `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | darker gold 12% / 40% / 16% | tints |
+| `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | fill gold 20% / 55% / 26% (warm, like Send) | tints |
 | `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4A6FB8` | **live points that can change** |
 | `--live` (+`-soft`, `-border`) | `#E5484D` | same | **game in progress** |
 | `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#2E8A5C` / `#C2453B` / `#8A7430` | results |
