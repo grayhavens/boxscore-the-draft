@@ -521,6 +521,22 @@ series is won (a game's series tally is only as of that game). The round is the 
 Game 3"), matched by label like the NFL ladder. Settled days are saved per device (`bxPlayoffDay:<league>:<day>`).
 The MLB LCS / World Series headlines are expected, not yet seen. The NBA play-in is its own season type and never counts.
 
+**College football bowls and conference titles** (`js/cfb-bowls.js`, pure `js/cfb-bowls-math.js`, tests against
+`tests/fixtures/espn-cfb-bowls-2025.json`): "Make a bowl game", "Win a bowl game" and "Win conference" score from
+ESPN's FBS scoreboard, every day December 1 to January 3 (`js/espn-days.js` saves settled days per device, shared with
+the NBA/NHL/MLB rounds). A bowl is a post-season game whose headline says "Bowl" and not "College Football Playoff"
+(CFP games, even at a bowl, are the ladder's, and don't count as a bowl); a conference title is a regular-season game
+headlined "<Conference> Championship". "Don't make a bowl" stays a commissioner mark: 5-7 teams play in bowls, 6-6
+teams get left out, and the feed doesn't say which teams are FBS.
+
+**EPL cups and European spots** (`js/epl-cups.js`, pure `js/epl-cups-math.js`, tests against
+`tests/fixtures/espn-epl-cups-2025.json`): "Win League Cup" / "Win FA Cup" read the winner of the final (the
+competition's calendar gives the day as text, in a window that ends after the game; kept for good once over), and
+"Make Champions League (any stage)" / "Make Europa League" read each UEFA competition's league-phase table
+(`apis/v2 .../uefa.*/standings?season=<year>`, hourly, from September). ESPN has no qualifying rounds, so "make" means
+the main stage; a club dropped from the Champions League into the Europa League's knockout playoff isn't in that
+table. A cup winner replaces any commissioner mark (the rules are exclusive); the others union with marks.
+
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
 actually being played right now. Until that next season starts, their Standings tab and team pages
