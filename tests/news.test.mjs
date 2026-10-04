@@ -39,11 +39,22 @@ test('a headline with a unique nickname matches; a shared one needs the full nam
   assert.equal(matchTeams({ title: 'New York Giants bench the starter' }, TEAMS).includes(giants.key), true);
 });
 
-test('matching ignores partial words and catches the full name in the summary', () => {
+test('matching ignores partial words, and a lone passing mention in the summary', () => {
   const nba = TEAMS.filter(t => t.bucket === 'nba');
-  assert.deepEqual(matchTeams({ title: 'Nuggetsmania returns' }, nba), []);
   const nuggets = byName('nba', 'Nuggets');
-  assert.deepEqual(matchTeams({ title: 'Big win', summary: 'The Denver Nuggets closed on a 12-0 run.' }, nba), [nuggets.key]);
+  assert.deepEqual(matchTeams({ title: 'Nuggetsmania returns' }, nba), []);
+  // Named once, deep in the text: not about them.
+  assert.deepEqual(matchTeams({ title: 'Big win', summary: 'The Denver Nuggets closed on a 12-0 run.' }, nba), []);
+  // Named in the lead: about them.
+  assert.deepEqual(matchTeams({ title: 'Big win', description: 'The Denver Nuggets closed on a 12-0 run.' }, nba), [nuggets.key]);
+  // Named twice in the summary: about them.
+  assert.deepEqual(matchTeams({ title: 'Big win', summary: 'The Denver Nuggets closed strong. Denver Nuggets coach spoke after.' }, nba), [nuggets.key]);
+});
+
+test('a roundup that mentions a club once in passing does not land on its page', () => {
+  const epl = TEAMS.filter(t => t.bucket === 'epl');
+  const article = { title: 'Arsenal extend lead at the top', description: 'Mikel Arteta praised his side.', summary: 'Arsenal won 2-0. Elsewhere Manchester City dropped points.' };
+  assert.deepEqual(matchTeams(article, epl), [byName('epl', 'Arsenal').key]);
 });
 
 test('parseArticle keeps the useful fields and drops link-less rows', () => {
@@ -109,6 +120,22 @@ test('refreshNews stops at the monthly cap and starts a new month at zero', asyn
   const nextMonth = await refreshNews(env, {}, { cachedUpstreamFetch: fakeUpstream([]), now: Date.parse('2026-11-01T12:00:00Z') });
   assert.equal(nextMonth.calls, 4);
   assert.equal(nextMonth.callsThisMonth, 4);
+});
+
+test('refresh with reset=1 clears stored stories but keeps the call count', async () => {
+  const env = { LEAGUE_FACTS: fakeKv(), PERIGON_API_KEY: 'k' };
+  env.LEAGUE_FACTS.data.set('news@nfl', JSON.stringify({ at: 1, teams: { chiefs: [{ id: 'old' }] } }));
+  env.LEAGUE_FACTS.data.set('news@meta', JSON.stringify({ cursor: 0, month: '2026-10', calls: 20 }));
+  env.LEAGUE_FACTS.delete = async k => { env.LEAGUE_FACTS.data.delete(k); };
+  env.ADMIN_PASSWORD = 'pw';
+  const json = (data, status, headers) => new Response(JSON.stringify(data), { status, headers });
+  const url = new URL('https://w.test/news/refresh?reset=1');
+  const res = await handleNews(new Request(url, { method: 'POST' }), url, env, {}, {}, {
+    json, isAuthorized: async () => true, cachedUpstreamFetch: fakeUpstream([]), group: 'thedraft'
+  });
+  assert.equal(res.status, 200);
+  assert.equal(await env.LEAGUE_FACTS.get('news@nfl', 'json'), null);
+  assert.equal((await env.LEAGUE_FACTS.get('news@meta', 'json')).calls, 24);
 });
 
 test('a failed call counts, stops the batch and leaves the cursor on that chunk', async () => {

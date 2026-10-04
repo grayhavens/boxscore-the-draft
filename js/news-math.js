@@ -108,18 +108,29 @@ function mentions(text, phrase){
   return new RegExp(`(^|[^a-z0-9])${escapeRegex(phrase.toLowerCase())}($|[^a-z0-9])`).test(text);
 }
 
-// Keys of the teams an article is about. Full name anywhere in the
-// headline, description or summary; or a unique nickname in the headline
-// or description.
+// Keys of the teams an article is about. Perigon finds every article whose
+// body mentions a team, so a story can name Manchester City once in
+// passing, which is not news about them. A team counts only when it's the
+// subject: its full name in the headline or description (the lead), or a
+// unique nickname there. The longer summary alone isn't enough, unless it
+// names the team at least twice.
 export function matchTeams(article, teams){
   const head = `${article.title || ''} ${article.description || ''}`.toLowerCase().replace(/[’']/g, '’');
-  const all = `${head} ${(article.summary || '').toLowerCase().replace(/[’']/g, '’')}`;
+  const summary = (article.summary || '').toLowerCase().replace(/[’']/g, '’');
   const keys = [];
   for(const t of teams){
     const full = t.full.replace(/'/g, '’');
-    if(mentions(all, full) || (t.nickAlone && mentions(head, t.nick))) keys.push(t.key);
+    if(mentions(head, full) || (t.nickAlone && mentions(head, t.nick)) || mentionCount(summary, full) >= SUMMARY_MENTIONS) keys.push(t.key);
   }
   return keys;
+}
+
+// Times in a row a team must be named in the summary alone to count.
+const SUMMARY_MENTIONS = 2;
+
+function mentionCount(text, phrase){
+  const found = text.match(new RegExp(`(^|[^a-z0-9])${escapeRegex(phrase.toLowerCase())}(?![a-z0-9])`, 'g'));
+  return found ? found.length : 0;
 }
 
 // One Perigon article, cut down to what the app shows. Null when it has
