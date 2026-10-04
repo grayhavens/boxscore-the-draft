@@ -5356,8 +5356,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .draft-poll-count{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .draft-poll-foot{ margin-top: 10px; font-size: var(--fs-12); color: var(--text-mute); }
 
-/* Home: one slim link row into Points > Activity */
-#activity-home:empty{ display: none; }
+/* Slim link row (Points > Activity link, History champion link) */
 .act-dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
 .act-link{
   display: grid;

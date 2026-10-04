@@ -48,7 +48,7 @@ import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
 import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES, wasSeasonUnderwayAt } from './season-phase.js';
 import { currentDraftTeamId } from './board.js';
 import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenSheet, obSinceTs, obSinceLabel } from './overall.js';
-import { currentBonusHolders, loadBonusInputs } from './compare.js';
+import { currentBonusHolders } from './compare.js';
 import { ACTIVE_SEASON_ID } from './season.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import {
@@ -71,7 +71,6 @@ import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-
 import { activityRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 const FEED_KEY = 'teamDashboardActivityFeed';
 const SEEN_KEY = 'teamDashboardActivitySeen';
-const HOME_WINDOW_MS = 48 * 60 * 60 * 1000;
 const DETECT_COOLDOWN_MS = 5 * 60 * 1000;
 const INPUTS_WAIT_MS = 8000;
 // v2: totals/ranks are projected, plus per-league `locked` and `live`.
@@ -130,13 +129,13 @@ export function unseenCount(){
   return visibleEvents().filter(e => e.ts > seen).length;
 }
 
-// `quiet` is for the Points render itself: repaint only the Home link
-// (the caller is already drawing the badge-free Points page).
+// `quiet` is for the Points render itself: the caller is already drawing
+// the badge-free Points page, so nothing else repaints.
 export function markActivitySeen(quiet){
   const newest = visibleEvents().reduce((m, e) => Math.max(m, e.ts), 0);
   if(newest <= lastSeen()) return;
   try { localStorage.setItem(SEEN_KEY, String(newest)); } catch (e){}
-  if(quiet) renderActivityHomeLink(); else refreshActivityUi();
+  if(!quiet) refreshActivityUi();
 }
 
 // ---- Fetch / store ----
@@ -739,43 +738,9 @@ export function activityRecentHtml(drafterId){
   }).join('')}</div>`;
 }
 
-// Home: one slim row into Points > Activity. Hidden entirely when nothing
-// moved in the last 48h.
-export function renderActivityHomeLink(){
-  const el = document.getElementById('activity-home');
-  if(!el) return;
-  const recent = visibleEvents().filter(e => Date.now() - e.ts < HOME_WINDOW_MS);
-  if(!recent.length){ el.innerHTML = ''; return; }
-  const unseen = unseenCount();
-  const latest = recent[0];
-  // Unseen: what changed, with the latest line under it. All seen: just
-  // where you stand, one line.
-  let title, sub = '';
-  if(unseen){
-    const d = myDelta(latest);
-    title = `${unseen} point change${unseen === 1 ? '' : 's'} since you last looked`;
-    sub = `${escapeHtml(latest.title)}${d ? ` &middot; <span class="act-delta-inline ${d.cls}">${d.html}</span>` : ''}`;
-  } else {
-    const me = obRankedRows().find(r => r.id === currentDraftTeamId);
-    const total = me && (me.total < 0 ? '&minus;' + Math.abs(me.total) : me.total);
-    title = me ? `Projected ${me.rankLabel.startsWith('T') ? 'T' + ordinal(me.rankLabel.slice(1)) : ordinal(me.rankLabel)} &middot; ${total} pts` : 'Points';
-  }
-  el.innerHTML = `
-    <button type="button" class="act-link ${unseen ? 'unseen' : ''}" onclick="obOpenActivity()">
-      ${unseen ? '<span class="act-dot"></span>' : ''}
-      <span class="act-link-body">
-        <span class="act-link-title">${title}</span>
-        ${sub ? `<span class="act-link-sub">${sub}</span>` : ''}
-      </span>
-      <span class="act-link-go">Points &rsaquo;</span>
-    </button>
-  `;
-}
-
-// The Home link, and the Points tab (for its badge and the feed itself)
-// when it's the open view, share one refresh.
+// The Points tab (for its badge and the feed itself) when it's the open
+// view repaints on a refresh.
 export function refreshActivityUi(){
-  renderActivityHomeLink();
   const view = document.getElementById('view-overall');
   if(view && view.classList.contains('active') && window.renderOverallStandings) window.renderOverallStandings();
 }
@@ -785,9 +750,6 @@ export function refreshActivityUi(){
 
 export function startActivity(){
   refreshActivityUi();
-  // Home's "Projected 1st · 36 pts" includes the league bonus, which
-  // reads standings tables Home doesn't otherwise load.
-  loadBonusInputs().then(renderActivityHomeLink);
   loadActivity();
   setTimeout(() => runActivityDetection(), 6000);
   document.addEventListener('visibilitychange', () => {
