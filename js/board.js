@@ -77,7 +77,7 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
-import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason } from './postseason.js';
+import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
@@ -289,6 +289,7 @@ onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
 
 // A playoffs card's tap: Standings, on that league, where the reveal plays.
 window.openPlayoffs = key => {
+  openPostseason(key);
   setStandingsFilter(key);
   window.scrollTo(0, 0);
   switchView('standings');
@@ -431,7 +432,7 @@ export const LEAGUE_FULL_LABELS = {
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-// NFL and CFB get a slot for the Regular | Postseason switch once a
+// NFL, CFB, College BB and MLB get a slot for the Regular | Postseason switch once a
 // playoff field is set (js/postseason.js), filled once the playoffs reveal
 // (js/postseason-reveal.js) has introduced it; the season label moves under
 // the name to make room. `afterHtml` sits below the card (the postseason's drafted
@@ -443,8 +444,12 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
+  // On its Postseason view (MLB's '26 postseason), the note names that.
+  const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
-    ? `<div class="prior-season-note">Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.</div>`
+    ? `<div class="prior-season-note">${onPostseason
+      ? `The '${shortYear(ACTIVE_SEASON_ID)} postseason doesn't count — points start with the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`
+      : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`}</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
     ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
@@ -453,7 +458,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   const topHtml = fieldSet
     ? `<div class="league-tab-top ps-top">
           <div class="ps-title"><div class="league-tab-left">${headerLabel}</div><span class="n">${league.season}</span></div>
-          <div class="ps-phase-slot">${postseasonToggleHtml(league.key)}</div>
+          <div class="ps-phase-slot">${postseasonToggleHtml(league.key, postseasonPhase(league.key, standingsFilterKey === 'all'))}</div>
         </div>`
     : `<div class="league-tab-top">
           <div class="league-tab-left">${headerLabel}</div>
@@ -471,11 +476,11 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
 }
 
-// NFL / CFB: the ladder in place of the card's body while Postseason is
+// NFL / CFB / College BB / MLB: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
 function postseasonBlockHtml(league){
   ensurePostseason(league.key);
-  if(postseasonPhase(league.key) !== 'post') return null;
+  if(postseasonPhase(league.key, standingsFilterKey === 'all') !== 'post') return null;
   return leagueBlockHtml(league, postseasonCardHtml(league.key), { afterHtml: postseasonDraftedHtml(league.key) });
 }
 
@@ -652,6 +657,8 @@ export function renderStandings(){
     }
 
     if(league.key === 'mcbb'){
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
       // Same Rank/Person split as CFB above, for the same reason (365 D1
       // teams across 31 conferences has no useful single "League" table
       // view) — see js/standings-cbb.js's header comment. Unlike CFB,
@@ -759,6 +766,10 @@ export function renderStandings(){
       computeDivisionStandings: computeNhlDivisionStandings, renderGroupHeader: renderNhlGroupHeader,
       getConferenceSubMode: getNhlConferenceSubMode
     });
+    if(league.key === 'mlb'){
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
+    }
     if(league.key === 'mlb') return renderFlatLeagueBlock(league, {
       cache: espnMlbStandingsCache, fetchCached: fetchEspnMlbStandingsCached, getMode: getMlbStandingsMode,
       conferences: mlbConferences, computeConferenceStandings: computeMlbConferenceStandings,

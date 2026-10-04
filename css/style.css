@@ -409,7 +409,19 @@ body{
   object-fit: contain;
   padding: 2px;
   box-sizing: border-box;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+  filter: drop-shadow(var(--crest-img-shadow));
+}
+
+/* A team with a bright crest for dark backgrounds (badgeUrlDark in
+   TEAM_META, e.g. the Padres, the Yankees) gets both crests (teamBadgeHtml
+   in js/ui.js, the team page's hero): the bright one in the dark theme,
+   its own crest in light, where the bright one washes into white. */
+.crest-light{ display: none !important; }
+:root[data-theme="light"] .crest-light{ display: block !important; }
+:root[data-theme="light"] .crest-dark{ display: none !important; }
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"] .crest-light{ display: block !important; }
+  :root[data-theme="auto"] .crest-dark{ display: none !important; }
 }
 
 .team-name{
@@ -2733,7 +2745,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   padding-top: 0;
 }
 
-/* ---- Postseason (js/postseason.js): NFL / CFB's Regular | Postseason
+/* ---- Postseason (js/postseason.js): NFL / CFB / College BB's Regular | Postseason
    switch, the ladder, its scrubber and champion moment, and the drafted
    table under the card. ---- */
 .league-tab-top.ps-top{ align-items: center; }
@@ -2766,23 +2778,23 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-revealing .ps-phase-slot.open .ps-phase.big{ transform: scale(1.12); }
 .ps-phase.loud .seg{ animation: ps-tg-glow 1.1s ease-in-out 300ms 3; }
 .ps-phase.loud .seg-btn:last-child{ color: var(--accent); }
-.ps-phase.loud.on-post .seg-thumb{ background: var(--accent); }
+.ps-phase.loud.on-post .seg-thumb{ background: var(--accent-fill); }
 .ps-phase.loud.on-post .seg-btn:last-child{ color: var(--on-accent); }
 .ps-tg-ring{
-  position: absolute; inset: 0; border-radius: var(--r-pill); border: 2px solid var(--accent);
+  position: absolute; inset: 0; border-radius: var(--r-pill); border: 2px solid var(--accent-fill);
   opacity: 0; pointer-events: none;
   animation: ps-tg-ring 1.3s var(--ease-out) 2 both;
 }
 @keyframes ps-tg-ring{ from{ transform: scale(1); opacity: 0.9; } to{ transform: scale(1.5, 2.2); opacity: 0; } }
 @keyframes ps-tg-glow{
   0%, 100%{ box-shadow: 0 0 0 0 transparent; }
-  50%{ box-shadow: 0 0 0 2px var(--accent), 0 0 16px 4px var(--accent-glow); }
+  50%{ box-shadow: 0 0 0 2px var(--accent-fill), 0 0 16px 4px var(--accent-glow); }
 }
 
 .ps-hero{ max-height: 0; opacity: 0; overflow: hidden; transition: max-height 640ms var(--ease-out), opacity 360ms; }
-.ps-hero.open{ max-height: 250px; opacity: 1; }
+.ps-hero.open{ max-height: var(--ps-hero-h, 250px); opacity: 1; }
 .ps-hero-in{
-  height: 250px; box-sizing: border-box; padding: 18px 16px;
+  height: var(--ps-hero-h, 250px); box-sizing: border-box; padding: 18px 16px;
   display: flex; flex-direction: column;
   background: var(--accent-soft); border-bottom: 1px solid var(--divider);
 }
@@ -2841,6 +2853,10 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 @media (prefers-color-scheme: light){
   :root[data-theme="auto"] .ps-hero-intro.lockup{ flex-direction: column; gap: 10px; }
 }
+/* March Madness: one wide lockup that opens alone and docks alone. */
+.ps-hero-logo-slot.lockup{ width: 85px; height: 36px; margin: 0; }
+.ps-hero-intro.solo .ps-hero-logo{ width: auto; height: 96px; }
+.ps-hero-intro.solo .ps-hero-logo img{ width: auto; }
 .ps-logo-light{ display: none !important; }
 :root[data-theme="light"] .ps-logo-light{ display: block !important; }
 :root[data-theme="light"] .ps-logo-dark{ display: none !important; }
@@ -2848,7 +2864,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   :root[data-theme="auto"] .ps-logo-light{ display: block !important; }
   :root[data-theme="auto"] .ps-logo-dark{ display: none !important; }
 }
-.ps-hero-grid{ height: 110px; flex: none; margin-top: 14px; }
+.ps-hero-grid{ height: var(--ps-hero-grid, 110px); flex: none; margin-top: 14px; }
 .ps-hero-mine{
   display: flex; align-items: baseline; gap: 8px;
   opacity: 0; transform: translateY(8px); transition: opacity 320ms, transform 420ms var(--ease-out);
@@ -2860,7 +2876,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-fly{ position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 2; pointer-events: none; }
 .ps-fly-chip{ opacity: 0; transition: transform 760ms var(--ease-spring), opacity 260ms; }
 .ps-fly-chip.in{ opacity: 1; }
-.ps-fly-chip.mine .ps-chip-badge{ box-shadow: 0 0 0 2px var(--accent); }
+.ps-fly-chip.mine .ps-chip-badge{ box-shadow: 0 0 0 2px var(--accent-fill); }
 .ps-fly-chip.mine.landed .ps-chip-badge{ box-shadow: 0 0 0 2px transparent; }
 .ps-fly-chip.seeded .ps-chip-owner{ color: var(--text-mute); }
 .ps-fly-chip.seeded.mine .ps-chip-owner, .ps-fly-chip.mine .ps-chip-owner{ color: var(--accent); }
@@ -2878,6 +2894,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-brand-row{ display: flex; align-items: center; gap: 6px; }
 .ps-brand-logo{ display: block; height: 28px; flex: none; margin-left: -3px; }
 .ps-brand-logo img{ display: block; height: 100%; width: auto; }
+.ps-brand-logo.lockup{ height: 36px; margin-left: 0; }
 .ps-brand-word{ display: block; font: 700 22px/1.05 var(--font-display); letter-spacing: -0.4px; white-space: nowrap; }
 .ps-brand-word.mark{ height: 30px; }
 .ps-brand-word.mark img{ display: block; height: 100%; width: auto; }
@@ -2906,7 +2923,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   border-radius: var(--r-sm);
   display: flex; justify-content: flex-end; align-items: flex-start;
   padding: 7px 4px 0;
-  transition: background var(--dur-move), border-color var(--dur-move), transform 520ms var(--ease-out), opacity 420ms;
+  transition: background var(--dur-move), border-color var(--dur-move), transform 520ms var(--ease-out), height 520ms var(--ease-out), opacity 420ms;
 }
 .ps-rung.unset{ opacity: 0 !important; pointer-events: none; }
 .ps-rung:first-child, .ps-rung.unset + .ps-rung:not(.unset){ border-top-color: transparent; }
@@ -2919,7 +2936,16 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 .ps-rung.below .ps-rung-label > span:first-child{ color: var(--text-mute); }
 .ps-rung.frontier .ps-rung-label > span:first-child{ color: var(--accent); }
-.ps-rung-pts{ font: 700 var(--fs-13) var(--font-display); color: var(--text-mute); }
+/* A rung's points are gold once a team has reached it (locked for that
+   team); one nobody has reached yet is hidden (unset) and stays gray. In
+   the playoffs reveal they go gold once the badges land (ps-pts-wait). */
+.ps-rung-pts{ font: 700 var(--fs-13) var(--font-display); color: var(--text-mute); transition: color 300ms; }
+.ps-rung:not(.unset) .ps-rung-pts{ color: var(--accent); }
+.ps-pts-wait .ps-rung:not(.unset) .ps-rung-pts{ color: var(--text-mute); }
+.ps-empty{
+  position: absolute; left: 4px; top: 26px; right: var(--ps-label-w);
+  font: 600 var(--fs-13) var(--font-ui); color: var(--text-mute);
+}
 
 /* A game still to play: a small gray "v" between its two chips (pairsHtml),
    fading in once they've settled side by side. */
@@ -2943,7 +2969,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-chip-badge .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-chip-owner{ font-size: 9px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 10px; }
 .ps-chip.mine .ps-chip-owner{ color: var(--accent); }
-.ps-chip.out{ opacity: 0.4; filter: grayscale(1); }
+.ps-chip.out{ opacity: var(--ps-out-opacity); filter: var(--ps-out-filter); }
 .ps-chip.out .ps-chip-owner{ color: var(--text-mute); }
 /* Loses first, then grays: the fade waits for the move. */
 .ps-chip.just-out{ transition-delay: 0ms, 500ms, 500ms; }
@@ -2953,7 +2979,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-fx{ position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .ps-bloom, .ps-ring{ position: absolute; border-radius: 50%; opacity: 0; will-change: transform, opacity; }
 .ps-bloom{ left: -55px; top: -55px; width: 110px; height: 110px; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
-.ps-ring{ left: -33px; top: -33px; width: 66px; height: 66px; box-sizing: border-box; border: 1.5px solid var(--accent); }
+.ps-ring{ left: -33px; top: -33px; width: 66px; height: 66px; box-sizing: border-box; border: 1.5px solid var(--accent-fill); }
 .ps-rung-flash{
   position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
   background: var(--accent-soft);
@@ -2995,13 +3021,16 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   outline: none;
 }
 .ps-scrub:focus-visible .ps-thumb{ box-shadow: 0 0 0 3px var(--accent-soft), var(--scrub-thumb-shadow); }
+/* The stepper's fill and thumb are shapes: the yellow fill gold, like the
+   chat's Send button (--accent is the darker text gold in light). Same for
+   every gold ring and dot in the postseason views. */
 .ps-rail, .ps-fill{ position: absolute; left: 14px; top: 14px; height: 4px; border-radius: 2px; }
 .ps-rail{ right: 14px; background: var(--seg-track); }
-.ps-fill{ width: calc((100% - 28px) * var(--f)); background: var(--accent); transition: width var(--dur-move) var(--ease-out); }
+.ps-fill{ width: calc((100% - 28px) * var(--f)); background: var(--accent-fill); transition: width var(--dur-move) var(--ease-out); }
 .ps-thumb{
   position: absolute; top: 5px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%;
   left: calc(14px + (100% - 28px) * var(--f));
-  background: var(--accent); box-shadow: var(--scrub-thumb-shadow);
+  background: var(--accent-fill); box-shadow: var(--scrub-thumb-shadow);
   transition: left var(--dur-move) var(--ease-spring);
 }
 .ps-stops{ position: absolute; left: 0; right: 0; top: 34px; display: flex; justify-content: space-between; }
@@ -3054,7 +3083,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-step-dot.loss{ background: var(--loss); }
 .ps-step-dot.next{ background: var(--provisional); box-shadow: 0 0 0 3px var(--provisional-soft); }
 .ps-step-dot.live{ background: var(--live); }
-.ps-step-dot.champ{ background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ps-step-dot.champ{ background: var(--accent-fill); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ps-step-main{ display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ps-step-label{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
 .ps-step-title{ display: flex; align-items: center; gap: 8px; font: 700 var(--fs-15) var(--font-ui); min-width: 0; }
@@ -5307,13 +5336,14 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home:active{ transform: scale(0.98); }
 .ps-home-logo{ flex: none; width: 40px; height: 44px; display: flex; justify-content: center; }
 .ps-home-logo img{ display: block; height: 100%; width: auto; }
+.ps-home-logo.lockup{ width: auto; height: 26px; align-self: center; }
 .ps-home-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ps-home-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ps-home-title{ font: 700 var(--fs-17)/1.2 var(--font-display); letter-spacing: -0.2px; }
 .ps-home-sub{ font: 600 var(--fs-13) var(--font-ui); color: var(--text-sub); }
 .ps-home-teams{ flex: none; display: flex; }
 .ps-home-team + .ps-home-team{ margin-left: -6px; }
-.ps-home-team{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
+.ps-home-team{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px var(--accent-fill); background: var(--surface); }
 .ps-home-team .badge{ width: 28px; height: 28px; flex-basis: 28px; border-radius: 8px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-home-go{ flex: none; font-size: 22px; line-height: 1; color: var(--accent); }
 .draft-home .set-row{ border: 1px solid var(--hairline); }

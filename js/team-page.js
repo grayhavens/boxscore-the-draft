@@ -33,7 +33,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import {
-  teamBadgeHtml, crestSrc, updateUrlParam, segmentedControlHtml, retryPending, abbrFromName, NEUTRAL_BADGE_STYLE,
+  teamBadgeHtml, crestImgsHtml, updateUrlParam, segmentedControlHtml, retryPending, abbrFromName, NEUTRAL_BADGE_STYLE,
   EASE_SPRING, EASE_OUT, MOVE_SLOP, SWIPE_COMMIT, FLING_VELOCITY, RUBBER_BAND, SNAP_BACK_MS
 } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
@@ -291,6 +291,11 @@ const rect = el => { const r = el.getBoundingClientRect(); return { x: r.left, y
 // `under` is the view the row sits on; `src` is teamSource's. Parts it
 // has no copy of (a Home row's owner, a Compare team's name) fade in on
 // the hero instead of flying.
+// The hero's crest: the first thing in its row that's drawn (a team with a
+// crest for each theme has two images there, one hidden by CSS).
+const shownIn = (els, fallback = null) => [...els].find(el => el.getClientRects().length) || fallback;
+const heroCrestOf = root => { const row = root.querySelector('.team-hero-row'); return row ? shownIn(row.children, row.firstElementChild) : null; };
+
 function runRowMotion({ opening, src, page, under, onDone }){
   const row = src.el;
   const D = opening ? ROW_D : Math.round(ROW_D * 0.85);
@@ -298,7 +303,7 @@ function runRowMotion({ opening, src, page, under, onDone }){
   const { width: vw, height: vh } = page.getBoundingClientRect();
   const rr = rect(row);
   const { crest: rowCrest, name: rowName = null, owner: rowOwner = null } = src;
-  const heroCrest = page.querySelector('.team-hero-row > :first-child');
+  const heroCrest = heroCrestOf(page);
   const heroName = page.querySelector('.team-hero-name'), heroOwner = page.querySelector('.team-hero-owner');
   const anims = [];
   const go = (el, a, b, opts) => {
@@ -393,7 +398,7 @@ function runRowMotion({ opening, src, page, under, onDone }){
   // The box an element's picture actually fills: a crest's image inside
   // any padding, otherwise the element itself.
   const drawn = el => {
-    const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+    const img = el.tagName === 'IMG' ? el : shownIn(el.querySelectorAll('img'));
     const box = rect(img || el);
     if(!img) return box;
     const cs = getComputedStyle(img);
@@ -682,7 +687,7 @@ function heroHtml(teamKey, meta){
       <div class="team-hero-scrim"></div>
       <div class="team-hero-fold">
         <div class="team-hero-row">
-          ${meta.badgeUrl ? `<img class="crest-bare" src="${crestSrc(meta)}" alt="${meta.name}" draggable="false">` : teamBadgeHtml(meta)}
+          ${meta.badgeUrl ? crestImgsHtml(meta, 'crest-bare', ' draggable="false"') : teamBadgeHtml(meta)}
           <div class="team-hero-name">${meta.fullName || meta.name}</div>
           <div class="team-hero-meta"></div>
         </div>
@@ -768,7 +773,7 @@ function renderTeamPage({ refresh = false } = {}){
   playStatsRoll();
 }
 
-// The NFL/CFB bracket landing fills in an open page's Postseason section.
+// The postseason bracket landing fills in an open page's Postseason section.
 onPostseasonData(key => {
   const meta = TEAM_META[state.teamKey];
   if(meta && meta.leagueKey === key) writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(state.teamKey));
@@ -1197,7 +1202,7 @@ function recentFormHtml(teamKey, bundle){
 }
 
 // The Overview tab's sections, empty: renderTabBody fills each one. During
-// an NFL or CFB postseason a team in the field leads with its Postseason
+// an NFL, CFB or NCAA Tournament postseason a team in the field leads with its Postseason
 // section (js/postseason.js). Recent form comes next, then Path to points: what this team is worth to its owner,
 // rule by rule, with On the line's distance on each (folded to one row
 // until it's opened). News follows, and shows even while the schedule is
@@ -1270,7 +1275,7 @@ function playHeroOpen(){
   play(orb, [{ transform: 'scale(0.2)' }, { transform: 'none' }], { duration: 1100, delay: 150 });
   play(orb, [{ opacity: 0, offset: 0 }], { duration: 700, delay: 150 });
   if(fx.kind === 'push'){
-    play(hero.querySelector('.team-hero-row > :first-child'), [{ opacity: 0, transform: 'scale(0.7) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 200, easing: EASE_SPRING });
+    play(heroCrestOf(hero), [{ opacity: 0, transform: 'scale(0.7) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], { duration: 620, delay: 200, easing: EASE_SPRING });
     play(hero.querySelector('.team-hero-name'), rise(18), { duration: 520, delay: 380 });
   }
   if(fx.kind !== 'row') play(hero.querySelector('.team-hero-meta'), rise(10), { duration: 480, delay: 480 });

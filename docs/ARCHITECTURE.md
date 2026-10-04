@@ -488,13 +488,15 @@ commissioner password). Recording the app's season the first time alerts the who
 on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
 
-**Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs`, the reveal
-in `js/postseason-reveal.js`): once ESPN has an NFL or CFP bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched
-December through February), those Standings cards get a Regular | Postseason toggle. Regular is the old card, untouched;
+**Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs` and
+`tests/postseason-cbb.test.mjs` / `tests/postseason-mlb.test.mjs`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP, NCAA men's
+Tournament or MLB bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched December through February for football, March
+and April for the NCAA), those Standings cards get a Regular | Postseason toggle. Regular is the old card, untouched;
 the card opens on Postseason. Postseason is a ladder of every playoff team: it only shows the rounds someone has reached
 (`topRung`), the two sides of each game still to play sit together with a gray "v" between them (`matchups`), eliminated
 teams stay grayed on the rung where they lost, a scrubber replays the rounds, and the Champion rung becomes a crown card
 (the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
+A rung's points are gold once a team has reached it (in the reveal, once the badges land).
 Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
 "Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
 Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`). They also
@@ -508,11 +510,35 @@ field is set, a ~10s announcement plays in the card (the logo big, then docked; 
 are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder). Until it has played
 (`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
 (`postseasonRevealBusy`), ends at once on a toggle tap, a league switch or leaving the tab, and reduced motion skips it.
-Since someone away for weeks lands on Home, Home leads with a gold "The NFL playoffs are set" card per league
-(`postseasonHomeHtml`, `#playoffs-home`) until that reveal has been seen; a tap (`openPlayoffs`) opens it. The year label
+Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
+postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
+up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
+A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
+that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.
+On the All tab there's no reveal: a league's card has its toggle, on Postseason, from the moment the field is set. The year label
 is the class's own season (`seasonLabelYear`: "'26 Season" → 2026). Local dev and Pages previews replay a past season
 with `?psyear=2025`, and `?psreveal=1` replays the reveal on every load and tab visit; both stick on the device until
 `?psreveal=0` / `?psyear=0`.
+**College Basketball** (`mcbb`) runs on the same code with a few differences. Its ladder shows only drafted teams
+(`ladderTeams`), a rung per round (Tournament, Round of 32 … Title game, Champion; 7 scrubber stops), and the First Four
+are `playIn` games on the Tournament rung: a loser stays there (`Out · FF`, still in the field), a win doesn't move a team
+up. A rung whose chips need three rows or more grows to fit (`ladderGeometry`). The reveal opens on the March Madness lockup
+(`icons/march-madness.png`, one file for both themes) with "Selection Sunday · Field of 68" and the drafted field captioned by
+region and seed (E2). Besides the four tournament rules, `postseasonRuleTeams` scores the miss rule ("Don't make NCAA
+tournament", `isMissRule`) for every drafted team outside the field. ESPN names the season by the spring it ends in, so
+`postseasonYear('mcbb')` and `seasonLabelYear('mcbb')` ("'26/'27" → 2027) follow that. `?psyear` names the winter, so
+`?psyear=2025` replays the 2025 NFL playoffs and CFP and the March 2026 NCAA Tournament together.
+**MLB** (`mlb`) plays series: ESPN's scoreboard only answers one day at a time, so `fetchEspnPostseason('mlb')` loads
+every day from Sept 26 to Nov 8 so far (`loadDays`, settled days saved per device as `bxPsDay:mlb:<day>`) plus the
+final standings for seeds (`parseNflSeeds(…, 6)`), and `seriesEvents` folds each series' games into one event whose score
+is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A series between games is `begun`, so the
+round reads as under way, and the team page shows its tally ("Leads 2–1"). The lockup is `icons/mlb-postseason-*.png`,
+drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
+While MLB is in `PRIOR_SEASON_DISPLAY_LEAGUES` the postseason doesn't count (`postseasonScores`): `snap` reads it with no
+rules, so the ladder has no rung points, the crown card no points, the drafted table no points columns, the team page
+shows Series won / Counts: No, Home's card adds "Doesn't count for points", the Standings note names the postseason,
+labels use ESPN's year, and `postseasonRuleTeams` never answers. Once MLB leaves that list, its rules ("Make LCS",
+"Make World Series", "Win World Series") score from the ladder too, alongside `js/playoff-series.js`.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from

@@ -23,7 +23,7 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--hairline` / `--hairline-strong` | ink 7% / 14% | same formula | borders |
 | `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
-| `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | darker gold 12% / 40% / 16% | tints |
+| `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | fill gold 20% / 55% / 26% (warm, like Send) | tints |
 | `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4A6FB8` | **live points that can change** |
 | `--live` (+`-soft`, `-border`) | `#E5484D` | same | **game in progress** |
 | `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#2E8A5C` / `#C2453B` / `#8A7430` | results |
@@ -64,6 +64,12 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
 - Cards have **no shadow** (fill + 1px hairline). Shadows only on floating things: `--shadow-pop`, `--shadow-tip`,
   `--shadow-modal`, `--shadow-sheet`, `--hero-shadow`, `--seg-thumb-shadow`, `--crest-shadow`.
 - Team orb: `--orb-blur` 64px, `--orb-opacity` 0.5, `--orb-opacity-soft` 0.42; color inline as `--orb`.
+- Crest in a badge: `--crest-img-shadow` (heavy in dark, a hint in light). A team with `badgeUrlDark` draws both crests
+  (`.crest-dark` / `.crest-light`, shown by theme); never use the bright one in light.
+- Gold shapes (fills, thumbs, dots, rings) use `--accent-fill`, the yellow of the chat's Send button; `--accent` is the
+  text gold and is a darker, readable gold in light. The postseason stepper, toggle, rings and champion dot follow this.
+- Postseason ladder, eliminated chip: `--ps-out-opacity` / `--ps-out-filter` (0.4 grayscale in dark; 0.7, slightly darker
+  grayscale in light, where 0.4 vanishes on white).
 - Blur only on the tab bar and sheet overlay.
 
 ## Motion

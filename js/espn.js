@@ -30,7 +30,8 @@
    ============================================================ */
 
 import { fetchJSON } from './utils.js';
-import { parseScoreboardEvent, parseNflSeeds } from './postseason-math.js';
+import { parseScoreboardEvent, parseNflSeeds, seriesEvents } from './postseason-math.js';
+import { loadDays, ymd } from './espn-days.js';
 
 export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // The hypermedia "core" API — a completely different, much more
@@ -1923,6 +1924,12 @@ export async function fetchEspnRegularSeasonEnd(coreLeaguePath, year){
 // Pro Bowl). Its seeds come from that season's final standings. The CFP is
 // every FBS bowl in one call, CFP games picked out by their headline.
 // Checked against the 2025-26 postseason (2026-10-03).
+// MLB's scoreboard answers one day at a time (a year or a range of dates
+// doesn't filter to the postseason), so its postseason is every day from
+// late September to early November so far, saved per settled day on the
+// device (js/espn-days.js), its games folded into series (seriesEvents).
+// Its seeds come from the final standings like the NFL's. Checked against
+// the 2025 postseason and the 2026 one under way (2026-10-04).
 // Shape returned: { events: [parseScoreboardEvent], seeds, logo: { light, dark } | null } | null
 export async function fetchEspnPostseason(leagueKey, year){
   if(leagueKey === 'nfl'){
@@ -1945,6 +1952,26 @@ export async function fetchEspnPostseason(leagueKey, year){
     if(!data) return null;
     // ESPN's college football "logo" is a generic football icon: no logo.
     return { events: (data.events || []).map(parseScoreboardEvent).filter(e => e && /college football playoff/i.test(e.headline)), seeds: {}, logo: null };
+  }
+  if(leagueKey === 'mcbb'){
+    // The NCAA Tournament (group 100): all 67 games, First Four included,
+    // in one request. `year` is ESPN's season, the spring it ends in. Its
+    // logo is ours too (March Madness, icons/), like the CFP's.
+    const data = await fetchEspnJSON(`/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=${year}&seasontype=3&groups=100&limit=400`);
+    if(!data) return null;
+    return { events: (data.events || []).map(parseScoreboardEvent).filter(e => e && /basketball championship/i.test(e.headline)), seeds: {}, logo: null };
+  }
+  if(leagueKey === 'mlb'){
+    const days = [];
+    const end = Math.min(Date.now(), Date.UTC(year, 10, 8));
+    for(let t = Date.UTC(year, 8, 26); t <= end; t += 864e5) days.push(ymd(new Date(t)));
+    const parse = e => e && e.season && e.season.slug === 'post-season' ? parseScoreboardEvent(e) : null;
+    const [standings, games] = await Promise.all([
+      fetchEspnJSON(`/apis/v2/sports/baseball/mlb/standings?season=${year}`),
+      loadDays({ store: 'bxPsDay', key: 'mlb', sportPath: 'baseball/mlb', extra: '', parse }, days)
+    ]);
+    if(!standings || games.failed) return null;
+    return { events: seriesEvents('mlb', games.games), seeds: parseNflSeeds(standings, 6), logo: null };
   }
   return null;
 }
