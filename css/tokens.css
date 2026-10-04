@@ -94,7 +94,7 @@
   --seg-thumb: #FFFFFF;
   --seg-thumb-shadow: 0 1px 3px rgba(20,22,28,0.16), 0 0 0 0.5px rgba(20,22,28,0.06);
   --scrub-thumb-shadow: 0 1px 3px rgba(20,22,28,0.22);
-  --accent-glow: rgba(154,119,22,0.35);
+  --accent-glow: rgba(226,184,74,0.6);
   --bg: #F4F3EF;
   --surface: #FFFFFF;
   --surface-2: #ECEAE4;
@@ -104,9 +104,11 @@
   --text-mute: #8A8C94;
   --accent: #85660C;
   --accent-fill: #E2B84A;
-  --accent-soft: rgba(154,119,22,0.12);
-  --tab-pill: rgba(154,119,22,0.16);
-  --accent-border: rgba(154,119,22,0.4);
+  /* Gold tints and glows are the fill gold (--accent-fill), so they read
+     warm yellow like Send; only --accent (text) is the darker gold. */
+  --accent-soft: rgba(226,184,74,0.2);
+  --tab-pill: rgba(226,184,74,0.26);
+  --accent-border: rgba(205,160,45,0.55);
   --win: #2E8A5C;
   --win-soft: rgba(46,138,92,0.12);
   --loss: #C2453B;
@@ -122,8 +124,8 @@
   --lb-rank-mid: #6B6D76;
   --lb-rank-low: #9A9CA4;
   --lb-stroke: #C9C7BF;
-  --lb-accent-wash: rgba(154,119,22,0.07);
-  --lb-accent-wash-border: rgba(154,119,22,0.30);
+  --lb-accent-wash: rgba(226,184,74,0.12);
+  --lb-accent-wash-border: rgba(205,160,45,0.4);
   --record: #56617A;
   --record-soft: rgba(86,97,122,0.12);
 }
@@ -144,7 +146,7 @@
   --seg-thumb: #FFFFFF;
   --seg-thumb-shadow: 0 1px 3px rgba(20,22,28,0.16), 0 0 0 0.5px rgba(20,22,28,0.06);
   --scrub-thumb-shadow: 0 1px 3px rgba(20,22,28,0.22);
-  --accent-glow: rgba(154,119,22,0.35);
+  --accent-glow: rgba(226,184,74,0.6);
   --bg: #F4F3EF;
   --surface: #FFFFFF;
   --surface-2: #ECEAE4;
@@ -154,9 +156,9 @@
   --text-mute: #8A8C94;
   --accent: #85660C;
   --accent-fill: #E2B84A;
-  --accent-soft: rgba(154,119,22,0.12);
-  --tab-pill: rgba(154,119,22,0.16);
-  --accent-border: rgba(154,119,22,0.4);
+  --accent-soft: rgba(226,184,74,0.2);
+  --tab-pill: rgba(226,184,74,0.26);
+  --accent-border: rgba(205,160,45,0.55);
   --win: #2E8A5C;
   --win-soft: rgba(46,138,92,0.12);
   --loss: #C2453B;
@@ -172,8 +174,8 @@
   --lb-rank-mid: #6B6D76;
   --lb-rank-low: #9A9CA4;
   --lb-stroke: #C9C7BF;
-  --lb-accent-wash: rgba(154,119,22,0.07);
-  --lb-accent-wash-border: rgba(154,119,22,0.30);
+  --lb-accent-wash: rgba(226,184,74,0.12);
+  --lb-accent-wash-border: rgba(205,160,45,0.4);
   --record: #56617A;
   --record-soft: rgba(86,97,122,0.12);
   }
@@ -331,5 +333,39 @@
 @media (prefers-color-scheme: light){
   :root[data-theme="auto"]{
     --crest-shadow: 0 10px 24px rgba(20,22,28,0.2);
+  }
+}
+
+/* A crest in a badge (.badge img): a drop shadow so a thin, dark crest
+   doesn't wash into the dark page. On white it only needs a hint; the dark
+   theme's heavy shadow reads as a gray smudge there. */
+:root{
+  --crest-img-shadow: 0 2px 5px rgba(0,0,0,0.55);
+}
+:root[data-theme="light"]{
+  --crest-img-shadow: 0 1px 2px rgba(20,22,28,0.16);
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+    --crest-img-shadow: 0 1px 2px rgba(20,22,28,0.16);
+  }
+}
+
+/* Postseason ladder (js/postseason.js): an eliminated team's chip, grayed
+   and faded. On white, the dark theme's 0.4 fade turns pale crests (the
+   Chargers' bolt) and the owner name nearly invisible, so light fades
+   less and darkens the gray a little. */
+:root{
+  --ps-out-opacity: 0.4;
+  --ps-out-filter: grayscale(1);
+}
+:root[data-theme="light"]{
+  --ps-out-opacity: 0.7;
+  --ps-out-filter: grayscale(1) brightness(0.85);
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+    --ps-out-opacity: 0.7;
+    --ps-out-filter: grayscale(1) brightness(0.85);
   }
 }

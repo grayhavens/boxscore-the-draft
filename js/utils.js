@@ -404,8 +404,12 @@ export const BALL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="curre
 // an alternate white/bright rendering of the same crest at the same
 // path with "500" swapped for "500-dark", so those specific teams
 // carry a badgeUrlDark in TEAM_META instead of hand-drawn overrides.
-export function crestSrc(meta){
-  return meta.badgeUrlDark || meta.badgeUrl;
+// That bright one washes into the light theme's white, so a crest is
+// drawn both ways and CSS shows the one for the theme (crestImgsHtml,
+// teamBadgeHtml's crestSrcDark).
+export function crestImgsHtml(meta, cls, attrs = ''){
+  const img = (src, extra) => `<img class="${cls}${extra}" src="${src}" alt="${meta.name}"${attrs}>`;
+  return meta.badgeUrlDark ? img(meta.badgeUrlDark, ' crest-dark') + img(meta.badgeUrl, ' crest-light') : img(meta.badgeUrl, '');
 }
 
 // Monogram colors for a team nobody drafted (no TEAM_META entry): a faint
@@ -422,7 +426,7 @@ export const NEUTRAL_BADGE_STYLE = 'background: rgba(var(--ink-rgb),0.08); color
 // it back if the hotlinked image fails to load.
 export function teamBadgeHtml(meta){
   return uiTeamBadgeHtml({
-    crestSrc: meta.badgeUrl ? crestSrc(meta) : null,
+    crestSrc: meta.badgeUrl || null, crestSrcDark: meta.badgeUrl ? meta.badgeUrlDark || null : null,
     name: meta.name, style: meta.badgeStyle, text: meta.badgeText,
     person: meta.kind === 'golfer'
   });
