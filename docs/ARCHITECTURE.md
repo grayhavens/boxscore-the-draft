@@ -475,7 +475,8 @@ visit baseline written whenever the app is put away, plus your teams' record), t
 clinches, postseason games and upsets, a series against one drafter, single games), from each of your teams' ESPN
 schedules. It only drops in when something above a single game happened or your rank moved; otherwise just the
 "N updates" pill beside the Home title, which opens the cards once. Off before a group's first draft, while the draft
-card leads Home or a draft is live; reduced motion gets a sheet list.
+card leads Home or a draft is live; reduced motion gets a sheet list. If ranks take longer than 3.5s to settle on a
+cold launch, the cards go up without them and are rebuilt (as the pill) once they land, so a rank move is never lost.
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
