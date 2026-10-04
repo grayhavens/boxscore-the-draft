@@ -2952,8 +2952,8 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    landed crest: a zero-size anchor, with each layer centered on it. */
 .ps-fx{ position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .ps-bloom, .ps-ring{ position: absolute; border-radius: 50%; opacity: 0; will-change: transform, opacity; }
-.ps-bloom{ left: -36px; top: -36px; width: 72px; height: 72px; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
-.ps-ring{ left: -20px; top: -20px; width: 40px; height: 40px; box-sizing: border-box; border: 1.5px solid var(--accent); }
+.ps-bloom{ left: -55px; top: -55px; width: 110px; height: 110px; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
+.ps-ring{ left: -33px; top: -33px; width: 66px; height: 66px; box-sizing: border-box; border: 1.5px solid var(--accent); }
 .ps-rung-flash{
   position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
   background: var(--accent-soft);
@@ -2966,24 +2966,22 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-chip.out.dim{ opacity: 0.12; }
 
 
-.ps-champ{
-  max-height: 0; opacity: 0; transform: translateY(16px); overflow: hidden;
-  transition: max-height 520ms var(--ease-out), opacity 420ms, transform 520ms var(--ease-spring);
+/* The crown card (crownHtml): the Champion rung once there's a champion.
+   The champion's own chip, doubled, is its logo (CROWN in js/postseason.js);
+   the text slides in beside it as the chip lands. */
+.ps-rung.crowned{ box-shadow: inset 0 0 0 1px var(--accent-border); }
+.ps-rung .ps-rung-label{ transition: opacity var(--dur-ui); }
+.ps-rung.crowned .ps-rung-label{ opacity: 0; }
+.ps-crown{
+  position: absolute; inset: 0; padding: 0 16px 0 82px;
+  display: flex; align-items: center; gap: 12px; pointer-events: none;
+  opacity: 0; transform: translateX(-10px);
+  transition: opacity 420ms, transform 520ms var(--ease-out);
 }
-.ps-champ.show{ max-height: 120px; opacity: 1; transform: none; transition-delay: 500ms; }
-.ps-champ-in{
-  display: flex; align-items: center; gap: 12px; margin: 6px 0 2px; padding: 12px;
-  border-radius: var(--r-md); background: var(--accent-soft); border: 1px solid var(--accent-border);
-}
-.ps-champ-badge{ flex: none; border-radius: 13px; }
-/* A soft glow that follows the crest's own outline (a drop shadow, not a
-   box), fading in and out so nothing snaps on or off at either end. */
-.ps-champ-badge.glow{ animation: ps-glow 1.8s ease-in-out 1.2s 2; }
-@keyframes ps-glow{
-  0%, 100%{ filter: drop-shadow(0 0 0 transparent); }
-  50%{ filter: drop-shadow(0 0 10px var(--accent-glow)); }
-}
-.ps-champ-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-rung.crowned .ps-crown{ opacity: 1; transform: none; transition-delay: 520ms; }
+.ps-crown-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-crown-text > div{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-chip.champ .ps-chip-owner{ opacity: 0; }
 .ps-champ-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ps-champ-name{ font: 700 var(--fs-20)/1.15 var(--font-display); letter-spacing: -0.3px; }
 .ps-champ-owner{ font: 600 var(--fs-12) var(--font-ui); color: var(--text-sub); }
@@ -3011,7 +3009,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-stops span.later{ opacity: 0.45; }
 
 @media (prefers-reduced-motion: reduce){
-  .ps-chip, .ps-thumb, .ps-champ{ transition-timing-function: var(--ease-out); }
+  .ps-chip, .ps-thumb, .ps-crown{ transition-timing-function: var(--ease-out); }
 }
 
 .ps-drafted{ display: flex; flex-direction: column; gap: 8px; }

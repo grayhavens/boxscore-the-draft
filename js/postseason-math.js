@@ -318,7 +318,9 @@ export function matchups(teams, games){
 // together (matchups), games and lone teams in order of conference, then
 // best seed; up to six chips share a row, more wrap into two without
 // splitting a game.
-export function ladderLayout(teams, { rungH = 84, top = 4, games = [] } = {}){
+// `crown` ({ x, y } px): where the champion's chip sits on the Champion
+// rung instead, as the logo of the crown card that rung becomes.
+export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null } = {}){
   const seed = t => t.seed ?? 99;
   const pairs = matchups(teams, games);
   const paired = new Set(pairs.flat().map(t => t.id));
@@ -338,7 +340,9 @@ export function ladderLayout(teams, { rungH = 84, top = 4, games = [] } = {}){
     });
     const y0 = (top - Number(k)) * rungH;
     rows.forEach((row, r) => row.forEach((t, i) => {
-      pos[t.id] = { fx: (i + 0.5) / row.length, y: y0 + (rows.length === 2 ? 4 + r * 40 : 26) };
+      pos[t.id] = crown && Number(k) === 4
+        ? { fx: 0, x: crown.x, y: y0 + crown.y }
+        : { fx: (i + 0.5) / row.length, y: y0 + (rows.length === 2 ? 4 + r * 40 : 26) };
     }));
   });
   return pos;

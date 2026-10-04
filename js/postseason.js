@@ -38,6 +38,10 @@ import {
 } from './postseason-math.js';
 
 const RUNG_H = 84;
+// The champion's chip as the crown card's logo: its badge doubled (52px),
+// centered 42px in from the rung's left and top.
+const CROWN = { x: 22, y: 29 };
+const CROWN_SCALE = 2;
 const STAGES = 4;
 const REPLAY_STEP_MS = 1700;
 const COUNT_DELAY_MS = 900, COUNT_MS = 900;
@@ -300,7 +304,8 @@ function rungClass(k, S){
 // Only rungs someone has reached show (topRung); one above them waits
 // just over the ladder's top, so it slides down into place as it appears.
 function rungClasses(k, S, top){
-  return `ps-rung ${rungClass(k, S)}${k > top ? ' unset' : ''}`;
+  const crowned = k === 4 && S.champ && S.stage === STAGES;
+  return `ps-rung ${rungClass(k, S)}${k > top ? ' unset' : ''}${crowned ? ' crowned' : ''}`;
 }
 function rungStyle(k, top){
   return `transform:translateY(${(top - Math.min(k, top + 1)) * RUNG_H}px)`;
@@ -315,7 +320,7 @@ function rungPts(k, S){
 function chipView(t, pos, spot){
   const p = pos[t.id];
   const out = !t.alive;
-  const scale = t.champion ? 1.25 : out ? 0.88 : 1;
+  const scale = t.champion ? CROWN_SCALE : out ? 0.88 : 1;
   const cls = ['ps-chip'];
   if(out) cls.push('out');
   if(t.justOut) cls.push('just-out');
@@ -323,7 +328,8 @@ function chipView(t, pos, spot){
   if(t.mine) cls.push('mine');
   if(spot && t.owner !== spot) cls.push('dim');
   if(t.teamKey) cls.push('tap');
-  return { cls: cls.join(' '), transform: `translate(calc((100cqw - var(--ps-label-w)) * ${p.fx.toFixed(4)} - 20px), ${p.y}px) scale(${scale})` };
+  const x = p.x != null ? `${p.x}px` : `calc((100cqw - var(--ps-label-w)) * ${p.fx.toFixed(4)} - 20px)`;
+  return { cls: cls.join(' '), transform: `translate(${x}, ${p.y}px) scale(${scale})` };
 }
 
 // A small gray "v" between the two sides of each game still to play, so the
@@ -363,21 +369,21 @@ function champInfo(key){
   };
 }
 
-function champCardHtml(key, S){
+// The Champion rung's crown card: once there's a champion, the rung becomes
+// it, the champion's own chip (doubled) as its logo, then the title, the
+// team, whose haul it is and the haul counting up.
+function crownHtml(key, S){
   const c = champInfo(key);
-  if(!c) return '<div class="ps-champ"></div>';
-  const show = S.stage === STAGES;
+  if(!c) return '';
+  const show = S.stage === STAGES && !!S.champ;
   return `
-    <div class="ps-champ${show ? ' show' : ''}">
-      <div class="ps-champ-in">
-        <span class="ps-champ-badge">${badgeOf(c.t)}</span>
-        <div class="ps-champ-text">
-          <div class="ps-champ-eyebrow">${escapeHtml(c.title)}</div>
-          <div class="ps-champ-name">${escapeHtml(nameOf(c.t, key))}</div>
-          <div class="ps-champ-owner">${escapeHtml(c.ownerLine)}</div>
-        </div>
-        ${c.pts !== null && !PRE_DRAFT ? `<div class="ps-champ-pts" data-target="${c.pts}">+${show ? c.pts : 0}</div>` : ''}
+    <div class="ps-crown">
+      <div class="ps-crown-text">
+        <div class="ps-champ-eyebrow">${escapeHtml(c.title)}</div>
+        <div class="ps-champ-name">${escapeHtml(nameOf(c.t, key))}</div>
+        <div class="ps-champ-owner">${escapeHtml(c.ownerLine)}</div>
       </div>
+      ${c.pts !== null && !PRE_DRAFT ? `<div class="ps-champ-pts" data-target="${c.pts}">+${show ? c.pts : 0}</div>` : ''}
     </div>`;
 }
 
@@ -403,10 +409,11 @@ export function postseasonCardHtml(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const top = topRung(S.teams);
-  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games });
+  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games, crown: CROWN });
   const rungs = [4, 3, 2, 1, 0].map(k => `
     <div class="${rungClasses(k, S, top)}" data-rung="${k}" style="${rungStyle(k, top)}">
       <div class="ps-rung-label"><span>${S.L.rungs[k]}</span><span class="ps-rung-pts">${rungPts(k, S)}</span></div>
+      ${k === 4 ? crownHtml(key, S) : ''}
     </div>`).join('');
   return `
     <div class="ps" data-ps="${key}" data-sig="${sigOf(key)}">
@@ -419,7 +426,6 @@ export function postseasonCardHtml(key){
         <div class="ps-pairs">${pairsHtml(S, pos)}</div>
         ${S.teams.map(t => chipHtml(key, t, pos, spot)).join('')}
       </div>
-      ${champCardHtml(key, S)}
       ${scrubHtml(key, S)}
     </div>`;
 }
@@ -465,7 +471,7 @@ function paint(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const top = topRung(S.teams);
-  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games });
+  const pos = ladderLayout(S.teams, { rungH: RUNG_H, top, games: S.games, crown: CROWN });
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${(top + 1) * RUNG_H}px`;
   const replay = el.querySelector('.ps-replay');
@@ -488,9 +494,7 @@ function paint(key){
     chip.className = v.cls;
     chip.style.transform = v.transform;
   });
-  const champ = el.querySelector('.ps-champ');
   const show = S.stage === STAGES && !!S.champ;
-  if(champ) champ.classList.toggle('show', show);
   const pts = el.querySelector('.ps-champ-pts');
   if(pts && !counting) pts.textContent = `+${show ? pts.dataset.target : 0}`;
   const scrub = el.querySelector('.ps-scrub');
@@ -601,11 +605,12 @@ function cancelCount(){
   counting = null;
 }
 
-// The champion springs up to the Champion rung (CSS). Once it has landed,
+// The champion springs up into the Champion rung's crown card, growing into
+// its logo (CSS). Once it has landed,
 // a soft gold bloom swells behind its crest and three thin rings ripple out
 // from the crest's center, one pass each, while the crest gives a gentle
-// pop and the Champion rung brightens for a moment. Then the card opens
-// below the ladder and the owner's haul counts up.
+// pop and the Champion rung, now the crown card, pops and lights up while
+// the owner's haul counts up in it.
 // Every time stage 4 is reached. The bloom and rings are transform and
 // opacity only (smooth on the compositor), placed from the crest's landed
 // position so they never chase a moving chip; reduced motion skips them.
@@ -633,7 +638,7 @@ function playChampion(key){
       ], { duration: 1300, fill: 'both' }),
       ...[...fx.querySelectorAll('.ps-ring')].map((ring, i) => play(ring, [
         { opacity: 0.9, transform: 'scale(1)' },
-        { opacity: 0, transform: 'scale(3)' }
+        { opacity: 0, transform: 'scale(2.3)' }
       ], { duration: 1400, delay: i * 240, fill: 'both' }))
     ];
     pop(crest, { scale: 1.1, duration: 560 });
@@ -657,12 +662,6 @@ function playChampion(key){
     }
     Promise.all(anims.map(a => a && a.finished)).then(() => fx.remove(), () => fx.remove());
   });
-  const badge = el.querySelector('.ps-champ-badge');
-  if(badge){
-    badge.classList.remove('glow');
-    void badge.offsetWidth;
-    badge.classList.add('glow');
-  }
   const pts = el.querySelector('.ps-champ-pts');
   if(!pts) return;
   cancelCount();
