@@ -210,6 +210,7 @@ import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './ro
 import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason } from './golf.js';
+import { handleNews, refreshNews } from './news.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
 import { logAdminAction, commissionerNote } from './admin-log.js';
 
@@ -1129,6 +1130,12 @@ export default {
       console.error('[worker] unhandled', e);
       return new Response('Upstream error', { status: 502, headers: corsHeaders(request.headers.get('Origin') || '') });
     }
+  },
+
+  // The daily cron in wrangler.toml: one small batch of Perigon searches
+  // (worker/news.js), kept well under the free tier's monthly cap.
+  async scheduled(event, env, ctx){
+    ctx.waitUntil(refreshNews(env, ctx, { cachedUpstreamFetch }).catch(e => console.error('[news] refresh failed', e)));
   }
 };
 
@@ -1156,13 +1163,13 @@ async function route(request, env, ctx){
   const isGroupRoute = url.pathname === '/admin/verify' || url.pathname === '/activity' || url.pathname === '/points/history' ||
     url.pathname === '/chat/ws' || url.pathname.startsWith('/draft/') ||
     url.pathname === '/push/device' || url.pathname === '/push/test' || url.pathname === '/claim' || url.pathname === '/roster' ||
-    url.pathname === '/sports' || url.pathname === '/champions' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
+    url.pathname === '/sports' || url.pathname === '/champions' || url.pathname === '/news/refresh' || url.pathname === '/access/check' || /^\/(facts|adjustments|lock|favorites)\//.test(url.pathname);
   if(isGroupRoute && !group) return new Response('Bad group', { status: 400, headers });
 
   // The group's invite code (worker/access-code.js). Left open on purpose:
   // the check itself, the claim form, roster and sports (the landing page and boot
   // need them before anyone has a code), and the password-only verify.
-  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/sports', '/admin/verify'].includes(url.pathname);
+  const isGated = isGroupRoute && !['/access/check', '/claim', '/roster', '/sports', '/admin/verify', '/news/refresh'].includes(url.pathname);
   if(isGated){
     const denied = await gateRequest(env, group, url, headers);
     if(denied) return denied;
@@ -1242,6 +1249,9 @@ async function route(request, env, ctx){
 
   // PGA Tour season results, condensed (worker/golf.js).
   if(url.pathname.startsWith('/golf/season/')) return handleGolfSeason(request, url, env, headers, ctx, { cachedUpstreamFetch, json });
+
+  // Perigon news, filled by the daily cron (scheduled() in the default export).
+  if(url.pathname.startsWith('/news/')) return handleNews(request, url, env, ctx, headers, { json, isAuthorized, cachedUpstreamFetch, group });
 
   if(url.pathname.startsWith('/teams/')) return handleRundownTeams(request, url, env, headers, ctx);
 

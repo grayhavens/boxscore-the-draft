@@ -67,6 +67,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 | `GET/PUT /sports` | group's shown/drafted sports | PUT: password |
 | `GET/PUT/DELETE /champions` | season history | writes: password |
 | `/sportsdb/*`, `/teams/*`, fallthrough | TheSportsDB / TheRundown proxies | key held server-side |
+| `GET /news/<league>`, `POST /news/refresh` | Perigon "More news" per league (KV), run one batch now | GET: public; POST: password |
 | `/nflverse/injuries`, `/nflverse/depth-chart` | nflverse CSV → JSON (CORS proxy) | none |
 | `/nhl/score/<date>` | NHL clip ids (CORS proxy) | none |
 | `/golf/season/<year>` | condensed FedEx Cup events, stored in KV | none |
@@ -89,6 +90,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 | TheRundown | fallback for CFB FCS team and College Basketball | worker | `THERUNDOWN_API_KEY` | edge 60s / 1h; comment cites a 20,000 data-point/day budget |
 | TheSportsDB V2 | deprecated fallback in `fetchTeamBundle` | worker | `SPORTSDB_API_KEY` | edge 24h / 60s |
 | nflverse-data (GitHub releases) | NFL injuries, depth charts | worker (no CORS upstream) | none | edge 2h / 3h; depth chart read as a stream, newest snapshot only |
+| Perigon (`api.perigon.io`) | "More news" beyond ESPN on team pages (proof of concept) | worker, daily cron only | `PERIGON_API_KEY` (query param) | free tier ~150 calls/month: 4 searches/day, KV counter stops at 140; edge 6h |
 | NHL `api-web.nhle.com` | highlight clip ids | worker | none | edge 5 min |
 | Brightcove | resolve NHL clip ids to .mp4 | browser | none | uncached (signed URLs) |
 | KLIPY | chat GIFs | browser (required by KLIPY terms) | app key from `/gif/config` | not cached by rule; Testing keys capped at 100 req/h |
@@ -101,7 +103,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 
 - **KV `LEAGUE_FACTS`:** all small shared state. Keys are prefixed per group (`push@<group>:<drafter>`,
   `roster@<group>`, `sports@<group>`, `access@<group>`, `history@<group>:<season>`, `champions@<group>:seasons`,
-  `golf:<year>`, `adminlog`, …). The Draft uses the bare prefix.
+  `golf:<year>`, `news@<league>`, `news@meta`, `adminlog`, …). The Draft uses the bare prefix.
 - **Durable Objects:** `ChatRoom` (one per group), `DraftRoom` (one per room name: `main`, `mock-1`, `mock-<id>`).
   SQLite-backed; migrations `v1`, `v2` in `wrangler.toml`.
 - **Browser:** `localStorage` (identity, settings, caches, admin password, invite code), `sessionStorage` (splash),
@@ -551,3 +553,14 @@ div exists because the installed PWA's translucent status bar shows real page co
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.
 
+**More news (Perigon, proof of concept):** a team page's News section shows ESPN headlines first, then up to four
+"More news" stories from Perigon. Perigon's free tier (~150 calls/month) rules out per-team or per-view searches, so
+`worker/news.js` runs from a daily cron (`[triggers]` in `wrangler.toml`): it walks 14 fixed search chunks round-robin,
+4 per run (about every 3.5 days each). A chunk is one OR query of quoted full team names for a league
+(`js/news-math.js` builds the names and chunks; the two college leagues share one bucket), with `category=Sports`.
+Articles are matched back to teams by full name, or by a nickname no other team shares, then stored per league in
+KV (`news@<league>`, newest 8 per team, 14 days). `news@meta` holds the cursor and this month's call count; every call
+counts, failures included, and the batch stops at 140. Browsers read `GET /news/<league>` once per league
+(`js/news-more.js`, 15 min). With no `PERIGON_API_KEY`, or an old worker, the section simply doesn't appear. Not
+done yet: skipping out-of-season leagues, and Perigon's Monitors (webhook) as a way to spend fewer calls.
+To run a batch by hand: `POST /news/refresh` with the commissioner password header (same budget rules).
