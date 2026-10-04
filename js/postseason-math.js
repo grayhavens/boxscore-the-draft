@@ -1,12 +1,14 @@
 /* ============================================================
-   Postseason ladder math (Standings → NFL/CFB → Postseason): pure, no DOM
-   and no fetches, shared by js/postseason.js and tests/postseason-math.test.mjs.
+   Postseason ladder math (Standings → NFL/CFB/CBB → Postseason): pure, no
+   DOM and no fetches, shared by js/postseason.js and
+   tests/postseason-math.test.mjs.
 
    ESPN's postseason scoreboard (parseScoreboardEvent) becomes a bracket
    (buildBracket): every game with its round, both sides and the score.
    snapshot(bracket, stage, …) is what the ladder, the drafted table and the
    team page's Postseason section show at one replay stage: 0 is the field
-   set, 4 the champion, and stage s means rounds 1..s are over. At the
+   set, the last (one per round: 4 for football, 6 for the NCAA
+   Tournament) the champion, and stage s means rounds 1..s are over. At the
    latest stage the round being played counts too, game by game, so a team
    that won on Saturday has already moved up while Sunday's games are still
    to come.
@@ -14,6 +16,13 @@
    Points come from the group's own LEAGUE_SCORING rules (milestonesFor): a
    rule is matched by its label to the round it's for, so a group with
    different numbers gets them here without a code change.
+
+   The NCAA Tournament (mcbb) adds two things football doesn't have. The
+   First Four is played as part of the first round (`playIn` games): its
+   teams start on the first rung with everyone else, a loser stays there,
+   and a win doesn't move a team up. And one rule scores the teams that
+   aren't in the field at all ("Don't make NCAA tournament", a `miss`
+   rule), which js/postseason.js answers from the bracket too.
    ============================================================ */
 
 const NFL = {
@@ -54,7 +63,7 @@ const CFB = {
   rungs: ['First round', 'Quarterfinal', 'Semifinal', 'Final', 'Champion'],
   stages: ['Field set', 'After first round', 'After quarterfinals', 'After semifinals', 'Champion'],
   gamesPerRound: [4, 4, 2, 1],
-  champTitle: 'National champions',
+  champTitle: 'National champions', byLocation: true,
   rules: [
     { re: /win (the )?national championship/i, win: true },
     { re: /national championship/i, reach: 4 },
@@ -78,7 +87,52 @@ const CFB = {
   }
 };
 
-export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB };
+// The NCAA men's tournament: 68 teams, the First Four, then six rounds.
+// Each round is a rung, the first one ("Tournament") holding the First
+// Four too. ESPN's headlines read "NCAA Men's Basketball Championship -
+// East Region - 1st Round"; the seed is ESPN's rank on the game.
+const MCBB = {
+  key: 'mcbb', fieldSize: 68,
+  rounds: ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite Eight', 'Final Four', 'National Championship'],
+  roundShort: ['R64', 'R32', 'S16', 'E8', 'F4', 'NC'],
+  rungs: ['Tournament', 'Round of 32', 'Sweet 16', 'Elite Eight', 'Final Four', 'Title game', 'Champion'],
+  stages: ['Field set', 'After Round of 64', 'After Round of 32', 'After Sweet 16', 'After Elite Eight', 'After Final Four', 'Champion'],
+  gamesPerRound: [32, 16, 8, 4, 2, 1],
+  champTitle: 'National champions', byLocation: true,
+  rules: [
+    { re: /win (the )?national championship/i, win: true },
+    { re: /don.t make (the )?ncaa tournament/i, miss: true },
+    { re: /national championship game/i, reach: 6 },
+    { re: /elite eight/i, reach: 4 },
+    { re: /make (the )?ncaa tournament/i, reach: 0 }
+  ],
+  roundOf(evt){
+    const h = evt.headline || '';
+    if(!/basketball championship/i.test(h)) return 0;
+    if(/national championship/i.test(h)) return 6;
+    if(/final four/i.test(h)) return 5;
+    if(/elite (8|eight)/i.test(h)) return 4;
+    if(/sweet (16|sixteen)/i.test(h)) return 3;
+    if(/2nd round|second round/i.test(h)) return 2;
+    if(/1st round|first round|first four/i.test(h)) return 1;
+    return 0;
+  },
+  playIn(evt){ return /first four/i.test(evt.headline || ''); },
+  groupOf(evt){ const m = /- (\w+) Region/i.exec(evt.headline || ''); return m ? m[1] : ''; },
+  noteOf(evt, round){
+    if(round === 6) return 'National Championship';
+    return this.playIn(evt) ? 'First Four' : '';
+  }
+};
+
+export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB };
+
+// The league's last round, which is also its Champion rung and the stage
+// the champion is crowned on (4 for football, 6 for the NCAA Tournament).
+export function finalRound(leagueKey){
+  const L = POSTSEASON_LEAGUES[leagueKey];
+  return L ? L.rounds.length : 0;
+}
 
 // The rules a postseason run can score, in the order they're listed, each
 // with the round it needs: { label, pts, reach } or { label, pts, win: true }.
@@ -87,8 +141,17 @@ export function milestonesFor(leagueKey, rules){
   if(!L) return [];
   return (rules || []).filter(r => !r.rankAuto).map(r => {
     const m = L.rules.find(x => x.re.test(r.label));
-    return m ? { label: r.label, pts: r.pts, ...(m.win ? { win: true } : { reach: m.reach }) } : null;
+    return m && !m.miss ? { label: r.label, pts: r.pts, ...(m.win ? { win: true } : { reach: m.reach }) } : null;
   }).filter(Boolean);
+}
+
+// Is this rule the one for a team that isn't in the field at all (the
+// NCAA's "Don't make NCAA tournament")? Not a milestone of any team on
+// the ladder: js/postseason.js scores it from who's missing.
+export function isMissRule(leagueKey, rule){
+  const L = POSTSEASON_LEAGUES[leagueKey];
+  const m = L && rule && L.rules.find(x => x.re.test(rule.label));
+  return !!(m && m.miss);
 }
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -158,6 +221,7 @@ export function buildBracket(leagueKey, events, seeds = {}){
     if(!evt || evt.sides.length !== 2) return;
     const round = L.roundOf(evt);
     if(!round) return;
+    const playIn = !!(L.playIn && L.playIn(evt));
     const [a, b] = evt.sides;
     [a, b].forEach(s => {
       if(!s.id) return;
@@ -173,7 +237,7 @@ export function buildBracket(leagueKey, events, seeds = {}){
     const final = evt.state === 'post' && a.score !== null && b.score !== null && !!(a.id && b.id);
     const winner = final ? (a.winner ? a.id : b.winner ? b.id : (a.score > b.score ? a.id : b.id)) : null;
     games.push({
-      id: evt.id, date: evt.date, round, group: L.groupOf(evt), note: L.noteOf(evt, round),
+      id: evt.id, date: evt.date, round, playIn, group: L.groupOf(evt), note: L.noteOf(evt, round),
       a: a.id, b: b.id, scoreA: a.score, scoreB: b.score,
       final, live: evt.state === 'in', winner,
       ot: final && /OT/.test(evt.detail || '')
@@ -183,7 +247,8 @@ export function buildBracket(leagueKey, events, seeds = {}){
   if(!firstRound.some(g => g.a && g.b)) return null;
   games.sort((x, y) => x.round - y.round || String(x.date).localeCompare(String(y.date)));
   // A bye: in the field with no first-round game. The NFL's 1 seeds are
-  // known from the standings before their first game is set.
+  // known from the standings before their first game is set. (The First
+  // Four are first-round games here, so the NCAA has no byes.)
   const inRound1 = new Set(firstRound.flatMap(g => [g.a, g.b]).filter(Boolean));
   if(leagueKey === 'nfl'){
     Object.entries(seeds).forEach(([id, s]) => {
@@ -194,12 +259,13 @@ export function buildBracket(leagueKey, events, seeds = {}){
   return { league: leagueKey, games, teams, byes };
 }
 
-// How many rounds are over (0-4): the stage the ladder opens on.
+// How many rounds are over (0 to the final round): the stage the ladder
+// opens on.
 export function latestStage(bracket){
   const L = POSTSEASON_LEAGUES[bracket.league];
   let s = 0;
-  for(let r = 1; r <= 4; r++){
-    const round = bracket.games.filter(g => g.round === r);
+  for(let r = 1; r <= L.rounds.length; r++){
+    const round = bracket.games.filter(g => g.round === r && !g.playIn);
     if(round.length < L.gamesPerRound[r - 1] || !round.every(g => g.final)) break;
     s = r;
   }
@@ -212,10 +278,32 @@ export function postseasonStarted(bracket){
   return !!bracket && bracket.games.some(g => g.final || g.live);
 }
 
+// What the Home banner calls the postseason right now: the round being
+// played or up next (the ladder's frontier), 'First Four' while the
+// NCAA's play-in games are all that's on, 'Champion' once it's over, and
+// null before any game has started (the field is just set).
+export function currentRoundName(bracket){
+  const L = POSTSEASON_LEAGUES[bracket.league];
+  const latest = latestStage(bracket);
+  if(latest === L.rounds.length) return 'Champion';
+  if(!postseasonStarted(bracket)) return null;
+  const next = bracket.games.filter(g => g.round === latest + 1);
+  const playInLeft = next.some(g => g.playIn && !g.final);
+  const mainStarted = next.some(g => !g.playIn && (g.final || g.live));
+  return playInLeft && !mainStarted ? 'First Four' : L.rounds[latest];
+}
+
+// When the title game was played (its scheduled start), or null.
+export function titleGameDate(bracket){
+  const g = bracket.games.find(x => x.round === POSTSEASON_LEAGUES[bracket.league].rounds.length && x.final);
+  return g ? new Date(g.date) : null;
+}
+
 // Everything the views need at one stage. opts: { rules, ownerOf(team) →
 // { teamKey, owner } | null, drafters: [{ id, name }], me }.
 export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, drafters = [], me = null } = {}){
   const L = POSTSEASON_LEAGUES[bracket.league];
+  const N = L.rounds.length;
   const latest = latestStage(bracket);
   stage = Math.max(0, Math.min(latest, stage));
   const isLatest = stage === latest;
@@ -231,13 +319,14 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     byId[t.id] = {
       ...t, teamKey: o.teamKey || null, owner: o.owner || null, ownerName: o.owner ? nameOf(o.owner) : null,
       mine: !!o.owner && o.owner === me, isBye: bracket.byes.includes(t.id),
-      outRound: null, wonRound: 0, path: []
+      outRound: null, outPlayIn: false, wonRound: 0, path: []
     };
   });
   bracket.games.filter(counts).forEach(g => {
     const loser = g.winner === g.a ? g.b : g.a;
-    if(byId[loser]) byId[loser].outRound = g.round;
-    if(byId[g.winner]) byId[g.winner].wonRound = Math.max(byId[g.winner].wonRound, g.round);
+    if(byId[loser]){ byId[loser].outRound = g.round; byId[loser].outPlayIn = g.playIn; }
+    // A First Four win only gets a team into the Round of 64.
+    if(byId[g.winner] && !g.playIn) byId[g.winner].wonRound = Math.max(byId[g.winner].wonRound, g.round);
   });
 
   const teams = Object.values(byId);
@@ -246,10 +335,10 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     // The furthest round this team is in: one past its last win, a bye
     // starts in round 2, and an eliminated team stays in the round it lost.
     t.entered = t.alive ? Math.max(t.wonRound + 1, t.isBye ? 2 : 1) : t.outRound;
-    t.champion = t.alive && t.wonRound === 4;
+    t.champion = t.alive && t.wonRound === N;
     t.justOut = !t.alive && (t.outRound === stage || (isLatest && t.outRound === stage + 1));
     t.bye = t.isBye && stage === 0;
-    t.rung = t.champion ? 4 : t.entered - 1;
+    t.rung = t.champion ? N : t.entered - 1;
   });
   const seen = id => byId[id] && byId[id].entered;
 
@@ -257,7 +346,7 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     const final = counts(g);
     // A side is shown once that team has reached this round (at this stage).
     const side = (id, score) => ({ team: id && seen(id) >= g.round ? byId[id] : null, score: final ? score : null, won: final && id === g.winner, lost: final && !!g.winner && id !== g.winner });
-    return { ...g, final, live: isLatest && g.live, roundName: L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
+    return { ...g, final, live: isLatest && g.live, roundName: g.playIn ? 'First Four' : L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
   });
   games.forEach(g => [g.top, g.bot].forEach(s => { if(s.team && g.round <= s.team.entered) s.team.path.push(g); }));
 
@@ -269,7 +358,7 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     });
     t.banked = t.milestones.filter(m => m.got).reduce((s, m) => s + m.pts, 0);
     t.inPlay = t.milestones.filter(m => !m.got && m.possible).reduce((s, m) => s + m.pts, 0);
-    t.status = t.champion ? 'Champion' : !t.alive ? `Out · ${L.roundShort[t.outRound - 1]}` : t.bye ? 'Bye' : 'Alive';
+    t.status = t.champion ? 'Champion' : !t.alive ? `Out · ${t.outPlayIn ? 'FF' : L.roundShort[t.outRound - 1]}` : t.bye ? 'Bye' : 'Alive';
     const next = t.alive && !t.champion ? t.path.find(g => !g.final) : null;
     t.next = next ? { opp: (next.top.team === t ? next.bot : next.top).team, round: next.roundName, live: next.live } : null;
   });
@@ -285,10 +374,13 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
   }).sort((a, b) => (b.alive.length > 0) - (a.alive.length > 0) || (b.banked + b.inPlay) - (a.banked + a.inPlay) || b.banked - a.banked);
 
   const champ = teams.find(t => t.champion) || null;
-  const midRound = isLatest && stage < 4 && games.some(g => g.round === stage + 1 && (g.final || g.live));
+  const started = games.filter(g => g.round === stage + 1 && (g.final || g.live));
+  const midRound = isLatest && stage < N && started.length > 0;
+  // Only First Four games so far: that's what's under way.
+  const roundNow = started.length && started.every(g => g.playIn) ? 'First Four' : L.rounds[stage];
   return {
-    league: bracket.league, L, stage, latest, isLatest, games, teams, byId, drafters: board, champ, milestones,
-    stageLabel: champ ? `Champion: ${(bracket.league === 'cfb' ? champ.location : champ.name) || champ.abbr}` : midRound ? `${L.rounds[stage]} under way` : L.stages[stage]
+    league: bracket.league, L, N, stage, latest, isLatest, games, teams, byId, drafters: board, champ, milestones,
+    stageLabel: champ ? `Champion: ${(L.byLocation ? champ.location : champ.name) || champ.abbr}` : midRound ? `${roundNow} under way` : L.stages[stage]
   };
 }
 
@@ -311,38 +403,74 @@ export function matchups(teams, games){
   }).filter(Boolean);
 }
 
-// Where each team's chip sits on the ladder: `fx`, its center as a share of
-// the chip lane's width (the rung labels sit to its right), and `y`, px from
-// the ladder's top. Rungs top to bottom are `top` (topRung) … first round,
-// `rungH` tall. Within a rung the two sides of each game still to play sit
-// together (matchups), games and lone teams in order of conference, then
-// best seed; up to six chips share a row, more wrap into two without
-// splitting a game.
-// `crown` ({ x, y } px): where the champion's chip sits on the Champion
-// rung instead, as the logo of the crown card that rung becomes.
-export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null } = {}){
+// The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung
+// the two sides of each game still to play sit together (matchups), games
+// and lone teams in order of conference (the NCAA's region), then best seed.
+// Up to six chips share a row; more wrap into as many rows as it takes, as
+// even as they can be without splitting a game.
+const PER_ROW = 6;
+export const ROW_H = 40;
+function rungRows(teams, games){
   const seed = t => t.seed ?? 99;
   const pairs = matchups(teams, games);
   const paired = new Set(pairs.flat().map(t => t.id));
   const byRung = {};
   pairs.forEach(p => { (byRung[p[0].rung] = byRung[p[0].rung] || []).push(p); });
   teams.filter(t => !paired.has(t.id)).forEach(t => { (byRung[t.rung] = byRung[t.rung] || []).push([t]); });
-  const pos = {};
+  const out = {};
   Object.entries(byRung).forEach(([k, units]) => {
     units.sort((a, b) => (a[0].conf || '').localeCompare(b[0].conf || '') || seed(a[0]) - seed(b[0]) || a[0].abbr.localeCompare(b[0].abbr));
     const total = units.reduce((n, u) => n + u.length, 0);
+    const want = Math.ceil(total / PER_ROW);
+    const even = Math.ceil(total / want);
     const rows = [[]];
-    let first = 0;
     units.forEach(u => {
-      if(total > 6 && rows.length === 1 && first >= Math.ceil(total / 2)) rows.push([]);
+      const row = rows[rows.length - 1];
+      // Two rows split at the halfway mark (football's ladder); three or
+      // more also never let a game push a row past six.
+      if(row.length && ((rows.length < want && row.length >= even) || (want > 2 && row.length + u.length > PER_ROW))) rows.push([]);
       rows[rows.length - 1].push(...u);
-      if(rows.length === 1) first += u.length;
     });
-    const y0 = (top - Number(k)) * rungH;
+    out[k] = rows;
+  });
+  return out;
+}
+
+// Each rung's height and its top (px from the ladder's top), rungs top to
+// bottom from `top` (topRung) to the first round, and the ladder's
+// height. A rung is `rungH` tall unless its chips need three rows or more
+// (the NCAA's first rung, with every drafted team in the field on it).
+// A rung above `top` waits one rungH above the ladder.
+export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs = 5 } = {}){
+  const rows = rungRows(teams, games);
+  const heights = [], tops = [];
+  for(let k = 0; k < rungs; k++){
+    const n = rows[k] ? rows[k].length : 0;
+    heights[k] = n > 2 ? 8 + n * ROW_H : rungH;
+  }
+  let y = 0;
+  for(let k = rungs - 1; k >= 0; k--){
+    if(k > top){ tops[k] = -rungH; continue; }
+    tops[k] = y;
+    y += heights[k];
+  }
+  return { heights, tops, height: y, rows };
+}
+
+// Where each team's chip sits on the ladder: `fx`, its center as a share of
+// the chip lane's width (the rung labels sit to its right), and `y`, px from
+// the ladder's top, row by row on its rung (rungRows, ladderGeometry).
+// `crown` ({ x, y } px): where the champion's chip sits on the Champion
+// rung (`champRung`) instead, as the logo of the crown card that rung becomes.
+export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null, champRung = 4 } = {}){
+  const geo = ladderGeometry(teams, { rungH, top, games, rungs: champRung + 1 });
+  const pos = {};
+  Object.entries(geo.rows).forEach(([k, rows]) => {
+    const y0 = geo.tops[k] ?? (top - Number(k)) * rungH;
     rows.forEach((row, r) => row.forEach((t, i) => {
-      pos[t.id] = crown && Number(k) === 4
+      pos[t.id] = crown && Number(k) === champRung
         ? { fx: 0, x: crown.x, y: y0 + crown.y }
-        : { fx: (i + 0.5) / row.length, y: y0 + (rows.length === 2 ? 4 + r * 40 : 26) };
+        : { fx: (i + 0.5) / row.length, y: y0 + (rows.length >= 2 ? 4 + r * ROW_H : 26) };
     }));
   });
   return pos;

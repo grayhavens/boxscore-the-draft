@@ -2733,7 +2733,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   padding-top: 0;
 }
 
-/* ---- Postseason (js/postseason.js): NFL / CFB's Regular | Postseason
+/* ---- Postseason (js/postseason.js): NFL / CFB / College BB's Regular | Postseason
    switch, the ladder, its scrubber and champion moment, and the drafted
    table under the card. ---- */
 .league-tab-top.ps-top{ align-items: center; }
@@ -2780,9 +2780,9 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 
 .ps-hero{ max-height: 0; opacity: 0; overflow: hidden; transition: max-height 640ms var(--ease-out), opacity 360ms; }
-.ps-hero.open{ max-height: 250px; opacity: 1; }
+.ps-hero.open{ max-height: var(--ps-hero-h, 250px); opacity: 1; }
 .ps-hero-in{
-  height: 250px; box-sizing: border-box; padding: 18px 16px;
+  height: var(--ps-hero-h, 250px); box-sizing: border-box; padding: 18px 16px;
   display: flex; flex-direction: column;
   background: var(--accent-soft); border-bottom: 1px solid var(--divider);
 }
@@ -2841,6 +2841,10 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 @media (prefers-color-scheme: light){
   :root[data-theme="auto"] .ps-hero-intro.lockup{ flex-direction: column; gap: 10px; }
 }
+/* March Madness: one wide lockup that opens alone and docks alone. */
+.ps-hero-logo-slot.lockup{ width: 85px; height: 36px; margin: 0; }
+.ps-hero-intro.solo .ps-hero-logo{ width: auto; height: 96px; }
+.ps-hero-intro.solo .ps-hero-logo img{ width: auto; }
 .ps-logo-light{ display: none !important; }
 :root[data-theme="light"] .ps-logo-light{ display: block !important; }
 :root[data-theme="light"] .ps-logo-dark{ display: none !important; }
@@ -2848,7 +2852,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   :root[data-theme="auto"] .ps-logo-light{ display: block !important; }
   :root[data-theme="auto"] .ps-logo-dark{ display: none !important; }
 }
-.ps-hero-grid{ height: 110px; flex: none; margin-top: 14px; }
+.ps-hero-grid{ height: var(--ps-hero-grid, 110px); flex: none; margin-top: 14px; }
 .ps-hero-mine{
   display: flex; align-items: baseline; gap: 8px;
   opacity: 0; transform: translateY(8px); transition: opacity 320ms, transform 420ms var(--ease-out);
@@ -2878,6 +2882,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-brand-row{ display: flex; align-items: center; gap: 6px; }
 .ps-brand-logo{ display: block; height: 28px; flex: none; margin-left: -3px; }
 .ps-brand-logo img{ display: block; height: 100%; width: auto; }
+.ps-brand-logo.lockup{ height: 36px; margin-left: 0; }
 .ps-brand-word{ display: block; font: 700 22px/1.05 var(--font-display); letter-spacing: -0.4px; white-space: nowrap; }
 .ps-brand-word.mark{ height: 30px; }
 .ps-brand-word.mark img{ display: block; height: 100%; width: auto; }
@@ -2906,7 +2911,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   border-radius: var(--r-sm);
   display: flex; justify-content: flex-end; align-items: flex-start;
   padding: 7px 4px 0;
-  transition: background var(--dur-move), border-color var(--dur-move), transform 520ms var(--ease-out), opacity 420ms;
+  transition: background var(--dur-move), border-color var(--dur-move), transform 520ms var(--ease-out), height 520ms var(--ease-out), opacity 420ms;
 }
 .ps-rung.unset{ opacity: 0 !important; pointer-events: none; }
 .ps-rung:first-child, .ps-rung.unset + .ps-rung:not(.unset){ border-top-color: transparent; }
@@ -2919,7 +2924,16 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 .ps-rung.below .ps-rung-label > span:first-child{ color: var(--text-mute); }
 .ps-rung.frontier .ps-rung-label > span:first-child{ color: var(--accent); }
-.ps-rung-pts{ font: 700 var(--fs-13) var(--font-display); color: var(--text-mute); }
+/* A rung's points are gold once a team has reached it (locked for that
+   team); one nobody has reached yet is hidden (unset) and stays gray. In
+   the playoffs reveal they go gold once the badges land (ps-pts-wait). */
+.ps-rung-pts{ font: 700 var(--fs-13) var(--font-display); color: var(--text-mute); transition: color 300ms; }
+.ps-rung:not(.unset) .ps-rung-pts{ color: var(--accent); }
+.ps-pts-wait .ps-rung:not(.unset) .ps-rung-pts{ color: var(--text-mute); }
+.ps-empty{
+  position: absolute; left: 4px; top: 26px; right: var(--ps-label-w);
+  font: 600 var(--fs-13) var(--font-ui); color: var(--text-mute);
+}
 
 /* A game still to play: a small gray "v" between its two chips (pairsHtml),
    fading in once they've settled side by side. */
@@ -5307,6 +5321,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home:active{ transform: scale(0.98); }
 .ps-home-logo{ flex: none; width: 40px; height: 44px; display: flex; justify-content: center; }
 .ps-home-logo img{ display: block; height: 100%; width: auto; }
+.ps-home-logo.lockup{ width: auto; height: 26px; align-self: center; }
 .ps-home-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ps-home-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ps-home-title{ font: 700 var(--fs-17)/1.2 var(--font-display); letter-spacing: -0.2px; }

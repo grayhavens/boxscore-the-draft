@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v47';
+const CACHE_NAME = 'boxscore-v48';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -121,7 +121,8 @@ const SHELL_FILES = [
   './icons/cfp-emblem-dark.png',
   './icons/cfp-emblem-light.png',
   './icons/cfp-wordmark-dark.png',
-  './icons/cfp-wordmark-light.png'
+  './icons/cfp-wordmark-light.png',
+  './icons/march-madness.png'
 ];
 
 self.addEventListener('install', (event) => {

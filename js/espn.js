@@ -1937,5 +1937,13 @@ export async function fetchEspnPostseason(leagueKey, year){
     // ESPN's college football "logo" is a generic football icon: no logo.
     return { events: (data.events || []).map(parseScoreboardEvent).filter(e => e && /college football playoff/i.test(e.headline)), seeds: {}, logo: null };
   }
+  if(leagueKey === 'mcbb'){
+    // The NCAA Tournament (group 100): all 67 games, First Four included,
+    // in one request. `year` is ESPN's season, the spring it ends in. Its
+    // logo is ours too (March Madness, icons/), like the CFP's.
+    const data = await fetchEspnJSON(`/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates=${year}&seasontype=3&groups=100&limit=400`);
+    if(!data) return null;
+    return { events: (data.events || []).map(parseScoreboardEvent).filter(e => e && /basketball championship/i.test(e.headline)), seeds: {}, logo: null };
+  }
   return null;
 }
