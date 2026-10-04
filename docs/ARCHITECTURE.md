@@ -159,7 +159,10 @@ worker's chat/draft alerts, the landing count, and the app, where `js/roster.js`
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
-original un-namespaced keys. localStorage isn't namespaced by group because each subdomain is its own
+original un-namespaced keys. `node tools/export-draft.mjs --group <id>` exports another group's finished draft to
+`js/seasons/<group>-<year>.js`, registered in `js/seasons/<group>.js` (made on the first export), `js/seasons/index.js`
+(`OTHER_GROUP_SEASONS`) and `sw.js`; a group's first class copies teams and scoring from The Draft's newest class and takes its
+year, and adds PGA Tour scoring when the group drafted golfers. localStorage isn't namespaced by group because each subdomain is its own
 origin. A group with no draft class yet gets a pre-draft class (`js/seasons/pre-draft.js`): The Draft's teams with the owners
 stripped and every team `favoriteOnly`, so Scores, Standings and team pages work, while `PRE_DRAFT` (`js/data.js`)
 hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). A group's

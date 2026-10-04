@@ -34,7 +34,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 - **Integration (needs wrangler dev):** `node tests/draft-room.integration.mjs` against
   `npx wrangler dev --var ADMIN_PASSWORD:testpw`; `node tools/rehearse-draft.mjs --chaos 2` (`--preflight` on draft
   morning). Not run in this audit.
-- **Tools:** `node tools/export-draft.mjs --dry-run` (finished draft → `js/seasons/<year>.js`; refuses an unfinished
+- **Tools:** `node tools/export-draft.mjs --dry-run [--group <id>]` (finished draft → `js/seasons/<year>.js`, or `<group>-<year>.js`; refuses an unfinished
   draft), `node tools/outlooks.mjs facts --league nfl` / `apply <file.json>`, `node tools/golfer-pool.mjs`,
   `node tools/vapid-keys.mjs`.
 - **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check.

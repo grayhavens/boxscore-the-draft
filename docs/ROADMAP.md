@@ -15,7 +15,7 @@ As of 2026-10-03 (`main` at bc1f761, PR #222). No open PRs or GitHub issues; no 
 - Design system Steps 1–2 (`css/tokens.css`, `js/ui.js`, token test) (design-system-plan.md).
 - Motion Phases 1–5 (draft room, Scores, Points, team page, chat burst, pull to refresh) (motion-plan.md).
 - Delight Phase 1 (draft room hero), Phase 2 (team page), Phase 4 (Since last time) (delight-plan.md).
-- Golf plan steps 1–5: per-group caps, data layer, draft pool, golfer UI (`js/golf-view.js`), `golfAuto` scoring and bonus (golf-plan.md). Left: the export tool's group support, a guide entry.
+- Golf plan steps 1–5: per-group caps, data layer, draft pool, golfer UI (`js/golf-view.js`), `golfAuto` scoring and bonus (golf-plan.md). Export tool group support: done (`--group`). Left: a guide entry.
 - Recent: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -25,7 +25,7 @@ As of 2026-10-03 (`main` at bc1f761, PR #222). No open PRs or GitHub issues; no 
 
 ## Next up
 
-- Export tool group support, so Season Ticket's draft can be exported (golf-plan.md).
+- Nothing queued. Run a Season Ticket rehearsal (`node tools/rehearse-draft.mjs --group seasonticket`) before its draft.
 
 ## Not started
 

@@ -65,8 +65,8 @@ Still to verify: a live leaderboard mid-round (`today`, `thru`). Capture a fixtu
    golfer pick into a `TEAM_META` entry (`kind: 'golfer'`, `espnAthleteId`) under a new "PGA Tour" league,
    flagged as a prior-season league until January.
    **Before exporting Season Ticket's draft:** step 4 must be in (every screen that walks `LEAGUES` would
-   otherwise meet golfers), the class needs `LEAGUE_SCORING.pga` (step 5), and the export tool has no
-   group support yet (it writes The Draft's registry).
+   otherwise meet golfers) and the class needs `LEAGUE_SCORING.pga` (step 5). Both are in. The export tool
+   now takes `--group seasonticket` (writes `js/seasons/seasonticket-<year>.js`, adds `pga: PGA_SCORING` to its scoring).
 4. **UI:** stat strip, golfer page, FedEx standings (`js/standings-pga.js`), Scores tournament card, live state.
    Built before this audit (2026-10-03), despite the old note: the golfer sheet, tournament sheet, FedEx Cup and
    Drafted standings, Home row status and the Scores tournament card, all in `js/golf-view.js`.
