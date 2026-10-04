@@ -45,6 +45,13 @@ function fetchEspnJSON(path){
   return fetchJSON(`${ESPN_SITE_BASE}${path}`);
 }
 
+// One day's scoreboard for a league path ("basketball/nba"), date YYYYMMDD
+// (the playoff rounds, js/playoff-series.js). ESPN's date ranges answer 400,
+// so a postseason is one request per day. null when ESPN fails.
+export function fetchEspnScoreboardDay(sportPath, yyyymmdd){
+  return fetchEspnJSON(`/apis/site/v2/sports/${sportPath}/scoreboard?dates=${yyyymmdd}&limit=100`);
+}
+
 // Both endpoints below carry a team.logos[] array — used for teams
 // this app doesn't have its own (SportsDB-sourced) badge for, i.e. a
 // ranked/standings team nobody's drafted. Picks the entry tagged

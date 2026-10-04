@@ -433,7 +433,7 @@ export const LEAGUE_SCORING = {
       { label: 'Reach the semifinals', pts: 2 },
       { label: 'Reach the Finals', pts: 3 },
       { label: 'Win the Finals', pts: 5 },
-      { label: 'Missing the playoffs', pts: -3 },
+      { label: 'Missing the playoffs', pts: -3, rankAuto: { eliminated: true } },
       { label: 'Bottom-three record', pts: -2, rankAuto: { bottom: 3 } }
     ],
     bonus: { label: 'Best win %', pts: 5 }

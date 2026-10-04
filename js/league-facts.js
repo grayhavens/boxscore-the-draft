@@ -61,6 +61,8 @@ import { golfStore } from './golf-view.js';
 import { golferAwardCounts } from './golf.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
+import { postseasonRuleTeams } from './postseason.js';
+import { playoffRuleTeams } from './playoff-series.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 
 // Per-league config for rankAuto's 'conference'/'division' scopes —
@@ -170,7 +172,7 @@ function clinchAutoRows(leagueKey){
   return (api && api.cache.rows) || [];
 }
 
-function clinchAutoTeams(leagueKey){
+function clinchAutoTeams(leagueKey, eliminated = false){
   const resolve = leagueKey === 'nfl'
     ? row => findNflTeamKeyByEspnAbbr(row.abbreviation)
     : row => findFlatTeamKey(leagueKey, row.teamNickname);
@@ -184,7 +186,9 @@ function clinchAutoTeams(leagueKey){
     // "...and a Bye" tacked onto either wording. Deliberately excludes
     // "Eliminated (From Playoffs/from Playoff Contention)" and a team
     // with no clincherDescription at all yet (still undetermined).
-    .filter(row => row.clincherDescription && /clinched/i.test(row.clincherDescription) && !/eliminated/i.test(row.clincherDescription))
+    .filter(row => eliminated
+      ? row.clincherDescription && /eliminated/i.test(row.clincherDescription)
+      : row.clincherDescription && /clinched/i.test(row.clincherDescription) && !/eliminated/i.test(row.clincherDescription))
     .map(resolve)
     .filter(Boolean);
 }
@@ -404,6 +408,7 @@ function findLeagueRule(leagueKey, ruleLabel){
 // target after a league is locked.
 export function computeLiveRankAutoTeams(leagueKey, rule){
   if(rule.rankAuto.clinched) return clinchAutoTeams(leagueKey);
+  if(rule.rankAuto.eliminated) return clinchAutoTeams(leagueKey, true);
   return rankAutoTables(leagueKey, rule.rankAuto.scope).flatMap(table => {
     const total = table.length;
     return table.filter((teamKey, i) => teamKey && rankAutoMatches(i + 1, total, rule.rankAuto));
@@ -454,7 +459,12 @@ export function getLeagueRuleTeams(leagueKey, rule){
     if(leagueSeasonUnderway(leagueKey) !== true) return [];
     return computeLiveRankAutoTeams(leagueKey, rule);
   }
-  return currentLeagueFacts(leagueKey)[rule.label] || [];
+  const marked = currentLeagueFacts(leagueKey)[rule.label] || [];
+  // NFL/CFP and NBA/NHL/MLB playoff rules also read ESPN (js/postseason.js,
+  // js/playoff-series.js);
+  // a commissioner mark still counts, for a result ESPN hasn't shown.
+  const earned = postseasonRuleTeams(leagueKey, rule) || playoffRuleTeams(leagueKey, rule);
+  return earned ? [...new Set([...marked, ...earned])] : marked;
 }
 
 // A golfAuto rule's answer (js/seasons/pga.js): each drafted golfer's
@@ -556,6 +566,7 @@ export function ruleAutoNote(rule){
   const spec = rule.rankAuto;
   if(!spec) return '';
   if(spec.clinched) return 'Clinched on ESPN';
+  if(spec.eliminated) return 'Eliminated on ESPN';
   const where = spec.scope === 'conference' || spec.scope === 'division' ? `in each ${spec.scope}` : 'of the table';
   const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
   if(spec.bottom) return spec.bottom === 1 ? `Last ${where}` : `Bottom ${spec.bottom} ${where}`;
@@ -571,7 +582,7 @@ export function ruleDataPending(leagueKey, rule){
   if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return true;
   if(isLeagueLocked(leagueKey)) return false;
   if(leagueSeasonUnderway(leagueKey) !== true) return true;
-  return rule.rankAuto.clinched
+  return rule.rankAuto.clinched || rule.rankAuto.eliminated
     ? !clinchAutoRows(leagueKey).length
     : !rankAutoTables(leagueKey, rule.rankAuto.scope).length;
 }
