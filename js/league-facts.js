@@ -62,6 +62,7 @@ import { golferAwardCounts } from './golf.js';
 import { renderAdminPage } from './admin.js';
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { postseasonRuleTeams } from './postseason.js';
+import { playoffRuleTeams } from './playoff-series.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 
 // Per-league config for rankAuto's 'conference'/'division' scopes —
@@ -459,9 +460,10 @@ export function getLeagueRuleTeams(leagueKey, rule){
     return computeLiveRankAutoTeams(leagueKey, rule);
   }
   const marked = currentLeagueFacts(leagueKey)[rule.label] || [];
-  // NFL/CFP postseason rules also read ESPN's bracket (js/postseason.js);
+  // NFL/CFP and NBA/NHL/MLB playoff rules also read ESPN (js/postseason.js,
+  // js/playoff-series.js);
   // a commissioner mark still counts, for a result ESPN hasn't shown.
-  const earned = postseasonRuleTeams(leagueKey, rule);
+  const earned = postseasonRuleTeams(leagueKey, rule) || playoffRuleTeams(leagueKey, rule);
   return earned ? [...new Set([...marked, ...earned])] : marked;
 }
 

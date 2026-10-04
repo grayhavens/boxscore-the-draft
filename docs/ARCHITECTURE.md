@@ -511,6 +511,14 @@ is the class's own season (`seasonLabelYear`: "'26 Season" → 2026). Local dev 
 with `?psyear=2025`, and `?psreveal=1` replays the reveal on every load and tab visit; both stick on the device until
 `?psreveal=0` / `?psyear=0`.
 
+**NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
+`tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
+ESPN's scoreboard with no commissioner mark (marks still union in). ESPN answers one day per request (date ranges
+400), so it samples every third day of the late rounds, then walks the days after the last final-round game until a
+series is won (a game's series tally is only as of that game). The round is the game's note headline ("East Finals -
+Game 3"), matched by label like the NFL ladder. Settled days are saved per device (`bxPlayoffDay:<league>:<day>`).
+The MLB LCS / World Series headlines are expected, not yet seen. The NBA play-in is its own season type and never counts.
+
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
 actually being played right now. Until that next season starts, their Standings tab and team pages
