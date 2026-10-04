@@ -409,7 +409,19 @@ body{
   object-fit: contain;
   padding: 2px;
   box-sizing: border-box;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.55));
+  filter: drop-shadow(var(--crest-img-shadow));
+}
+
+/* A team with a bright crest for dark backgrounds (badgeUrlDark in
+   TEAM_META, e.g. the Padres, the Yankees) gets both crests (teamBadgeHtml
+   in js/ui.js, the team page's hero): the bright one in the dark theme,
+   its own crest in light, where the bright one washes into white. */
+.crest-light{ display: none !important; }
+:root[data-theme="light"] .crest-light{ display: block !important; }
+:root[data-theme="light"] .crest-dark{ display: none !important; }
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"] .crest-light{ display: block !important; }
+  :root[data-theme="auto"] .crest-dark{ display: none !important; }
 }
 
 .team-name{
@@ -2957,7 +2969,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-chip-badge .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-chip-owner{ font-size: 9px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 10px; }
 .ps-chip.mine .ps-chip-owner{ color: var(--accent); }
-.ps-chip.out{ opacity: 0.4; filter: grayscale(1); }
+.ps-chip.out{ opacity: var(--ps-out-opacity); filter: var(--ps-out-filter); }
 .ps-chip.out .ps-chip-owner{ color: var(--text-mute); }
 /* Loses first, then grays: the fade waits for the move. */
 .ps-chip.just-out{ transition-delay: 0ms, 500ms, 500ms; }

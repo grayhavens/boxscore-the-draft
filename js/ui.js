@@ -124,9 +124,13 @@ export function gameSectionHtml({ label, html }){
 // square in its own colors (`style`) with its abbreviation (`text`). A
 // crest that fails to load falls back to that colored square. `person`
 // crops a golfer's headshot instead of fitting a crest whole.
-export function teamBadgeHtml({ crestSrc = null, name = '', style = '', text = '', person = false }){
+// `crestSrcDark`: a bright version of the crest for the dark theme; both
+// are drawn and CSS shows the one for the theme (.crest-dark/.crest-light).
+export function teamBadgeHtml({ crestSrc = null, crestSrcDark = null, name = '', style = '', text = '', person = false }){
   if(crestSrc){
-    return `<div class="badge badge-crest${person ? ' badge-person' : ''}"><img src="${crestSrc}" alt="${escapeHtml(name)}" data-fallback-style="${style}" data-fallback-text="${escapeHtml(text)}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;"></div>`;
+    const img = (src, cls) => `<img${cls ? ` class="${cls}"` : ''} src="${src}" alt="${escapeHtml(name)}" data-fallback-style="${style}" data-fallback-text="${escapeHtml(text)}" onerror="const p=this.parentElement; p.className='badge'; p.setAttribute('style', this.dataset.fallbackStyle); p.textContent=this.dataset.fallbackText;">`;
+    const imgs = crestSrcDark ? img(crestSrcDark, 'crest-dark') + img(crestSrc, 'crest-light') : img(crestSrc, '');
+    return `<div class="badge badge-crest${person ? ' badge-person' : ''}">${imgs}</div>`;
   }
   return `<div class="badge" style="${style}">${escapeHtml(text)}</div>`;
 }

@@ -64,6 +64,10 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
 - Cards have **no shadow** (fill + 1px hairline). Shadows only on floating things: `--shadow-pop`, `--shadow-tip`,
   `--shadow-modal`, `--shadow-sheet`, `--hero-shadow`, `--seg-thumb-shadow`, `--crest-shadow`.
 - Team orb: `--orb-blur` 64px, `--orb-opacity` 0.5, `--orb-opacity-soft` 0.42; color inline as `--orb`.
+- Crest in a badge: `--crest-img-shadow` (heavy in dark, a hint in light). A team with `badgeUrlDark` draws both crests
+  (`.crest-dark` / `.crest-light`, shown by theme); never use the bright one in light.
+- Postseason ladder, eliminated chip: `--ps-out-opacity` / `--ps-out-filter` (0.4 grayscale in dark; 0.7, slightly darker
+  grayscale in light, where 0.4 vanishes on white).
 - Blur only on the tab bar and sheet overlay.
 
 ## Motion
