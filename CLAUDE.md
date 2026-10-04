@@ -72,7 +72,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 ## Environment / config (names only)
 
 Worker secrets: `ADMIN_PASSWORD` (The Draft commissioner), `ADMIN_PASSWORD_<GROUP>` (others), `THERUNDOWN_API_KEY`,
-`SPORTSDB_API_KEY`, `KLIPY_APP_KEY` (GIFs; unset hides them), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (push; never
+`SPORTSDB_API_KEY`, `PERIGON_API_KEY` (More news; unset hides it), `KLIPY_APP_KEY` (GIFs; unset hides them), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (push; never
 rotate casually), `VAPID_SUBJECT`, `RESEND_API_KEY`, `CLAIM_ALERT_EMAIL`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`.
 Dev only: `ADMIN_DEV_BYPASS` (ignored when `ACCESS_AUD` is set). Local secrets go in `worker/.dev.vars` (gitignored).
 Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASHBOARD_WORKER_BASE`
