@@ -66,6 +66,8 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
 - Team orb: `--orb-blur` 64px, `--orb-opacity` 0.5, `--orb-opacity-soft` 0.42; color inline as `--orb`.
 - Crest in a badge: `--crest-img-shadow` (heavy in dark, a hint in light). A team with `badgeUrlDark` draws both crests
   (`.crest-dark` / `.crest-light`, shown by theme); never use the bright one in light.
+- Gold shapes (fills, thumbs, dots, rings) use `--accent-fill`, the yellow of the chat's Send button; `--accent` is the
+  text gold and is a darker, readable gold in light. The postseason stepper, toggle, rings and champion dot follow this.
 - Postseason ladder, eliminated chip: `--ps-out-opacity` / `--ps-out-filter` (0.4 grayscale in dark; 0.7, slightly darker
   grayscale in light, where 0.4 vanishes on white).
 - Blur only on the tab bar and sheet overlay.
