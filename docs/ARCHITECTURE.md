@@ -435,7 +435,8 @@ shared across every drafter instead of living in one person's `localStorage`: ma
 a league's Results modal credits every drafter who owns an involved team automatically, stored in
 Workers KV (`LEAGUE_FACTS_LEAGUES` allowlist). `rankAuto` scoring rules (in `LEAGUE_SCORING`) skip
 manual marking entirely and are instead derived live off a loaded standings table (currently EPL
-only — see `getLeagueRuleTeams`). Every league is on this model; the older per-team
+only — see `getLeagueRuleTeams`). `rankAuto: { eliminated: true }` (WNBA "Missing the playoffs") reads ESPN's
+"Eliminated" clincher text, the mirror of `clinched`. Every league is on this model; the older per-team
 achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
 **Points history** (`worker/points-history.js`): one sample per Central-time day of every drafter's projected and
@@ -493,8 +494,10 @@ teams stay grayed on the rung where they lost, a scrubber replays the rounds, an
 (the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
 Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
 "Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
-Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`); they're the
-ladder's own math, not League Facts marks. A chip opens the team page, whose Overview leads with a Postseason section at
+Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`). They also
+score on the Points tab with no commissioner mark: `getLeagueRuleTeams` unions marks with `postseasonRuleTeams`
+(`js/postseason.js`), which reads the same bracket for the draft class whose season ESPN is serving. It keeps fetching
+past February once the league has locked, so a March total keeps the Super Bowl. Marks stay as an override. A chip opens the team page, whose Overview leads with a Postseason section at
 the ladder's stage. The ladder updates in place while you scrub; `keepPostseason`/`restorePostseason` carry it across a
 Standings re-render.
 The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
@@ -507,6 +510,14 @@ Since someone away for weeks lands on Home, Home leads with a gold "The NFL play
 is the class's own season (`seasonLabelYear`: "'26 Season" → 2026). Local dev and Pages previews replay a past season
 with `?psyear=2025`, and `?psreveal=1` replays the reveal on every load and tab visit; both stick on the device until
 `?psreveal=0` / `?psyear=0`.
+
+**NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
+`tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
+ESPN's scoreboard with no commissioner mark (marks still union in). ESPN answers one day per request (date ranges
+400), so it samples every third day of the late rounds, then walks the days after the last final-round game until a
+series is won (a game's series tally is only as of that game). The round is the game's note headline ("East Finals -
+Game 3"), matched by label like the NFL ladder. Settled days are saved per device (`bxPlayoffDay:<league>:<day>`).
+The MLB LCS / World Series headlines are expected, not yet seen. The NBA play-in is its own season type and never counts.
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
