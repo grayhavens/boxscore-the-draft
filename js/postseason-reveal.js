@@ -1,7 +1,8 @@
 /* ============================================================
    The playoffs reveal: the one-time transition from the regular season to
-   the postseason ladder, inside an NFL or CFB Standings card. Design: the
-   "Playoffs announcement" handoff (variant D / option 2a).
+   the postseason ladder, inside an NFL, CFB or College Basketball
+   Standings card. Design: the "Playoffs announcement" handoff (variant D /
+   option 2a), and the NCAA Tournament addendum (option 3a).
 
    Until a league's field is set its card has no Regular | Postseason
    toggle. The first time this device opens that league's Standings tab
@@ -22,7 +23,15 @@
    the CFP lockup (stacked in light theme, side by side in dark, like its
    artwork). Both parts then dock into the strip's title row (FLIP onto
    hidden slots there) and the rest follows, shifted by LOGO_SHIFT. At the
-   flip they fly down into the ladder's title with the badges.
+   flip they fly down into the ladder's title with the badges. March
+   Madness is a single lockup: it opens alone and docks alone.
+
+   College Basketball: "Selection Sunday · Field of 68", only the drafted
+   teams in the field, seven to a row by seed then region, captioned with
+   region and seed (E2). They all land on the Tournament rung.
+
+   In every league the reached rungs' points go gold once the badges
+   have landed (ps-pts-wait).
 
    The badges are one set of elements in a layer over the card; their
    ladder slots are measured from the ladder itself (FLIP), so they land
@@ -41,7 +50,7 @@ import { reducedMotion } from './utils.js';
 import { escapeHtml } from './escape.js';
 import { renderStandings } from './board.js';
 import {
-  bracketFor, snap, seasonLabelYear, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
+  bracketFor, snap, ladderTeams, postseasonTitle, fieldSetEyebrow, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
   postseasonToggleHtml, postseasonCardHtml, showFieldSet, onPostseasonPhaseTap
 } from './postseason.js';
 
@@ -52,6 +61,11 @@ const LOGO_SHIFT = 1900;
 const LOGO_STEPS = [[500, 'open'], [1150, 'word'], [2700, 'dock'],
   ...STEPS.filter(([, s]) => !['open', 'title'].includes(s)).map(([ms, s]) => [ms + LOGO_SHIFT, s])];
 const HERO_GRID_TOP = 88, HERO_ROW = 50;
+// The reached rungs' points go gold this long after the flip, once the
+// badges have landed.
+const PTS_MS = 1400;
+const REGION_ORDER = ['East', 'West', 'South', 'Midwest'];
+const regionRank = t => { const i = REGION_ORDER.indexOf(t.conf); return i < 0 ? 9 : i; };
 
 let run = null; // { key, card, timers, chips }
 let retry = 0;
@@ -61,7 +75,7 @@ export function postseasonRevealBusy(){ return !!run; }
 // After each Standings render: start the reveal if this league's tab is
 // showing, its field is set and this device hasn't seen it.
 export function maybeStartPostseasonReveal(container, filterKey){
-  if(run || !['nfl', 'cfb'].includes(filterKey)) return;
+  if(run || !['nfl', 'cfb', 'mcbb'].includes(filterKey)) return;
   const key = filterKey;
   if(!bracketFor(key) || revealSeen(key)) return;
   if(reducedMotion()){
@@ -111,10 +125,14 @@ function titleHtml(text){
 function start(key, card){
   markRevealSeen(key);
   const S = snap(key, 0);
-  const nfl = key === 'nfl';
-  // Hero order: the AFC then the NFC, each by seed (seeds 1-6, 7-12 for the CFP).
-  const hero = S.teams.slice().sort((a, b) => nfl ? (a.conf || '').localeCompare(b.conf || '') || (a.seed ?? 99) - (b.seed ?? 99) : (a.seed ?? 99) - (b.seed ?? 99));
-  const travel = S.teams.slice().sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99) || (a.conf || '').localeCompare(b.conf || ''));
+  const nfl = key === 'nfl', ncaa = key === 'mcbb';
+  const teams = ladderTeams(key, S);
+  const seed = t => t.seed ?? 99;
+  // Hero order: the AFC then the NFC, each by seed (seeds 1-6, 7-12 for
+  // the CFP); the NCAA's drafted teams by seed, then region.
+  const hero = teams.slice().sort((a, b) => nfl ? (a.conf || '').localeCompare(b.conf || '') || seed(a) - seed(b)
+    : ncaa ? seed(a) - seed(b) || regionRank(a) - regionRank(b) : seed(a) - seed(b));
+  const travel = teams.slice().sort((a, b) => seed(a) - seed(b) || (ncaa ? regionRank(a) - regionRank(b) : (a.conf || '').localeCompare(b.conf || '')));
   const mine = S.teams.filter(t => t.mine).length;
   const showMine = !PRE_DRAFT && !!currentProfileId;
 
@@ -122,19 +140,26 @@ function start(key, card){
   card.classList.add('ps-revealing');
   const header = card.querySelector('.league-tab');
   const imgs = logoImgsHtml;
-  const title = nfl ? 'NFL Playoffs' : 'College Football Playoff';
+  const title = postseasonTitle(key);
+  const lockup = !!(logo && logo.lockup);
+  // Seven badges to a row (six for the CFP's 12); the NCAA's can need more
+  // than two rows, and the strip grows to fit them.
+  const cols = key === 'cfb' ? 6 : 7;
+  const gridH = Math.max(2, Math.ceil(hero.length / cols)) * HERO_ROW + 10;
   header.insertAdjacentHTML('afterend', `
-    <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}">
+    <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}" style="--ps-hero-grid:${gridH}px;--ps-hero-h:${250 + gridH - 110}px">
       <div class="ps-hero-in">
         <div class="ps-hero-head">
-          <div class="ps-hero-eyebrow">Field set · ${seasonLabelYear(key)}</div>
-          ${logo
+          <div class="ps-hero-eyebrow">${ncaa ? 'Selection Sunday · Field of 68' : fieldSetEyebrow(key)}</div>
+          ${lockup
+            ? `<div class="ps-hero-title" aria-label="${title}"><span class="ps-hero-logo-slot lockup"></span></div>`
+            : logo
             ? `<div class="ps-hero-title" aria-label="${title}"><span class="ps-hero-logo-slot${logo.wordmark ? ' mark' : ''}"></span><span class="ps-hero-word-slot${logo.wordmark ? ' mark' : ''}">${logo.wordmark ? '' : 'Playoffs'}</span></div>`
             : `<div class="ps-hero-title">${titleHtml(title)}</div>`}
         </div>
-        ${logo ? `<div class="ps-hero-intro${logo.wordmark ? ' lockup' : ''}" aria-hidden="true">
+        ${logo ? `<div class="ps-hero-intro${logo.wordmark ? ' lockup' : ''}${lockup ? ' solo' : ''}" aria-hidden="true">
           <div class="ps-hero-logo">${imgs(logo.emblem)}</div>
-          <div class="ps-hero-word">${logo.wordmark ? imgs(logo.wordmark) : titleHtml('Playoffs')}</div>
+          ${lockup ? '' : `<div class="ps-hero-word">${logo.wordmark ? imgs(logo.wordmark) : titleHtml('Playoffs')}</div>`}
         </div>` : ''}
         <div class="ps-hero-grid"></div>
         ${showMine ? `<div class="ps-hero-mine"><span>${mine}</span><span>${mine === 1 ? 'of your teams is' : 'of your teams are'} in</span></div>` : ''}
@@ -145,7 +170,6 @@ function start(key, card){
   if(slot) slot.innerHTML = postseasonToggleHtml(key, 'reg');
 
   // The travelling badges, parked on their hero slots.
-  const cols = nfl ? 7 : 6;
   const cardBox = card.getBoundingClientRect();
   const heroTop = heroEl.getBoundingClientRect().top - cardBox.top;
   const w = cardBox.width - 32, cell = w / cols;
@@ -154,7 +178,7 @@ function start(key, card){
   fly.innerHTML = hero.map(t => `
     <div class="ps-chip ps-fly-chip seeded${t.mine ? ' mine' : ''}" data-team="${t.id}">
       <span class="ps-chip-badge">${badgeOf(t)}</span>
-      <span class="ps-chip-owner">${nfl ? (t.conf || '?')[0] : '#'}${t.seed ?? ''}</span>
+      <span class="ps-chip-owner">${key === 'cfb' ? '#' : (t.conf || '?')[0]}${t.seed ?? ''}</span>
     </div>`).join('');
   card.appendChild(fly);
   const chips = hero.map((t, h) => {
@@ -229,7 +253,8 @@ function flip(key, card, heroEl, chips){
   showFieldSet(key);
   heroEl.insertAdjacentHTML('afterend', postseasonCardHtml(key));
   const ps = card.querySelector('.ps');
-  ps.classList.add('ps-arriving');
+  ps.classList.add('ps-arriving', 'ps-pts-wait');
+  run.timers.push(setTimeout(() => ps.classList.remove('ps-pts-wait'), PTS_MS));
   const rungs = [...ps.querySelectorAll('.ps-rung')];
   rungs.forEach((r, i) => { r.style.transitionDelay = `${(rungs.length - 1 - i) * 60}ms`; });
 

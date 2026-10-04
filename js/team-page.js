@@ -768,7 +768,7 @@ function renderTeamPage({ refresh = false } = {}){
   playStatsRoll();
 }
 
-// The NFL/CFB bracket landing fills in an open page's Postseason section.
+// The postseason bracket landing fills in an open page's Postseason section.
 onPostseasonData(key => {
   const meta = TEAM_META[state.teamKey];
   if(meta && meta.leagueKey === key) writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(state.teamKey));
@@ -1197,7 +1197,7 @@ function recentFormHtml(teamKey, bundle){
 }
 
 // The Overview tab's sections, empty: renderTabBody fills each one. During
-// an NFL or CFB postseason a team in the field leads with its Postseason
+// an NFL, CFB or NCAA Tournament postseason a team in the field leads with its Postseason
 // section (js/postseason.js). Recent form comes next, then Path to points: what this team is worth to its owner,
 // rule by rule, with On the line's distance on each (folded to one row
 // until it's opened). News follows, and shows even while the schedule is
