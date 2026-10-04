@@ -2733,6 +2733,348 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   padding-top: 0;
 }
 
+/* ---- Postseason (js/postseason.js): NFL / CFB's Regular | Postseason
+   switch, the ladder, its scrubber and champion moment, and the drafted
+   table under the card. ---- */
+.league-tab-top.ps-top{ align-items: center; }
+.ps-title{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ps-title .n{ color: var(--text-mute); font-weight: 600; }
+/* SegmentedControl, pill variant: sized to its labels, not the card. */
+.ps-phase{ flex: none; width: 176px; }
+.ps-phase .seg{ border-radius: var(--r-pill); margin: 0; }
+.ps-phase .seg-thumb{ border-radius: var(--r-pill); background: var(--surface-raised); box-shadow: none; }
+.ps-phase .seg-btn{ min-height: 0; padding: 6px 0; font-size: var(--fs-12); font-weight: 800; color: var(--text-mute); transition: color var(--dur-ui); }
+.ps-phase .seg-btn.active{ color: var(--text); }
+
+.ps-stack{ display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* ---- Playoffs reveal (js/postseason-reveal.js): the one-time transition
+   into the postseason, inside the card. ---- */
+.ps-phase-slot{ flex: none; display: flex; justify-content: flex-end; }
+.ps-revealing{ position: relative; }
+.ps-revealing .ps-phase-slot{
+  max-width: 0; overflow: hidden;
+  transition: max-width 560ms var(--ease-out);
+}
+.ps-revealing .ps-phase-slot.open{ max-width: 220px; }
+.ps-revealing .ps-phase-slot.free{ overflow: visible; }
+.ps-revealing .ps-phase{
+  position: relative; opacity: 0; transform: scale(0.3); transform-origin: right center;
+  transition: transform 560ms var(--ease-spring), opacity 320ms;
+}
+.ps-revealing .ps-phase-slot.open .ps-phase{ opacity: 1; transform: scale(1); }
+.ps-revealing .ps-phase-slot.open .ps-phase.big{ transform: scale(1.12); }
+.ps-phase.loud .seg{ animation: ps-tg-glow 1.1s ease-in-out 300ms 3; }
+.ps-phase.loud .seg-btn:last-child{ color: var(--accent); }
+.ps-phase.loud.on-post .seg-thumb{ background: var(--accent); }
+.ps-phase.loud.on-post .seg-btn:last-child{ color: var(--on-accent); }
+.ps-tg-ring{
+  position: absolute; inset: 0; border-radius: var(--r-pill); border: 2px solid var(--accent);
+  opacity: 0; pointer-events: none;
+  animation: ps-tg-ring 1.3s var(--ease-out) 2 both;
+}
+@keyframes ps-tg-ring{ from{ transform: scale(1); opacity: 0.9; } to{ transform: scale(1.5, 2.2); opacity: 0; } }
+@keyframes ps-tg-glow{
+  0%, 100%{ box-shadow: 0 0 0 0 transparent; }
+  50%{ box-shadow: 0 0 0 2px var(--accent), 0 0 16px 4px var(--accent-glow); }
+}
+
+.ps-hero{ max-height: 0; opacity: 0; overflow: hidden; transition: max-height 640ms var(--ease-out), opacity 360ms; }
+.ps-hero.open{ max-height: 250px; opacity: 1; }
+.ps-hero-in{
+  height: 250px; box-sizing: border-box; padding: 18px 16px;
+  display: flex; flex-direction: column;
+  background: var(--accent-soft); border-bottom: 1px solid var(--divider);
+}
+.ps-hero-head{ height: 56px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.ps-hero-eyebrow{
+  font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
+  opacity: 0; transition: opacity 320ms;
+}
+.ps-hero.open .ps-hero-eyebrow{ opacity: 1; }
+.ps-hero-title{ display: flex; white-space: nowrap; font: 700 var(--fs-30)/1.05 var(--font-display); letter-spacing: -0.6px; }
+.ps-hero.long .ps-hero-title{ font-size: 26px; }
+.ps-hero-title span, .ps-hero-word span{
+  display: inline-block; opacity: 0; transform: translateY(18px);
+  transition-property: opacity, transform; transition-duration: 280ms, 520ms; transition-timing-function: ease, var(--ease-spring);
+}
+.ps-hero.title-in .ps-hero-title span, .ps-hero.title-in .ps-hero-word span{ opacity: 1; transform: none; }
+
+/* The logo opening (NFL): the shield and "Playoffs" start big in the middle
+   of the strip, then dock onto the hidden slots in its title row. */
+.ps-hero-in{ position: relative; }
+.ps-hero.with-logo .ps-hero-eyebrow{ opacity: 0; }
+.ps-hero.with-logo.docked .ps-hero-eyebrow{ opacity: 1; transition-delay: 300ms; }
+.ps-hero.with-logo .ps-hero-head{ align-items: center; }
+.ps-hero.with-logo .ps-hero-mine{ justify-content: center; }
+.ps-hero.with-logo .ps-hero-title{ align-items: center; justify-content: center; }
+.ps-hero-logo-slot{ flex: none; width: 36px; height: 36px; margin: -3px 4px -3px -6px; }
+.ps-hero-word-slot{ visibility: hidden; }
+.ps-hero-intro{
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+.ps-hero-logo{
+  width: 112px; height: 112px;
+  opacity: 0; transform: scale(0.8);
+  transition: opacity 700ms var(--ease-out) 150ms, transform 900ms var(--ease-spring) 150ms;
+}
+.ps-hero.open .ps-hero-logo{ opacity: 1; transform: scale(1); }
+.ps-hero-logo img{ display: block; width: 100%; height: 100%; object-fit: contain; }
+.ps-hero-word{ display: flex; white-space: nowrap; font: 700 34px/1.05 var(--font-display); letter-spacing: -0.6px; }
+.ps-hero.docked .ps-hero-logo, .ps-hero.docked .ps-hero-word{ transition: transform 680ms var(--ease-spring); }
+/* The CFP lockup: emblem and wordmark images, side by side in dark theme
+   and stacked in light, the way the CFP's own artwork is laid out. The
+   wordmark fades in with the emblem rather than rising letter by letter. */
+.ps-hero-word-slot.mark{ width: 123px; height: 34px; }
+.ps-hero-logo-slot.mark{ width: 26px; height: 34px; margin: 0 10px 0 0; }
+.ps-hero-intro.lockup{ flex-direction: row; gap: 14px; }
+.ps-hero-intro.lockup .ps-hero-logo{ width: auto; height: 100px; }
+.ps-hero-intro.lockup .ps-hero-word{
+  height: 52px; opacity: 0;
+  transition: opacity 600ms var(--ease-out) 350ms;
+}
+.ps-hero.title-in .ps-hero-intro.lockup .ps-hero-word{ opacity: 1; }
+.ps-hero.docked .ps-hero-intro.lockup .ps-hero-word{ opacity: 1; transition: transform 680ms var(--ease-spring); }
+.ps-hero-intro.lockup img{ display: block; width: auto; height: 100%; }
+:root[data-theme="light"] .ps-hero-intro.lockup{ flex-direction: column; gap: 10px; }
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"] .ps-hero-intro.lockup{ flex-direction: column; gap: 10px; }
+}
+.ps-logo-light{ display: none !important; }
+:root[data-theme="light"] .ps-logo-light{ display: block !important; }
+:root[data-theme="light"] .ps-logo-dark{ display: none !important; }
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"] .ps-logo-light{ display: block !important; }
+  :root[data-theme="auto"] .ps-logo-dark{ display: none !important; }
+}
+.ps-hero-grid{ height: 110px; flex: none; margin-top: 14px; }
+.ps-hero-mine{
+  display: flex; align-items: baseline; gap: 8px;
+  opacity: 0; transform: translateY(8px); transition: opacity 320ms, transform 420ms var(--ease-out);
+}
+.ps-hero.mine-in .ps-hero-mine{ opacity: 1; transform: none; }
+.ps-hero-mine span:first-child{ font: 700 var(--fs-30)/1 var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.ps-hero-mine span:last-child{ font: 700 var(--fs-15) var(--font-ui); color: var(--text); }
+
+.ps-fly{ position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 2; pointer-events: none; }
+.ps-fly-chip{ opacity: 0; transition: transform 760ms var(--ease-spring), opacity 260ms; }
+.ps-fly-chip.in{ opacity: 1; }
+.ps-fly-chip.mine .ps-chip-badge{ box-shadow: 0 0 0 2px var(--accent); }
+.ps-fly-chip.mine.landed .ps-chip-badge{ box-shadow: 0 0 0 2px transparent; }
+.ps-fly-chip.seeded .ps-chip-owner{ color: var(--text-mute); }
+.ps-fly-chip.seeded.mine .ps-chip-owner, .ps-fly-chip.mine .ps-chip-owner{ color: var(--accent); }
+
+.ps-arriving .ps-chip{ opacity: 0; transition: none; }
+.ps-arriving .ps-rung, .ps-arriving .ps-head{ opacity: 0; }
+.ps-arriving.ps-rungs-in .ps-rung, .ps-arriving.ps-rungs-in .ps-head{ opacity: 1; transition: opacity 360ms; }
+
+.ps{ padding: 12px 12px 10px; display: flex; flex-direction: column; gap: 4px; }
+.ps-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 8px; }
+/* The ladder's title: league logo + "Playoffs" (or the CFP wordmark), the
+   stage under it. */
+.ps-head:has(.ps-brand){ align-items: flex-start; }
+.ps-brand{ display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ps-brand-row{ display: flex; align-items: center; gap: 6px; }
+.ps-brand-logo{ display: block; height: 28px; flex: none; margin-left: -3px; }
+.ps-brand-logo img{ display: block; height: 100%; width: auto; }
+.ps-brand-word{ display: block; font: 700 22px/1.05 var(--font-display); letter-spacing: -0.4px; white-space: nowrap; }
+.ps-brand-word.mark{ height: 30px; }
+.ps-brand-word.mark img{ display: block; height: 100%; width: auto; }
+.ps-brand .ps-stage{ font: 700 var(--fs-12)/1.2 var(--font-ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
+.ps-fly-brand{ position: absolute; transform-origin: center; transition: transform 760ms var(--ease-spring); }
+.ps-arriving .ps-brand-row{ visibility: hidden; }
+.ps-stage{ font: 700 var(--fs-17)/1.2 var(--font-display); letter-spacing: -0.2px; }
+.ps-replay{
+  border: none; background: none; padding: 4px 0; cursor: pointer;
+  font: 800 var(--fs-12) var(--font-ui); color: var(--accent);
+}
+
+.ps-ladder{
+  --ps-label-w: 86px;
+  position: relative;
+  height: calc(84px * 5);
+  container-type: inline-size;
+  transition: height 520ms var(--ease-out);
+}
+/* Rungs sit by transform (rungStyle in js/postseason.js) so a new one can
+   slide in from the top as the ladder grows; one nobody has reached yet is
+   hidden just above it. */
+.ps-rung{
+  position: absolute; left: 0; right: 0; top: 0; height: 84px;
+  border-top: 1px solid var(--divider);
+  border-radius: var(--r-sm);
+  display: flex; justify-content: flex-end; align-items: flex-start;
+  padding: 7px 4px 0;
+  transition: background var(--dur-move), border-color var(--dur-move), transform 520ms var(--ease-out), opacity 420ms;
+}
+.ps-rung.unset{ opacity: 0 !important; pointer-events: none; }
+.ps-rung:first-child, .ps-rung.unset + .ps-rung:not(.unset){ border-top-color: transparent; }
+.ps-rung.frontier{ background: var(--hover); }
+.ps-rung.frontier.champ{ background: var(--accent-soft); }
+.ps-rung-label{ width: 78px; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.ps-rung-label > span:first-child{
+  font: 800 var(--fs-10)/1.2 var(--font-ui); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-sub); transition: color var(--dur-move);
+}
+.ps-rung.below .ps-rung-label > span:first-child{ color: var(--text-mute); }
+.ps-rung.frontier .ps-rung-label > span:first-child{ color: var(--accent); }
+.ps-rung-pts{ font: 700 var(--fs-13) var(--font-display); color: var(--text-mute); }
+
+/* A game still to play: a small gray "v" between its two chips (pairsHtml),
+   fading in once they've settled side by side. */
+.ps-pairs{ position: absolute; inset: 0; pointer-events: none; transition: opacity 360ms; }
+.ps-vs{
+  position: absolute; left: 0; top: 0; width: 12px; text-align: center;
+  font: 800 var(--fs-10)/12px var(--font-ui); color: var(--text-mute);
+  animation: ps-pair-in 360ms var(--ease-out) 420ms both;
+}
+@keyframes ps-pair-in{ from{ opacity: 0; } to{ opacity: 1; } }
+.ps-arriving .ps-pairs{ opacity: 0; }
+.ps-chip{
+  position: absolute; left: 0; top: 0; width: 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 0; border: none; background: none; color: inherit; font: inherit;
+  transform-origin: 50% 13px;
+  transition: transform 640ms var(--ease-spring), opacity 420ms, filter 420ms;
+}
+.ps-chip.tap{ cursor: pointer; }
+.ps-chip-badge{ display: block; border-radius: 9px; transition: filter 400ms, box-shadow 400ms; }
+.ps-chip-badge .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
+.ps-chip-owner{ font-size: 9px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 10px; }
+.ps-chip.mine .ps-chip-owner{ color: var(--accent); }
+.ps-chip.out{ opacity: 0.4; filter: grayscale(1); }
+.ps-chip.out .ps-chip-owner{ color: var(--text-mute); }
+/* Loses first, then grays: the fade waits for the move. */
+.ps-chip.just-out{ transition-delay: 0ms, 500ms, 500ms; }
+.ps-chip.champ{ transition-delay: 250ms, 0ms, 0ms; }
+/* The champion moment's bloom and ripples (playChampion), centered on the
+   landed crest: a zero-size anchor, with each layer centered on it. */
+.ps-fx{ position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.ps-bloom, .ps-ring{ position: absolute; border-radius: 50%; opacity: 0; will-change: transform, opacity; }
+.ps-bloom{ left: -55px; top: -55px; width: 110px; height: 110px; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
+.ps-ring{ left: -33px; top: -33px; width: 66px; height: 66px; box-sizing: border-box; border: 1.5px solid var(--accent); }
+.ps-rung-flash{
+  position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-border), 0 0 24px 2px var(--accent-glow);
+  opacity: 0; will-change: opacity;
+}
+/* The champion: a soft gold glow that follows its crest (not a box). */
+.ps-chip.champ .ps-chip-badge{ filter: drop-shadow(0 0 6px var(--accent-glow)); }
+.ps-chip.dim{ opacity: 0.2; }
+.ps-chip.out.dim{ opacity: 0.12; }
+
+
+/* The crown card (crownHtml): the Champion rung once there's a champion.
+   The champion's own chip, doubled, is its logo (CROWN in js/postseason.js);
+   the text slides in beside it as the chip lands. */
+.ps-rung.crowned{ box-shadow: inset 0 0 0 1px var(--accent-border); }
+.ps-rung .ps-rung-label{ transition: opacity var(--dur-ui); }
+.ps-rung.crowned .ps-rung-label{ opacity: 0; }
+.ps-crown{
+  position: absolute; inset: 0; padding: 0 16px 0 82px;
+  display: flex; align-items: center; gap: 12px; pointer-events: none;
+  opacity: 0; transform: translateX(-10px);
+  transition: opacity 420ms, transform 520ms var(--ease-out);
+}
+.ps-rung.crowned .ps-crown{ opacity: 1; transform: none; transition-delay: 520ms; }
+.ps-crown-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-crown-text > div{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-chip.champ .ps-chip-owner{ opacity: 0; }
+.ps-champ-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ps-champ-name{ font: 700 var(--fs-20)/1.15 var(--font-display); letter-spacing: -0.3px; }
+.ps-champ-owner{ font: 700 var(--fs-13) var(--font-ui); color: var(--text-sub); }
+.ps-champ-owner.me{ color: var(--accent); }
+.ps-champ-pts{ font: 700 var(--fs-30) var(--font-display); letter-spacing: -0.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.ps-scrub{
+  --f: 0;
+  position: relative; height: 52px; margin-top: 6px;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer;
+  outline: none;
+}
+.ps-scrub:focus-visible .ps-thumb{ box-shadow: 0 0 0 3px var(--accent-soft), var(--scrub-thumb-shadow); }
+.ps-rail, .ps-fill{ position: absolute; left: 14px; top: 14px; height: 4px; border-radius: 2px; }
+.ps-rail{ right: 14px; background: var(--seg-track); }
+.ps-fill{ width: calc((100% - 28px) * var(--f)); background: var(--accent); transition: width var(--dur-move) var(--ease-out); }
+.ps-thumb{
+  position: absolute; top: 5px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%;
+  left: calc(14px + (100% - 28px) * var(--f));
+  background: var(--accent); box-shadow: var(--scrub-thumb-shadow);
+  transition: left var(--dur-move) var(--ease-spring);
+}
+.ps-stops{ position: absolute; left: 0; right: 0; top: 34px; display: flex; justify-content: space-between; }
+.ps-stops span{ width: 28px; text-align: center; font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.04em; color: var(--text-mute); transition: color var(--dur-ui); }
+.ps-stops span.on{ color: var(--accent); }
+.ps-stops span.later{ opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce){
+  .ps-chip, .ps-thumb, .ps-crown{ transition-timing-function: var(--ease-out); }
+}
+
+.ps-drafted{ display: flex; flex-direction: column; gap: 8px; }
+.ps-drafted-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px; }
+.ps-drafted-head span:first-child{ font: 800 var(--fs-11) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-sub); }
+.ps-drafted-head span:last-child{ font: 700 var(--fs-11) var(--font-ui); color: var(--text-mute); }
+.ps-drafted-table{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-md); overflow: hidden; }
+.ps-drow{
+  display: flex; align-items: center; gap: 10px; width: 100%; height: 52px; padding: 0 14px;
+  border: none; border-top: 1px solid var(--divider); background: transparent; color: inherit; font: inherit; text-align: left;
+  cursor: pointer; transition: background var(--dur-ui);
+}
+.ps-drow:first-child{ border-top: none; }
+.ps-drow:hover{ background: var(--hover); }
+.ps-drow.on, .ps-drow.on:hover{ background: var(--accent-soft); }
+.ps-dname{ width: 62px; flex: none; font: 700 var(--fs-15) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-drow.me .ps-dname{ color: var(--accent); }
+.ps-dteams{ flex: 1; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+.ps-dteams .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
+.ps-dbank{ font: 700 var(--fs-15) var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.ps-dplay{ min-width: 28px; text-align: right; font: 700 var(--fs-13) var(--font-display); color: var(--provisional); font-variant-numeric: tabular-nums; }
+.ps-dempty{ padding: 16px 14px; font: 600 var(--fs-13) var(--font-ui); color: var(--text-mute); }
+.ps-drafted-note{ padding: 0 4px; font: 600 var(--fs-12)/1.4 var(--font-ui); color: var(--text-mute); text-wrap: pretty; }
+
+/* Team page: the Postseason section (postseasonTeamHtml). */
+.ps-tp-strip{
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-md); overflow: hidden; margin-bottom: 10px;
+}
+.ps-tp-strip .stat-cell{ text-align: left; padding: 12px 14px; display: flex; flex-direction: column-reverse; gap: 4px; }
+.ps-tp-strip .stat-cell .lbl{ margin-top: 0; font-weight: 800; }
+.ps-tp-strip .stat-cell .num{ font-size: var(--fs-17); }
+.ps-tp-strip .num.accent{ color: var(--accent); }
+.ps-tp-strip .num.prov{ color: var(--provisional); }
+.ps-tp-strip .num.mute{ color: var(--text-mute); }
+.ps-tp-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-md); padding: 4px 14px; }
+.ps-step{ display: grid; grid-template-columns: 14px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; }
+.ps-step + .ps-step{ border-top: 1px solid var(--divider); }
+.ps-step-dot{ width: 10px; height: 10px; border-radius: 50%; background: var(--text-sub); }
+.ps-step-dot.win{ background: var(--win); }
+.ps-step-dot.loss{ background: var(--loss); }
+.ps-step-dot.next{ background: var(--provisional); box-shadow: 0 0 0 3px var(--provisional-soft); }
+.ps-step-dot.live{ background: var(--live); }
+.ps-step-dot.champ{ background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ps-step-main{ display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ps-step-label{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+.ps-step-title{ display: flex; align-items: center; gap: 8px; font: 700 var(--fs-15) var(--font-ui); min-width: 0; }
+.ps-step-title span{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-step-title .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
+.ps-step-result{ font: 700 var(--fs-15) var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ps-step-result.win{ color: var(--win); }
+.ps-step-result.loss{ color: var(--loss); }
+.ps-step-result.next{ color: var(--provisional); }
+.ps-step-result.live{ color: var(--live); }
+.ps-step-result.sub{ color: var(--text-sub); }
+.ps-ms-list{ padding: 0; }
+.ps-ms{ display: flex; align-items: center; gap: 12px; padding: 13px 14px; }
+.ps-ms + .ps-ms{ border-top: 1px solid var(--divider); }
+.ps-ms-label{ flex: 1; min-width: 0; font: 600 var(--fs-15) var(--font-ui); }
+.ps-ms-pts{ font: 700 var(--fs-14) var(--font-display); font-variant-numeric: tabular-nums; }
+.ps-ms-state{ width: 68px; display: flex; justify-content: flex-end; font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
+.ps-ms.missed .ps-ms-label, .ps-ms.missed .ps-ms-pts{ color: var(--text-mute); text-decoration: line-through; }
+.ps-tp-gap{ height: 16px; }
+
 .standings-grid{
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -4951,6 +5293,28 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Home before a group's first draft: the way into the mock and live rooms */
 #draft-home:empty, .filter-chips[hidden]{ display: none; }
 .draft-home{ display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
+
+/* Home's "playoffs are set" card (postseasonHomeHtml in js/postseason.js):
+   the way in to the playoffs reveal, styled like the reveal's gold strip. */
+.ps-home-stack{ display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
+.ps-home{
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 14px 14px 16px;
+  border-radius: var(--r-lg); background: var(--accent-soft); border: 1px solid var(--accent-border);
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.ps-home:active{ transform: scale(0.98); }
+.ps-home-logo{ flex: none; width: 40px; height: 44px; display: flex; justify-content: center; }
+.ps-home-logo img{ display: block; height: 100%; width: auto; }
+.ps-home-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-home-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ps-home-title{ font: 700 var(--fs-17)/1.2 var(--font-display); letter-spacing: -0.2px; }
+.ps-home-sub{ font: 600 var(--fs-13) var(--font-ui); color: var(--text-sub); }
+.ps-home-teams{ flex: none; display: flex; }
+.ps-home-team + .ps-home-team{ margin-left: -6px; }
+.ps-home-team{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px var(--accent); background: var(--surface); }
+.ps-home-team .badge{ width: 28px; height: 28px; flex-basis: 28px; border-radius: 8px; font-size: var(--fs-10); letter-spacing: 0; }
+.ps-home-go{ flex: none; font-size: 22px; line-height: 1; color: var(--accent); }
 .draft-home .set-row{ border: 1px solid var(--hairline); }
 .draft-home-head{ display: flex; flex-direction: column; gap: 2px; margin: 0 2px 4px; }
 .draft-home-title{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-15); letter-spacing: -0.2px; }

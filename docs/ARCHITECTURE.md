@@ -481,6 +481,30 @@ commissioner password). Recording the app's season the first time alerts the who
 on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
 
+**Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs`, the reveal
+in `js/postseason-reveal.js`): once ESPN has an NFL or CFP bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched
+December through February), those Standings cards get a Regular | Postseason toggle. Regular is the old card, untouched;
+the card opens on Postseason. Postseason is a ladder of every playoff team: it only shows the rounds someone has reached
+(`topRung`), the two sides of each game still to play sit together with a gray "v" between them (`matchups`), eliminated
+teams stay grayed on the rung where they lost, a scrubber replays the rounds, and the Champion rung becomes a crown card
+(the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
+Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
+"Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
+Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`); they're the
+ladder's own math, not League Facts marks. A chip opens the team page, whose Overview leads with a Postseason section at
+the ladder's stage. The ladder updates in place while you scrub; `keepPostseason`/`restorePostseason` carry it across a
+Standings re-render.
+The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
+field is set, a ~10s announcement plays in the card (the logo big, then docked; the seeded field; how many of your teams
+are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder). Until it has played
+(`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
+(`postseasonRevealBusy`), ends at once on a toggle tap, a league switch or leaving the tab, and reduced motion skips it.
+Since someone away for weeks lands on Home, Home leads with a gold "The NFL playoffs are set" card per league
+(`postseasonHomeHtml`, `#playoffs-home`) until that reveal has been seen; a tap (`openPlayoffs`) opens it. The year label
+is the class's own season (`seasonLabelYear`: "'26 Season" → 2026). Local dev and Pages previews replay a past season
+with `?psyear=2025`, and `?psreveal=1` replays the reveal on every load and tab visit; both stick on the device until
+`?psreveal=0` / `?psyear=0`.
+
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
 actually being played right now. Until that next season starts, their Standings tab and team pages

@@ -30,6 +30,7 @@
    ============================================================ */
 
 import { fetchJSON } from './utils.js';
+import { parseScoreboardEvent, parseNflSeeds } from './postseason-math.js';
 
 export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // The hypermedia "core" API — a completely different, much more
@@ -1896,4 +1897,38 @@ export async function fetchEspnFutures(coreLeaguePath, year){
 export async function fetchEspnRegularSeasonEnd(coreLeaguePath, year){
   const data = await fetchJSON(`${ESPN_CORE_BASE}/v2/sports/${coreLeaguePath}/seasons/${year}/types/2?lang=en&region=us`);
   return (data && data.endDate) || null;
+}
+
+// One season's NFL playoffs or College Football Playoff, as the raw pieces
+// js/postseason-math.js builds a bracket from. `year` is ESPN's season year
+// (2026 for the '26 season, whose playoffs run into early 2027).
+// The NFL's postseason scoreboard only answers one week at a time: Wild
+// Card, Divisional, Conference, then week 5, the Super Bowl (week 4 is the
+// Pro Bowl). Its seeds come from that season's final standings. The CFP is
+// every FBS bowl in one call, CFP games picked out by their headline.
+// Checked against the 2025-26 postseason (2026-10-03).
+// Shape returned: { events: [parseScoreboardEvent], seeds, logo: { light, dark } | null } | null
+export async function fetchEspnPostseason(leagueKey, year){
+  if(leagueKey === 'nfl'){
+    const [standings, ...weeks] = await Promise.all([
+      fetchEspnJSON(`/apis/v2/sports/football/nfl/standings?season=${year}`),
+      ...[1, 2, 3, 5].map(w => fetchEspnJSON(`/apis/site/v2/sports/football/nfl/scoreboard?dates=${year}&seasontype=3&week=${w}`))
+    ]);
+    if(!standings || weeks.some(w => !w)) return null;
+    // The league's own shield, for the playoffs reveal: { light, dark }.
+    const logos = (weeks[0].leagues && weeks[0].leagues[0] && weeks[0].leagues[0].logos) || [];
+    const logoOf = rel => (logos.find(l => (l.rel || []).includes(rel)) || {}).href || null;
+    return {
+      events: weeks.flatMap(w => (w.events || []).map(parseScoreboardEvent)).filter(Boolean),
+      seeds: parseNflSeeds(standings),
+      logo: logoOf('default') ? { light: logoOf('default'), dark: logoOf('dark') || logoOf('default') } : null
+    };
+  }
+  if(leagueKey === 'cfb'){
+    const data = await fetchEspnJSON(`/apis/site/v2/sports/football/college-football/scoreboard?dates=${year}&seasontype=3&groups=80&limit=300`);
+    if(!data) return null;
+    // ESPN's college football "logo" is a generic football icon: no logo.
+    return { events: (data.events || []).map(parseScoreboardEvent).filter(e => e && /college football playoff/i.test(e.headline)), seeds: {}, logo: null };
+  }
+  return null;
 }

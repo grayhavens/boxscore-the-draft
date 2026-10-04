@@ -84,6 +84,7 @@ const GUIDE = [
     lead: 'The real tables for all 8 leagues, with every team tagged by who drafted it.',
     points: [
       'Switch between League (the real table) and Drafted (each drafter’s teams together).',
+      'Once the NFL playoffs or the CFP are set, Home tells you how many of your teams made it, and their card gets a Postseason view: every playoff team climbing a ladder to the title. Drag the slider to replay the rounds, and tap a drafter to spotlight their teams.',
       'MLB and WNBA show last season until their next one starts. Those results don’t count yet.'
     ],
     pre: {
