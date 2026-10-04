@@ -364,14 +364,18 @@ function champInfo(key){
   return {
     t,
     title: key === 'nfl' ? `${(final && final.note) || 'Super Bowl'} champions` : F.L.champTitle,
-    ownerLine: owner ? `${owner.me ? 'Your' : `${owner.name}’s`} postseason haul` : 'Undrafted',
-    pts: owner ? owner.banked : null
+    // Just whose team it is ("You" in gold for your own); each drafter's
+    // total stays in the drafted table below.
+    ownerLine: owner ? (owner.me ? 'You' : owner.name) : 'Undrafted',
+    mine: !!(owner && owner.me),
+    // What winning the title itself is worth (the rule for the final win).
+    pts: owner ? F.milestones.filter(m => m.win).reduce((n, m) => n + m.pts, 0) : null
   };
 }
 
 // The Champion rung's crown card: once there's a champion, the rung becomes
 // it, the champion's own chip (doubled) as its logo, then the title, the
-// team, whose haul it is and the haul counting up.
+// team, its owner and what the title win itself is worth, counting up.
 function crownHtml(key, S){
   const c = champInfo(key);
   if(!c) return '';
@@ -381,7 +385,7 @@ function crownHtml(key, S){
       <div class="ps-crown-text">
         <div class="ps-champ-eyebrow">${escapeHtml(c.title)}</div>
         <div class="ps-champ-name">${escapeHtml(nameOf(c.t, key))}</div>
-        <div class="ps-champ-owner">${escapeHtml(c.ownerLine)}</div>
+        <div class="ps-champ-owner${c.mine ? ' me' : ''}">${escapeHtml(c.ownerLine)}</div>
       </div>
       ${c.pts !== null && !PRE_DRAFT ? `<div class="ps-champ-pts" data-target="${c.pts}">+${show ? c.pts : 0}</div>` : ''}
     </div>`;
@@ -610,7 +614,7 @@ function cancelCount(){
 // a soft gold bloom swells behind its crest and three thin rings ripple out
 // from the crest's center, one pass each, while the crest gives a gentle
 // pop and the Champion rung, now the crown card, pops and lights up while
-// the owner's haul counts up in it.
+// the title's points count up in it.
 // Every time stage 4 is reached. The bloom and rings are transform and
 // opacity only (smooth on the compositor), placed from the crest's landed
 // position so they never chase a moving chip; reduced motion skips them.

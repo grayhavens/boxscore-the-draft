@@ -2984,7 +2984,8 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-chip.champ .ps-chip-owner{ opacity: 0; }
 .ps-champ-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ps-champ-name{ font: 700 var(--fs-20)/1.15 var(--font-display); letter-spacing: -0.3px; }
-.ps-champ-owner{ font: 600 var(--fs-12) var(--font-ui); color: var(--text-sub); }
+.ps-champ-owner{ font: 700 var(--fs-13) var(--font-ui); color: var(--text-sub); }
+.ps-champ-owner.me{ color: var(--accent); }
 .ps-champ-pts{ font: 700 var(--fs-30) var(--font-display); letter-spacing: -0.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
 
 .ps-scrub{
