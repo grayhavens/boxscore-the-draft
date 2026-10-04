@@ -25,7 +25,8 @@
      GET  /news/<league>   public: { teams } for that league ({} until the
                            first run, or when PERIGON_API_KEY is unset)
      POST /news/refresh    commissioner password: runs one batch now and
-                           answers what it did; same budget rules
+                           answers what it did; same budget rules.
+                           ?reset=1 clears the stored stories first
 
    The key is a worker secret (PERIGON_API_KEY) and Perigon takes it as a
    query parameter, so it travels in the upstream URL only. Every upstream
@@ -126,6 +127,10 @@ export async function handleNews(request, url, env, ctx, headers, { json, isAuth
   if(url.pathname === '/news/refresh'){
     if(request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers });
     if(!await isAuthorized(request, env, group)) return new Response('Unauthorized', { status: 401, headers });
+    // ?reset=1 first clears every stored story (not the call count), for
+    // when the matching rules tighten and old loose matches shouldn't
+    // linger their 14 days.
+    if(url.searchParams.get('reset') === '1') await Promise.all(LEAGUE_KEYS.map(league => env.LEAGUE_FACTS.delete(newsKey(league))));
     return json(await refreshNews(env, ctx, { cachedUpstreamFetch }), 200, { ...headers, 'Cache-Control': 'no-store' });
   }
   if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });

@@ -579,4 +579,5 @@ KV (`news@<league>`, newest 8 per team, 14 days). `news@meta` holds the cursor a
 counts, failures included, and the batch stops at 140. Browsers read `GET /news/<league>` once per league
 (`js/news-more.js`, 15 min). With no `PERIGON_API_KEY`, or an old worker, the section simply doesn't appear. Not
 done yet: skipping out-of-season leagues, and Perigon's Monitors (webhook) as a way to spend fewer calls.
-To run a batch by hand: `POST /news/refresh` with the commissioner password header (same budget rules).
+To run a batch by hand: `POST /news/refresh` with the commissioner password header (same budget rules); add `?reset=1` to clear stored stories first.
+Matching is strict on purpose: Perigon returns every article that mentions a team anywhere, so a team counts only when its full name (or a unique nickname) is in the headline or description, or named twice in the summary. A single passing mention doesn't count.
