@@ -33,6 +33,7 @@ As of 2026-10-03 (`main` at bc1f761, PR #222). No open PRs or GitHub issues; no 
 - Delight Phase 5: landing page hero redesign (headline copy not in code) (planned, not a priority yet; keep the plan details, delight-plan.md).
 - Delight Phase 6: champion crowned full-screen moment — must be ready before the first league locks (planned, not a priority yet; keep the plan details, delight-plan.md).
 - Postseason `fact` events in Activity (deferred, points-ux-plan.md).
+- Scoring automation, remaining gaps (commissioner marks until built): WNBA semifinals / Finals / Commissioner's Cup; college basketball NCAA tournament rounds and conference tournament; college football "Don't make a bowl" (needs an FBS list); confirm MLB "NLCS" / "ALCS" / "World Series" headlines once played. Each needs a real ESPN payload captured first (tests/fixtures/espn-*.json).
 - Draft-room open items: draft date/cutover, old-class fidelity, worker allowlists vs. season keys, EPL/WNBA 2027 field check (draft-room-plan.md "Open items"). Still open; to address at the end of this draft year / before next season.
 
 ## Branches

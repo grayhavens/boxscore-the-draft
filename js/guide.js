@@ -100,7 +100,7 @@ const GUIDE = [
     id: 'points', icon: 'points', tour: true, title: 'Points',
     lead: 'The leaderboard: where every drafter stands if every season ended today.',
     points: [
-      'Points come from where teams finish, not single games: division titles, best records, playoffs and titles, minus points for finishing last. NFL, CFP, NCAA Tournament, NBA, NHL and MLB playoff rounds, and the WNBA and NCAA Tournament misses, count on their own from ESPN.',
+      'Points come from where teams finish, not single games: division titles, best records, playoffs and titles, minus points for finishing last. NFL, CFP, NCAA Tournament, NBA, NHL and MLB playoff rounds, college football bowls and conference titles, EPL cup winners and European spots, and the WNBA and NCAA Tournament misses, count on their own from ESPN.',
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
       'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
