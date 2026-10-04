@@ -45,6 +45,15 @@ function fetchEspnJSON(path){
   return fetchJSON(`${ESPN_SITE_BASE}${path}`);
 }
 
+// A soccer competition's own pages (js/epl-cups.js): the scoreboard's
+// calendar (no date: ESPN's current season) and a UEFA league-phase table.
+export function fetchEspnSoccerCalendar(slug){
+  return fetchEspnJSON(`/apis/site/v2/sports/soccer/${slug}/scoreboard`);
+}
+export function fetchEspnUefaStandings(slug, year){
+  return fetchEspnJSON(`/apis/v2/sports/soccer/${slug}/standings?season=${year}`);
+}
+
 // One day's scoreboard for a league path ("basketball/nba"), date YYYYMMDD
 // (the playoff rounds, js/playoff-series.js). ESPN's date ranges answer 400,
 // so a postseason is one request per day. null when ESPN fails.

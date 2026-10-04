@@ -64,6 +64,7 @@ import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { postseasonRuleTeams } from './postseason.js';
 import { playoffRuleTeams } from './playoff-series.js';
 import { bowlRuleTeams } from './cfb-bowls.js';
+import { eplCupRuleTeams } from './epl-cups.js';
 import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 
 // Per-league config for rankAuto's 'conference'/'division' scopes —
@@ -462,10 +463,12 @@ export function getLeagueRuleTeams(leagueKey, rule){
   }
   const marked = currentLeagueFacts(leagueKey)[rule.label] || [];
   // NFL/CFP and NBA/NHL/MLB playoff rules also read ESPN (js/postseason.js,
-  // js/playoff-series.js, js/cfb-bowls.js);
+  // js/playoff-series.js, js/cfb-bowls.js, js/epl-cups.js);
   // a commissioner mark still counts, for a result ESPN hasn't shown.
-  const earned = postseasonRuleTeams(leagueKey, rule) || playoffRuleTeams(leagueKey, rule) || bowlRuleTeams(leagueKey, rule);
-  return earned ? [...new Set([...marked, ...earned])] : marked;
+  const earned = postseasonRuleTeams(leagueKey, rule) || playoffRuleTeams(leagueKey, rule) || bowlRuleTeams(leagueKey, rule) || eplCupRuleTeams(leagueKey, rule);
+  if(!earned) return marked;
+  // An exclusive rule (one cup winner) is settled by the result, not a stale mark.
+  return rule.exclusive ? earned : [...new Set([...marked, ...earned])];
 }
 
 // A golfAuto rule's answer (js/seasons/pga.js): each drafted golfer's
