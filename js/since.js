@@ -170,24 +170,35 @@ function locksSince(prev, me, events){
   }));
 }
 
+// `late` is set when the ranks weren't ready in time: a promise of the
+// cards rebuilt once they land (null when they were there, or never will be).
 async function gather(prev, me){
+  const snapP = buildPointsSnapshot().catch(() => null);
   const [snap, games] = await Promise.all([
-    Promise.race([buildPointsSnapshot().catch(() => null), new Promise(r => setTimeout(r, RANK_WAIT_MS, null))]),
+    Promise.race([snapP, new Promise(r => setTimeout(r, RANK_WAIT_MS, null))]),
     myGames(me, prev.at - GAME_LEAD_MS).catch(() => []),
     loadActivity().catch(() => null)
   ]);
   const events = activityEventsSince(prev.at, me).map(e => ({ ...e, leagueLabel: e.league ? leagueLabel(e.league) : '' }));
   const clinches = events.filter(e => e.type === 'rule' && e.myPts > 0 && (e.clinch || /clinch a playoff spot$/.test(e.title)));
-  const rows = snap && snap.ranks && snap.totals
-    ? DRAFT_TEAMS.filter(d => snap.ranks[d.id]).map(d => ({
-      id: d.id, name: d.name, rank: snap.ranks[d.id], total: snap.totals[d.id],
-      locked: snap.lockedTotals ? snap.lockedTotals[d.id] : 0
-    }))
-    : null;
-  return buildCards({
-    games, clinches, locks: locksSince(prev, me, events), drafterName,
-    summary: { me, prev, rows, awayMs: Date.now() - prev.at, at: Date.now() }
-  });
+  const locks = locksSince(prev, me, events);
+  const build = s => {
+    const rows = s && s.ranks && s.totals
+      ? DRAFT_TEAMS.filter(d => s.ranks[d.id]).map(d => ({
+        id: d.id, name: d.name, rank: s.ranks[d.id], total: s.totals[d.id],
+        locked: s.lockedTotals ? s.lockedTotals[d.id] : 0
+      }))
+      : null;
+    return buildCards({
+      games, clinches, locks, drafterName,
+      summary: { me, prev, rows, awayMs: Date.now() - prev.at, at: Date.now() }
+    });
+  };
+  const first = build(snap);
+  // A cold launch can take longer than RANK_WAIT_MS to settle every input.
+  // Without ranks a move is invisible, so keep waiting and say it later.
+  const late = snap ? null : snapP.then(s => (s && s.ranks && s.totals ? build(s) : null));
+  return { ...first, late };
 }
 
 // ---- Rendering ----
@@ -373,8 +384,11 @@ async function check(){
   // No baseline yet (this device's first visit), or back too soon.
   if(!me || PRE_DRAFT || !prev || !isAwayLongEnough(prev.at, Date.now())) return;
 
-  const [{ cards, prompt }, homeAt] = await Promise.all([gather(prev, me), splashGone().then(() => Date.now())]);
-  if(!cards.length || draftLeads() || !once(`since:${prev.at}`)) return;
+  const [{ cards, prompt, late }, homeAt] = await Promise.all([gather(prev, me), splashGone().then(() => Date.now())]);
+  if(draftLeads() || !once(`since:${prev.at}`)) return;
+  // Ranks that landed after the wait: the pill, never a stack dropping in late.
+  if(late) late.then(r => { if(r && r.cards.length && !draftLeads() && !document.querySelector('.update-stack')) showPill(r.cards); }).catch(() => {});
+  if(!cards.length) return;
 
   // The stack only drops in for something notable, on a Home you haven't
   // started using yet.

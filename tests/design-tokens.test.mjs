@@ -20,11 +20,11 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 const ALLOWED = {
-  // Mask gradients (#000 = fully shown), the crest drop shadow, the launch
+  // Mask gradients (#000 = fully shown), the launch
   // splash's own light-theme colors, the static sample badge in the guide,
   // and the landing explainer's gold foil and sparkle art.
   'css/style.css': {
-    '#000': 9, 'rgba(0,0,0,0.55)': 1, 'rgba(255,255,255,0.12)': 1, '#F4F3EF': 2, '#0B0C0F': 2
+    '#000': 9, 'rgba(255,255,255,0.12)': 1, '#F4F3EF': 2, '#0B0C0F': 2
   },
   'js/draft-engine.js': { '#3A3B42': 1 },
   'js/draft-pool.js': { '#1E5B3F': 1 },

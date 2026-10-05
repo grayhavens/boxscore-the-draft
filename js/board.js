@@ -432,7 +432,7 @@ export const LEAGUE_FULL_LABELS = {
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-// NFL, CFB and College BB get a slot for the Regular | Postseason switch once a
+// NFL, CFB, College BB and MLB get a slot for the Regular | Postseason switch once a
 // playoff field is set (js/postseason.js), filled once the playoffs reveal
 // (js/postseason-reveal.js) has introduced it; the season label moves under
 // the name to make room. `afterHtml` sits below the card (the postseason's drafted
@@ -444,8 +444,12 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
+  // On its Postseason view (MLB's '26 postseason), the note names that.
+  const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
-    ? `<div class="prior-season-note">Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.</div>`
+    ? `<div class="prior-season-note">${onPostseason
+      ? `The '${shortYear(ACTIVE_SEASON_ID)} postseason doesn't count — points start with the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`
+      : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`}</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
     ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
@@ -472,7 +476,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
 }
 
-// NFL / CFB / College BB: the ladder in place of the card's body while Postseason is
+// NFL / CFB / College BB / MLB: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
 function postseasonBlockHtml(league){
   ensurePostseason(league.key);
@@ -762,6 +766,10 @@ export function renderStandings(){
       computeDivisionStandings: computeNhlDivisionStandings, renderGroupHeader: renderNhlGroupHeader,
       getConferenceSubMode: getNhlConferenceSubMode
     });
+    if(league.key === 'mlb'){
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
+    }
     if(league.key === 'mlb') return renderFlatLeagueBlock(league, {
       cache: espnMlbStandingsCache, fetchCached: fetchEspnMlbStandingsCached, getMode: getMlbStandingsMode,
       conferences: mlbConferences, computeConferenceStandings: computeMlbConferenceStandings,

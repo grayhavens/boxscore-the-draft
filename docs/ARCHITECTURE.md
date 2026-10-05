@@ -479,7 +479,8 @@ visit baseline written whenever the app is put away, plus your teams' record), t
 clinches, postseason games and upsets, a series against one drafter, single games), from each of your teams' ESPN
 schedules. It only drops in when something above a single game happened or your rank moved; otherwise just the
 "N updates" pill beside the Home title, which opens the cards once. Off before a group's first draft, while the draft
-card leads Home or a draft is live; reduced motion gets a sheet list.
+card leads Home or a draft is live; reduced motion gets a sheet list. If ranks take longer than 3.5s to settle on a
+cold launch, the cards go up without them and are rebuilt (as the pill) once they land, so a rank move is never lost.
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
@@ -492,8 +493,8 @@ on), Home shows the champion for 21 days, and champions get a title tag on their
 **Deploy the worker first.**
 
 **Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs` and
-`tests/postseason-cbb.test.mjs`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP or NCAA men's
-Tournament bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched December through February for football, March
+`tests/postseason-cbb.test.mjs` / `tests/postseason-mlb.test.mjs`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP, NCAA men's
+Tournament or MLB bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched December through February for football, March
 and April for the NCAA), those Standings cards get a Regular | Postseason toggle. Regular is the old card, untouched;
 the card opens on Postseason. Postseason is a ladder of every playoff team: it only shows the rounds someone has reached
 (`topRung`), the two sides of each game still to play sit together with a gray "v" between them (`matchups`), eliminated
@@ -531,6 +532,17 @@ region and seed (E2). Besides the four tournament rules, `postseasonRuleTeams` s
 tournament", `isMissRule`) for every drafted team outside the field. ESPN names the season by the spring it ends in, so
 `postseasonYear('mcbb')` and `seasonLabelYear('mcbb')` ("'26/'27" → 2027) follow that. `?psyear` names the winter, so
 `?psyear=2025` replays the 2025 NFL playoffs and CFP and the March 2026 NCAA Tournament together.
+**MLB** (`mlb`) plays series: ESPN's scoreboard only answers one day at a time, so `fetchEspnPostseason('mlb')` loads
+every day from Sept 26 to Nov 8 so far (`loadDays`, settled days saved per device as `bxPsDay:mlb:<day>`) plus the
+final standings for seeds (`parseNflSeeds(…, 6)`), and `seriesEvents` folds each series' games into one event whose score
+is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A series between games is `begun`, so the
+round reads as under way, and the team page shows its tally ("Leads 2–1"). The lockup is `icons/mlb-postseason-*.png`,
+drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
+While MLB is in `PRIOR_SEASON_DISPLAY_LEAGUES` the postseason doesn't count (`postseasonScores`): `snap` reads it with no
+rules, so the ladder has no rung points, the crown card no points, the drafted table no points columns, the team page
+shows Series won / Counts: No, Home's card adds "Doesn't count for points", the Standings note names the postseason,
+labels use ESPN's year, and `postseasonRuleTeams` never answers. Once MLB leaves that list, its rules ("Make LCS",
+"Make World Series", "Win World Series") score from the ladder too, alongside `js/playoff-series.js`.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
