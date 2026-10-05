@@ -10,6 +10,15 @@
    before each draft (promotion/relegation, expansion) and re-check the
    order — it is a starting point, not gospel.
    ============================================================ */
+// Short names the ranking uses where TEAM_META has the full one, keyed by
+// both names squashed to lowercase letters and digits (js/draft-pool.js
+// and the landing page's badge rows match a ranked team to TEAM_META
+// with them).
+export const NAME_ALIASES = {
+  epl: { mancity: 'manchestercity', manunited: 'manchesterunited', tottenham: 'tottenhamhotspur', nottinghamforest: 'nottingham', bournemouth: 'afcbournemouth' },
+  mcbb: { michiganstate: 'michstate' }
+};
+
 export const DRAFT_RANKS = {
   epl: "LIV,Liverpool,C8102E;ARS,Arsenal,EF0107;MCI,Man City,6CABDD;CHE,Chelsea,034694;NEW,Newcastle,241F20;AVL,Aston Villa,670E36;TOT,Tottenham,132257;MUN,Man United,DA291C;NFO,Nottingham Forest,DD0000;BHA,Brighton,0057B8;BOU,Bournemouth,B50E12;CRY,Crystal Palace,1B458F;BRE,Brentford,E30613;FUL,Fulham,1A1A1A;EVE,Everton,003399;LEE,Leeds United,1D428A;SUN,Sunderland,EB172B;IPS,Ipswich Town,0044A9;COV,Coventry City,78D0F1;HUL,Hull City,F18A00",
   nfl: "PHI,Eagles,004C54;KC,Chiefs,E31837;BAL,Ravens,241773;BUF,Bills,00338D;DET,Lions,0076B6;SF,49ers,AA0000;GB,Packers,203731;LAR,Rams,003594;CIN,Bengals,FB4F14;HOU,Texans,03202F;LAC,Chargers,0080C6;MIN,Vikings,4F2683;PIT,Steelers,101820;TB,Bucs,D50A0A;DEN,Broncos,FB4F14;WAS,Commanders,5A1414;SEA,Seahawks,002244;JAX,Jaguars,006778;CHI,Bears,0B162A;ATL,Falcons,A71930;DAL,Cowboys,041E42;MIA,Dolphins,008E97;ARI,Cardinals,97233F;IND,Colts,002C5F;NE,Patriots,002244;NYJ,Jets,125740;NO,Saints,101820;NYG,Giants,0B2265;LV,Raiders,1A1A1A;CAR,Panthers,0085CA;TEN,Titans,0C2340;CLE,Browns,311D00",

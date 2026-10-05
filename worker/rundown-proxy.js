@@ -145,6 +145,9 @@
       roster spots from the landing page (worker/claims.js); confirming
       one on the admin page fills the spot, and /roster serves the
       confirmed names to the app and landing page (worker/roster.js).
+      /interest takes someone's interest in Boxscore itself (no group):
+      name, email, start or join, a note (worker/interest.js), listed on
+      the admin page's Platform view.
 
    12. SPORTS — /sports is a group's sports: which it shows scores for
       and which it drafts, with how many picks (worker/sports.js, set on
@@ -206,6 +209,7 @@ import { handleChampions } from './champions.js';
 import { checkCommissionerSecret } from './commissioner-token.js';
 import { handleSystemAdmin } from './system-admin.js';
 import { handleClaim, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot } from './claims.js';
+import { handleInterest, loadInterest, dismissInterest } from './interest.js';
 import { handleRoster, loadAssigned, releaseSpot, effectiveDrafters } from './roster.js';
 import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
@@ -1147,6 +1151,7 @@ async function route(request, env, ctx){
   if(url.pathname.startsWith('/api/admin/')){
     return handleSystemAdmin(request, url, env, {
       draftRoomStub, chatRoomStub, activityKey, loadClaims, dismissClaim, confirmClaim, addPerson, editSpot, loadAssigned, releaseSpot, effectiveDrafters,
+      loadInterest, dismissInterest,
       historyPrefix: group => kvGroupPrefix('history', group)
     });
   }
@@ -1157,6 +1162,9 @@ async function route(request, env, ctx){
   if(request.method === 'OPTIONS'){
     return new Response(null, { headers });
   }
+
+  // Interest in Boxscore from the landing page: the platform's, no group.
+  if(url.pathname === '/interest') return handleInterest(request, env, headers, { isAllowedOrigin, json, waitUntil: p => ctx.waitUntil(p) });
 
   // Everything down to the proxies below is group-owned state.
   const group = requestGroup(url);

@@ -24,11 +24,8 @@ const ALLOWED = {
   // splash's own light-theme colors, the static sample badge in the guide,
   // and the landing explainer's gold foil and sparkle art.
   'css/style.css': {
-    '#000': 9, 'rgba(255,255,255,0.12)': 1, '#F4F3EF': 2, '#0B0C0F': 2,
-    '#0076B6': 1, '#B0B7BC': 1, '#B8862B': 1, '#F6D985': 2, '#E2B84A': 1, '#C7952F': 1,
-    'rgba(255,255,255,0.85)': 1, 'rgba(217,180,91,0.7)': 1, 'rgba(0,0,0,0.35)': 1
+    '#000': 9, 'rgba(255,255,255,0.12)': 1, '#F4F3EF': 2, '#0B0C0F': 2
   },
-  // Pool tile colors for write-ins and golfers (data, stored in the draft state).
   'js/draft-engine.js': { '#3A3B42': 1 },
   'js/draft-pool.js': { '#1E5B3F': 1 },
   // League chart colors (also --league-* now; move over with the draft room's
@@ -43,13 +40,6 @@ const ALLOWED = {
   'js/identity.js': { '#0A0B0D': 2, '#F4F3EF': 2 },
   'js/settings.js': { '#0A0B0D': 1, '#F4F3EF': 1 },
   // Real teams' colors in the landing page's "How it works" animation.
-  'js/landing-explainer.js': {
-    '#2E8A5C': 1, '#0076B6': 2, '#C8102E': 3, '#860038': 1, '#FEE123': 1, '#2E5CB8': 1, '#2F5BC9': 1,
-    '#FFB612': 2, '#FEC524': 1, '#F74902': 1, '#8A6BAF': 1, '#E6E7EB': 1, '#FFC425': 1, '#8C1D1D': 1,
-    '#CEB888': 1, '#008E97': 1, '#CE1126': 1, '#2A6FB5': 1, '#AB0003': 1, '#AB0520': 1, '#4A6FA5': 1,
-    '#B0B7BC': 1, '#203731': 1, '#FFFFFF': 2, '#EF0107': 1
-  },
-  // League chart colors (also --league-* now; move over with the Points screen).
   'js/overall.js': {
     '#826AC8': 1, '#C86AA1': 1, '#91C86A': 1, '#C58C6A': 1, '#B57FC0': 1, '#6FBFC6': 1, '#6AC87A': 1, '#A8B36A': 1
   },

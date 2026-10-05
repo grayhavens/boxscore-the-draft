@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0A0B0D">
-<meta name="description" content="Boxscore: fantasy drafts across 9 real leagues, followed and scored live.">
+<meta name="description" content="Boxscore: one fantasy draft of real teams across the NFL, NBA, Premier League and more, followed and scored live.">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <title>Boxscore</title>
@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="landing">
+<body class="landing ld-wait">
 <!-- Launch splash, once per tab session — the same one index.html plays
      (js/launch-splash.js), landing on the header logo below. Must stay the
      first thing in <body>, with its classic script right after it. -->
@@ -41,53 +41,98 @@
       <img class="app-logo landing-logo" src="icons/logo-header.png" alt="">
       <h1>Boxscore</h1>
     </div>
-    <div class="page-sub">Fantasy drafts across 9 real leagues, followed and scored live.</div>
   </div>
-  <div class="set-label landing-label">How it works</div>
-  <section class="hiw" id="hiw" aria-label="How it works"></section>
+  <!-- Hero (docs/delight-plan.md, Phase 5). The league count is filled in
+       from the standard setup (DEFAULT_CAPS, js/landing.js). -->
+  <section class="ld-hero">
+    <h2 class="ld-title"><span>Draft real teams.</span><span>Score where they finish.</span></h2>
+    <p class="ld-lede">One fantasy draft across up to <span id="ld-league-count">8</span> real leagues, followed and scored live. No lineups, no waivers. Just your group and a season.</p>
+  </section>
+  <!-- Two rows of the recruiting group's teams drifting past (js/landing.js). -->
+  <div class="ld-drift" id="ld-drift" aria-hidden="true"></div>
+  <button type="button" class="modal-cta ld-find" id="ld-find">Find your group</button>
+  <div class="set-label landing-label ld-rv">How it works</div>
+  <!-- Scroll tour (js/landing-explainer.js): a sticky mini screen that
+       plays through the app as the page scrolls. -->
+  <section class="tour" id="tour" aria-label="How it works"></section>
+  <!-- What a commissioner can set (js/sports.js), shown on the standard
+       setup it starts from (js/landing.js). -->
+  <section class="ld-yours ld-rv" aria-labelledby="ld-yours-title">
+    <h3 class="ld-yours-title" id="ld-yours-title">Your league, your rules</h3>
+    <p class="ld-yours-body" id="ld-yours-body"></p>
+    <div class="ld-yours-label">The standard setup</div>
+    <div id="ld-yours-picks"></div>
+  </section>
   <!-- Same button as the Points tab's (js/overall.js); opens the recruiting
        group's rules in the app's scoring sheet (js/landing.js). -->
-  <button type="button" class="modal-cta secondary landing-scoring-btn" onclick="openScoringSheet()">
+  <button type="button" class="modal-cta secondary landing-scoring-btn ld-rv" onclick="openScoringSheet()">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
     How scoring works
   </button>
-  <div class="set-label landing-label" id="landing-groups-label">Groups</div>
+  <!-- Join Boxscore: a group that's filling up (claim a spot), or no group
+       yet (say you're interested, worker/interest.js). js/landing.js. -->
+  <div class="set-label landing-label" id="landing-groups-label">Join Boxscore</div>
+  <p class="ld-join-lede">Grab a spot in a group that's filling up, or tell us you're interested and we'll be in touch.</p>
   <nav class="landing-groups" id="landing-groups" aria-label="Groups"></nav>
   <p class="landing-foot" id="landing-foot">Each group is its own app. Open yours, then add it to your Home Screen.</p>
+  <section class="ld-group ld-interest ld-rv" id="ld-interest" aria-labelledby="ld-interest-title">
+    <div class="ld-group-top"><h3 class="ld-group-name" id="ld-interest-title">Interested in Boxscore?</h3></div>
+    <p class="ld-interest-lead">Want to start a group with your friends, or join one when a spot opens? Leave your name and we'll reach out.</p>
+    <form class="landing-claim-form ld-interest-form" novalidate onsubmit="event.preventDefault()">
+      <div class="seg ld-kind" role="radiogroup" aria-label="I'd like to">
+        <label class="seg-btn"><input type="radio" name="kind" value="start" checked>Start a group</label>
+        <label class="seg-btn"><input type="radio" name="kind" value="join">Join a group</label>
+      </div>
+      <input name="name" type="text" maxlength="40" autocomplete="name" placeholder="Your name" required>
+      <input name="email" type="email" maxlength="80" autocomplete="email" inputmode="email" placeholder="Email" required>
+      <textarea name="note" rows="3" maxlength="500" placeholder="Anything we should know? Who's in your group, which sports, when you'd like to draft (optional)"></textarea>
+      <button type="submit" class="modal-cta">Count me in</button>
+      <p class="landing-claim-msg" role="status"></p>
+    </form>
+    <p class="landing-claim-done" hidden><strong>You're on the list.</strong> We'll email you soon.</p>
+  </section>
   <!-- Questions prospects ask before claiming a spot. Native <details>, so
        each one opens and closes with no script. -->
-  <div class="set-label landing-label">FAQ</div>
-  <section class="landing-faq" aria-label="Frequently asked questions">
+  <div class="set-label landing-label ld-rv">FAQ</div>
+  <section class="landing-faq ld-rv" aria-label="Frequently asked questions">
     <details class="landing-faq-item">
-      <summary>Some seasons are already underway. How does that work?</summary>
+      <summary>Which sports do we play?</summary>
       <div class="landing-faq-body">
-        <p>Each league counts one season. If it's already going (NFL, college football, the Premier League), this season counts, games already played included. Points come from where a team finishes, so you just get to draft with a few weeks of results to go on.</p>
-        <p>If a league is in its playoffs or done (MLB, WNBA), you're drafting for its next season. The app still shows this year's results, marked as not counting. Golf counts the FedEx Cup season that starts in January.</p>
+        <!-- Filled in from js/sports.js and the group's setup (js/landing.js). -->
+        <p id="ld-faq-sports">Your commissioner chooses from the leagues Boxscore follows, and sets how many teams everyone drafts in each, from 1 to 5. A league can also be scores only: it shows in the app, but nobody drafts it.</p>
       </div>
     </details>
     <details class="landing-faq-item">
       <summary>Do I set lineups each week?</summary>
       <div class="landing-faq-body">
-        <p>Nope. Once the draft is done, there's nothing to manage. You just cheer your teams on through the end of their seasons, and every team you drafted earns you points.</p>
+        <p>Nope. Once the draft is done, there's nothing to manage: no lineups, trades or waivers. Your teams earn points from how their seasons go, like playoff runs, titles and top finishes, and lose some for finishing last. The app keeps score for you.</p>
       </div>
     </details>
     <details class="landing-faq-item">
       <summary>How does the draft work?</summary>
       <div class="landing-faq-body">
-        <p>Everyone drafts together, live in Boxscore, from a phone, iPad or computer. It's a snake draft: the order flips each round, so whoever picks last in one round picks first in the next.</p>
+        <p>One draft covers every league: each round, you can take a team from any sport. Everyone drafts together, live in Boxscore, from a phone, iPad or computer. It's a snake draft: the order flips each round, so whoever picks last in one round picks first in the next.</p>
         <p>Can't stay for the whole thing? Auto draft will make your picks for you. Want to practice first? Run a Mock Draft any time before the real one.</p>
       </div>
     </details>
     <details class="landing-faq-item">
-      <summary>When is the draft?</summary>
+      <summary>When in the year should we draft?</summary>
+      <div class="landing-faq-body">
+        <p>Any time. Each league counts the season that's underway when you draft, games already played included. If a league is already in its playoffs or finished, its next season counts instead.</p>
+        <p>The best time is early September, right as the NFL and college football seasons kick off. Nearly every league is just starting or still to come, so your group gets the whole year together.</p>
+      </div>
+    </details>
+    <details class="landing-faq-item">
+      <summary>How do we pick a draft time?</summary>
       <div class="landing-faq-body">
         <p>Once the group is full, the commissioner posts a poll in the app with a few possible times. Everyone marks the ones they can make, and the time that works best becomes the draft. The app shows it on Home and can send you an alert.</p>
       </div>
     </details>
     <details class="landing-faq-item">
-      <summary>Does it cost anything?</summary>
+      <summary>Is this a mobile app?</summary>
       <div class="landing-faq-body">
-        <p>This year's buy-in is $20 per person, and you can pay it at the end of the season.</p>
+        <p>It's a web app, so there's nothing to download from an app store. It's built for your phone first, and it works on an iPad or computer too.</p>
+        <p>Add it to your Home Screen and it opens full screen with its own icon, just like an app.</p>
       </div>
     </details>
   </section>

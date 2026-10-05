@@ -80,5 +80,6 @@ test('without a record, rooms fall back to js/groups.js caps', async () => {
   assert.deepEqual(await liveGroupCaps(env, 'thedraft'), { caps: null, at: 0 });
   const st = await liveGroupCaps(env, 'seasonticket');
   assert.equal(st.at, 0);
-  assert.equal(st.caps.pga, 3);
+  assert.equal(st.caps.nfl, 3);
+  assert.equal(st.caps.pga, undefined);
 });

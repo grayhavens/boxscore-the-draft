@@ -150,14 +150,18 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 (`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
-A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (claim form with name and email, both required, no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
+A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (a spots meter, the draft date from `GET /draft/status`, and "Claim a spot ›" opening a claim form inside the card with name and email, both required; no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
 stores the request in KV, rate-limited per IP, with no push alert; instead it emails the platform admin (worker secret
 `CLAIM_ALERT_EMAIL`, sent through Resend) who claimed and a link to `boxscore.space/admin?group=<id>`, which opens on that group. The admin page lists claims at the top: **Confirm**
 (name editable first) gives the person the group's next open spot with no deploy, under that spot's id, in the
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
 (top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
-/roster`). Name pickers hide still-open spots. Undo frees a spot. **Deploy the worker first.** Code says "group" because "league" already
+/roster`). Name pickers hide still-open spots. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
+someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
+(`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed
+to `CLAIM_ALERT_EMAIL` like a claim, and listed on the admin page's Platform view (and its "Needs attention") with
+Dismiss (`POST /api/admin/interest/dismiss`). **Deploy the worker first.** Code says "group" because "league" already
 means EPL/NFL/etc. Worker state that belongs to a group — facts/adjustments/locks, favorites, activity, the
 chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secret) — is keyed by the
 `?group=` param the client adds (`withScopeQuery` / `withGroupQuery`); The Draft sends none and keeps its
@@ -237,7 +241,7 @@ including across sessions.
   video. Clip ids are resolved to playable .mp4s straight from Brightcove in the browser
   (`js/nhl-clips.js`), uncached since those URLs are signed and expire. Additive only: ESPN stays
   the source for NHL scores/boxscores.
-- **PGA Tour golf** (Season Ticket, `docs/golf-plan.md`): ESPN too. `js/golf.js` parses (shared with the worker),
+- **PGA Tour golf** (`docs/golf-plan.md`; off for every group for now, a commissioner turns it on from the Sports screen): ESPN too. `js/golf.js` parses (shared with the worker),
   `js/golf-api.js` fetches. The worker's `/golf/season/<year>` (`worker/golf.js`) condenses finished FedEx Cup
   events into KV (`golf:<year>`) so phones never pull whole leaderboards; the live one comes straight from ESPN. Use
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
@@ -587,8 +591,23 @@ launch splash plays once per cold launch (sessionStorage `bx-splash`) and must s
 `<body>`. `landing.html` plays the same splash (once per tab session), landing on its header logo. Everything falls back to the old instant switch without View Transitions or with reduced motion.
 Opening a group from the landing page flies the landing logo to the center (`js/landing.js`, `#landing-handoff`)
 and navigates with `#splash=handoff`; the group's splash then starts mid-timeline from that built mark (an inline
-`<head>` script in `index.html` sets `html.splash-handoff` so the first paint already matches). The landing's "How
-it works" card is `js/landing-explainer.js`.
+`<head>` script in `index.html` sets `html.splash-handoff` so the first paint already matches). The splash ground grows out
+of the tapped group card as the logo flies (`clip-path`, r20 → the screen's corners).
+
+**Landing page** (`landing.html`, `js/landing.js`, docs/delight-plan.md Phase 5): a hero (lines rise once the splash
+hands off), two drifting rows of each league's top-ranked teams (`js/draft-ranks.js`, crests from the pre-draft catalog), "Find your group",
+the "How it works" scroll tour (`js/landing-explainer.js`), group cards, and a FAQ whose "Which sports do we play?"
+answer is filled from `js/sports.js`. Everything the page says about sports and picks is the platform's standard setup
+(`DEFAULT_CAPS` in `js/draft-rules.js`), which a commissioner can change; only the group cards are about real groups. The tour is a sticky mini screen with seven scenes, each a
+pure function of scroll progress so it scrubs both ways: the desktop draft room (the mini screen turns into a browser
+window at a made-up `yourfriends.boxscore.space`: the landing never shows a real group's address; the real clock card and a corner of the real board, `.dr-grid`, filling with picks across leagues until yours
+lands), your board filling the standard setup's slots with crests, team pages swiping through three of your teams in three
+leagues (each with its league's real Path to points, `pathToPointsHtml`), Scores (`gameCardHtml`), Chat, Points
+(live → locked), and the season race (the Points tab's race card, `.race-*`, replaying to a finish between 80 and
+110 points as the standings under it re-sort). Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
+sports with their picks each, and what a commissioner can change. Captions with counts follow the setup. Reduced motion: no
+scrubbing; each scene shows its end state and the segments switch steps. Sections rise in the first time they're 35%
+in view.
 
 **PWA shell:** `manifest.json` + `sw.js` (network-first with a cached-shell fallback, so the app
 still opens offline; a launch whose page takes over 3s runs wholly from the cache, never mixing versions) exist because this runs installed on iOS. `index.html`'s `.safe-area-top` fixed

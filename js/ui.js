@@ -401,3 +401,37 @@ export function updateStackHtml({ title, eyebrow = '', cardsHtml, count, onclear
 export function updatesPillHtml({ count, onclick }){
   return `<button type="button" class="updates-pill" onclick="${onclick}">${count} update${count === 1 ? '' : 's'}</button>`;
 }
+
+// ---- Landing page (docs/delight-plan.md, Phase 5) ----
+
+// TourSteps: the landing tour's progress segments, one per step. Each is a
+// button (data-step) whose inner bar the tour fills gold as its step plays
+// (--fill); tapping one jumps to that step. `labels` name them for screen
+// readers. Not in the design system yet.
+export function tourStepsHtml({ labels }){
+  const segs = labels.map((label, i) => `<button type="button" class="tour-seg" data-step="${i}" aria-label="Step ${i + 1}: ${escapeHtml(label)}"><span><i></i></span></button>`).join('');
+  return `<div class="tour-segs" style="--tour-steps:${labels.length}">${segs}</div>`;
+}
+
+// SpotsMeter: a group's roster as `total` bars, `filled` of them taken.
+// They fill gold one after another once the card is in view (.in on an
+// ancestor); `full` greys them, for a group that isn't recruiting. Not in
+// the design system yet.
+export function spotsMeterHtml({ filled, total, full = false }){
+  const bars = Array.from({ length: total }, (_, i) => `<i class="${i < filled ? 'f' : ''}" style="--i:${i}"></i>`).join('');
+  return `<span class="spots-meter${full ? ' full' : ''}" style="--spots:${total}" role="img" aria-label="${filled} of ${total} spots taken">${bars}</span>`;
+}
+
+// SportPicks: a group's sports as a grid of chips, each with its picks
+// per drafter ("NFL 3"), "Scores" for a scores-only sport, or dimmed
+// "Off". Each sport: { label, picks: n | 0 | null }. Chips rise in one
+// after another once an ancestor is in view (.in). Not in the design
+// system yet.
+export function sportPicksHtml({ sports }){
+  const chips = sports.map((s, i) => {
+    const state = s.picks > 0 ? 'draft' : s.picks === 0 ? 'scores' : 'off';
+    const value = state === 'draft' ? `<b>${s.picks}</b>` : `<em>${state === 'scores' ? 'Scores' : 'Off'}</em>`;
+    return `<span class="sport-pick ${state}" style="--i:${i}"><span>${escapeHtml(s.label)}</span>${value}</span>`;
+  }).join('');
+  return `<div class="sport-picks">${chips}</div>`;
+}

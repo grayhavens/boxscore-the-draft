@@ -6630,17 +6630,14 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-groups{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .landing-group{ text-decoration: none; color: inherit; }
 .landing-foot[hidden]{ display: none; }
-/* A group still filling its roster (js/landing.js): claim form, no app link. */
-.landing-recruit{ padding: 16px 14px 14px; border-radius: var(--r-md); background: var(--surface); }
-.landing-recruit-head{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.landing-recruit-name{ font-family: var(--font-display); font-size: var(--fs-20); font-weight: 700; letter-spacing: var(--track-snug); }
-.landing-recruit-count{ font-size: var(--fs-13); font-weight: 700; color: var(--accent); white-space: nowrap; }
+/* A group still filling its roster (js/landing.js): the claim form, which
+   opens inside its card. */
 .landing-claim-done{ margin: 10px 0 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); }
 .landing-claim-done strong{ color: var(--text); }
 .landing-claim-form{ display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .landing-claim-form[hidden]{ display: none; }
 .landing-claim-lead{ margin: 0 0 4px; font-size: var(--fs-13); line-height: 1.45; color: var(--text-sub); }
-.landing-claim-form input{
+.landing-claim-form input, .landing-claim-form textarea{
   width: 100%; padding: 12px 14px;
   border: 1px solid var(--hairline-strong); border-radius: var(--r-md);
   background: var(--surface-2); color: var(--text);
@@ -6663,14 +6660,27 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 .landing-faq-item summary::after{
   content: ''; flex: none; width: 8px; height: 8px; margin-right: 2px;
   border-right: 2px solid var(--text-mute); border-bottom: 2px solid var(--text-mute);
-  transform: translateY(-2px) rotate(45deg); transition: transform 0.2s ease;
+  transform: translateY(-2px) rotate(45deg); transition: transform 360ms var(--ease-spring);
 }
 .landing-faq-item[open] summary::after{ transform: translateY(2px) rotate(-135deg); }
 .landing-faq-body{ padding: 0 14px 14px; }
 .landing-faq-body p{ margin: 0; font-size: var(--fs-14); line-height: 1.5; color: var(--text-sub); }
 .landing-faq-body p + p{ margin-top: 8px; }
 .landing-contact a{ color: var(--accent); font-weight: 700; text-decoration: none; }
-@media (prefers-reduced-motion: reduce){ .landing-faq-item summary::after{ transition: none; } }
+/* Opening animates its height where the browser can (::details-content,
+   interpolate-size); elsewhere it opens instantly. */
+@supports (interpolate-size: allow-keywords){
+  .landing-faq{ interpolate-size: allow-keywords; }
+  .landing-faq-item::details-content{
+    height: 0; overflow: clip;
+    transition: height 400ms var(--ease-out), content-visibility 400ms allow-discrete;
+  }
+  .landing-faq-item[open]::details-content{ height: auto; }
+}
+@media (prefers-reduced-motion: reduce){
+  .landing-faq-item summary::after{ transition: none; }
+  .landing-faq-item::details-content{ transition: none; }
+}
 
 /* Group-open handoff (js/landing.js): the launch splash's mark, already
    built, over the splash ground. Dark on purpose: a group app with no
@@ -6682,280 +6692,331 @@ body.landing{ padding-bottom: calc(var(--page-pad) + env(safe-area-inset-bottom)
 #landing-handoff[hidden]{ display: none; }
 #landing-handoff .ls-bg{ opacity: 0; }
 
-/* "How it works" explainer (js/landing-explainer.js). Six stacked scenes
-   in a fixed-height stage; the caption keeps a min-height so the card
-   never changes size between steps. */
-.hiw{
-  margin-top: 10px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-lg);
-  overflow: hidden;
+/* ---- Landing hero (docs/delight-plan.md, Phase 5) ----
+   The lines wait (body.ld-wait, landing.html) until the launch splash
+   hands off, then rise (body.ld-in, js/landing.js). */
+.ld-hero{ padding-top: 14px; }
+.ld-title{
+  margin: 0; font-family: var(--font-display); font-size: var(--fs-hero); font-weight: 700;
+  line-height: 1.02; letter-spacing: -1.4px; text-wrap: balance;
 }
-.hiw-stage{ position: relative; height: 262px; margin: 16px 16px 0; }
-.hiw-scene{
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column;
-  opacity: 0; transform: translateX(14px);
-  transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
-  pointer-events: none;
+.ld-title span{ display: block; }
+.ld-title span + span{ color: var(--accent); }
+.ld-lede{ margin: 14px 0 0; font-size: var(--fs-16); font-weight: 500; line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+body.ld-wait .ld-title span, body.ld-wait .ld-lede{ opacity: 0; transform: translateY(14px); }
+body.ld-in .ld-title span, body.ld-in .ld-lede{
+  opacity: 1; transform: none;
+  transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out);
 }
-.hiw-scene.on{ opacity: 1; transform: translateX(0); }
-.hiw-scene.past{ transform: translateX(-14px); }
-.hiw-head{ display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.hiw-mini{
-  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
-  text-transform: uppercase; color: var(--text-mute);
-}
-.hiw .num, .hiw-slots, .hiw-cap, .hiw-finish-total, .hiw-rule-pts, .hiw-proj, .hiw-rank, .hiw-total{
-  font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums;
-}
+body.ld-in .ld-title span + span{ transition-delay: 90ms; }
+body.ld-in .ld-lede{ transition-delay: 180ms; }
+body.ld-still .ld-title span, body.ld-still .ld-lede{ opacity: 1; transform: none; transition: none; }
 
-/* 1 · Draft */
-.hiw-draft{ gap: 8px; }
-.hiw-slots{ font-size: var(--fs-13); color: var(--text-sub); }
-.hiw-grid{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.hiw-tile{ display: flex; flex-direction: column; gap: 6px; padding: 7px 9px; border-radius: 12px; background: var(--surface-2); }
-.hiw-tile-top{ display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
-.hiw-lg{
-  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
-  text-transform: uppercase; color: var(--text-sub); transition: color 200ms ease;
+/* Badge drift: two rows of the recruiting group's teams, each row doubled
+   so -50% loops (the trailing padding matches the gap, so the seam is
+   exact), fading out at the page edges. */
+.ld-drift{
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 28px calc(-1 * var(--page-pad)) 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 14%, black 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 14%, black 86%, transparent);
 }
-.hiw-tile.full .hiw-lg{ color: var(--text); }
-.hiw-cap{ font-size: var(--fs-11); color: var(--text-mute); }
-.hiw-pips{ display: flex; gap: 4px; }
-.hiw-pip{ position: relative; flex: 1; height: 22px; border-radius: 7px; border: 1.5px dashed var(--hairline-strong); }
-.hiw-pip > i{
-  position: absolute; inset: -1.5px; border-radius: 7px; background: var(--pip, transparent);
-  box-shadow: inset 0 0 0 1px rgba(var(--ink-rgb), 0.12); /* keeps a white team color visible on light tiles */
-  opacity: 0; transform: scale(0.5);
-  transition: opacity 220ms ease, transform 380ms var(--ease-spring);
-}
-.hiw-pip.on > i{ opacity: 1; transform: scale(1); }
-.hiw-strip{
-  margin-top: auto; display: flex; align-items: center; gap: 10px;
-  padding: 10px 13px; border-radius: var(--r-md); border: 1px solid var(--hairline); background: var(--surface-2);
-}
-.hiw-round{
-  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
-  text-transform: uppercase; color: var(--accent); white-space: nowrap;
-}
-.hiw-last{ flex: 1; min-width: 0; font-size: var(--fs-13); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hiw-dir{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+.ld-track{ display: flex; gap: 10px; padding-right: 10px; width: max-content; animation: ld-drift 46s linear infinite; }
+.ld-track.rev{ animation-direction: reverse; animation-duration: 52s; }
+.ld-drift .badge-crest{ background: var(--surface); border-color: var(--hairline); }
+.ld-drift .badge-crest img{ padding: 7px; }
+.ld-drift .badge-crest.badge-person img{ padding: 0; }
+@keyframes ld-drift{ to{ transform: translateX(-50%); } }
+body.ld-still .ld-track{ animation: none; }
+.ld-find{ margin-top: 28px; }
 
-/* 2 · Finish */
-.hiw-finish{ gap: 10px; }
-.hiw-team{ display: flex; align-items: center; gap: 12px; }
-.hiw-badge{
-  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px;
-  border: 1px solid var(--hairline-strong); background: #0076B6; color: #B0B7BC;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-12);
+/* Sections rise the first time they're 35% in view (.in, js/landing.js). */
+body:not(.ld-still) .ld-rv{
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 500ms var(--ease-out), transform 700ms var(--ease-out);
 }
-.hiw-team-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.hiw-team-name{ font-weight: 700; font-size: var(--fs-15); line-height: 1.15; }
-.hiw-team-sub{ font-size: var(--fs-12); font-weight: 500; color: var(--text-sub); }
-.hiw-team-pts{ display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.hiw-finish-total{ font-size: var(--fs-24); line-height: 1; color: var(--text-mute); transition: color 200ms ease; }
-.hiw-finish-total.on{ color: var(--provisional); }
-.hiw-rules{ display: flex; flex-direction: column; border-top: 1px solid var(--hairline); }
-.hiw-rule{
-  display: flex; align-items: center; gap: 10px; min-height: 38px;
-  padding: 0 10px; margin: 2px -10px 0; border-radius: var(--r-sm);
-  transition: background 260ms ease;
-}
-.hiw-rule-label{ flex: 1; font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); transition: color 260ms ease; }
-.hiw-rule-pts{ width: 28px; text-align: right; font-size: var(--fs-15); color: var(--text-mute); transition: color 260ms ease; }
-.hiw-rule.neg .hiw-rule-pts{ color: var(--loss); }
-.hiw-rule .pts-tag{ opacity: 0; transform: translateX(6px); transition: opacity 260ms ease, transform 320ms var(--ease-out); }
-.hiw-rule.lit{ background: color-mix(in srgb, var(--provisional) 10%, transparent); }
-.hiw-rule.lit .hiw-rule-label{ color: var(--text); }
-.hiw-rule.lit .hiw-rule-pts{ color: var(--provisional); }
-.hiw-rule.lit .pts-tag{ opacity: 1; transform: none; }
+body:not(.ld-still) .ld-rv.in{ opacity: 1; transform: none; }
 
-/* 5 · Live → Locked */
-.hiw-lock .pts-tag{ transition: color 260ms ease, background 260ms ease, box-shadow 260ms ease; }
-.hiw-proj{ font-size: 46px; line-height: 1; letter-spacing: var(--track-tight); margin-top: 10px; }
-.hiw-lock-bar{ margin-top: 16px; }
-.hiw-lock-bar > span{ width: 0; transition: width 520ms var(--ease-out), background 300ms ease; }
-.hiw-lock.locked .hiw-lock-bar .lk,
-.hiw-lock.locked .hiw-legend .split-swatch.lk{ background: var(--accent-fill); }
-.hiw-legend{ display: flex; gap: 16px; margin-top: 10px; font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
-.hiw-legend > span{ display: flex; align-items: center; gap: 6px; }
-.hiw-legend b{ color: var(--text); font-variant-numeric: tabular-nums; }
-.hiw-legend .split-swatch{ transition: background 300ms ease; }
-.hiw-season{
-  margin-top: auto; padding: 12px 13px 13px; border-radius: var(--r-md);
-  background: var(--surface-2); border: 1px solid var(--hairline);
+/* ---- "How it works" scroll tour (js/landing-explainer.js) ----
+   The section is as tall as the steps need (set in JS); the sticky block
+   holds the segments, the mini screen and the caption while it scrolls.
+   .still (reduced motion): no scrubbing, the block is static. */
+.tour{ position: relative; margin-top: 10px; }
+.tour-sticky{ position: sticky; top: calc(env(safe-area-inset-top) + 16px); }
+.tour.still .tour-sticky{ position: static; }
+.tour-segs{ display: grid; grid-template-columns: repeat(var(--tour-steps), minmax(0, 1fr)); gap: 4px; margin-bottom: 4px; }
+.tour-seg{ height: 24px; display: flex; align-items: center; padding: 0; background: none; border: 0; cursor: pointer; }
+.tour-seg > span{ flex: 1; height: 3px; border-radius: 2px; background: var(--fill-soft); overflow: hidden; }
+.tour-seg i{ display: block; height: 100%; width: var(--fill, 0%); background: var(--accent); }
+.tour-screen{
+  position: relative; height: 404px; border-radius: 26px; overflow: hidden;
+  background: var(--bg); border: 1px solid var(--hairline-strong); box-shadow: var(--tour-screen-shadow);
 }
-.hiw-season-labels{
-  display: flex; justify-content: space-between;
-  font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag);
-  text-transform: uppercase; color: var(--text-mute);
+.tour-scene{
+  position: absolute; inset: 0 0 52px; padding: 16px 14px; overflow: hidden; pointer-events: none;
+  display: flex; flex-direction: column; gap: 10px;
+  opacity: 0; transform: translateX(28px);
+  transition: opacity 300ms var(--ease-out), transform 460ms var(--ease-out);
 }
-.hiw-track{ --season: 0%; --season-fill: var(--provisional); position: relative; height: 2px; border-radius: 2px; background: rgba(var(--ink-rgb), 0.08); margin: 12px 0 4px; }
-.hiw-lock.locked .hiw-track{ --season-fill: var(--accent-fill); }
-.hiw-track-fill{ position: absolute; left: 0; top: 0; bottom: 0; width: var(--season); border-radius: 2px; background: var(--season-fill); }
-.hiw-track-dot{
-  position: absolute; top: -4px; left: var(--season); width: 10px; height: 10px; margin-left: -5px;
-  border-radius: 50%; background: var(--season-fill); box-shadow: 0 0 0 3px var(--surface-2);
+.tour-scene.prev{ transform: translateX(-28px); }
+.tour-scene.on{ opacity: 1; transform: none; }
+.tour-tabs{
+  position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: var(--bar-bg); border-top: 1px solid var(--hairline);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
 }
-.hiw-season-note{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); margin-top: 10px; }
+.tour-pill{ position: absolute; top: 0; bottom: 0; left: 0; width: 20%; transition: transform 560ms var(--ease-spring), opacity 300ms var(--ease-out); }
+.tour-pill.none{ opacity: 0; }
+.tour-pill::before{ content: ''; position: absolute; inset: 6px 5px; border-radius: 12px; background: var(--tab-pill); }
+.tour-tab{
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-family: var(--font-display); font-size: 9px; font-weight: 700; color: var(--text-mute); transition: color 300ms var(--ease-out);
+}
+.tour-tab svg{ width: 17px; height: 17px; }
+.tour-tab.on{ color: var(--accent); }
+.tour-cap{ margin-top: 14px; min-height: 104px; }
+.tour-cap b{ display: block; font-family: var(--font-display); font-size: var(--fs-20); font-weight: 700; line-height: 1.2; letter-spacing: -0.3px; }
+.tour-cap p{ margin: 6px 0 0; font-size: var(--fs-14); font-weight: 500; line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+.tour-cap.sw{ animation: ld-rise 420ms var(--ease-out); }
+@keyframes ld-rise{ from{ opacity: 0; transform: translateY(10px); } }
+@keyframes ld-pop{ from{ transform: scale(0.5); } }
+@keyframes tour-bump{ from{ transform: scale(1.35); color: var(--accent); } }
+.tour-h{ display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tour-h b{ font-family: var(--font-display); font-size: var(--fs-20); font-weight: 700; letter-spacing: -0.3px; }
+.tour-k{ font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); white-space: nowrap; }
 
-/* 6 · Leaderboard */
-.hiw-board-head{ height: 30px; }
-.hiw-ladder{ position: relative; flex: 1; margin-top: 10px; }
-.hiw-lrow{
-  position: absolute; left: 0; right: 0; height: 48px;
-  display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 34px; align-items: center; gap: 10px;
-  padding: 0 12px; border-radius: 12px; background: var(--surface-2);
-  transition: top 560ms var(--ease-out);
+/* The mini screen as a desktop window (.desk, the draft room scene): the
+   tab bar drops away and a window bar with the group's address slides in. */
+.tour-screen{ transition: border-radius 460ms var(--ease-out); }
+.tour-screen.desk{ border-radius: 14px; }
+.tour-chrome{
+  position: absolute; left: 0; right: 0; top: 0; height: 30px; z-index: 2;
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  background: var(--surface); border-bottom: 1px solid var(--hairline);
+  transform: translateY(-100%); transition: transform 460ms var(--ease-out);
 }
-.hiw-lrow.me{ background: var(--lb-accent-wash); box-shadow: inset 0 0 0 1px var(--lb-accent-wash-border); }
-.hiw-rank{ font-size: var(--fs-13); color: var(--lb-rank-mid); }
-.hiw-lrow.first .hiw-rank{ color: var(--accent); }
-.hiw-name{ font-size: var(--fs-14); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hiw-lrow .split-bar > span{ transition: width 520ms var(--ease-out); }
-.hiw-lrow .split-bar .lk{ background: var(--lb-rank-mid); }
-.hiw-lrow.me .split-bar .lk{ background: var(--accent-fill); }
-.hiw-total{ text-align: right; font-size: var(--fs-17); color: var(--lb-ink-3); }
-.hiw-lrow.first .hiw-total{ color: var(--lb-ink-strong); }
+.tour-chrome-dots{ display: flex; gap: 5px; }
+.tour-chrome-dots i{ width: 8px; height: 8px; border-radius: 50%; background: var(--fill-soft); }
+.tour-chrome-url{
+  flex: 1; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-xs);
+  background: var(--fill-soft); font-size: var(--fs-10); font-weight: 600; color: var(--text-sub);
+}
+.tour-screen.desk .tour-chrome{ transform: none; }
+.tour-tabs{ transition: transform 460ms var(--ease-out); }
+.tour-screen.desk .tour-tabs{ transform: translateY(100%); }
+.tour-scene.desk{ inset: 30px 0 0; padding: 10px 10px 0; gap: 8px; }
 
-/* The finale: your bar fills solid gold with a shine sweep, then the
-   trophy drops onto its end with a ring and a burst of sparks while the
-   rest of the ladder steps back. Reduced motion shows the end state. */
-.hiw-lrow{ transition: top 560ms var(--ease-out), opacity 400ms ease, box-shadow 500ms ease; }
-.hiw-bar-wrap{ position: relative; display: flex; align-items: center; min-width: 0; }
-.hiw-bar-wrap .split-bar{ flex: 1; position: relative; }
-.hiw-lrow.gold .split-bar{ --split-h: 10px; }
-.hiw-lrow.gold .split-bar .lk{
-  background: linear-gradient(90deg, #B8862B, #F6D985 45%, #E2B84A 70%, #C7952F);
-  transition: width 700ms var(--ease-out);
+/* 1 · Desktop draft room: the real clock card, laid on its side to fit,
+   over a corner of the real board (.dr-grid, js/draft.js). */
+.tour-room-hero .clock-hero{ height: 118px; flex-direction: row; gap: 14px; justify-content: flex-start; padding: 0 16px; border-radius: var(--r-md); }
+.tour-room-hero .draft-clock{ width: 76px; height: 76px; }
+.tour-room-hero .draft-clock-time b{ font-size: var(--fs-20); }
+.tour-room-hero .draft-clock-time span{ font-size: 8px; }
+.tour-room-hero .clock-hero-head{ text-align: left; padding: 0; }
+.tour-room-hero .clock-hero-title{ font-size: var(--fs-17); }
+.tour-room-hero .pick-landing{
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto;
+  column-gap: 12px; row-gap: 2px; align-content: center; justify-items: start; padding: 0 16px; text-align: left;
 }
-.hiw-lrow.gold .split-bar::after{
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.85) 50%, transparent 70%);
-  transform: translateX(-120%);
-  animation: hiw-shine 900ms 450ms ease-in-out both;
-}
-/* A second sweep as the trophy lands (its own name, so it restarts). */
-.hiw-lrow.crowned .split-bar::after{ animation: hiw-shine-2 900ms 250ms ease-in-out both; }
-.hiw-lrow.gold .hiw-total{ color: var(--accent); }
-.hiw-lrow.crowned{
-  box-shadow: inset 0 0 0 1px var(--accent-border), 0 8px 26px -10px rgba(217,180,91,0.7);
-}
-.hiw-board.crowned .hiw-lrow:not(.crowned){ opacity: 0.5; }
-.hiw-champ{ opacity: 0; transform: translateY(4px) scale(0.9); transition: opacity 260ms ease, transform 420ms var(--ease-spring); }
-.hiw-board.crowned .hiw-champ{ opacity: 1; transform: none; }
+.tour-room-hero .pick-landing-badge{ grid-row: 1 / 3; margin: 0; align-self: center; }
+.tour-room-hero .pick-landing-title{ grid-column: 2; font-size: var(--fs-17); }
+.tour-room-hero .pick-landing-sub{ grid-column: 2; }
+.tour-room-hero .pick-landing-next{ grid-column: 3; grid-row: 1 / 3; align-self: center; margin: 0; }
+.tour-room-board .dr-grid{ min-width: 0; gap: 4px; }
+.tour-room-board .dr-grid-head{ padding: 0 0 2px; }
+.tour-room-board .dr-grid-head, .tour-room-board .dr-round{ grid-template-columns: 16px repeat(var(--cols), minmax(0, 1fr)); gap: 3px; }
+.tour-room-board .dr-grid{ gap: 3px; }
+.tour-room-board .dr-bh{ font-size: var(--fs-11); padding: 4px 2px; }
+.tour-room-board .dr-cell{ height: 50px; padding: 5px 5px; }
+.tour-room-board .dr-cell-top{ font-size: var(--fs-10); }
+.tour-room-board .dr-cell-team{ font-size: var(--fs-10); gap: 4px; letter-spacing: -0.1px; }
+.tour-room-board .dr-cell.new{ animation: ld-pop 420ms var(--ease-spring); }
 
-.hiw-cup{
-  position: absolute; right: -9px; top: 50%; width: 28px; height: 28px; margin-top: -14px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--surface); color: var(--accent-fill);
-  box-shadow: 0 0 0 1.5px var(--accent-fill), 0 3px 10px -2px rgba(0,0,0,0.35);
-  opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg);
-  pointer-events: none;
-}
-.hiw-trophy{ width: 18px; height: 18px; }
-.hiw-lrow.crowned .hiw-cup{ opacity: 1; transform: none; animation: hiw-cup-drop 700ms var(--ease-spring) both; }
-/* A ring flashes out from where the trophy lands. */
-.hiw-cup::before{
-  content: ''; position: absolute; inset: 0; border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--accent-fill); opacity: 0;
-}
-.hiw-lrow.crowned .hiw-cup::before{ animation: hiw-ring 800ms 280ms var(--ease-out) both; }
-.hiw-sparks{ position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-.hiw-sparks > i{
-  position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 1px;
-  background: var(--accent-fill); opacity: 0;
-}
-.hiw-sparks > i:nth-child(even){ width: 3px; height: 3px; left: -1.5px; top: -1.5px; background: #F6D985; }
-.hiw-sparks > i:nth-child(1){ --a: 8deg; --d: 28px; }
-.hiw-sparks > i:nth-child(2){ --a: 44deg; --d: 35px; }
-.hiw-sparks > i:nth-child(3){ --a: 80deg; --d: 42px; }
-.hiw-sparks > i:nth-child(4){ --a: 116deg; --d: 28px; }
-.hiw-sparks > i:nth-child(5){ --a: 152deg; --d: 35px; }
-.hiw-sparks > i:nth-child(6){ --a: 188deg; --d: 42px; }
-.hiw-sparks > i:nth-child(7){ --a: 224deg; --d: 28px; }
-.hiw-sparks > i:nth-child(8){ --a: 260deg; --d: 35px; }
-.hiw-sparks > i:nth-child(9){ --a: 296deg; --d: 42px; }
-.hiw-sparks > i:nth-child(10){ --a: 332deg; --d: 28px; }
-.hiw-lrow.crowned .hiw-sparks > i{ animation: hiw-spark 760ms 260ms var(--ease-out) both; }
-@keyframes hiw-shine{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
-@keyframes hiw-shine-2{ from{ transform: translateX(-120%); } to{ transform: translateX(120%); } }
-@keyframes hiw-cup-drop{
-  0%{ opacity: 0; transform: translateY(-18px) scale(0.3) rotate(-25deg); }
-  55%{ opacity: 1; transform: translateY(0) scale(1.25) rotate(8deg); }
-  100%{ opacity: 1; transform: none; }
-}
-@keyframes hiw-ring{
-  0%{ opacity: 0.9; transform: scale(1); }
-  100%{ opacity: 0; transform: scale(2.4); }
-}
-@keyframes hiw-spark{
-  0%{ opacity: 1; transform: rotate(var(--a)) translateY(-15px) scale(1) rotate(45deg); }
-  100%{ opacity: 0; transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) scale(0.3) rotate(45deg); }
-}
-.hiw.still .hiw-lrow *, .hiw.still .hiw-lrow *::before, .hiw.still .hiw-lrow *::after{ animation: none !important; }
+/* 2 · Your board: one tile per drafted league, a crest per pick. */
+.tour-tiles{ display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
+.tour-tile{ border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); padding: 9px; }
+.tour-tile-top{ display: flex; justify-content: space-between; gap: 4px; font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; color: var(--text-sub); }
+.tour-tile-top em{ font-style: normal; font-family: var(--font-display); color: var(--text-mute); font-variant-numeric: tabular-nums; }
+.tour-pips{ display: flex; gap: 4px; margin-top: 10px; }
+.tour-pips i{ flex: 1; height: 22px; border-radius: 6px; background: var(--fill-soft); transition: background 240ms var(--ease-out); }
+.tour-pips i{ position: relative; overflow: hidden; }
+.tour-pips i.on{ background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+.tour-pips img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 2px; box-sizing: border-box; }
+.tour-pips img.person{ object-fit: cover; object-position: 50% 15%; padding: 0; }
+.tour-pips i.new{ animation: ld-pop 420ms var(--ease-spring); }
+.tour-last{ display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); white-space: nowrap; overflow: hidden; }
+.tour-last .badge{ flex: 0 0 20px; width: 20px; height: 20px; border-radius: 6px; font-size: 7px; }
+.tour-last b{ color: var(--text); }
 
-/* 3 · Scores: the Scores tab's own timeline (.tg-*), with the node's
-   cut-out ring matched to this card. */
-.hiw-scores{ gap: 4px; }
-.hiw-scores .tg-node{ box-shadow: 0 0 0 4px var(--surface); }
-.hiw-scores .tg-row{ grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding-bottom: 10px; }
-.hiw-scores .tg-line{ left: 50px; }
-.hiw-scores .tg-node{ left: 46px; }
-.hiw-scores .tg-card{ gap: 6px; padding: 9px 12px; }
+/* 3 · Team pages: three of your teams side by side, swiped through (the
+   track moves a panel per team); each a mini hero with its orb and the
+   real Path to points. */
+.tour-teams{ display: flex; flex: 1; min-height: 0; margin: -16px -14px 0; transition: transform 460ms var(--ease-out); }
+.tour-team{ flex: 0 0 100%; min-width: 0; padding: 16px 14px 0; display: flex; flex-direction: column; gap: 10px; }
+.tour-dots{ position: absolute; top: 14px; left: 0; right: 0; justify-content: center; margin: 0; }
+.tour-dots .page-dot{ display: block; transition: width 300ms var(--ease-out), background-color 300ms var(--ease-out); }
+.tour-hero{ position: relative; margin: -16px -14px 0; height: 104px; flex: none; display: flex; align-items: flex-end; gap: 12px; padding: 0 14px 12px; overflow: hidden; }
+.tour-orb{ width: 340px; height: 340px; left: -60px; top: -200px; }
+.tour-hero > :not(.team-orb){ position: relative; }
+.tour-hero-text{ display: flex; flex-direction: column; min-width: 0; }
+.tour-hero-text b{ font-family: var(--font-display); font-size: 19px; font-weight: 700; letter-spacing: -0.3px; }
+.tour-hero-text span{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.tour-hero-text .me{ color: var(--accent); }
+.tour-worth{ margin-left: auto; text-align: right; }
+.tour-worth small{ display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+.tour-worth b{ font-family: var(--font-display); font-size: var(--fs-24); font-weight: 700; color: var(--provisional); font-variant-numeric: tabular-nums; }
+.tour-ladder .sec-card{ padding: 12px 14px; }
+.tour-ladder .sec-card-head{ margin-bottom: 2px; }
+.tour-ladder .ptp-step{ padding: 6px 0; gap: 10px; }
+.tour-ladder .ptp-line{ top: 30px; bottom: -4px; }
+.tour-ladder .ptp-label{ font-size: var(--fs-13); }
+.tour-ladder .ptp-step.hit .ptp-node{ animation: ld-pop 420ms var(--ease-spring); }
 
-/* 4 · Chat: the Chat tab's bubbles, shared game card and reaction pills
-   (.chat-*, .cg-*), a size down to fit the stage. */
-.hiw-chat{ gap: 0; }
-.hiw-msg{
+/* 4 · Scores: the Scores tab's own timeline (.tg-*), node ring matched to the screen. */
+.tour-scores{ display: flex; flex-direction: column; gap: 4px; }
+.tour-scores .tg-node{ box-shadow: 0 0 0 4px var(--bg); left: 46px; }
+.tour-scores .tg-row{ grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding-bottom: 10px; }
+.tour-scores .tg-line{ left: 50px; }
+.tour-scores .tg-card{ gap: 6px; padding: 9px 12px; }
+
+/* 5 · Chat: the Chat tab's bubbles, shared game and reaction pill, a size down. */
+.tour-chat{ flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.tour-msg{
   display: flex; flex-direction: column; align-items: flex-start;
-  opacity: 0; transform: translateY(8px) scale(0.96); transform-origin: bottom left;
-  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+  opacity: 0; transform: translateY(10px) scale(0.96); transform-origin: bottom left;
+  transition: opacity 300ms var(--ease-out), transform 460ms var(--ease-spring);
 }
-.hiw-msg.mine{ align-items: flex-end; transform-origin: bottom right; }
-.hiw-msg.on{ opacity: 1; transform: none; }
-.hiw-msg .chat-meta{ margin: 5px 4px 2px; }
-.hiw-msg:first-child .chat-meta{ margin-top: 0; }
-.hiw-msg .chat-bubble{ max-width: 88%; font-size: var(--fs-13); padding: 4px 11px; }
-.hiw-msg .chat-game{ width: 64%; padding: 6px 11px 7px; cursor: default; }
-.hiw-msg .cg-league{ margin-bottom: 1px; }
-.hiw-msg .cg-foot{ margin-top: 3px; padding-top: 4px; }
-.hiw-msg .cg-side{ padding: 1px 0; }
-.hiw-msg .cg-name{ line-height: 1.1; }
-.hiw-msg .cg-side .badge{ flex-basis: 22px; width: 22px; height: 22px; font-size: 8px; border-radius: var(--r-xs); }
-.hiw-msg .chat-reactions{ margin-top: 2px; opacity: 0; transform: translateY(-4px) scale(0.9); transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-spring); }
-.hiw-msg .chat-reactions.on{ opacity: 1; transform: none; }
-.hiw-msg .chat-react-pill{ height: 20px; font-size: var(--fs-12); cursor: default; }
+.tour-msg.mine{ align-items: flex-end; transform-origin: bottom right; }
+.tour-msg.on{ opacity: 1; transform: none; }
+.tour-msg .chat-meta{ margin: 6px 4px 2px; }
+.tour-msg .chat-bubble{ max-width: 88%; font-size: var(--fs-13); padding: 5px 11px; }
+.tour-msg .chat-game{ width: 66%; padding: 7px 11px 8px; cursor: default; }
+.tour-msg .cg-side{ padding: 1px 0; }
+.tour-msg .cg-side .badge{ flex-basis: 22px; width: 22px; height: 22px; font-size: 8px; border-radius: var(--r-xs); }
+.tour-msg .chat-reactions{ margin-top: 2px; opacity: 0; transform: scale(0.4); transition: opacity var(--dur-ui) var(--ease-out), transform 420ms var(--ease-spring); }
+.tour-msg .chat-reactions.on{ opacity: 1; transform: none; }
+.tour-msg .chat-reactions.pop .chat-react-pill{ animation: tour-bump 420ms var(--ease-spring); }
+.tour-msg .chat-react-pill{ height: 20px; font-size: var(--fs-12); cursor: default; }
 
-/* Caption + controls */
-/* Sized to the longest caption (two-line title + two-line body) at phone width. */
-.hiw-caption{ padding: 18px 20px 0; min-height: 132px; }
-.hiw-title{
-  font-family: var(--font-display); font-weight: 700; font-size: var(--fs-20);
-  letter-spacing: var(--track-snug); line-height: 1.2; margin: 6px 0 0; text-wrap: pretty;
+/* 6 · Points: a callout, then four drafters whose bars go live → locked. */
+.tour-callout{
+  flex: none; display: flex; align-items: center; height: 34px; padding: 0 10px;
+  border-radius: var(--r-sm); background: var(--accent-soft); border: 1px solid var(--accent-border);
+  color: var(--accent); font-size: var(--fs-12); font-weight: 700;
+  opacity: 0; transform: translateY(-6px); transition: opacity 300ms var(--ease-out), transform 420ms var(--ease-out);
 }
-.hiw-body{ font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); margin: 6px 0 0; text-wrap: pretty; }
-.hiw-controls{ display: flex; align-items: center; gap: 6px; padding: 6px 12px 10px 20px; }
-.hiw-seg{
-  flex: 1; height: 44px; display: flex; align-items: center;
-  background: none; border: 0; padding: 0; cursor: pointer;
+.tour-callout.on{ opacity: 1; transform: none; }
+.tour-board{ position: relative; flex: none; height: 194px; border: 1px solid var(--hairline); border-radius: var(--r-md); background: var(--surface); }
+.tour-row{
+  position: absolute; left: 0; right: 0; top: 0; height: 48px; padding: 0 12px;
+  display: grid; grid-template-columns: 12px 44px minmax(0, 1fr) 50px 24px; gap: 8px; align-items: center;
+  border-radius: 13px; transition: transform 560ms var(--ease-spring), background 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
 }
-.hiw-seg > span{ position: relative; display: block; width: 100%; height: 3px; border-radius: 2px; background: rgba(var(--ink-rgb), 0.10); overflow: hidden; }
-.hiw-seg > span > i{ position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 0%); border-radius: 2px; background: var(--accent-fill); }
-.hiw-play{
-  flex: 0 0 44px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
-  background: none; border: 0; border-radius: var(--r-pill); color: var(--text-sub); cursor: pointer;
-  transition: background var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out);
+.tour-rk{ font-family: var(--font-display); font-size: var(--fs-13); font-weight: 700; color: var(--lb-rank-mid); }
+.tour-nm{ font-size: var(--fs-14); font-weight: 700; }
+.tour-row.me .tour-nm, .tour-row.me .tour-rk{ color: var(--accent); }
+.tour-row .split-bar .lk{ background: var(--accent); }
+.tour-row .split-bar > span{ transition: width var(--dur-ui) var(--ease-out); }
+.tour-tag{ justify-self: end; }
+.tour-tt{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.tour-row.champ{ background: var(--lb-accent-wash); box-shadow: inset 0 0 0 1px var(--lb-accent-wash-border); }
+.tour-cup{
+  justify-self: end; width: 22px; height: 22px; color: var(--accent);
+  opacity: 0; transform: translateY(-14px) scale(0.3); transition: opacity var(--dur-ui) var(--ease-out), transform 560ms var(--ease-spring);
 }
-.hiw-play:hover{ background: var(--fill-soft); color: var(--text); }
-.hiw-play .i-play, .hiw.paused .hiw-play .i-pause{ display: none; }
-.hiw.paused .hiw-play .i-play{ display: block; }
-/* Reduced motion: no autoplay (so no play button), no tweens. */
-.hiw.still .hiw-play{ display: none; }
-.hiw.still *{ transition: none !important; }
+.tour-cup.on{ opacity: 1; transform: none; }
+.tour-cup svg{ width: 100%; height: 100%; }
+/* 7 · The race: the Points tab's race card (.race-*), replaying the
+   season up to the finish, with the standings under it re-sorting as the
+   lines cross. */
+.tour-race.race-card{ flex: none; gap: 6px; margin: 0; padding: 12px 12px 8px; border-radius: var(--r-md); }
+.tour-race .race-title{ font-size: var(--fs-15); }
+.tour-race-chart{ display: block; width: 100%; height: auto; overflow: visible; }
+.tour-race .race-line{ transition: none; }
+.tour-race-table{ position: relative; flex: none; height: 96px; }
+.tour-race-row{
+  position: absolute; left: 0; right: 0; top: 0; height: 24px; padding: 0 10px;
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) 22px 34px; gap: 8px; align-items: center;
+  border-radius: var(--r-xs); transition: transform 560ms var(--ease-spring), background 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
+}
+.tour-race-row .tour-nm{ font-size: var(--fs-13); }
+.tour-race-row.me .tour-nm, .tour-race-row.me .tour-rk{ color: var(--accent); }
+.tour-race-row .tour-cup{ width: 18px; height: 18px; }
+.tour-race-row.champ{ background: var(--lb-accent-wash); box-shadow: inset 0 0 0 1px var(--lb-accent-wash-border); }
+.tour.still *, .tour.still *::before{ transition: none !important; animation: none !important; }
+
+/* "Your league, your rules" (landing.html): what a commissioner can set,
+   on the recruiting group's own setup. */
+.ld-yours{ margin-top: 18px; padding: 16px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--hairline); }
+.ld-yours-title{ margin: 0; font-family: var(--font-display); font-size: var(--fs-20); font-weight: 700; letter-spacing: -0.3px; }
+.ld-yours-label{ margin-bottom: 8px; font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--text-mute); }
+.ld-yours-body{ margin: 6px 0 14px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+
+/* SportPicks (sportPicksHtml): a chip per sport with its picks each. */
+.sport-picks{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.sport-pick{
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  height: 36px; padding: 0 10px; border-radius: var(--r-sm); background: var(--surface-2);
+  font-size: var(--fs-12); font-weight: 700; white-space: nowrap;
+}
+.sport-pick > span{ min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sport-pick b{ font-family: var(--font-display); font-size: var(--fs-15); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sport-pick em{ font-style: normal; font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
+.sport-pick.off{ color: var(--text-mute); background: transparent; box-shadow: inset 0 0 0 1px var(--hairline); }
+body:not(.ld-still) .sport-pick{
+  opacity: 0; transform: translateY(8px) scale(0.96);
+  transition: opacity 300ms var(--ease-out), transform 460ms var(--ease-spring); transition-delay: calc(var(--i) * 45ms + 150ms);
+}
+body:not(.ld-still) .in .sport-pick{ opacity: 1; transform: none; }
+
+/* ---- Join Boxscore (landing.html): group cards, then interest ---- */
+.ld-join-lede{ margin: 6px 0 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+.ld-interest{ margin-top: 12px; }
+.ld-interest .ld-group-name{ margin: 0; }
+.ld-interest-lead{ margin: 6px 0 12px; font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); text-wrap: pretty; }
+.landing-claim-form textarea{ resize: vertical; min-height: 84px; line-height: 1.4; }
+.landing-claim-form[hidden]{ display: none; }
+/* Start or join: a segmented control on real radio buttons. */
+.ld-kind.seg{ margin: 0 0 4px; }
+.ld-kind .seg-btn{ display: flex; align-items: center; justify-content: center; border-radius: var(--r-seg-thumb); transition: background var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out); }
+.ld-kind .seg-btn input{ position: absolute; opacity: 0; pointer-events: none; }
+.ld-kind .seg-btn:has(input:checked){ background: var(--seg-thumb); box-shadow: var(--seg-thumb-shadow); color: var(--text); }
+.ld-kind .seg-btn:has(input:focus-visible){ outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- Group cards (js/landing.js) ---- */
+.ld-group{
+  position: relative; overflow: hidden; display: block; padding: 16px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--hairline);
+  color: inherit; text-decoration: none;
+  transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-ui) var(--ease-out);
+}
+a.ld-group:hover{ border-color: var(--hairline-strong); }
+a.ld-group:active{ transform: scale(0.985); }
+.ld-group-orb{ width: 200px; height: 200px; left: auto; right: -80px; top: -100px; opacity: 0.22; }
+.ld-group > :not(.team-orb){ position: relative; }
+.ld-group-top{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ld-group-name{ font-family: var(--font-display); font-size: var(--fs-20); font-weight: 700; letter-spacing: var(--track-snug); }
+.ld-group-go{ padding: 0; background: none; border: 0; font: inherit; font-size: var(--fs-13); font-weight: 700; color: var(--accent); white-space: nowrap; cursor: pointer; }
+.ld-group-go[hidden]{ display: none; }
+.ld-group .spots-meter{ margin-top: 14px; }
+.ld-group-meta{ display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
+.ld-claim{ display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-move) var(--ease-out); }
+.ld-claim > div{ min-height: 0; overflow: hidden; }
+.ld-group.claiming .ld-claim{ grid-template-rows: 1fr; }
+.ld-claim .landing-claim-form{ margin-top: 0; padding-top: 14px; }
+body.ld-still .ld-claim{ transition: none; }
+
+/* SpotsMeter (spotsMeterHtml): a bar per spot, filling one after another
+   once an ancestor is in view (.in). */
+.spots-meter{ display: grid; grid-template-columns: repeat(var(--spots), minmax(0, 1fr)); gap: 4px; }
+.spots-meter i{
+  height: 6px; border-radius: 2px; background: var(--fill-soft);
+  transition: background 300ms var(--ease-out); transition-delay: calc(var(--i) * 70ms + 200ms);
+}
+.in .spots-meter i.f{ background: var(--accent); }
+.in .spots-meter.full i.f{ background: var(--text-mute); }
+body.ld-still .spots-meter i{ transition: none; }
 
 /* ============================================================
    System admin page (admin.html, js/system-admin.js). The one desktop-
@@ -7098,6 +7159,8 @@ body.sysadmin-page{ padding: 0; }
 .sysadmin-chat-text{ font-size: var(--fs-14); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .sysadmin-label-note .sysadmin-btn{ margin-left: 8px; }
 .sysadmin-row-sub{ font-size: var(--fs-13); line-height: 1.45; color: var(--text-sub); overflow-wrap: anywhere; }
+/* A note someone left (Interested in Boxscore): their words, kept as typed. */
+.sysadmin-quote{ display: block; margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--hairline-strong); font-size: var(--fs-13); line-height: 1.45; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; }
 .sysadmin-claim-edit{ display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 16px 18px; background: var(--surface-2); }
 .sysadmin-field{ flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
 .sysadmin-field-label{ font-size: var(--fs-12); font-weight: 700; color: var(--text-sub); }

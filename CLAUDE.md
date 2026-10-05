@@ -6,7 +6,7 @@ per-feature reference), `docs/DESIGN_TOKENS.md`, `docs/DECISIONS.md`, `docs/ROAD
 ## What this is
 
 Boxscore: a fantasy-draft dashboard where friend groups of 10 draft real teams across leagues (EPL, NFL, NBA, NHL,
-MLB, WNBA, College Football, College Basketball; PGA golfers planned for Season Ticket) and score points from how
+MLB, WNBA, College Football, College Basketball; PGA golfers are built but off for every group for now) and score points from how
 those teams actually finish. Installed as an iOS PWA, phone-first, dark theme by default. One deployment hosts
 several groups, each on `<id>.boxscore.space` (The Draft = `thedraft`, Season Ticket = `seasonticket`); the bare
 `boxscore.space` is a landing page. Features: Home, Scores, Chat (Durable Object), Standings, Points (with Race,
