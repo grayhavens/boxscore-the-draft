@@ -23,6 +23,9 @@
 
    Reduced motion: no scroll scrubbing. The section is just the sticky
    block, each scene shows its end state, and the segments switch steps.
+
+   The app's guide page (js/guide.js) borrows single scenes as still
+   pictures of the app (paintSceneStill), drawn for its own group's setup.
    ============================================================ */
 import { SPORT_KEYS } from './sports.js';
 import { GROUPS } from './groups.js';
@@ -515,6 +518,22 @@ function raceScene(m){
       set(meRow, 'champ', cup, on => { meRow.classList.toggle('champ', on); meRow.querySelector('.tour-cup').classList.toggle('on', on); });
     }
   };
+}
+
+// One scene drawn still, at progress `p` (its finished state by default),
+// in a mini phone screen with the tab bar: the guide page's pictures of
+// the app (js/guide.js). `name` is a key of SCENES.
+const SCENES = { room: roomScene, board: draftScene, team: teamScene, scores: scoresScene, chat: chatScene, lock: lockScene, race: raceScene };
+export function paintSceneStill(el, name, setup, p = 1){
+  if(!el || !SCENES[name]) return;
+  const scene = SCENES[name](model(setup));
+  const tab = scene.tab;
+  el.innerHTML = `
+    <div class="tour-screen guide-screen" aria-hidden="true" inert>
+      <div class="tour-scene on">${scene.html}</div>
+      <nav class="tour-tabs">${tab >= 0 ? `<span class="tour-pill" style="transform:translateX(${tab * 100}%)"></span>` : ''}${TABS.map(([icon, label], k) => `<span class="tour-tab${k === tab ? ' on' : ''}">${iconHtml(icon)}${label}</span>`).join('')}</nav>
+    </div>`;
+  scene.draw(el.querySelector('.tour-scene'), p, (node, key, val, apply) => { if(node) apply(val); });
 }
 
 export function initTour(root, setup){

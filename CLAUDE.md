@@ -114,5 +114,5 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
 - Don't deploy, push or merge without being asked. PRs are opened and left for the owner to merge.
 - Don't add anything odds- or betting-related.
 - Don't rotate VAPID keys or change the KV namespace id.
-- When a feature ships or changes, update its `GUIDE` entry in `js/guide.js` and its section in
+- When a feature ships or changes, update its line in `js/guide.js` (`APP_ROWS`, one sentence) and its section in
   `docs/ARCHITECTURE.md`.

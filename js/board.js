@@ -311,6 +311,10 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
+      ${pre ? `<button type="button" class="set-row" onclick="openGuide('board')">
+        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">New to this? The short version, in three steps</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>` : ''}
       <button type="button" class="set-row" onclick="goToMyMockDraft()">
         <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
         <span class="set-chev">&rsaquo;</span>
@@ -881,7 +885,7 @@ function showView(view){
   if(view === 'admin') showAdminPage();
   else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
-  if(view === 'guide') renderGuidePage();
+  if(view === 'guide') renderGuidePage({ backLabel: guideFromHome ? 'Home' : 'Settings' });
 }
 
 // ---- Settings page ----
@@ -933,15 +937,31 @@ export function backToSettings(){
 }
 window.backToSettings = backToSettings;
 
-// Settings -> How Boxscore works (js/guide.js). Pushed like the team
-// page; its back button is backToSettings.
-export function openGuide(){
+// How Boxscore works (js/guide.js), from Settings or, before a group's
+// first draft, from Home's Draft section. Pushed like the team page; its
+// back button (closeGuide) pops to whichever opened it, Home at the same
+// scroll position.
+let guideFromHome = false, guideHomeScrollY = 0;
+export function openGuide(from = 'settings'){
+  guideFromHome = from === 'board';
+  guideHomeScrollY = guideFromHome ? window.scrollY : 0;
   navigate('push', () => {
     showView('guide');
     window.scrollTo(0, 0);
   });
 }
 window.openGuide = openGuide;
+
+export function closeGuide(){
+  if(!guideFromHome){ backToSettings(); return; }
+  const y = guideHomeScrollY;
+  guideFromHome = false;
+  navigate('pop', () => {
+    showView('board');
+    window.scrollTo(0, y);
+  });
+}
+window.closeGuide = closeGuide;
 
 // The gold pill behind the active tab (.tab-pill) springs to its slot
 // via a CSS transition on --tab-i; off the five tabs it fades out.
