@@ -107,7 +107,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 - **Durable Objects:** `ChatRoom` (one per group), `DraftRoom` (one per room name: `main`, `mock-1`, `mock-<id>`).
   SQLite-backed; migrations `v1`, `v2` in `wrangler.toml`.
 - **Browser:** `localStorage` (identity, settings, caches, admin password, invite code), `sessionStorage` (splash),
-  Cache Storage (`sw.js`, `boxscore-v40`).
+  Cache Storage (`sw.js`, `boxscore-v52`).
 
 ## Deployment
 
@@ -157,7 +157,7 @@ stores the request in KV, rate-limited per IP, with no push alert; instead it em
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
 (top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
-/roster`). Name pickers hide still-open spots. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
+/roster`). Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
 someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
 (`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed
 to `CLAIM_ALERT_EMAIL` like a claim, and listed on the admin page's Platform view (and its "Needs attention") with
@@ -511,9 +511,12 @@ the ladder's stage. The ladder updates in place while you scrub; `keepPostseason
 Standings re-render.
 The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
 field is set, a ~10s announcement plays in the card (the logo big, then docked; the seeded field; how many of your teams
-are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder). Until it has played
+are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder at the field set). Then
+the ladder climbs one round at a time (`replayPostseason`, the Replay button's steps) and stops on the latest round, so a
+first look during the semifinals walks through each round before it. Until it has played
 (`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
-(`postseasonRevealBusy`), ends at once on a toggle tap, a league switch or leaving the tab, and reduced motion skips it.
+(`postseasonRevealBusy`), ends at once on the latest round on a toggle tap, a league switch or leaving the tab, and
+reduced motion skips straight there.
 Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
@@ -540,13 +543,22 @@ is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A se
 round reads as under way, and the team page shows its tally ("Leads 2–1"). On the ladder, once a series has a
 game in, its tally replaces the pair's "v" ("1–0", read left to right like the chips, the leader's number brighter,
 a red dot above while a game is on; snapshot's `series` at the latest stage only, worded by `seriesLine` for screen
-readers), so it costs no room. Any league fed through `seriesEvents` gets it. The lockup is `icons/mlb-postseason-*.png`,
+readers), so it costs no room. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split
+into AL / NL columns (`sides`: each half of every rung laid out on its own by `rungRows`, the World Series pair
+meeting in the middle) under small AL / NL labels (`sidesHtml`) that fade once a champion is crowned. The lockup is `icons/mlb-postseason-*.png`,
 drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
 While MLB is in `PRIOR_SEASON_DISPLAY_LEAGUES` the postseason doesn't count (`postseasonScores`): `snap` reads it with no
 rules, so the ladder has no rung points, the crown card no points, the drafted table no points columns, the team page
 shows Series won / Counts: No, Home's card adds "Doesn't count for points", the Standings note names the postseason,
 labels use ESPN's year, and `postseasonRuleTeams` never answers. Once MLB leaves that list, its rules ("Make LCS",
 "Make World Series", "Win World Series") score from the ladder too, alongside `js/playoff-series.js`.
+**WNBA** (`wnba`) is loaded the same way (every day from Sept 10 to Oct 31 so far, `bxPsDay:wnba:<day>`, folded by
+`seriesEvents`): 8 teams, first round (best of 3), semifinals (5), Finals (7), no conferences and no byes. Its seeds are
+league-wide, read from the league-level standings (`standings?level=1`, `parseNflSeeds(…, 8)`). The lockup is
+`icons/wnba-playoffs-*.svg` for every year: the dark file is the league's on-dark artwork, the light one ours with its
+white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
+`PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
+the Finals" and "Win the Finals" score from the ladder.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
@@ -608,7 +620,7 @@ window at a made-up `yourfriends.boxscore.space`: the landing never shows a real
 lands), your board filling the standard setup's slots with crests, team pages swiping through three of your teams in three
 leagues (each with its league's real Path to points, `pathToPointsHtml`), Scores (`gameCardHtml`), Chat, Points
 (live → locked), and the season race (the Points tab's race card, `.race-*`, replaying to a finish between 80 and
-110 points as the standings under it re-sort). Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
+110 points as the standings under it re-sort). The group cards wait for the fresh roster (`loadRoster(id, { fresh: true })`, same 1.5s cap) because the spots count is drawn once; a stale cache would show filled spots as open. Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
 sports with their picks each, and what a commissioner can change. Captions with counts follow the setup. Reduced motion: no
 scrubbing; each scene shows its end state and the segments switch steps. Sections rise in the first time they're 35%
 in view.

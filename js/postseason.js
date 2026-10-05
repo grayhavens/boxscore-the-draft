@@ -1,6 +1,6 @@
 /* ============================================================
-   Postseason ladder (Standings → NFL / College FB / College BB / MLB →
-   Postseason), and the team page's Postseason section. Design: the
+   Postseason ladder (Standings → NFL / College FB / College BB / MLB /
+   WNBA → Postseason), and the team page's Postseason section. Design: the
    "Postseason standings" handoff (Regular | Postseason toggle + Ladder,
    direction 4a/4b), and its NCAA Tournament addendum (option 3a).
 
@@ -27,9 +27,9 @@
    And its rules also score the drafted teams that missed the field
    (postseasonRuleTeams).
 
-   MLB's postseason can be one that doesn't count: while MLB is still
-   showing the season before the draft class's (PRIOR_SEASON_DISPLAY_LEAGUES
-   in js/data.js), its ladder, Home card and team pages show the real
+   MLB's and the WNBA's postseasons can be ones that don't count: while the
+   league is still showing the season before the draft class's
+   (PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js), its ladder, Home card and team pages show the real
    postseason with who drafted each team, but no points anywhere, and say
    so (postseasonScores). Its scoring rules never read it.
 
@@ -121,11 +121,14 @@ export function postseasonYear(key){
 // February (the Super Bowl). The NCAA Tournament: March (Selection
 // Sunday) and April (the title game). MLB: from September 25 (the field
 // is set in the season's last days) through November (the World Series
-// ends by early November). Outside them there's no postseason to fetch.
+// ends by early November). The WNBA: from September 10 through October
+// (the Finals end by mid-October). Outside them there's no postseason to
+// fetch.
 function inWindow(key){
   if(previewYear(key) !== null) return true;
   const now = new Date(), m = now.getMonth();
   if(key === 'mlb') return m === 9 || m === 10 || (m === 8 && now.getDate() >= 25);
+  if(key === 'wnba') return m === 9 || (m === 8 && now.getDate() >= 10);
   return (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(m);
 }
 
@@ -225,7 +228,14 @@ const NCAA_LOGO = {
 const MLB_LOGOS = {
   2026: { emblem: { light: 'icons/mlb-postseason-light.png', dark: 'icons/mlb-postseason-dark.png' }, lockup: true }
 };
-const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason' };
+// The WNBA Playoffs lockup (the logo and the words, no year) is one
+// artwork for every year: the league's own on-dark file (white words), and
+// ours for light with the white turned black (the orange stays).
+const WNBA_LOGO = {
+  emblem: { light: 'icons/wnba-playoffs-light.svg', dark: 'icons/wnba-playoffs-dark.svg' },
+  lockup: true
+};
+const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason', wnba: 'WNBA Playoffs' };
 export const postseasonTitle = key => LOGO_TITLE[key] || 'Playoffs';
 // One logo part, both themes (CSS shows the one that matches).
 export function logoImgsHtml(part){
@@ -253,6 +263,7 @@ export function postseasonLogo(key){
   if(key === 'cfb') return CFP_LOGO;
   if(key === 'mcbb') return NCAA_LOGO;
   if(key === 'mlb') return MLB_LOGOS[postseasonYear(key)] || null;
+  if(key === 'wnba') return WNBA_LOGO;
   const logo = cacheFor(key).data && cacheFor(key).data.logo;
   return logo ? { emblem: logo } : null;
 }
@@ -291,7 +302,7 @@ export function postseasonRuleTeams(key, rule){
 function ownerOf(key){
   return t => {
     const teamKey = key === 'nfl' ? findNflTeamKeyByEspnAbbr(t.abbr) : key === 'mcbb' ? findCbbTeamKeyByEspnId(t.id)
-      : key === 'mlb' ? findFlatTeamKey('mlb', t.name) : findCfbTeamKeyByLocation(t.location);
+      : key === 'mlb' || key === 'wnba' ? findFlatTeamKey(key, t.name) : findCfbTeamKeyByLocation(t.location);
     const meta = teamKey && TEAM_META[teamKey];
     if(!meta) return null;
     return { teamKey, owner: PRE_DRAFT || meta.favoriteOnly ? null : meta.draftTeamId };
@@ -378,9 +389,14 @@ export function openPostseason(key){
   u.spot = null;
 }
 
-// The ladder at the field set (where the reveal leaves it).
+// The ladder at the field set (where the reveal's badges land).
 export function showFieldSet(key){
   uiFor(key).stage = latestStage(bracketFor(key)) === 0 ? null : 0;
+}
+
+// The ladder at its latest round (a reveal cut short ends here).
+export function showLatest(key){
+  uiFor(key).stage = null;
 }
 
 // The reveal takes a toggle tap mid-flight (it ends there and applies it).
@@ -398,6 +414,7 @@ window.psPhase_nfl = v => setPhase('nfl', v);
 window.psPhase_cfb = v => setPhase('cfb', v);
 window.psPhase_mcbb = v => setPhase('mcbb', v);
 window.psPhase_mlb = v => setPhase('mlb', v);
+window.psPhase_wnba = v => setPhase('wnba', v);
 
 // Picking another league on Standings brings each ladder back to its
 // latest round.
@@ -714,8 +731,10 @@ function stopReplay(){
   if(btn) btn.textContent = replayLabel(key);
 }
 
-window.psReplay = key => {
-  if(replaying && replaying.key === key){ stopReplay(); return; }
+// Step the ladder from the field set up to the latest round, one round
+// every REPLAY_STEP_MS: the Replay button, and the end of the playoffs
+// reveal (which climbs from the field set to wherever the playoffs are).
+export function replayPostseason(key){
   stopReplay();
   const latest = latestStage(bracketFor(key));
   if(!latest) return;
@@ -724,12 +743,20 @@ window.psReplay = key => {
   else setStage(key, 0);
   replaying.timer = setInterval(() => {
     const s = stageOf(key);
-    if(s >= latest || !document.querySelector(`.ps[data-ps="${key}"]`)){ stopReplay(); return; }
+    // The ladder went away mid-climb (another view): it's back on the
+    // latest round next time.
+    if(!document.querySelector(`.ps[data-ps="${key}"]`)){ uiFor(key).stage = null; stopReplay(); return; }
+    if(s >= latest){ stopReplay(); return; }
     setStage(key, s + 1);
     if(s + 1 >= latest) stopReplay();
   }, REPLAY_STEP_MS);
   const btn = document.querySelector(`.ps[data-ps="${key}"] .ps-replay`);
   if(btn) btn.textContent = replayLabel(key);
+}
+
+window.psReplay = key => {
+  if(replaying && replaying.key === key){ stopReplay(); return; }
+  replayPostseason(key);
 };
 
 // ---- Scrubber: drag or tap to the nearest stop, arrow keys too ----
@@ -1001,7 +1028,7 @@ export function postseasonTeamHtml(teamKey){
     const vs = op.team ? `${badgeOf(op.team)}<span>vs ${escapeHtml(nameOf(op.team, key))}</span>` : '<span>vs TBD</span>';
     if(g.final){
       steps.push(stepHtml({ dot: me.won ? 'win' : 'loss', label: escapeHtml(label), html: vs, result: `${me.won ? 'W' : 'L'} ${me.score}–${op.score}${g.ot ? ' OT' : ''}`, tone: me.won ? 'win' : 'loss' }));
-    } else if(g.begun && S.isLatest && key === 'mlb'){
+    } else if(g.begun && S.isLatest && S.L.series){
       // A series under way: its tally so far.
       const mine = meTop ? g.scoreA : g.scoreB, theirs = meTop ? g.scoreB : g.scoreA;
       const tally = `${mine > theirs ? 'Leads' : mine < theirs ? 'Trails' : 'Tied'} ${mine}–${theirs}`;
@@ -1031,7 +1058,7 @@ export function postseasonTeamHtml(teamKey){
     <div class="modal-section-title">${escapeHtml(scores ? 'Postseason' : `${postseasonYear(key)} Postseason`)}${escapeHtml(asOf)}</div>
     <div class="ps-tp-strip">
       ${cell('Status', escapeHtml(t.status), t.champion ? 'accent' : t.alive ? '' : 'mute')}
-      ${scores ? cell('Locked', `+${t.banked}`, 'accent') : cell(key === 'mlb' ? 'Series won' : 'Rounds won', won, '')}
+      ${scores ? cell('Locked', `+${t.banked}`, 'accent') : cell(S.L.series ? 'Series won' : 'Rounds won', won, '')}
       ${scores ? cell('In play', `+${t.inPlay}`, 'prov') : cell('Counts', 'No', 'mute')}
     </div>
     <div class="ps-tp-card">${steps.join('')}</div>

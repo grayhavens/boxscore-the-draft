@@ -84,9 +84,9 @@ const GUIDE = [
     lead: 'The real tables for all 8 leagues, with every team tagged by who drafted it.',
     points: [
       'Switch between League (the real table) and Drafted (each drafter’s teams together).',
-      'Once the NFL playoffs, the CFP, the NCAA Tournament or the MLB postseason are set, Home keeps a card up (once your group has drafted) for the whole postseason with the current round and how many of your teams are still alive, and their card gets a Postseason view: every playoff team climbing a ladder to the title (for the NCAA Tournament, just the drafted ones). Drag the slider to replay the rounds, and tap a drafter to spotlight their teams.',
-      'While MLB is still showing last season, its postseason gets the ladder too, with who drafted each team, but it doesn’t count for points.',
-      'In the MLB postseason, the score between two teams on the ladder is their series so far, read left to right. A red dot means a game is on.',
+      'Once the NFL playoffs, the CFP, the NCAA Tournament, the MLB postseason or the WNBA Playoffs are set, Home keeps a card up (once your group has drafted) for the whole postseason with the current round and how many of your teams are still alive, and their card gets a Postseason view: every playoff team climbing a ladder to the title (for the NCAA Tournament, just the drafted ones). Drag the slider to replay the rounds, and tap a drafter to spotlight their teams.',
+      'While MLB and the WNBA are still showing last season, their postseasons get the ladder too, with who drafted each team, but they don’t count for points.',
+      'In the MLB and WNBA postseasons, the score between two teams on the ladder is their series so far, read left to right; a red dot means a game is on. MLB’s ladder splits into AL and NL columns.',
       'MLB and WNBA show last season until their next one starts. Those results don’t count yet.'
     ],
     pre: {

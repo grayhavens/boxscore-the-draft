@@ -1,5 +1,5 @@
 /* ============================================================
-   Postseason ladder math (Standings → NFL/CFB/CBB/MLB → Postseason): pure, no
+   Postseason ladder math (Standings → NFL/CFB/CBB/MLB/WNBA → Postseason): pure, no
    DOM and no fetches, shared by js/postseason.js and
    tests/postseason-math.test.mjs.
 
@@ -32,12 +32,15 @@
    round reads as under way. Seeds 1 and 2 in each league skip the Wild
    Card (byes, from the final standings like the NFL's 1 seeds).
 
+   The WNBA plays series too (first round best of 3, semifinals 5, Finals
+   7): eight teams seeded 1-8 league-wide, no conferences and no byes.
+
    A series still being played carries its tally (`series` on each of
    snapshot's games, latest stage only: a replayed stage can't know the
    tally back then), and the ladder writes it in place of the pair's "v"
    once a game is in ("1-0", read left to right like the chips), so it
    costs no room. seriesLine says the same in words for screen readers.
-   Any league whose events come through seriesEvents gets this, not just MLB.
+   Any league whose events come through seriesEvents gets this (MLB, WNBA).
 
    MLB's ladder is also split down the middle (`sides`): AL teams on the
    left half of every rung, NL on the right, each half laid out on its own
@@ -150,7 +153,7 @@ const MCBB = {
 // (seriesEvents), its headline the round: "ALWC", "NLDS", "ALCS",
 // "World Series". The rules are the ones js/playoff-series-math.js reads.
 const MLB = {
-  key: 'mlb', fieldSize: 12, byeSeeds: 2,
+  key: 'mlb', fieldSize: 12, byeSeeds: 2, series: true, seriesNeed: [2, 3, 4, 4],
   rounds: ['Wild Card', 'Division Series', 'LCS', 'World Series'],
   roundShort: ['WC', 'DS', 'LCS', 'WS'],
   rungs: ['Wild Card', 'Division Series', 'LCS', 'World Series', 'Champion'],
@@ -174,7 +177,36 @@ const MLB = {
   noteOf(evt, round){ return round === 4 ? 'World Series' : ''; }
 };
 
-export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB };
+// WNBA: 8 teams seeded league-wide, first round (best of 3), semifinals
+// (5) and the Finals (7), each a series like MLB's. ESPN's headlines are
+// "First Round - Game 1", "Semifinals" (2025: "WNBA Semifinals") and
+// "WNBA Finals" (once "WNBA FINALS"). Checked against the 2025 playoffs
+// and the 2026 ones under way (2026-10-04).
+const WNBA = {
+  key: 'wnba', fieldSize: 8, series: true, seriesNeed: [2, 3, 4],
+  rounds: ['First Round', 'Semifinals', 'Finals'],
+  roundShort: ['R1', 'SF', 'F'],
+  rungs: ['First Round', 'Semifinals', 'Finals', 'Champion'],
+  stages: ['Field set', 'After first round', 'After semifinals', 'Champion'],
+  gamesPerRound: [4, 2, 1],
+  champTitle: 'WNBA champions',
+  rules: [
+    { re: /win (the )?finals/i, win: true },
+    { re: /reach (the )?finals/i, reach: 3 },
+    { re: /semifinals/i, reach: 2 }
+  ],
+  roundOf(evt){
+    const h = evt.headline || '';
+    if(/semifinals/i.test(h)) return 2;
+    if(/finals/i.test(h)) return 3;
+    if(/first round/i.test(h)) return 1;
+    return 0;
+  },
+  groupOf(){ return ''; },
+  noteOf(evt, round){ return round === 3 ? 'WNBA Finals' : ''; }
+};
+
+export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB, wnba: WNBA };
 
 // The league's last round, which is also its Champion rung and the stage
 // the champion is crowned on (4 for football, 6 for the NCAA Tournament).
@@ -243,14 +275,13 @@ export function parseScoreboardEvent(event){
   };
 }
 
-// MLB: one event per game → one per series, in parseScoreboardEvent's
+// MLB / WNBA: one event per game → one per series, in parseScoreboardEvent's
 // shape, so buildBracket reads a series like a single game. A series is
 // its round ("ALDS", from "ALDS - Game 2") and its two teams. Its sides'
 // scores are series wins: the best of ESPN's tally on its latest game and
 // the finished games counted here (a missed day can't lose a win). It's
 // final ('post') once a side has the wins it needs, live ('in') while one
 // of its games is, and `begun` from its first pitch.
-const SERIES_NEED = { 1: 2, 2: 3, 3: 4, 4: 4 };
 export function seriesEvents(leagueKey, events){
   const L = POSTSEASON_LEAGUES[leagueKey];
   const series = new Map();
@@ -272,7 +303,7 @@ export function seriesEvents(leagueKey, events){
       if(w && w.id) counted[w.id] = (counted[w.id] || 0) + 1;
     });
     const tally = (games.slice().reverse().find(g => g.series) || {}).series || null;
-    const need = (tally && tally.need) || SERIES_NEED[round] || 4;
+    const need = (tally && tally.need) || (L.seriesNeed || [])[round - 1] || 4;
     const sides = first.sides.map(sd => {
       const wins = sd.id ? Math.max(counted[sd.id] || 0, (tally && tally.wins[sd.id]) || 0) : 0;
       return { ...sd, score: wins, winner: wins >= need };
