@@ -391,13 +391,19 @@ into the room (`js/draft-live.js`: top of `.board` and under the Chat header). O
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.
 
-**Feature guide** (`js/guide.js`): one `GUIDE` list feeds both the first-run tour (cards in the welcome
-sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How Boxscore
-works (`#view-guide`, `?view=guide`). In a phone browser the welcome opens on the two Add to Home Screen steps,
-and the name pick and tour only follow "Continue in browser", since the Home Screen app runs the welcome again on its
-first open. Tour cards show just each entry's `lead`. **When a
-feature ships or changes, update its `GUIDE` entry** (`tour: true` adds it to the tour; `pre` is the text shown
-before a group's first draft).
+**Feature guide** (`js/guide.js`): two lists, `SECTIONS` and `APP_ROWS`, feed both the first-run tour (cards in
+the welcome sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How
+Boxscore works (`#view-guide`, `?view=guide`). Before a group's first draft, Home's Draft section links to it too
+(`openGuide('board')`, its back link then says Home; `closeGuide` in `js/board.js`). The page is written for someone who's done a fantasy draft but not this
+kind: three numbered sections on what's different (you draft whole teams; teams score on how their season ends; blue
+live vs gold locked points), each with a still picture of the app, then "Around the app", one tappable row per tab and
+setting. The pictures are the landing page's tour scenes drawn finished (`paintSceneStill` in
+`js/landing-explainer.js`) for the group's own picks per league (`groupCaps`, else `DEFAULT_CAPS`), with made-up
+rivals' names, so they follow the real components and never show a real drafter. In a phone browser the welcome opens
+on the two Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
+Screen app runs the welcome again on its first open. Tour cards are the entries marked `tour`, with their `tourLead`.
+**When a feature ships or changes, update its `APP_ROWS` line** (one sentence; `pre` is the text shown before a
+group's first draft, `when` hides a row from groups it doesn't apply to). Keep the page short.
 
 **System admin** (`admin.html`, `js/system-admin.js`, `worker/system-admin.js`): the platform owner's page at
 `boxscore.space/admin`. It shows each group's draft, chat, activity, alert devices and secrets (present or missing, never
