@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v58';
+const CACHE_NAME = 'boxscore-v59';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -121,6 +121,7 @@ const SHELL_FILES = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png',
   './icons/logo-header-light.png',

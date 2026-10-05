@@ -391,7 +391,7 @@ const INSTALL_STEPS = {
     'Tap <b>Add to Home Screen</b>, then <b>Add</b>.'
   ],
   android: [
-    'Tap the <b>&#8942;</b> menu in Chrome.',
+    'Tap the <b>&#8942;</b> menu in Chrome (other browsers: look for <b>Install app</b> or <b>Add to Home screen</b>).',
     'Tap <b>Install app</b>, then <b>Install</b>.'
   ]
 };
@@ -480,7 +480,7 @@ function renderWelcomeInstall(platform, firstRun){
   el.innerHTML = `
     <div class="welcome-head">
       ${firstRun ? '<div class="welcome-eyebrow">Welcome to Boxscore</div>' : ''}
-      <div class="welcome-title">Add it to your Home Screen</div>
+      <div class="welcome-title">${platform === 'android' ? 'Install Boxscore' : 'Add it to your Home Screen'}</div>
       <div class="welcome-sub">It opens full screen like a real app, and it&rsquo;s where alerts work.</div>
     </div>
     ${installBtn}
