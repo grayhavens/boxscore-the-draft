@@ -45,7 +45,10 @@ async function fetchAssigned(groupId){
   return data && data.assigned && typeof data.assigned === 'object' ? data.assigned : {};
 }
 
-export async function loadRoster(groupId){
+// `fresh` waits for the network copy (up to the same cap) even with a
+// cache: the landing page draws its spots count once, so a stale cache
+// would show filled spots as open until the next visit.
+export async function loadRoster(groupId, { fresh: waitFresh = false } = {}){
   const group = GROUPS[groupId];
   // Checked against the js/groups.js values: a spot already filled here
   // is still one this has to keep applying.
@@ -59,5 +62,5 @@ export async function loadRoster(groupId){
     try { localStorage.setItem(cacheKey(groupId), JSON.stringify(assigned)); } catch (e){}
   }).catch(() => {});
 
-  if(!cached) await Promise.race([fresh, new Promise(r => setTimeout(r, FIRST_LOAD_WAIT_MS))]);
+  if(!cached || waitFresh) await Promise.race([fresh, new Promise(r => setTimeout(r, FIRST_LOAD_WAIT_MS))]);
 }

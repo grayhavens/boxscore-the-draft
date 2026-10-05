@@ -31,7 +31,7 @@ export const GROUPS = {
     id: 'thedraft',
     name: 'The Draft',
     drafters: [
-      { id:'josh', name:'Josh' },
+      { id:'josh', name:'Josh', commissioner: true },
       { id:'isaac', name:'Isaac' },
       { id:'drew', name:'Drew' },
       { id:'douglas', name:'Douglas' },
@@ -54,6 +54,7 @@ export const GROUPS = {
   // `roster@<group>` KV record, worker/roster.js), keeping that spot's id;
   // applyRoster below is how both the worker and the app read it. Setting
   // a name here and dropping `open` still works too, and wins.
+  // `commissioner: true` only labels the spot on the admin page.
   seasonticket: {
     id: 'seasonticket',
     name: 'Season Ticket',
@@ -63,7 +64,7 @@ export const GROUPS = {
     // turn it on without a deploy.
     caps: { epl: 2, nfl: 3, nba: 3, nhl: 3, mlb: 3, wnba: 1, cfb: 3, mcbb: 3 },
     drafters: [
-      { id:'josh', name:'Josh' },        // commissioner
+      { id:'josh', name:'Josh', commissioner: true },
       { id:'draftertwo', name:'Drafter 2', open: true },
       { id:'drafterthree', name:'Drafter 3', open: true },
       { id:'drafterfour', name:'Drafter 4', open: true },

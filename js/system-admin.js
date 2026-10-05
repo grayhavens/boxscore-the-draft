@@ -63,7 +63,7 @@
    admin-worker config in .claude/launch.json); on any other host it
    sends you to boxscore.space/admin.
    ============================================================ */
-import { GROUP_DOMAIN, groupAppUrl, isPlatformHost, adminSecretName } from './groups.js';
+import { GROUPS, GROUP_DOMAIN, groupAppUrl, isPlatformHost, adminSecretName } from './groups.js';
 import { welcomeHtml } from './welcome-template.js';
 import { pollTally } from './draft-poll.js';
 
@@ -628,7 +628,11 @@ function rosterHtml(g){
     const contact = g.welcome.contacts.find(c => c.drafter === d.id);
     const email = (contact && contact.email) || (conf && conf.email) || (named && named.email) || '';
     const editingEmail = named && emailEdit && emailEdit.group === g.id;
-    const state = conf ? pill('ok', 'Confirmed') : d.open ? pill('open', 'Open') : pill('neutral', 'Named');
+    // A spot set in js/groups.js is as filled as a confirmed one; the
+    // commissioner's says so, since "Named" read like a step short.
+    const spotDef = GROUPS[g.id] && GROUPS[g.id].drafters.find(x => x.id === d.id);
+    const state = conf ? pill('ok', 'Confirmed') : d.open ? pill('open', 'Open')
+      : spotDef && spotDef.commissioner ? pill('ok', 'Commissioner') : pill('neutral', 'Named');
     const welcomed = contact && contact.welcomedAt ? ago(contact.welcomedAt) : d.open ? '—' : email ? 'Not yet' : 'No email';
     const alerts = d.devices ? `${plural(d.devices, 'device')} · chat ${d.chat} · draft ${d.draft} · points ${d.points || 0} · mentions ${d.mention || 0}` : d.open ? '—' : 'Off';
     const actions = [
