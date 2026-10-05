@@ -5338,7 +5338,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home-stack{ display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
 .ps-home{
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 14px 14px 16px;
-  border-radius: var(--r-lg); background: var(--accent-soft); border: 1px solid var(--accent-border);
+  border-radius: var(--r-lg); background: var(--ps-hero-bg); border: 1px solid var(--accent-border);
   color: inherit; font: inherit; text-align: left; cursor: pointer;
   transition: transform var(--dur-press) var(--ease-out);
 }
