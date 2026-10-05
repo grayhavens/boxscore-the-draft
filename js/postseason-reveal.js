@@ -75,7 +75,7 @@ export function postseasonRevealBusy(){ return !!run; }
 // After each Standings render: start the reveal if this league's tab is
 // showing, its field is set and this device hasn't seen it.
 export function maybeStartPostseasonReveal(container, filterKey){
-  if(run || !['nfl', 'cfb', 'mcbb', 'mlb'].includes(filterKey)) return;
+  if(run || !['nfl', 'cfb', 'mcbb', 'mlb', 'wnba'].includes(filterKey)) return;
   const key = filterKey;
   if(!bracketFor(key) || revealSeen(key)) return;
   if(reducedMotion()){
@@ -129,8 +129,8 @@ function start(key, card){
   const teams = ladderTeams(key, S);
   const seed = t => t.seed ?? 99;
   // Hero order: the AFC then the NFC (MLB: the AL then the NL), each by
-  // seed (seeds 1-6, 7-12 for the CFP); the NCAA's drafted teams by seed,
-  // then region.
+  // seed (seeds 1-6, 7-12 for the CFP; the WNBA's 1-4, 5-8); the NCAA's
+  // drafted teams by seed, then region.
   const hero = teams.slice().sort((a, b) => byLeague ? (a.conf || '').localeCompare(b.conf || '') || seed(a) - seed(b)
     : ncaa ? seed(a) - seed(b) || regionRank(a) - regionRank(b) : seed(a) - seed(b));
   const travel = teams.slice().sort((a, b) => seed(a) - seed(b) || (ncaa ? regionRank(a) - regionRank(b) : (a.conf || '').localeCompare(b.conf || '')));
@@ -143,9 +143,10 @@ function start(key, card){
   const imgs = logoImgsHtml;
   const title = postseasonTitle(key);
   const lockup = !!(logo && logo.lockup);
-  // Seven badges to a row (six for the CFP's and MLB's 12); the NCAA's can
-  // need more than two rows, and the strip grows to fit them.
-  const cols = key === 'cfb' || key === 'mlb' ? 6 : 7;
+  // Seven badges to a row (six for the CFP's and MLB's 12, four for the
+  // WNBA's 8); the NCAA's can need more than two rows, and the strip grows
+  // to fit them.
+  const cols = key === 'cfb' || key === 'mlb' ? 6 : key === 'wnba' ? 4 : 7;
   const gridH = Math.max(2, Math.ceil(hero.length / cols)) * HERO_ROW + 10;
   header.insertAdjacentHTML('afterend', `
     <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}" style="--ps-hero-grid:${gridH}px;--ps-hero-h:${250 + gridH - 110}px">
@@ -179,7 +180,7 @@ function start(key, card){
   fly.innerHTML = hero.map(t => `
     <div class="ps-chip ps-fly-chip seeded${t.mine ? ' mine' : ''}" data-team="${t.id}">
       <span class="ps-chip-badge">${badgeOf(t)}</span>
-      <span class="ps-chip-owner">${key === 'cfb' ? '#' : (t.conf || '?')[0]}${t.seed ?? ''}</span>
+      <span class="ps-chip-owner">${key === 'cfb' || key === 'wnba' ? '#' : (t.conf || '?')[0]}${t.seed ?? ''}</span>
     </div>`).join('');
   card.appendChild(fly);
   const chips = hero.map((t, h) => {

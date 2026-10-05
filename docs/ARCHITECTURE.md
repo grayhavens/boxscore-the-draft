@@ -544,6 +544,13 @@ rules, so the ladder has no rung points, the crown card no points, the drafted t
 shows Series won / Counts: No, Home's card adds "Doesn't count for points", the Standings note names the postseason,
 labels use ESPN's year, and `postseasonRuleTeams` never answers. Once MLB leaves that list, its rules ("Make LCS",
 "Make World Series", "Win World Series") score from the ladder too, alongside `js/playoff-series.js`.
+**WNBA** (`wnba`) is loaded the same way (every day from Sept 10 to Oct 31 so far, `bxPsDay:wnba:<day>`, folded by
+`seriesEvents`): 8 teams, first round (best of 3), semifinals (5), Finals (7), no conferences and no byes. Its seeds are
+league-wide, read from the league-level standings (`standings?level=1`, `parseNflSeeds(…, 8)`). The lockup is
+`icons/wnba-playoffs-*.svg` for every year: the dark file is the league's on-dark artwork, the light one ours with its
+white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
+`PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
+the Finals" and "Win the Finals" score from the ladder.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
