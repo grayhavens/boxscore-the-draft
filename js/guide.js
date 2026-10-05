@@ -141,7 +141,7 @@ const APP_ROWS = [
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your turn in the draft, points that move, chat. On iPhone, only in the Home Screen app.',
+    lead: 'Your turn in the draft, points that move, chat. On iPhone, only in the Home Screen app; on Android, in Chrome or the installed app.',
     go: ['Set up alerts', 'guideOpenAlerts()']
   },
   {
