@@ -60,7 +60,7 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
-import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { startSince } from './since.js';
 import { startHistory } from './history.js';
@@ -278,15 +278,19 @@ function draftWhenHtml(){
 }
 
 // The "playoffs are set" cards (js/postseason.js): one per league whose
-// field is set and whose reveal this device hasn't seen yet. None before
-// the draft: with no teams drafted, Home leads with the Draft card instead.
+// field is set and whose reveal this device hasn't seen yet, then a golf
+// major's card (js/golf-view.js) during its week and the week after. The
+// postseason cards go first: the only overlap is April, when the NCAA
+// Tournament's card is already on its last week. None before the draft:
+// with no teams drafted, Home leads with the Draft card instead.
 function renderPlayoffsHome(){
   const el = document.getElementById('playoffs-home');
   if(!el) return;
-  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key));
+  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key)) + golfMajorHomeHtml();
   el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
 }
 onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
+onGolfData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
 
 // A playoffs card's tap: Standings, on that league, where the reveal plays.
 window.openPlayoffs = key => {

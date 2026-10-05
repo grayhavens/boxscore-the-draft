@@ -1,0 +1,64 @@
+{
+ "leagues": [
+  {
+   "logos": [
+    {
+     "href": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/pgatour.png",
+     "width": 500,
+     "height": 500,
+     "alt": "",
+     "rel": [
+      "full",
+      "default"
+     ],
+     "lastUpdated": "2026-10-05T03:26Z"
+    },
+    {
+     "href": "https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500-dark/pgatour.png",
+     "width": 500,
+     "height": 500,
+     "alt": "",
+     "rel": [
+      "full",
+      "dark"
+     ],
+     "lastUpdated": "2026-10-05T04:00Z"
+    }
+   ]
+  }
+ ],
+ "events": [
+  {
+   "id": "401811957",
+   "name": "The Open",
+   "shortName": "The Open",
+   "date": "2026-07-16T04:00Z",
+   "endDate": "2026-07-19T04:00Z",
+   "status": {
+    "type": {
+     "id": "3",
+     "name": "STATUS_FINAL",
+     "state": "post",
+     "completed": true,
+     "description": "Final"
+    }
+   }
+  },
+  {
+   "id": "401811958",
+   "name": "Corales Puntacana Championship",
+   "shortName": "Corales Puntacana Championship",
+   "date": "2026-07-16T04:00Z",
+   "endDate": "2026-07-19T04:00Z",
+   "status": {
+    "type": {
+     "id": "3",
+     "name": "STATUS_FINAL",
+     "state": "post",
+     "completed": true,
+     "description": "Final"
+    }
+   }
+  }
+ ]
+}

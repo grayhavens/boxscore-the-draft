@@ -8,21 +8,27 @@
      combined FedEx points (the league bonus);
    - Home rows: FedEx rank after the country, and this week's place in
      the status slot;
-   - the Scores tab's tournament card (golfCardsForDay, js/live-now.js).
+   - the Scores tab's tournament card (golfCardsForDay, js/live-now.js);
+   - Home's card for a major (golfMajorHomeHtml, js/board.js), from the
+     Monday of its week until a week after (docs/golf-majors-plan.md).
 
    Data comes from js/golf-api.js: the season's finished events from the
    worker, and the event being played straight from ESPN. A golfer is
    known by ESPN athlete id; a TEAM_META entry (kind 'golfer') is only
    how the app knows who drafted or starred one.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT, leagueOf } from './data.js';
+import { TEAM_META, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT, LEAGUE_SCORING, leagueOf, isScoresOnly } from './data.js';
 import {
   teamBadgeHtml, escapeHtml as esc, skeletonLinesHtml, skeletonRowsHtml, lockBodyScroll, openSheetOverlay,
   isSheetOpen, standingsOwnerHtml, standingsToggleHtml, draftOwnerName, localYyyymmdd, retryPending
 } from './utils.js';
-import { fetchGolfSeason, fetchCurrentGolfEvent, fetchGolfLeaderboard, fetchGolferRecord, fetchGolfEventsOn } from './golf-api.js';
-import { golferResults, fedexTable, finishPosition, isMissedCut, golferHeadshotUrl } from './golf.js';
-import { PGA_ACCENT } from './seasons/pga.js';
+import { fetchGolfSeason, fetchCurrentGolfEvent, fetchGolfLeaderboard, fetchGolferRecord, fetchGolfEventsOn, fetchGolfCalendar } from './golf-api.js';
+import {
+  golferResults, fedexTable, finishPosition, isMissedCut, golferHeadshotUrl,
+  activeMajor, majorGolfers, majorLeaders, majorFromBoard, isOut
+} from './golf.js';
+import { PGA_ACCENT, PGA_SCORING, majorOf } from './seasons/pga.js';
+import { previewParam } from './postseason.js';
 import { favoriteStarHtml, favoriteMarkHtml, isFavorite } from './favorites.js';
 import { currentProfileId } from './identity.js';
 import { renderStandings, standingsDataChanged } from './board.js';
@@ -100,7 +106,7 @@ let loadPromise = null;
 // The season's results, and this week's event. Last year's season until
 // this year's first event is done, so January isn't an empty table.
 export function loadGolf(force = false){
-  if(!hasGolf()) return Promise.resolve();
+  if(!hasGolf() && !MAJOR_REPLAY) return Promise.resolve();
   if(loadPromise) return loadPromise;
   if(!force && golfStore.events && Date.now() - golfStore.fetchedAt < SEASON_TTL_MS) return refreshGolfLive();
   // A failed fetch waits out the retry delay. Otherwise the repaint it
@@ -135,7 +141,13 @@ export function loadGolf(force = false){
 // This week's event. Its leaderboard is refetched once a minute while
 // it's being played, and not at all when nothing is on.
 export async function refreshGolfLive(force = false){
-  if(!hasGolf()) return;
+  if(!hasGolf() && !MAJOR_REPLAY) return;
+  if(MAJOR_REPLAY){
+    if(golfStore.current && golfStore.current.replay) return;
+    golfStore.current = await replayMajorCurrent();
+    if(!force) golfChanged();
+    return;
+  }
   const cur = golfStore.current;
   const playing = cur && cur.board && cur.board.status === 'in';
   if(!force && !playing && Date.now() - golfStore.liveAt < SEASON_TTL_MS) return;
@@ -149,8 +161,13 @@ export async function refreshGolfLive(force = false){
   if(!force) golfChanged();
 }
 
+// Called whenever golf data lands (Home's major card, js/board.js).
+const listeners = [];
+export function onGolfData(fn){ listeners.push(fn); }
+
 function golfChanged(){
   standingsDataChanged();
+  listeners.forEach(fn => fn());
   renderAllPgaCardRecords();
   const content = document.getElementById('modal-content');
   const active = content && content.dataset.activeTeam;
@@ -205,8 +222,9 @@ function thisWeekFor(athleteId){
 function roundLabel(board, p){
   if(board.status === 'post') return 'Final';
   if(p.state === 'pre' || (!p.thru && p.teeTime)) return p.teeTime ? `Tee ${timeOf(p.teeTime)}` : `Round ${board.round || 1}`;
+  if(isOut(p.finish)) return p.finish === 'CUT' ? 'Missed cut' : p.finish;
   if(p.thru === '18' || p.thru === 'F') return `R${board.round} · F`;
-  return `R${board.round} · Thru ${p.thru}`;
+  return p.thru ? `R${board.round} · Thru ${p.thru}` : `R${board.round}`;
 }
 
 const timeOf = iso => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -232,6 +250,152 @@ function renderGolfRowStatus(teamKey){
 }
 
 const shortName = name => String(name || '').replace(/\s+(pres\.|presented)\s.*$/i, '');
+
+// ---- Home: a major's card ----
+
+// Points show only for a group that drafted its golfers and whose golf
+// counts: not before the draft, not golf shown for scores only, not a
+// FedEx season before the class's.
+function majorsScore(){
+  if(MAJOR_REPLAY && MAJOR_REPLAY.mine) return true;
+  return !PRE_DRAFT && !isScoresOnly('pga') && !PRIOR_SEASON_DISPLAY_LEAGUES.includes('pga') && !!LEAGUE_SCORING.pga;
+}
+
+function myGolferIds(){
+  const current = golfStore.current;
+  if(MAJOR_REPLAY && MAJOR_REPLAY.mine) return (current && current.replayMine) || [];
+  if(!currentProfileId) return [];
+  return leagueOf('pga').teams
+    .map(k => TEAM_META[k])
+    .filter(m => !m.favoriteOnly && m.draftTeamId === currentProfileId)
+    .map(m => String(m.espnAthleteId));
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const weekday = iso => new Date(iso).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+const signed = n => (n > 0 ? `+${n}` : n < 0 ? `\u2212${-n}` : '0');
+
+// Who's leading, or won: "Scottie Scheffler leads at -9", "3 tied for
+// the lead at -9", "Scottie Scheffler won at -10".
+function majorLeaderLine(major){
+  const { ids, toPar } = majorLeaders(major);
+  if(!ids.length) return '';
+  const at = toPar ? ` at ${toPar}` : '';
+  if(ids.length > 1) return major.status === 'post' ? `${ids.length} tied for the win${at}` : `${ids.length} tied for the lead${at}`;
+  const name = major.names[ids[0]] || nameOf(ids[0]);
+  return `${name} ${major.status === 'post' ? 'won' : 'leads'}${at}`;
+}
+
+// The card, in the postseason banner's shell (.ps-home): the PGA Tour
+// logo, "Round 2 · 2027", the major's name, then who's leading and, for a
+// drafter in a group whose golf scores, how their golfers stand: points
+// in play (blue) while it's on, locked (gold) once it's over. Their
+// golfers still playing sit at the right (the winner, once it's over).
+// A tap opens the leaderboard.
+export function golfMajorHomeHtml(){
+  if(!hasGolf() && !MAJOR_REPLAY) return '';
+  const major = activeMajor({ current: golfStore.current, events: golfStore.events || [], now: Date.now() });
+  if(!major) return '';
+  const year = String(major.start || '').slice(0, 4);
+  const eyebrow = major.status === 'pre' ? `Starts ${weekday(major.start)} \u00b7 ${year}`
+    : major.status === 'in' ? `Round ${major.round || 1} \u00b7 ${year}`
+    : `Final \u00b7 ${year}`;
+  const field = Object.keys(major.finishes).length;
+  const lines = [];
+  const lead = major.status === 'pre' ? '' : majorLeaderLine(major);
+  if(lead) lines.push(esc(lead));
+
+  const scoring = majorsScore() && (LEAGUE_SCORING.pga || PGA_SCORING).rules;
+  const mineIds = scoring ? myGolferIds() : [];
+  const mine = mineIds.length ? majorGolfers(major, mineIds, scoring) : null;
+  let badges = [];
+  // Before ESPN posts the field there's nobody to count.
+  if(mine && (field || major.status !== 'pre')){
+    const n = mine.rows.length;
+    const count = !n ? 'None of your golfers are in'
+      : major.status === 'pre' ? `You have ${plural(n, 'golfer', 'golfers')} in`
+      : major.status === 'in' && major.cutDone ? `${mine.playing} of ${n} made the cut`
+      : major.status === 'in' ? `You have ${plural(n, 'golfer', 'golfers')} in`
+      : 'Your golfers';
+    const pts = n && major.status !== 'pre'
+      ? `${major.status === 'post' ? ':' : ' \u00b7'} <span class="ps-home-pts ${major.status === 'post' ? 'locked' : 'prov'}">${signed(mine.total)}${major.status === 'post' ? '' : ' in play'}</span>`
+      : '';
+    lines.push(esc(count) + pts);
+    badges = (major.status === 'post' ? [] : mine.rows.filter(r => major.status === 'pre' || r.playing)).map(r => ({ id: r.id, mine: true }));
+  } else if(major.status === 'pre' && field){
+    lines.push(`${field} golfers in the field`);
+  }
+  if(major.status === 'post'){
+    const mineSet = new Set(mineIds);
+    badges = majorLeaders(major).ids.map(id => ({ id, mine: mineSet.has(id) }));
+  }
+
+  // The major's own logo; ESPN's PGA Tour one for a major we don't know.
+  const own = majorOf(major.name);
+  const logo = own ? own.logo : golfStore.current && golfStore.current.event && golfStore.current.event.logo;
+  const logoHtml = logo ? `<span class="ps-home-logo ${own && own.lockup ? 'lockup' : 'square'}"><img class="ps-logo-dark" src="${esc(logo.dark)}" alt="" draggable="false"><img class="ps-logo-light" src="${esc(logo.light)}" alt="" draggable="false"></span>` : '';
+  return `
+    <button type="button" class="ps-home" onclick="openGolfEvent('${esc(major.id)}')">
+      ${logoHtml}
+      <span class="ps-home-text">
+        <span class="ps-home-eyebrow">${esc(eyebrow)}</span>
+        <span class="ps-home-title">${esc(own ? own.name : shortName(major.name))}</span>
+        ${lines.map(l => `<span class="ps-home-sub">${l}</span>`).join('')}
+      </span>
+      ${badges.length ? `<span class="ps-home-teams">${badges.slice(0, 4).map(b => `<span class="ps-home-team${b.mine ? '' : ' plain'}">${teamBadgeHtml(golferBadgeMeta(b.id))}</span>`).join('')}</span>` : ''}
+      <span class="ps-home-go" aria-hidden="true">&rsaquo;</span>
+    </button>`;
+}
+
+// ---- Preview: replay a major on Home ----
+
+// Local dev and Pages previews only (previewParam in js/postseason.js,
+// sticky until ?major=0): ?major=masters|pga|usopen|open replays that
+// major's last edition on Home, whatever the date and whether or not the
+// group has golf. &majorphase=pre|live|final (live: round 3, after the
+// cut) and &majormine=4 to have the viewer "draft" that many of its
+// field, spread through the leaderboard, so the points show.
+const MAJOR_REPLAY = (() => {
+  if(typeof window === 'undefined') return null;
+  const key = previewParam('major');
+  if(!key) return null;
+  return {
+    key,
+    phase: previewParam('majorphase') || 'live',
+    mine: Math.max(0, Math.min(8, Number(previewParam('majormine')) || 0))
+  };
+})();
+
+// The major's real leaderboard, its dates moved by whole weeks so this
+// is its week (the week after, for `final`) and its status set to the
+// phase.
+async function replayMajorCurrent(){
+  const year = new Date().getFullYear();
+  let event = null;
+  for(const y of [year, year - 1]){
+    const cal = (await fetchGolfCalendar(y)) || [];
+    event = cal.filter(e => e.end && Date.parse(e.end) < Date.now()).find(e => (majorOf(e.name) || {}).key === MAJOR_REPLAY.key);
+    if(event) break;
+  }
+  const board = event && await fetchGolfLeaderboard(event.id);
+  if(!board) return null;
+  const WEEK = 7 * 86400000;
+  const weeks = Math.round((Date.now() - Date.parse(board.start)) / WEEK) - (MAJOR_REPLAY.phase === 'final' ? 1 : 0);
+  const shift = iso => new Date(Date.parse(iso) + weeks * WEEK).toISOString();
+  const { phase } = MAJOR_REPLAY;
+  const b = { ...board, start: shift(board.start), end: shift(board.end) };
+  if(phase === 'pre'){
+    Object.assign(b, { status: 'pre', round: null, players: board.players.map(p => ({ ...p, finish: null, toPar: null })) });
+  } else if(phase !== 'final'){
+    Object.assign(b, { status: 'in', round: 3 });
+  }
+  // A spread of the field for &majormine: the leader's group down to a missed cut.
+  const field = board.players;
+  const mine = MAJOR_REPLAY.mine
+    ? Array.from({ length: MAJOR_REPLAY.mine }, (_, i) => field[Math.min(field.length - 1, Math.round((i + 0.5) * field.length / MAJOR_REPLAY.mine * 0.8) + 3)].id)
+    : [];
+  return { replay: true, replayMine: [...new Set(mine)], event: { id: b.id, name: b.name, start: b.start, end: b.end }, board: b };
+}
 
 // ---- Golfer sheet ----
 
@@ -353,41 +517,71 @@ export async function openGolfEvent(eventId){
   content.dataset.activeTeam = 'event:' + eventId;
   const summary = (golfStore.events || []).find(e => e.id === String(eventId));
   content.innerHTML = eventSheetHtml(summary ? { name: summary.name, status: summary.status } : null, null);
-  const board = await fetchGolfLeaderboard(eventId);
+  // The Home replay's leaderboard is the moved one, not ESPN's.
+  const cur = golfStore.current;
+  const board = cur && cur.replay && cur.board && cur.board.id === String(eventId) ? cur.board : await fetchGolfLeaderboard(eventId);
   if(content.dataset.activeTeam !== 'event:' + eventId) return;
   content.innerHTML = eventSheetHtml(board, board);
 }
 window.openGolfEvent = openGolfEvent;
 
+// The viewer's own golfers in the field, pinned above the leaderboard
+// (a drafter in a group whose golf scores, like Home's major card), best
+// place first. In a major each carries what that place is worth: in play
+// (blue) while it's on, locked (gold) once it's over.
+function pinnedHtml(board){
+  if(!majorsScore()) return '';
+  const ids = myGolferIds();
+  if(!ids.length) return '';
+  const mine = majorGolfers(majorFromBoard(board), ids, (LEAGUE_SCORING.pga || PGA_SCORING).rules);
+  if(!mine.rows.length) return '';
+  const byId = {};
+  board.players.forEach(p => { byId[p.id] = p; });
+  const scores = board.major && board.status !== 'pre';
+  const tone = board.status === 'post' ? 'locked' : 'prov';
+  const total = scores
+    ? `<span class="golf-pts ${tone}">${signed(mine.total)}${board.status === 'post' ? '' : ' in play'}</span>` : '';
+  return `
+    <div class="modal-section-title golf-pin-title"><span>Your golfers</span>${total}</div>
+    <div class="golf-pin">${mine.rows.map(r => leaderRowHtml(board, byId[r.id], scores ? { pts: r.pts, tone } : {})).join('')}</div>
+    <div class="modal-section-title spaced">Leaderboard</div>`;
+}
+
 function eventSheetHtml(head, board){
   const status = !head ? '' : head.status === 'in' ? `Round ${head.round || ''} · In progress`
     : head.status === 'post' ? 'Final' : head.status === 'canceled' ? 'Cancelled' : head.start ? `Starts ${shortDate(head.start)}` : '';
   const rows = board ? board.players : null;
+  const own = head && majorOf(head.name);
   return `
     <div class="modal-accent" style="background:${PGA_ACCENT};"></div>
     <div class="modal-head">
       <div>
-        <h2>${esc(shortName(head ? head.name : 'Tournament'))}</h2>
+        <h2>${esc(own && head.major ? own.name : shortName(head ? head.name : 'Tournament'))}</h2>
         <div class="modal-sub">${esc(status)}${head && head.major ? ' &middot; Major' : ''}${board && board.purse ? ` &middot; ${esc(board.purse)} purse` : ''}</div>
       </div>
       <div class="modal-actions"><button class="modal-close" onclick="closeModalSheet()">&times;</button></div>
     </div>
     <div class="modal-body golf-board">
-      ${rows === null ? skeletonRowsHtml(8) : rows.length ? rows.map(p => leaderRowHtml(board, p)).join('') : '<div class="golf-muted">The field isn’t out yet.</div>'}
+      ${rows === null ? skeletonRowsHtml(8) : rows.length ? pinnedHtml(board) + rows.map(p => leaderRowHtml(board, p)).join('') : '<div class="golf-muted">The field isn’t out yet.</div>'}
     </div>`;
 }
 
-function leaderRowHtml(board, p){
+// One leaderboard row. Pinned rows (`pts` given) show what the place is
+// worth where the full list shows the owner.
+function leaderRowHtml(board, p, { pts = null, tone = '' } = {}){
   const teamKey = teamKeyFor(p.id);
   const tracked = isTracked(teamKey);
-  const owner = teamKey && !PRE_DRAFT && !TEAM_META[teamKey].favoriteOnly ? draftOwnerName(teamKey) : '';
+  const drafted = teamKey && !PRE_DRAFT && !TEAM_META[teamKey].favoriteOnly;
+  const owner = drafted ? draftOwnerName(teamKey) : '';
+  const isMine = majorsScore() && myGolferIds().includes(p.id);
   const detail = board.status === 'post'
-    ? p.rounds.filter(v => v !== null).join(' · ')
-    : board.status === 'in' && p.state !== 'pre' ? `${roundLabel(board, p)}${p.today ? ' · ' + p.today : ''}` : p.teeTime ? `Tee ${timeOf(p.teeTime)}` : '';
+    ? p.rounds.filter(v => v).join(' · ')
+    : board.status === 'in' && p.state !== 'pre' ? `${roundLabel(board, p)}${p.today && !isOut(p.finish) ? ' · ' + p.today : ''}` : p.teeTime ? `Tee ${timeOf(p.teeTime)}` : '';
+  const tag = pts !== null ? `<span class="golf-pts ${tone}">${signed(pts)}</span>` : owner ? `<span class="golf-owner">${esc(owner)}</span>` : '';
   return `
-    <button type="button" class="golf-lb-row${tracked && !PRE_DRAFT ? ' tracked' : ''}" onclick="openGolfer('${esc(p.id)}')">
+    <button type="button" class="golf-lb-row${tracked && !PRE_DRAFT ? ' tracked' : ''}${isMine ? ' me' : ''}" onclick="openGolfer('${esc(p.id)}')">
       <span class="golf-lb-pos">${esc(p.finish || '')}</span>
-      <span class="golf-lb-name">${esc(p.name)}${owner ? `<span class="golf-owner">${esc(owner)}</span>` : ''}</span>
+      <span class="golf-lb-name">${esc(p.name)}${tag}</span>
       <span class="golf-lb-detail">${esc(detail)}</span>
       <span class="golf-lb-topar">${esc(p.toPar || '')}</span>
     </button>`;

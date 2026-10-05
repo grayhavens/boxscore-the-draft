@@ -37,7 +37,9 @@ const ICONS = {
   gear: svg('<circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"></path>')
 };
 
-// { id, icon, title, lead, points[], pre?: { lead, points }, go: [label, js], tour? }
+// { id, icon, title, lead, points[], pre?: { lead, points }, go: [label, js], tour?, when? }
+// `when`: a test for whether this group gets the entry at all (golf only
+// shows for a group with PGA Tour on).
 // `go` is an inline onclick; every target is already a window global.
 const GUIDE = [
   {
@@ -109,6 +111,27 @@ const GUIDE = [
       'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.'
     ],
     go: ['Go to Points', "switchView('overall')"]
+  },
+  {
+    id: 'golf', icon: 'standings', title: 'PGA Tour golf',
+    when: () => ACTIVE_SEASON.LEAGUES.some(l => l.key === 'pga'),
+    lead: 'Golfers instead of teams: each one scores from where they finish, with the majors worth the most.',
+    points: [
+      'Home shows each of your golfers’ FedEx Cup rank and, during a tournament, their place and score.',
+      'During a major (the Masters, the PGA Championship, the U.S. Open and The Open), Home keeps a card up from the Monday of its week until a week after: who’s leading, how many of your golfers made the cut, and the points they’re on for. Blue while it’s being played, gold once it’s over.',
+      'Tap a tournament for its full leaderboard, with your golfers pinned at the top.',
+      'Standings has the FedEx Cup table, and Drafted adds up each drafter’s FedEx points for the league’s +5.',
+      'Tap a golfer for their season: every event, wins, top 10s and FedEx points.'
+    ],
+    pre: {
+      lead: 'Follow PGA Tour golfers: where they stand in the FedEx Cup and how they’re doing this week.',
+      points: [
+        'Tap a tournament for its full leaderboard.',
+        'Standings has the FedEx Cup table.',
+        'Tap a golfer for their season: every event, wins, top 10s and FedEx points.'
+      ]
+    },
+    go: ['Go to Standings', "switchView('standings')"]
   },
   {
     id: 'scoring', icon: 'points', title: 'Scoring rules',
@@ -187,7 +210,7 @@ const GUIDE = [
 // on Home or Points yet.
 function entries({ tourOnly = false } = {}){
   const pre = !!ACTIVE_SEASON.preDraft;
-  let list = GUIDE.map(g => (pre && g.pre) ? { ...g, ...g.pre } : g);
+  let list = GUIDE.filter(g => !g.when || g.when()).map(g => (pre && g.pre) ? { ...g, ...g.pre } : g);
   if(tourOnly){
     list = list.filter(g => g.tour || (pre && g.id === 'draft'));
     if(pre) list.sort((a, b) => (b.id === 'draft') - (a.id === 'draft'));
