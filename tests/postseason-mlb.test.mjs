@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung,
-  matchups, seriesLine, ladderGeometry
+  matchups, seriesLine, ladderGeometry, ladderLayout, POSTSEASON_LEAGUES
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-mlb.json'), 'utf8'));
@@ -125,4 +125,18 @@ test('A replayed stage and a finished series show no tally', () => {
   assert.ok(S0.games.every(g => g.series === null));
   const S = snapshot(bracket(2025), 4, { rules: RULES });
   assert.ok(S.games.every(g => g.series === null));
+});
+
+test('MLB ladder: AL on the left half, NL on the right, the World Series in the middle', () => {
+  const sides = POSTSEASON_LEAGUES.mlb.sides;
+  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const pos = ladderLayout(S.teams, { top: 1, games: S.games, sides });
+  S.teams.forEach(t => assert.ok(t.conf === 'AL' ? pos[t.id].fx < 0.5 : pos[t.id].fx > 0.5, t.abbr));
+  // The Division Series rung: one pair per half on each of two rows.
+  const geo = ladderGeometry(S.teams, { top: 1, games: S.games, sides });
+  assert.deepEqual(geo.rows[1].map(r => r.length), [4, 4]);
+  const W = snapshot(bracket(2025), 3, { rules: RULES });
+  const wpos = ladderLayout(W.teams, { top: 3, games: W.games, sides });
+  const ws = matchups(W.teams, W.games).find(p => p.game.round === 4);
+  assert.deepEqual(ws.map(t => wpos[t.id].fx).sort(), [0.25, 0.75]);
 });

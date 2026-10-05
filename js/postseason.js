@@ -452,7 +452,7 @@ function rungPts(k, S){
 function ladderOf(key, S){
   const teams = ladderTeams(key, S);
   const top = topRung(teams);
-  const opts = { rungH: RUNG_H, top, games: S.games };
+  const opts = { rungH: RUNG_H, top, games: S.games, sides: S.L.sides || null };
   return {
     teams, top,
     geo: ladderGeometry(teams, { ...opts, rungs: S.N + 1 }),
@@ -563,6 +563,14 @@ function replayLabel(key){
   return replaying && replaying.key === key ? 'Stop' : 'Replay ▸';
 }
 
+// MLB's halves (`sides`): a small AL / NL label over each column of the
+// ladder, lined up with its chip lane (the rung labels' width kept clear).
+// They fade out once the champion is crowned: the crown card spans both.
+const sidesClass = S => `ps-sides${S.stage === S.N && S.champ ? ' gone' : ''}`;
+function sidesHtml(S){
+  return S.L.sides ? `<div class="${sidesClass(S)}" aria-hidden="true">${S.L.sides.map(x => `<span>${escapeHtml(x)}</span>`).join('')}</div>` : '';
+}
+
 // The card body under the Standings header while Postseason is picked.
 export function postseasonCardHtml(key){
   maybeRevealChampion(key);
@@ -580,6 +588,7 @@ export function postseasonCardHtml(key){
         ${ladderTitleHtml(key, S)}
         ${S.latest > 0 ? `<button type="button" class="ps-replay" onclick="psReplay('${key}')">${replayLabel(key)}</button>` : ''}
       </div>
+      ${sidesHtml(S)}
       <div class="ps-ladder" style="height:${geo.height}px">
         ${rungs}
         <div class="ps-pairs">${pairsHtml(teams, S, pos)}</div>
@@ -636,6 +645,8 @@ function paint(key){
   const { teams, top, geo, pos } = ladderOf(key, S);
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${geo.height}px`;
+  const sides = el.querySelector('.ps-sides');
+  if(sides) sides.className = sidesClass(S);
   const replay = el.querySelector('.ps-replay');
   if(replay) replay.textContent = replayLabel(key);
   el.querySelectorAll('.ps-rung').forEach(r => {
