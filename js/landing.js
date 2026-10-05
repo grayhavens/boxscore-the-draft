@@ -178,8 +178,10 @@ interestForm.addEventListener('submit', async e => {
 // (js/groups.js) it's a plain link to its app again.
 // Confirmed spots count as filled (js/roster.js), so the open count and
 // the switch back to a plain link follow the admin page, not just
-// js/groups.js. The tour above is already running while this waits.
-await Promise.all(LANDING_GROUPS.map(loadRoster));
+// js/groups.js. It waits for the fresh roster, not just this device's
+// cached one, since the count is drawn once. The tour above is already
+// running while this waits.
+await Promise.all(LANDING_GROUPS.map(id => loadRoster(id, { fresh: true })));
 
 const groupsEl = document.getElementById('landing-groups');
 const shownGroups = LANDING_GROUPS.map(id => GROUPS[id]);
