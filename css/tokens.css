@@ -37,6 +37,11 @@
   --accent-soft: rgba(217,180,91,0.14);
   --tab-pill: rgba(217,180,91,0.16);
   --accent-border: rgba(217,180,91,0.35);
+  /* The playoffs reveal's gold strip (.ps-hero-in) and Home's card for it
+     (.ps-home): lit from above so they read gold, not olive, on the dark
+     card; the flare is the brighter light the strip opens with. */
+  --ps-hero-bg: radial-gradient(120% 90% at 50% 0%, rgba(240,205,120,0.38), rgba(217,180,91,0.16) 65%, rgba(217,180,91,0.10));
+  --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(248,220,140,0.5), rgba(217,180,91,0.18) 70%, rgba(217,180,91,0));
   --win: #5FB88A;
   --win-soft: rgba(95,184,138,0.14);
   --loss: #D97066;
@@ -111,6 +116,8 @@
   --accent-soft: rgba(226,184,74,0.2);
   --tab-pill: rgba(226,184,74,0.26);
   --accent-border: rgba(205,160,45,0.55);
+  --ps-hero-bg: radial-gradient(120% 90% at 50% 0%, rgba(226,184,74,0.36), rgba(226,184,74,0.2) 65%, rgba(226,184,74,0.16));
+  --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(240,200,95,0.45), rgba(226,184,74,0.15) 70%, rgba(226,184,74,0));
   --win: #2E8A5C;
   --win-soft: rgba(46,138,92,0.12);
   --loss: #C2453B;
@@ -162,6 +169,8 @@
   --accent-soft: rgba(226,184,74,0.2);
   --tab-pill: rgba(226,184,74,0.26);
   --accent-border: rgba(205,160,45,0.55);
+  --ps-hero-bg: radial-gradient(120% 90% at 50% 0%, rgba(226,184,74,0.36), rgba(226,184,74,0.2) 65%, rgba(226,184,74,0.16));
+  --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(240,200,95,0.45), rgba(226,184,74,0.15) 70%, rgba(226,184,74,0));
   --win: #2E8A5C;
   --win-soft: rgba(46,138,92,0.12);
   --loss: #C2453B;
