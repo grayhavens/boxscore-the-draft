@@ -18,7 +18,7 @@
    entry by league + name, so keep `name` exactly as TEAM_META has it.
    ============================================================ */
 import { TEAM_CATALOG_SEASON } from './seasons/index.js';
-import { DRAFT_RANKS, DRAFT_RANK_ESPN } from './draft-ranks.js';
+import { DRAFT_RANKS, DRAFT_RANK_ESPN, NAME_ALIASES } from './draft-ranks.js';
 import { DEFAULT_CAPS, slugify } from './draft-rules.js';
 import { GOLFERS } from './golfers.js';
 import { golferHeadshotUrl } from './golf.js';
@@ -29,11 +29,6 @@ export const GOLFER_COLOR = '#1E5B3F';
 
 const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-// Short names the ranking uses where TEAM_META has the full one.
-const NAME_ALIASES = {
-  epl: { mancity: 'manchestercity', manunited: 'manchesterunited', tottenham: 'tottenhamhotspur', nottinghamforest: 'nottingham', bournemouth: 'afcbournemouth' },
-  mcbb: { michiganstate: 'michstate' }
-};
 
 // The id and crest for a ranked team TEAM_META doesn't hold.
 function espnFallback(league, name){

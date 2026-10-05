@@ -16,6 +16,11 @@
      welcomed, no invite code or one still soft, a Race chart that stopped
      recording); every group in a table; and the admin log
      (worker/admin-log.js), what this page has done lately.
+   - Interested in Boxscore: people who left their name on the landing
+     page without a group to join (worker/interest.js): name, email, start
+     a group or join one, and their note, newest first, each with Dismiss
+     once it's followed up. Also emailed to CLAIM_ALERT_EMAIL, linking
+     here.
    - A group: a summary strip (spots, claims, draft, chat, activity and
      when scores were last saved, Race chart history, alerts), "Open as
      commissioner" (a 12-hour token the group app takes from the URL
@@ -265,6 +270,8 @@ function platformItems(){
   else if(v === 'site') items.push({ dot: 'mute', title: 'The site is behind the worker', detail: `Site ${esc(siteVersion)} · worker ${esc(worker)}. Pages may still be deploying` });
   const down = espnDown();
   if(down.length) items.push({ dot: 'bad', title: `ESPN isn’t answering for ${down.map(l => l.label).join(', ')}`, detail: 'Those leagues’ scores and standings won’t load' });
+  const interest = interestList();
+  if(interest.length) items.push({ dot: 'warn', title: `${plural(interest.length, 'person', 'people')} interested in Boxscore`, detail: interest.map(e => esc(e.name)).join(', ') });
   return items.map(i => ({ ...i, group: null, rank: ATTENTION_RANK[i.dot] }));
 }
 
@@ -297,7 +304,7 @@ function sidebarHtml(current){
       <button type="button" class="sysadmin-nav-item${current ? '' : ' active'}" onclick="sysadminPickGroup('${PLATFORM}')" ${current ? '' : 'aria-current="page"'}>
         <span class="sysadmin-dot ${platformHealthy() ? 'ok' : 'bad'}"></span>
         <span class="sysadmin-nav-text"><span class="sysadmin-nav-name">Platform</span></span>
-        <span class="sysadmin-nav-aside">All groups</span>
+        ${interestList().length ? `<span class="sysadmin-badge" title="${plural(interestList().length, 'person', 'people')} interested">${interestList().length}</span>` : '<span class="sysadmin-nav-aside">All groups</span>'}
       </button>
     </nav>
     <nav class="sysadmin-nav" aria-label="Groups">
@@ -347,6 +354,27 @@ function logHtml(entries, { showGroup }){
 }
 
 // ---- Platform view ----
+
+// People interested in Boxscore (worker/interest.js), newest first. An
+// older worker sends no list.
+const interestList = () => (status && status.platform.interest) || [];
+const INTEREST_KIND = { start: 'Start a group', join: 'Join a group' };
+
+function interestHtml(){
+  const list = interestList();
+  if(!list.length) return '';
+  const rows = list.map(e => `
+    <div class="sysadmin-list-row">
+      <span class="sysadmin-row-text">
+        <span class="sysadmin-row-title big">${esc(e.name)} ${pill('neutral', INTEREST_KIND[e.kind] || INTEREST_KIND.start)}</span>
+        <span class="sysadmin-row-sub"><a href="mailto:${esc(e.email)}">${esc(e.email)}</a> · <span title="${esc(new Date(e.at).toLocaleString())}">${ago(e.at)}</span></span>
+        ${e.note ? `<span class="sysadmin-quote">${esc(e.note)}</span>` : ''}
+      </span>
+      <span class="sysadmin-btn-row">${btn('Dismiss', `sysadminDismissInterest('${esc(e.id)}')`)}</span>
+    </div>`).join('');
+  return block(`Interested in Boxscore <span class="sysadmin-badge">${list.length}</span>`, `<div class="sysadmin-card flush attn">${rows}</div>`,
+    'From the landing page. Email them back, then dismiss.');
+}
 
 const SECRETS = [
   ['Alerts', 'VAPID keys', 'push'],
@@ -437,6 +465,7 @@ function platformHtml(){
       </header>
       ${tiles}
       ${attentionHtml}
+      ${interestHtml()}
       ${block('Groups', `
         <div class="sysadmin-card scroll">
           <div class="sysadmin-table groups">
@@ -1084,6 +1113,18 @@ window.sysadminDismissClaim = (groupId, id) => {
     group.claims = group.claims.filter(c => c.id !== id);
     load();
     return `Dismissed ${claim.name}.`;
+  });
+};
+
+window.sysadminDismissInterest = id => {
+  const entry = interestList().find(e => e.id === id);
+  if(!entry || !confirm(`Dismiss ${entry.name}? Do this once you’ve followed up.`)) return;
+  act(async () => {
+    const { ok } = await api('/interest/dismiss', { id });
+    if(!ok) return 'Couldn’t dismiss that.';
+    status.platform.interest = interestList().filter(e => e.id !== id);
+    load();
+    return `Dismissed ${entry.name}.`;
   });
 };
 

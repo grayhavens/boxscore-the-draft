@@ -50,6 +50,10 @@
                                    spot's email, for the welcome email
      POST /api/admin/chat/delete   { group, id } -> delete a chat message
                                    for everyone (worker/chat-room.js)
+     POST /api/admin/interest/dismiss { id } -> drop one entry from the
+                                   platform's interest list
+                                   (worker/interest.js); /status lists
+                                   them as platform.interest
 
    Every POST that changes or sends something adds a line to the admin
    log (worker/admin-log.js).
@@ -72,7 +76,7 @@ const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
 const STATUS_LOG_LINES = 100;
 const POST_ROUTES = ['/commissioner', '/push', '/push/remove', '/claims/dismiss', '/claims/confirm', '/roster/add', '/roster/edit',
-  '/roster/release', '/welcome', '/email', '/access', '/chat/delete'];
+  '/roster/release', '/welcome', '/email', '/access', '/chat/delete', '/interest/dismiss'];
 
 function json(data, status = 200){
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -200,9 +204,10 @@ async function groupStatus(env, id, deps){
 }
 
 async function handleStatus(env, deps, identity){
-  const [groups, log] = await Promise.all([
+  const [groups, log, interest] = await Promise.all([
     Promise.all(GROUP_IDS.map(id => groupStatus(env, id, deps))),
-    loadAdminLog(env)
+    loadAdminLog(env),
+    deps.loadInterest(env)
   ]);
   return json({
     you: identity.email,
@@ -215,7 +220,8 @@ async function handleStatus(env, deps, identity){
         sportsdb: !!env.SPORTSDB_API_KEY,
         email: welcomeEnabled(env),
         claimAlerts: claimAlertEnabled(env)
-      }
+      },
+      interest
     },
     groups,
     log: log.slice(0, STATUS_LOG_LINES)
@@ -339,6 +345,16 @@ async function handleDismissClaim(request, env, deps, log){
   return json({ ok });
 }
 
+// Platform-wide, so no group in the body (or the log line).
+async function handleDismissInterest(request, env, deps, log){
+  let body = null;
+  try { body = await request.json(); } catch (e){}
+  if(!body || typeof body.id !== 'string') return json({ error: 'bad_request' }, 400);
+  const entry = await deps.dismissInterest(env, body.id);
+  if(entry) await log('', 'interest', `Dismissed ${entry.name}'s interest (${entry.email})`);
+  return json({ ok: !!entry });
+}
+
 async function handleWelcome(request, env, deps, identity, log){
   const body = await readBody(request);
   if(!body) return json({ error: 'bad_group' }, 400);
@@ -447,6 +463,7 @@ export async function handleSystemAdmin(request, url, env, deps){
         : route === '/email' ? await handleSetEmail(request, env, log)
         : route === '/access' ? await handleAccess(request, env, log)
         : route === '/chat/delete' ? await handleChatDelete(request, env, deps, log)
+        : route === '/interest/dismiss' ? await handleDismissInterest(request, env, deps, log)
         : await handleDismissClaim(request, env, deps, log);
     }
   } else {
