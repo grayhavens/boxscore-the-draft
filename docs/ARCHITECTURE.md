@@ -653,6 +653,11 @@ div exists because the installed PWA's translucent status bar shows real page co
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.
 
+**Android touches:** the manifest has `any` and `maskable` icons plus app `shortcuts` (Scores, Chat, Standings,
+Points); push notifications carry a monochrome `badge-96.png` and a double buzz for draft turns. `js/back-button.js`
+(Android only) gives the system Back the on-screen back button's job: it keeps one history entry per open sheet and
+pushed page, and a Back closes the top sheet (by clicking its backdrop) or taps the page's `.ob-back`.
+
 **More news (Perigon, proof of concept):** a team page's News section shows ESPN headlines first, then up to four
 "More news" stories from Perigon. Perigon's free tier (~150 calls/month) rules out per-team or per-view searches, so
 `worker/news.js` runs from a daily cron (`[triggers]` in `wrangler.toml`): it walks 14 fixed search chunks round-robin,

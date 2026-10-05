@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v59';
+const CACHE_NAME = 'boxscore-v60';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const SHELL_FILES = [
   './js/motion-fx.js',
   './js/gestures.js',
   './js/pull-refresh.js',
+  './js/back-button.js',
   './js/cache-fresh.js',
   './js/news-more.js',
   './js/ui.js',
@@ -122,6 +123,7 @@ const SHELL_FILES = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
+  './icons/badge-96.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png',
   './icons/logo-header-light.png',
@@ -306,6 +308,10 @@ async function showAlert(data){
     tag: data.tag || undefined,
     renotify: !!data.tag,
     icon: './icons/icon-192.png',
+    // Android's status-bar glyph: a white shape on transparent (iOS ignores it).
+    badge: './icons/badge-96.png',
+    // A quick double buzz when it's your turn; other alerts use the default.
+    vibrate: data.kind === 'draft' ? [120, 60, 120] : undefined,
     data: { url: data.url || './', kind: data.kind || '', count }
   });
 }
