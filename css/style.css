@@ -2956,6 +2956,15 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   animation: ps-pair-in 360ms var(--ease-out) 420ms both;
 }
 @keyframes ps-pair-in{ from{ opacity: 0; } to{ opacity: 1; } }
+/* A series under way: its tally in place of the "v" (pairsHtml), the
+   leader's number brighter, a red dot above it while a game is on. */
+.ps-vs.ps-tally{ width: 28px; letter-spacing: 0.02em; }
+.ps-tally b{ font-weight: 800; }
+.ps-tally b.lead{ color: var(--text-sub); }
+.ps-tally.live::before{
+  content: ''; position: absolute; left: 50%; top: -7px; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--live);
+}
 .ps-arriving .ps-pairs{ opacity: 0; }
 .ps-chip{
   position: absolute; left: 0; top: 0; width: 40px;

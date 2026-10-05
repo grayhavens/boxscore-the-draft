@@ -10,7 +10,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung,
+  matchups, seriesLine, ladderGeometry
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-mlb.json'), 'utf8'));
@@ -97,4 +98,31 @@ test('A postseason that doesn’t count: no rules, so nothing banked or in play'
   const S = snapshot(bracket(2026), 1, { rules: [] });
   assert.equal(S.milestones.length, 0);
   assert.ok(S.teams.every(t => t.banked === 0 && t.inPlay === 0));
+});
+
+test('MLB 2026: each Division Series pair carries its tally, written under it', () => {
+  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const lines = matchups(S.teams, S.games).map(p => seriesLine(p.game)).sort();
+  assert.deepEqual(lines, ['CHW leads 1\u20130', 'LAD leads 1\u20130', 'MIL leads 1\u20130', 'TB leads 1\u20130']);
+  // Before the first win it's the length; level is "Tied".
+  const g = S.games.find(x => x.round === 2);
+  assert.equal(seriesLine({ ...g, series: { need: 3, top: 0, bot: 0 } }), 'Best of 5');
+  assert.equal(seriesLine({ ...g, series: { need: 4, top: 2, bot: 2 } }), 'Tied 2\u20132');
+  // A game that isn't a series has no line.
+  assert.equal(seriesLine({ ...g, series: null }), null);
+});
+
+test('MLB 2026: the tally costs the ladder no room', () => {
+  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const geo = ladderGeometry(S.teams, { top: 1, games: S.games });
+  assert.equal(geo.heights[1], 84);
+  const tb = S.games.find(g => g.series && g.series.wins[S.teams.find(t => t.abbr === 'TB').id] !== undefined);
+  assert.deepEqual(Object.values(tb.series.wins).sort(), [0, 1]);
+});
+
+test('A replayed stage and a finished series show no tally', () => {
+  const S0 = snapshot(bracket(2026), 0, { rules: RULES });
+  assert.ok(S0.games.every(g => g.series === null));
+  const S = snapshot(bracket(2025), 4, { rules: RULES });
+  assert.ok(S.games.every(g => g.series === null));
 });

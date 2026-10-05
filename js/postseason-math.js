@@ -31,6 +31,13 @@
    has won it. A series under way but between games is `begun`, so the
    round reads as under way. Seeds 1 and 2 in each league skip the Wild
    Card (byes, from the final standings like the NFL's 1 seeds).
+
+   A series still being played carries its tally (`series` on each of
+   snapshot's games, latest stage only: a replayed stage can't know the
+   tally back then), and the ladder writes it in place of the pair's "v"
+   once a game is in ("1-0", read left to right like the chips), so it
+   costs no room. seriesLine says the same in words for screen readers.
+   Any league whose events come through seriesEvents gets this, not just MLB.
    ============================================================ */
 
 const NFL = {
@@ -268,7 +275,7 @@ export function seriesEvents(leagueKey, events){
     const done = sides.some(sd => sd.winner);
     return {
       id: first.id, date: first.date, headline: (first.headline || '').split(' - ')[0],
-      week: null, detail: '', sides,
+      week: null, detail: '', sides, need,
       state: done ? 'post' : games.some(g => g.state === 'in') ? 'in' : 'pre',
       begun: games.some(g => g.state !== 'pre'),
       lastDate: last.date
@@ -332,7 +339,9 @@ export function buildBracket(leagueKey, events, seeds = {}){
       id: evt.id, date: evt.date, round, playIn, group: L.groupOf(evt), note: L.noteOf(evt, round),
       a: a.id, b: b.id, scoreA: a.score, scoreB: b.score,
       final, live, begun: final || live || !!evt.begun, winner,
-      ot: final && /OT/.test(evt.detail || '')
+      ot: final && /OT/.test(evt.detail || ''),
+      // A series (seriesEvents): the wins it takes; its scores are series wins.
+      need: evt.need || null
     });
   });
   const firstRound = games.filter(g => g.round === 1);
@@ -439,7 +448,10 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     const final = counts(g);
     // A side is shown once that team has reached this round (at this stage).
     const side = (id, score) => ({ team: id && seen(id) >= g.round ? byId[id] : null, score: final ? score : null, won: final && id === g.winner, lost: final && !!g.winner && id !== g.winner });
-    return { ...g, final, live: isLatest && g.live, roundName: g.playIn ? 'First Four' : L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
+    // A series still being played, at the latest stage: its tally so far.
+    const series = isLatest && g.need && !final && g.a && g.b
+      ? { need: g.need, top: g.scoreA || 0, bot: g.scoreB || 0, wins: { [g.a]: g.scoreA || 0, [g.b]: g.scoreB || 0 } } : null;
+    return { ...g, final, live: isLatest && g.live, series, roundName: g.playIn ? 'First Four' : L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
   });
   games.forEach(g => [g.top, g.bot].forEach(s => { if(s.team && g.round <= s.team.entered) s.team.path.push(g); }));
 
@@ -487,13 +499,26 @@ export function topRung(teams){
 // The games still to be played between two teams on the same rung, as
 // [higher seed, lower seed] pairs: the ladder sits them side by side on a
 // shared backing. A game counts once both sides are known at this stage.
+// Each pair also carries its game (`pair.game`), for the series line.
 export function matchups(teams, games){
   const byId = Object.fromEntries(teams.map(t => [t.id, t]));
   return (games || []).filter(g => !g.final && g.top.team && g.bot.team).map(g => {
     const a = byId[g.top.team.id], b = byId[g.bot.team.id];
     if(!a || !b || a.rung !== b.rung || a.rung !== g.round - 1) return null;
-    return [a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99));
+    return Object.assign([a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99)), { game: g });
   }).filter(Boolean);
+}
+
+// A series still being played (snapshot's `series`) in words, or null for
+// a game that isn't a series: "Best of 5" before the first win, then
+// "Tied 1-1" or "NYY leads 2-1".
+export function seriesLine(game){
+  const s = game && game.series;
+  if(!s) return null;
+  if(!s.top && !s.bot) return `Best of ${s.need * 2 - 1}`;
+  if(s.top === s.bot) return `Tied ${s.top}\u2013${s.bot}`;
+  const lead = s.top > s.bot ? game.top.team : game.bot.team;
+  return `${(lead && lead.abbr) || ''} leads ${Math.max(s.top, s.bot)}\u2013${Math.min(s.top, s.bot)}`.trim();
 }
 
 // The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung

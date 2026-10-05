@@ -537,7 +537,10 @@ tournament", `isMissRule`) for every drafted team outside the field. ESPN names 
 every day from Sept 26 to Nov 8 so far (`loadDays`, settled days saved per device as `bxPsDay:mlb:<day>`) plus the
 final standings for seeds (`parseNflSeeds(…, 6)`), and `seriesEvents` folds each series' games into one event whose score
 is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A series between games is `begun`, so the
-round reads as under way, and the team page shows its tally ("Leads 2–1"). The lockup is `icons/mlb-postseason-*.png`,
+round reads as under way, and the team page shows its tally ("Leads 2–1"). On the ladder, once a series has a
+game in, its tally replaces the pair's "v" ("1–0", read left to right like the chips, the leader's number brighter,
+a red dot above while a game is on; snapshot's `series` at the latest stage only, worded by `seriesLine` for screen
+readers), so it costs no room. Any league fed through `seriesEvents` gets it. The lockup is `icons/mlb-postseason-*.png`,
 drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
 While MLB is in `PRIOR_SEASON_DISPLAY_LEAGUES` the postseason doesn't count (`postseasonScores`): `snap` reads it with no
 rules, so the ladder has no rung points, the crown card no points, the drafted table no points columns, the team page

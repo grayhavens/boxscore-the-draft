@@ -57,7 +57,7 @@ import { fxOn, once, play, pop, later } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
 import { isLeagueLocked } from './season-lock.js';
 import {
-  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, finalRound, isMissRule,
+  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, finalRound, isMissRule,
   postseasonStarted, currentRoundName, titleGameDate
 } from './postseason-math.js';
 
@@ -477,13 +477,22 @@ function chipView(t, pos, spot){
 }
 
 // A small gray "v" between the two sides of each game still to play, so the
-// pairs read as matchups without boxing anything in.
+// pairs read as matchups without boxing anything in. A series still being
+// played puts its tally there instead once a game is in ("1-0", read left
+// to right like the chips, the leader's number brighter), with the red
+// live dot above it while one of its games is on.
 function pairsHtml(teams, S, pos){
   const lane = '(100cqw - var(--ps-label-w))';
-  return matchups(teams, S.games).map(([a, b]) => {
-    const pa = pos[a.id], pb = pos[b.id];
+  return matchups(teams, S.games).map(pair => {
+    const pa = pos[pair[0].id], pb = pos[pair[1].id];
     if(!pa || !pb || pa.y !== pb.y) return '';
-    return `<span class="ps-vs" style="transform:translate(calc(${lane} * ${((pa.fx + pb.fx) / 2).toFixed(4)} - 6px), ${pa.y + 7}px)">v</span>`;
+    const at = (w, dy) => `transform:translate(calc(${lane} * ${((pa.fx + pb.fx) / 2).toFixed(4)} - ${w / 2}px), ${pa.y + dy}px)`;
+    const g = pair.game, s = g.series;
+    if(!s || !(s.top || s.bot)) return `<span class="ps-vs" style="${at(12, 7)}">v</span>`;
+    const [l, r] = pa.fx < pb.fx ? pair : [pair[1], pair[0]];
+    const wl = s.wins[l.id], wr = s.wins[r.id];
+    const n = (w, o) => `<b${w > o ? ' class="lead"' : ''}>${w}</b>`;
+    return `<span class="ps-vs ps-tally${g.live ? ' live' : ''}" style="${at(28, 7)}" role="img" aria-label="${escapeHtml(seriesLine(g))}">${n(wl, wr)}–${n(wr, wl)}</span>`;
   }).join('');
 }
 
