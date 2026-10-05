@@ -513,6 +513,7 @@ are in; a loud toggle that flips to Postseason; the logo and badges flying down 
 Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
+A pre-draft group (`PRE_DRAFT`) gets no cards: `renderPlayoffsHome` leaves `#playoffs-home` empty until the draft is in.
 A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
 that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.
 On the All tab there's no reveal: a league's card has its toggle, on Postseason, from the moment the field is set. The year label
