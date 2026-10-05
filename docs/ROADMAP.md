@@ -15,7 +15,7 @@ As of 2026-10-05 (`main` at 8f86049, PR #239). No open PRs or GitHub issues; no 
 - Design system Steps 1–2 (`css/tokens.css`, `js/ui.js`, token test) (design-system-plan.md).
 - Motion Phases 1–5 (draft room, Scores, Points, team page, chat burst, pull to refresh) (motion-plan.md).
 - Delight Phase 1 (draft room hero), Phase 2 (team page), Phase 4 (Since last time) (delight-plan.md).
-- Golf plan steps 1–5: per-group caps, data layer, draft pool, golfer UI (`js/golf-view.js`), `golfAuto` scoring and bonus (golf-plan.md). Export tool group support: done (`--group`). Left: a guide entry.
+- Golf plan steps 1–5: per-group caps, data layer, draft pool, golfer UI (`js/golf-view.js`), `golfAuto` scoring and bonus (golf-plan.md). Export tool group support: done (`--group`). Guide entry: done. Majors on Home (golf-majors-plan.md): done.
 - Postseason ladder and playoffs reveal for NFL, CFP, NCAA Tournament and MLB (MLB 2026 shown but non-scoring), with Home cards only once a group has drafted (#228, #235, #236, #238).
 - Scoring automation: NFL/CFP/NBA/NHL/MLB playoff rounds, WNBA playoff miss, CFB bowls and conference titles, EPL cups and European spots (#229, #231).
 - Delight Phase 5 (landing page): scroll tour, standard setup, "Interested in Boxscore?" sign-up (#237).

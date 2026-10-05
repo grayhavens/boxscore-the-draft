@@ -77,8 +77,8 @@ const COUNT_DELAY_MS = 900, COUNT_MS = 900;
 // season's postseason unless ?psyear says otherwise).
 // Both stick on this device once set (a plain reload drops the query, and
 // the preview pane reloads to its bare address); ?psreveal=0 / ?psyear=0
-// turns one off again.
-function previewParam(name){
+// turns one off again. Golf's major replay (js/golf-view.js) uses it too.
+export function previewParam(name){
   try {
     if(!allowsGroupOverride(window.location.hostname)) return null;
     const key = `bxPreview:${name}`;

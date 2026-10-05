@@ -247,7 +247,7 @@ including across sessions.
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
   `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
   (`js/seasons/pga.js`) resolve in `getLeagueRuleTeams` from `golferAwardCounts` (`js/golf.js`), one entry per occurrence;
-  the +5 bonus is `golfBonus` in `js/compare.js`.
+  the +5 bonus is `golfBonus` in `js/compare.js`. Majors get a Home card (see **Golf majors on Home**).
 - **TheSportsDB** is deprecated as a source: its only remaining caller is `fetchTeamBundle`'s
   fallback branch in `js/live-data.js`, reached when a team with a `sportsdbId` fails to resolve an
   ESPN row on a given refresh.
@@ -559,6 +559,22 @@ league-wide, read from the league-level standings (`standings?level=1`, `parseNf
 white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
 `PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
 the Finals" and "Win the Finals" score from the ladder.
+**Golf majors on Home** (`golfMajorHomeHtml` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
+`majorGolfers` / `majorLeaders` / `pickWeekEvent` in `js/golf.js`, tested in `tests/golf.test.mjs`; plan in
+`docs/golf-majors-plan.md`): a group with PGA Tour on gets a card in Home's postseason stack (after those cards,
+`renderPlayoffsHome`, repainted through `onGolfData`) for each major from the Monday of its week until a week after its
+last round (`majorWindow`). During the week it reads the live leaderboard (`golfStore.current`); the week after, the
+finished major from the condensed season. Eyebrow "Starts Thu" / "Round 3" / "Final"; the leader or winner; for a
+drafter in a group whose golf scores (`majorsScore`: drafted, not scores-only, not a prior FedEx season) their golfers
+in the field, how many made the cut, and their major points, blue in play then gold. Logos and display names are
+`MAJORS` in `js/seasons/pga.js` (`icons/major-*.png`, dark-theme copies where the artwork is dark), matched by ESPN's
+event name; an unknown major falls back to ESPN's PGA Tour logo. Hidden before a group's first draft, like the
+postseason cards. A tap opens the leaderboard sheet (`openGolfEvent`), which pins the drafter's golfers above the field
+with each one's major points. ESPN's scoreboard lists an opposite-field event beside The Open with no major flag on
+either, so `fetchCurrentGolfEvent` reads each listed event's leaderboard once in such a week (`weekEventsToCheck`) and
+`pickWeekEvent` takes the major, else the main event (`primary`). Local dev and Pages previews replay a major with
+`?major=masters|pga|usopen|open&majorphase=pre|live|final&majormine=4` (sticky until `?major=0`), whether or not the
+group has golf.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from

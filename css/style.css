@@ -5379,6 +5379,14 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home-team{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px var(--accent-fill); background: var(--surface); }
 .ps-home-team .badge{ width: 28px; height: 28px; flex-basis: 28px; border-radius: 8px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-home-go{ flex: none; font-size: 22px; line-height: 1; color: var(--accent); }
+/* A golf major's card (golfMajorHomeHtml in js/golf-view.js): a square
+   logo in the lockups' slot width, so its text lines up with a postseason
+   card's above it; the drafter's points (blue in play, gold locked), and
+   the winner un-ringed when they aren't the viewer's. */
+.ps-home-logo.square{ width: 100px; height: 56px; align-items: center; }
+.ps-home-pts.prov{ color: var(--provisional); }
+.ps-home-pts.locked{ color: var(--accent); }
+.ps-home-team.plain{ box-shadow: 0 0 0 2px var(--hairline); }
 .draft-home .set-row{ border: 1px solid var(--hairline); }
 .draft-home-head{ display: flex; flex-direction: column; gap: 2px; margin: 0 2px 4px; }
 .draft-home-title{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-15); letter-spacing: -0.2px; }
@@ -7380,6 +7388,15 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 .golf-owner{ margin-left: 6px; font-size: var(--fs-11); font-weight: 700; color: var(--accent); }
 .golf-lb-detail{ font-size: var(--fs-11); color: var(--text-mute); white-space: nowrap; }
 .golf-lb-topar{ text-align: right; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-13); }
+/* The viewer's golfers pinned above the leaderboard (pinnedHtml in
+   js/golf-view.js), and their rows in it: gold like everything "you".
+   A major's points: blue in play, gold locked. */
+.golf-lb-row.me{ background: var(--accent-soft); }
+.golf-pin-title{ display: flex; justify-content: space-between; align-items: baseline; }
+.golf-pin{ margin-bottom: 4px; }
+.golf-pts{ margin-left: 6px; font-family: var(--font-display); font-size: var(--fs-11); font-weight: 700; letter-spacing: 0; text-transform: none; }
+.golf-pts.prov{ color: var(--provisional); }
+.golf-pts.locked{ color: var(--accent); }
 
 .golf-cutline{ display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag); text-transform: uppercase; color: var(--text-mute); }
 .golf-cutline::before, .golf-cutline::after{ content: ''; flex: 1; border-top: 1px dashed var(--hairline-strong); }
