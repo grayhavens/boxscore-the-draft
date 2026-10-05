@@ -511,9 +511,12 @@ the ladder's stage. The ladder updates in place while you scrub; `keepPostseason
 Standings re-render.
 The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
 field is set, a ~10s announcement plays in the card (the logo big, then docked; the seeded field; how many of your teams
-are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder). Until it has played
+are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder at the field set). Then
+the ladder climbs one round at a time (`replayPostseason`, the Replay button's steps) and stops on the latest round, so a
+first look during the semifinals walks through each round before it. Until it has played
 (`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
-(`postseasonRevealBusy`), ends at once on a toggle tap, a league switch or leaving the tab, and reduced motion skips it.
+(`postseasonRevealBusy`), ends at once on the latest round on a toggle tap, a league switch or leaving the tab, and
+reduced motion skips straight there.
 Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.

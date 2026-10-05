@@ -1,7 +1,7 @@
 /* ============================================================
    The playoffs reveal: the one-time transition from the regular season to
-   the postseason ladder, inside an NFL, CFB or College Basketball
-   Standings card. Design: the "Playoffs announcement" handoff (variant D /
+   the postseason ladder, inside an NFL, CFB, College Basketball, MLB or
+   WNBA Standings card. Design: the "Playoffs announcement" handoff (variant D /
    option 2a), and the NCAA Tournament addendum (option 3a).
 
    Until a league's field is set its card has no Regular | Postseason
@@ -38,8 +38,12 @@
    exactly where the real chips are, which then take over.
 
    Seen once per league and season per device (markRevealSeen, at the
-   start). Leaving Standings, picking another league or tapping the toggle
-   ends it at once on the end state; reduced motion skips straight there.
+   start). Once the badges have landed and the toggle settles, the ladder
+   climbs from the field set one round at a time (the Replay button's
+   steps) and stops on the latest round, so a first look during the
+   semifinals walks through each round before it. Leaving Standings,
+   picking another league or tapping the toggle ends it at once on the
+   latest round; reduced motion skips straight there.
    While it runs Standings doesn't re-render (postseasonRevealBusy), so a
    data refresh can't cut it off; it renders once at the end.
    ============================================================ */
@@ -51,7 +55,7 @@ import { escapeHtml } from './escape.js';
 import { renderStandings } from './board.js';
 import {
   bracketFor, snap, ladderTeams, postseasonTitle, fieldSetEyebrow, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
-  postseasonToggleHtml, postseasonCardHtml, showFieldSet, onPostseasonPhaseTap
+  postseasonToggleHtml, postseasonCardHtml, showFieldSet, showLatest, replayPostseason, onPostseasonPhaseTap
 } from './postseason.js';
 
 const STEPS = [[500, 'open'], [800, 'title'], [1500, 'teams'], [2800, 'mine'], [4000, 'toggle'], [5600, 'flip'], [8000, 'settle']];
@@ -80,7 +84,7 @@ export function maybeStartPostseasonReveal(container, filterKey){
   if(!bracketFor(key) || revealSeen(key)) return;
   if(reducedMotion()){
     markRevealSeen(key);
-    showFieldSet(key);
+    showLatest(key);
     queueMicrotask(renderStandings);
     return;
   }
@@ -97,13 +101,13 @@ export function maybeStartPostseasonReveal(container, filterKey){
 }
 
 // Jump to the end: toggle on Postseason (or the tapped phase), ladder at
-// the field set.
+// the latest round.
 export function endPostseasonReveal(){
   if(!run) return false;
   run.timers.forEach(clearTimeout);
   const { key } = run;
   run = null;
-  showFieldSet(key);
+  showLatest(key);
   renderStandings();
   return true;
 }
@@ -114,7 +118,7 @@ onPostseasonPhaseTap((key, phase) => {
   if(!run || run.key !== key) return false;
   run.timers.forEach(clearTimeout);
   run = null;
-  showFieldSet(key);
+  showLatest(key);
   return false;
 });
 
@@ -305,10 +309,14 @@ function flip(key, card, heroEl, chips){
   }, 760 + chips.length * 45 + 60));
 }
 
-// The toggle settles and Standings renders the ordinary Postseason view.
+// The toggle settles and Standings renders the ordinary Postseason view,
+// still at the field set; then the ladder climbs round by round to the
+// latest one (replayPostseason), so a first look mid-playoffs walks
+// through every round played so far and stops on the current one.
 function finish(key){
   if(!run || run.key !== key) return;
   run.timers.forEach(clearTimeout);
   run = null;
   renderStandings();
+  replayPostseason(key);
 }

@@ -389,9 +389,14 @@ export function openPostseason(key){
   u.spot = null;
 }
 
-// The ladder at the field set (where the reveal leaves it).
+// The ladder at the field set (where the reveal's badges land).
 export function showFieldSet(key){
   uiFor(key).stage = latestStage(bracketFor(key)) === 0 ? null : 0;
+}
+
+// The ladder at its latest round (a reveal cut short ends here).
+export function showLatest(key){
+  uiFor(key).stage = null;
 }
 
 // The reveal takes a toggle tap mid-flight (it ends there and applies it).
@@ -706,8 +711,10 @@ function stopReplay(){
   if(btn) btn.textContent = replayLabel(key);
 }
 
-window.psReplay = key => {
-  if(replaying && replaying.key === key){ stopReplay(); return; }
+// Step the ladder from the field set up to the latest round, one round
+// every REPLAY_STEP_MS: the Replay button, and the end of the playoffs
+// reveal (which climbs from the field set to wherever the playoffs are).
+export function replayPostseason(key){
   stopReplay();
   const latest = latestStage(bracketFor(key));
   if(!latest) return;
@@ -716,12 +723,20 @@ window.psReplay = key => {
   else setStage(key, 0);
   replaying.timer = setInterval(() => {
     const s = stageOf(key);
-    if(s >= latest || !document.querySelector(`.ps[data-ps="${key}"]`)){ stopReplay(); return; }
+    // The ladder went away mid-climb (another view): it's back on the
+    // latest round next time.
+    if(!document.querySelector(`.ps[data-ps="${key}"]`)){ uiFor(key).stage = null; stopReplay(); return; }
+    if(s >= latest){ stopReplay(); return; }
     setStage(key, s + 1);
     if(s + 1 >= latest) stopReplay();
   }, REPLAY_STEP_MS);
   const btn = document.querySelector(`.ps[data-ps="${key}"] .ps-replay`);
   if(btn) btn.textContent = replayLabel(key);
+}
+
+window.psReplay = key => {
+  if(replaying && replaying.key === key){ stopReplay(); return; }
+  replayPostseason(key);
 };
 
 // ---- Scrubber: drag or tap to the nearest stop, arrow keys too ----
