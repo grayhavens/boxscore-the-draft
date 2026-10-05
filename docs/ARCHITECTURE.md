@@ -107,7 +107,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 - **Durable Objects:** `ChatRoom` (one per group), `DraftRoom` (one per room name: `main`, `mock-1`, `mock-<id>`).
   SQLite-backed; migrations `v1`, `v2` in `wrangler.toml`.
 - **Browser:** `localStorage` (identity, settings, caches, admin password, invite code), `sessionStorage` (splash),
-  Cache Storage (`sw.js`, `boxscore-v40`).
+  Cache Storage (`sw.js`, `boxscore-v52`).
 
 ## Deployment
 
@@ -157,7 +157,7 @@ stores the request in KV, rate-limited per IP, with no push alert; instead it em
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
 (top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
-/roster`). Name pickers hide still-open spots. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
+/roster`). Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
 someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
 (`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed
 to `CLAIM_ALERT_EMAIL` like a claim, and listed on the admin page's Platform view (and its "Needs attention") with
@@ -605,7 +605,7 @@ window at a made-up `yourfriends.boxscore.space`: the landing never shows a real
 lands), your board filling the standard setup's slots with crests, team pages swiping through three of your teams in three
 leagues (each with its league's real Path to points, `pathToPointsHtml`), Scores (`gameCardHtml`), Chat, Points
 (live → locked), and the season race (the Points tab's race card, `.race-*`, replaying to a finish between 80 and
-110 points as the standings under it re-sort). Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
+110 points as the standings under it re-sort). The group cards wait for the fresh roster (`loadRoster(id, { fresh: true })`, same 1.5s cap) because the spots count is drawn once; a stale cache would show filled spots as open. Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
 sports with their picks each, and what a commissioner can change. Captions with counts follow the setup. Reduced motion: no
 scrubbing; each scene shows its end state and the segments switch steps. Sections rise in the first time they're 35%
 in view.

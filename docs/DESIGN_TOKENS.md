@@ -70,6 +70,8 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
   text gold and is a darker, readable gold in light. The postseason stepper, toggle, rings and champion dot follow this.
 - Postseason ladder, eliminated chip: `--ps-out-opacity` / `--ps-out-filter` (0.4 grayscale in dark; 0.7, slightly darker
   grayscale in light, where 0.4 vanishes on white).
+- Landing helpers in `js/ui.js` not in the design system yet: `tourStepsHtml` (scroll-tour progress segments), `spotsMeterHtml`
+  (a group's roster as bars) and `sportPicksHtml` (sports as chips with picks per drafter).
 - Blur only on the tab bar and sheet overlay.
 
 ## Motion
