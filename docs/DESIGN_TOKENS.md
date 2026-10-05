@@ -24,6 +24,7 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
 | `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | fill gold 20% / 55% / 26% (warm, like Send) | tints |
+| `--ps-hero-bg` / `--ps-hero-flare` | gold glow from the top of the playoffs reveal strip / the brighter light it opens with | same, in fill gold | reveal strip |
 | `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4A6FB8` | **live points that can change** |
 | `--live` (+`-soft`, `-border`) | `#E5484D` | same | **game in progress** |
 | `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#2E8A5C` / `#C2453B` / `#8A7430` | results |

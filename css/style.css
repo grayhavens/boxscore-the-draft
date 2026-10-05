@@ -2796,8 +2796,17 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-hero-in{
   height: var(--ps-hero-h, 250px); box-sizing: border-box; padding: 18px 16px;
   display: flex; flex-direction: column;
-  background: var(--accent-soft); border-bottom: 1px solid var(--divider);
+  background: var(--ps-hero-bg); border-bottom: 1px solid var(--divider);
 }
+/* As the strip opens it lights up brighter, then settles to its resting
+   glow (the flare layer fades out under the content). */
+.ps-hero-in{ isolation: isolate; }
+.ps-hero-in::before{
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--ps-hero-flare); opacity: 0;
+}
+.ps-hero.open .ps-hero-in::before{ animation: ps-hero-flare 1600ms var(--ease-out) 200ms both; }
+@keyframes ps-hero-flare{ 0%{ opacity: 0; } 25%{ opacity: 1; } 100%{ opacity: 0; } }
 .ps-hero-head{ height: 56px; flex: none; display: flex; flex-direction: column; gap: 6px; }
 .ps-hero-eyebrow{
   font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
