@@ -91,6 +91,7 @@ import { navigate, enableNavMotion } from './motion.js';
 
 import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
+import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
@@ -1135,6 +1136,7 @@ const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'vi
 const PULL_FETCH_GAP_MS = 10 * 1000;
 let lastPullFetch = 0;
 const activeView = () => document.querySelector('.board > .view.active');
+initBackButton();
 initPullToRefresh({
   view: activeView,
   canPull: () => {
