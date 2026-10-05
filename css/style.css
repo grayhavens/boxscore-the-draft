@@ -2862,10 +2862,13 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 @media (prefers-color-scheme: light){
   :root[data-theme="auto"] .ps-hero-intro.lockup{ flex-direction: column; gap: 10px; }
 }
-/* March Madness: one wide lockup that opens alone and docks alone. */
+/* March Madness and MLB: one wide lockup that opens alone and docks alone.
+   It shrinks to fit a phone-width strip (MLB's is wider than it is at
+   96px); the box hugs the image so the dock's FLIP scale stays true. */
 .ps-hero-logo-slot.lockup{ width: 85px; height: 36px; margin: 0; }
-.ps-hero-intro.solo .ps-hero-logo{ width: auto; height: 96px; }
-.ps-hero-intro.solo .ps-hero-logo img{ width: auto; }
+.ps-hero-intro.solo{ padding: 0 20px; }
+.ps-hero-intro.solo .ps-hero-logo{ width: auto; height: auto; max-width: 100%; }
+.ps-hero-intro.solo .ps-hero-logo img{ width: auto; height: auto; max-width: 100%; max-height: 96px; }
 .ps-logo-light{ display: none !important; }
 :root[data-theme="light"] .ps-logo-light{ display: block !important; }
 :root[data-theme="light"] .ps-logo-dark{ display: none !important; }
