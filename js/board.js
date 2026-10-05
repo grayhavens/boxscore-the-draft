@@ -278,11 +278,12 @@ function draftWhenHtml(){
 }
 
 // The "playoffs are set" cards (js/postseason.js): one per league whose
-// field is set and whose reveal this device hasn't seen yet.
+// field is set and whose reveal this device hasn't seen yet. None before
+// the draft: with no teams drafted, Home leads with the Draft card instead.
 function renderPlayoffsHome(){
   const el = document.getElementById('playoffs-home');
   if(!el) return;
-  const html = postseasonHomeHtml(LEAGUES.map(l => l.key));
+  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key));
   el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
 }
 onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
