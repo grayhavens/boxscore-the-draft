@@ -497,8 +497,8 @@ the league's +5 bonus) show together, the panel beside a single table (EPL, WNBA
 or under the NFL/NBA/NHL/MLB's two conference tables (`confPairHtml`, side by side) with its rows in two columns.
 Divisions | Conference is a small pill in the card's header (`widePillHtml`, the postseason switch's pill style). A narrow
 table (container query) drops columns marked to give way (`narrow` under 640px, `tiny` under 480px), and every
-Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in CSS
-columns at wide widths), its
+Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in a grid
+at wide widths), its
 top 5 (conference leagues ranked together, `leagueLeaders`) plus the displayed drafter's teams further down after a
 dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view shows just its ladder
 card, without the drafted table, and "Full details" opening that league. At wide widths the overview is a grid of
