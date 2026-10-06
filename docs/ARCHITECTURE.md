@@ -499,8 +499,13 @@ table (container query) drops columns marked to give way (`narrow` under 640px, 
 Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in CSS
 columns at wide widths), its
 top 5 (conference leagues ranked together, `leagueLeaders`) plus the displayed drafter's teams further down after a
-dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view keeps its ladder
-card. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
+dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view shows just its ladder
+card, without the drafted table, and "Full details" opening that league. A league picked on its own on its Postseason view gets the wide ladder (`ladderWide`, `DIMS.wide` in
+`js/postseason.js`): one full-width card with the ladder and scrubber on the left and the drafted table beside it (stacked
+when the card is under 1000px), rung labels and points leading each rung on the left, 52px chips with 36px badges,
+eight to a row, each game's two chips pulled together on a shared backing (`pairGap` in `js/postseason-math.js`), MLB's
+AL and NL halves split by a line with the World Series on it, and the playoffs reveal's grid kept phone-width and
+centered. The All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
 Upcoming / Completed filter; the day shows as Live, Upcoming and Final groups at once (each hidden when empty; a game
 that just ended stays under Live for its two minutes), each league's games a grid of cards (the phone's card markup
 restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little

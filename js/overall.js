@@ -1002,11 +1002,11 @@ function obDetailHtml(row, { backLabel = 'Points' } = {}){
         <div class="stat-tile"><div class="lbl">${since ? since.charAt(0).toUpperCase() + since.slice(1) : 'Rank move'}</div><div class="num">${move ? obMoveHtml(move, false) : '&ndash;'}</div></div>
       </div>
     </div>
-    ${recent ? `<div class="ob-section-title">Recent changes</div>${recent}` : ''}
-    ${lines ? `<div class="ob-section-title">On the line</div>${lines}` : ''}
     <div class="ob-section-title">Where the points come from</div>
     <div class="ob-cards">${scoringRows.map(x => obCardHtml(x, scale)).join('')}</div>
     ${idleHtml}
+    ${recent ? `<div class="ob-section-title">Recent changes</div>${recent}` : ''}
+    ${lines ? `<div class="ob-section-title">On the line</div>${lines}` : ''}
     <button class="ob-detail-link" onclick="setDraftTeam('${row.id}'); switchView('board');">See ${row.name}'s board &rarr;</button>
   `;
 }

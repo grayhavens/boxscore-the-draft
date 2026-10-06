@@ -560,14 +560,19 @@ export function seriesLine(game){
 // The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung
 // the two sides of each game still to play sit together (matchups), games
 // and lone teams in order of conference (the NCAA's region), then best seed.
-// Up to six chips share a row; more wrap into as many rows as it takes, as
-// even as they can be without splitting a game. With `sides` (MLB's AL and
-// NL) each half of the rung is laid out on its own, three chips to a half
-// row, and `fx` says where each chip sits (its half's own share).
+// Up to six chips share a row (`perRow`); more wrap into as many rows as it
+// takes, as even as they can be without splitting a game. With `sides`
+// (MLB's AL and NL) each half of the rung is laid out on its own, half as
+// many chips to a half row, and `fx` says where each chip sits (its half's
+// own share).
+// `pairGap` (px, the wide layout's ladder): each game's two chips sit
+// pairGap either side of the middle of their two shares of the row, so a
+// matchup reads as one unit; `fx` is then that middle (a lone chip's own
+// share's) and `dx` the chip's px offset from it.
 const PER_ROW = 6;
 export const ROW_H = 40;
-function rungRows(teams, games, sides = null, perRow = PER_ROW){
-  if(sides) return splitRows(teams, games, sides);
+function rungRows(teams, games, sides = null, perRow = PER_ROW, pairGap = null){
+  if(sides) return splitRows(teams, games, sides, perRow, pairGap);
   const seed = t => t.seed ?? 99;
   const pairs = matchups(teams, games);
   const paired = new Set(pairs.flat().map(t => t.id));
@@ -584,32 +589,61 @@ function rungRows(teams, games, sides = null, perRow = PER_ROW){
     units.forEach(u => {
       const row = rows[rows.length - 1];
       // Two rows split at the halfway mark (football's ladder); three or
-      // more also never let a game push a row past six.
+      // more also never let a game push a row past perRow.
       if(row.length && ((rows.length < want && row.length >= even) || (want > 2 && row.length + u.length > perRow))) rows.push([]);
       rows[rows.length - 1].push(...u);
     });
     out[k] = rows;
   });
+  if(pairGap){
+    const partner = {};
+    pairs.forEach(([a, b]) => { partner[a.id] = b.id; partner[b.id] = a.id; });
+    out.fx = {}; out.dx = {};
+    Object.keys(byRung).forEach(k => out[k].forEach(row => {
+      const units = [];
+      for(let i = 0; i < row.length; i++){
+        if(row[i + 1] && partner[row[i].id] === row[i + 1].id){ units.push([row[i], row[i + 1]]); i++; }
+        else units.push([row[i]]);
+      }
+      // Each chip keeps its even share of the row; a pair is centered on
+      // its two shares and pulled in to pairGap.
+      let at = 0;
+      units.forEach(u => {
+        u.forEach((t, n) => {
+          out.fx[t.id] = (at + u.length / 2) / row.length;
+          out.dx[t.id] = u.length === 2 ? (n ? pairGap : -pairGap) : 0;
+        });
+        at += u.length;
+      });
+    }));
+  }
   return out;
 }
 
-// rungRows for a league split into halves: each half's rows (PER_ROW / 2
+// rungRows for a league split into halves: each half's rows (perRow / 2
 // to a row) side by side, row r of the rung holding row r of each half. A
 // team whose side isn't known sits in the first half. A pair across the
-// halves (the World Series) is a lone team in each, so it meets in the middle.
-function splitRows(teams, games, sides){
+// halves (the World Series) is a lone team in each, so it meets in the
+// middle (with pairGap, as one unit on the center line).
+function splitRows(teams, games, sides, perRow = PER_ROW, pairGap = null){
   const half = t => Math.max(0, sides.indexOf(t.conf));
-  const parts = sides.map((_, h) => rungRows(teams.filter(t => half(t) === h), games.filter(g => [g.top.team, g.bot.team].every(x => !x || half(x) === h)), null, Math.floor(PER_ROW / sides.length)));
-  const out = {}, fx = {};
-  const ks = new Set(parts.flatMap(p => Object.keys(p)));
+  const parts = sides.map((_, h) => rungRows(teams.filter(t => half(t) === h), games.filter(g => [g.top.team, g.bot.team].every(x => !x || half(x) === h)), null, Math.floor(perRow / sides.length), pairGap));
+  const out = {}, fx = {}, dx = {};
+  const ks = new Set(parts.flatMap(p => Object.keys(p).filter(k => k !== 'fx' && k !== 'dx')));
   ks.forEach(k => {
     const n = Math.max(...parts.map(p => (p[k] || []).length));
     out[k] = Array.from({ length: n }, (_, r) => parts.flatMap(p => (p[k] || [])[r] || []));
     parts.forEach((p, h) => (p[k] || []).forEach(row => row.forEach((t, i) => {
-      fx[t.id] = (h + (i + 0.5) / row.length) / sides.length;
+      fx[t.id] = (h + (p.fx ? p.fx[t.id] : (i + 0.5) / row.length)) / sides.length;
+      if(pairGap) dx[t.id] = p.dx[t.id];
     })));
   });
+  if(pairGap) matchups(teams, games).forEach(pair => {
+    if(half(pair[0]) === half(pair[1])) return;
+    pair.forEach(t => { fx[t.id] = 0.5; dx[t.id] = half(t) ? pairGap : -pairGap; });
+  });
   out.fx = fx;
+  if(pairGap) out.dx = dx;
   return out;
 }
 
@@ -618,12 +652,12 @@ function splitRows(teams, games, sides){
 // height. A rung is `rungH` tall unless its chips need three rows or more
 // (the NCAA's first rung, with every drafted team in the field on it).
 // A rung above `top` waits one rungH above the ladder.
-export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs = 5, sides = null } = {}){
-  const { fx, ...rows } = rungRows(teams, games, sides);
+export function ladderGeometry(teams, { rungH = 84, rowH = ROW_H, perRow = PER_ROW, pairGap = null, top = 4, games = [], rungs = 5, sides = null } = {}){
+  const { fx, dx, ...rows } = rungRows(teams, games, sides, perRow, pairGap);
   const heights = [], tops = [];
   for(let k = 0; k < rungs; k++){
     const n = rows[k] ? rows[k].length : 0;
-    heights[k] = n > 2 ? 8 + n * ROW_H : rungH;
+    heights[k] = n > 2 ? 8 + n * rowH : rungH;
   }
   let y = 0;
   for(let k = rungs - 1; k >= 0; k--){
@@ -631,23 +665,25 @@ export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs =
     tops[k] = y;
     y += heights[k];
   }
-  return { heights, tops, height: y, rows, fx: fx || null };
+  return { heights, tops, height: y, rows, fx: fx || null, dx: dx || null };
 }
 
 // Where each team's chip sits on the ladder: `fx`, its center as a share of
-// the chip lane's width (the rung labels sit to its right), and `y`, px from
-// the ladder's top, row by row on its rung (rungRows, ladderGeometry).
-// `crown` ({ x, y } px): where the champion's chip sits on the Champion
-// rung (`champRung`) instead, as the logo of the crown card that rung becomes.
-export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null, champRung = 4, sides = null } = {}){
-  const geo = ladderGeometry(teams, { rungH, top, games, rungs: champRung + 1, sides });
+// the chip lane's width (the rung labels sit beside it), `dx` (pairGap
+// only) a px offset from there, and `y`, px from the ladder's top, row by
+// row on its rung (rungRows, ladderGeometry). `oneRowY`: a lone row's top
+// on its rung. `crown` ({ x, y } px): where the champion's chip sits on the
+// Champion rung (`champRung`) instead, as the logo of the crown card that
+// rung becomes.
+export function ladderLayout(teams, { rungH = 84, rowH = ROW_H, oneRowY = 26, perRow = PER_ROW, pairGap = null, top = 4, games = [], crown = null, champRung = 4, sides = null } = {}){
+  const geo = ladderGeometry(teams, { rungH, rowH, perRow, pairGap, top, games, rungs: champRung + 1, sides });
   const pos = {};
   Object.entries(geo.rows).forEach(([k, rows]) => {
     const y0 = geo.tops[k] ?? (top - Number(k)) * rungH;
     rows.forEach((row, r) => row.forEach((t, i) => {
-      pos[t.id] = crown && Number(k) === champRung
-        ? { fx: 0, x: crown.x, y: y0 + crown.y }
-        : { fx: geo.fx ? geo.fx[t.id] : (i + 0.5) / row.length, y: y0 + (rows.length >= 2 ? 4 + r * ROW_H : 26) };
+      if(crown && Number(k) === champRung){ pos[t.id] = { fx: 0, x: crown.x, y: y0 + crown.y }; return; }
+      pos[t.id] = { fx: geo.fx ? geo.fx[t.id] : (i + 0.5) / row.length, y: y0 + (rows.length >= 2 ? 4 + r * rowH : oneRowY) };
+      if(geo.dx) pos[t.id].dx = geo.dx[t.id];
     }));
   });
   return pos;
