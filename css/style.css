@@ -2796,8 +2796,17 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-hero-in{
   height: var(--ps-hero-h, 250px); box-sizing: border-box; padding: 18px 16px;
   display: flex; flex-direction: column;
-  background: var(--accent-soft); border-bottom: 1px solid var(--divider);
+  background: var(--ps-hero-bg); border-bottom: 1px solid var(--divider);
 }
+/* As the strip opens it lights up brighter, then settles to its resting
+   glow (the flare layer fades out under the content). */
+.ps-hero-in{ isolation: isolate; }
+.ps-hero-in::before{
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--ps-hero-flare); opacity: 0;
+}
+.ps-hero.open .ps-hero-in::before{ animation: ps-hero-flare 1600ms var(--ease-out) 200ms both; }
+@keyframes ps-hero-flare{ 0%{ opacity: 0; } 25%{ opacity: 1; } 100%{ opacity: 0; } }
 .ps-hero-head{ height: 56px; flex: none; display: flex; flex-direction: column; gap: 6px; }
 .ps-hero-eyebrow{
   font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
@@ -2907,8 +2916,20 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   font: 800 var(--fs-12) var(--font-ui); color: var(--accent);
 }
 
+.ps{ --ps-label-w: 86px; }
+/* MLB's AL / NL labels (sidesHtml), one centered over each half of the
+   chip lane. */
+.ps-sides{
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  margin-right: var(--ps-label-w); padding-bottom: 4px;
+  font: 800 var(--fs-10)/1.2 var(--font-ui); letter-spacing: 0.07em; text-align: center;
+  color: var(--text-mute);
+  transition: opacity var(--dur-ui);
+}
+.ps-sides.gone, .ps-arriving.ps-rungs-in .ps-sides.gone{ opacity: 0; }
+.ps-arriving .ps-sides{ opacity: 0; }
+.ps-arriving.ps-rungs-in .ps-sides{ opacity: 1; transition: opacity 360ms; }
 .ps-ladder{
-  --ps-label-w: 86px;
   position: relative;
   height: calc(84px * 5);
   container-type: inline-size;
@@ -2956,6 +2977,15 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   animation: ps-pair-in 360ms var(--ease-out) 420ms both;
 }
 @keyframes ps-pair-in{ from{ opacity: 0; } to{ opacity: 1; } }
+/* A series under way: its tally in place of the "v" (pairsHtml), the
+   leader's number brighter, a red dot above it while a game is on. */
+.ps-vs.ps-tally{ width: 28px; letter-spacing: 0.02em; }
+.ps-tally b{ font-weight: 800; }
+.ps-tally b.lead{ color: var(--text-sub); }
+.ps-tally.live::before{
+  content: ''; position: absolute; left: 50%; top: -7px; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--live);
+}
 .ps-arriving .ps-pairs{ opacity: 0; }
 .ps-chip{
   position: absolute; left: 0; top: 0; width: 40px;
@@ -5329,14 +5359,17 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home-stack{ display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
 .ps-home{
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 14px 14px 16px;
-  border-radius: var(--r-lg); background: var(--accent-soft); border: 1px solid var(--accent-border);
+  border-radius: var(--r-lg); background: var(--ps-hero-bg); border: 1px solid var(--accent-border);
   color: inherit; font: inherit; text-align: left; cursor: pointer;
   transition: transform var(--dur-press) var(--ease-out);
 }
 .ps-home:active{ transform: scale(0.98); }
 .ps-home-logo{ flex: none; width: 40px; height: 44px; display: flex; justify-content: center; }
 .ps-home-logo img{ display: block; height: 100%; width: auto; }
-.ps-home-logo.lockup{ width: auto; height: 26px; align-self: center; }
+/* A lockup sits centered in one fixed slot (MLB's wide one fills its width,
+   the WNBA's narrower one its height), so stacked cards' text lines up. */
+.ps-home-logo.lockup{ width: 100px; height: 36px; align-self: center; align-items: center; }
+.ps-home-logo.lockup img{ max-width: 100%; object-fit: contain; }
 .ps-home-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ps-home-eyebrow{ font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .ps-home-title{ font: 700 var(--fs-17)/1.2 var(--font-display); letter-spacing: -0.2px; }
@@ -5346,6 +5379,14 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .ps-home-team{ display: block; border-radius: 9px; box-shadow: 0 0 0 2px var(--accent-fill); background: var(--surface); }
 .ps-home-team .badge{ width: 28px; height: 28px; flex-basis: 28px; border-radius: 8px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-home-go{ flex: none; font-size: 22px; line-height: 1; color: var(--accent); }
+/* A golf major's card (golfMajorHomeHtml in js/golf-view.js): a square
+   logo in the lockups' slot width, so its text lines up with a postseason
+   card's above it; the drafter's points (blue in play, gold locked), and
+   the winner un-ringed when they aren't the viewer's. */
+.ps-home-logo.square{ width: 100px; height: 56px; align-items: center; }
+.ps-home-pts.prov{ color: var(--provisional); }
+.ps-home-pts.locked{ color: var(--accent); }
+.ps-home-team.plain{ box-shadow: 0 0 0 2px var(--hairline); }
 .draft-home .set-row{ border: 1px solid var(--hairline); }
 .draft-home-head{ display: flex; flex-direction: column; gap: 2px; margin: 0 2px 4px; }
 .draft-home-title{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-15); letter-spacing: -0.2px; }
@@ -6595,7 +6636,29 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   border: 1px solid var(--hairline);
   scroll-margin-top: 80px;
 }
-.guide-entry-head{ display: flex; align-items: center; gap: 12px; }
+/* The three ideas are numbered; each ends on a still of the app (a
+   landing tour scene, paintSceneStill in js/landing-explainer.js) in a
+   narrower mini screen. */
+.guide-step{
+  width: 24px; height: 24px; margin-bottom: 10px; border-radius: var(--r-pill);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); border: 1px solid var(--accent-border); color: var(--accent);
+  font: 800 var(--fs-12) var(--font-display);
+}
+.guide-shot{ max-width: 290px; margin: 16px auto 4px; }
+.guide-shot .tour-screen{ box-shadow: none; }
+/* Around the app: one tappable row per tab and setting. */
+.guide-rows{ display: flex; flex-direction: column; margin-top: 6px; }
+.guide-row{
+  all: unset; box-sizing: border-box; cursor: pointer; width: 100%;
+  display: flex; align-items: center; gap: 12px; padding: 10px 0;
+  scroll-margin-top: 80px;
+}
+.guide-row + .guide-row{ border-top: 1px solid var(--hairline); }
+.guide-row-text{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.guide-row-text b{ font-size: var(--fs-14); font-weight: 700; }
+.guide-row-text span{ font-size: var(--fs-13); line-height: 1.4; color: var(--text-sub); }
+.guide-row-go{ flex: none; font-size: 20px; color: var(--text-mute); }
 .guide-entry-icon{ flex: none; width: 36px; height: 36px; }
 .guide-entry-icon svg{ width: 19px; height: 19px; }
 .guide-entry-title{ font-size: var(--fs-17); font-weight: 800; letter-spacing: var(--track-snug); margin: 0; }
@@ -7347,6 +7410,15 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 .golf-owner{ margin-left: 6px; font-size: var(--fs-11); font-weight: 700; color: var(--accent); }
 .golf-lb-detail{ font-size: var(--fs-11); color: var(--text-mute); white-space: nowrap; }
 .golf-lb-topar{ text-align: right; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-13); }
+/* The viewer's golfers pinned above the leaderboard (pinnedHtml in
+   js/golf-view.js), and their rows in it: gold like everything "you".
+   A major's points: blue in play, gold locked. */
+.golf-lb-row.me{ background: var(--accent-soft); }
+.golf-pin-title{ display: flex; justify-content: space-between; align-items: baseline; }
+.golf-pin{ margin-bottom: 4px; }
+.golf-pts{ margin-left: 6px; font-family: var(--font-display); font-size: var(--fs-11); font-weight: 700; letter-spacing: 0; text-transform: none; }
+.golf-pts.prov{ color: var(--provisional); }
+.golf-pts.locked{ color: var(--accent); }
 
 .golf-cutline{ display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: var(--fs-10); font-weight: 800; letter-spacing: var(--track-tag); text-transform: uppercase; color: var(--text-mute); }
 .golf-cutline::before, .golf-cutline::after{ content: ''; flex: 1; border-top: 1px dashed var(--hairline-strong); }

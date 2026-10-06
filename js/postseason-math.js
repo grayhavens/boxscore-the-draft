@@ -1,5 +1,5 @@
 /* ============================================================
-   Postseason ladder math (Standings → NFL/CFB/CBB/MLB → Postseason): pure, no
+   Postseason ladder math (Standings → NFL/CFB/CBB/MLB/WNBA → Postseason): pure, no
    DOM and no fetches, shared by js/postseason.js and
    tests/postseason-math.test.mjs.
 
@@ -31,6 +31,21 @@
    has won it. A series under way but between games is `begun`, so the
    round reads as under way. Seeds 1 and 2 in each league skip the Wild
    Card (byes, from the final standings like the NFL's 1 seeds).
+
+   The WNBA plays series too (first round best of 3, semifinals 5, Finals
+   7): eight teams seeded 1-8 league-wide, no conferences and no byes.
+
+   A series still being played carries its tally (`series` on each of
+   snapshot's games, latest stage only: a replayed stage can't know the
+   tally back then), and the ladder writes it in place of the pair's "v"
+   once a game is in ("1-0", read left to right like the chips), so it
+   costs no room. seriesLine says the same in words for screen readers.
+   Any league whose events come through seriesEvents gets this (MLB, WNBA).
+
+   MLB's ladder is also split down the middle (`sides`): AL teams on the
+   left half of every rung, NL on the right, each half laid out on its own
+   (rungRows), so the two leagues read as columns under an AL / NL label
+   and the World Series pair meets in the middle.
    ============================================================ */
 
 const NFL = {
@@ -138,13 +153,13 @@ const MCBB = {
 // (seriesEvents), its headline the round: "ALWC", "NLDS", "ALCS",
 // "World Series". The rules are the ones js/playoff-series-math.js reads.
 const MLB = {
-  key: 'mlb', fieldSize: 12, byeSeeds: 2,
+  key: 'mlb', fieldSize: 12, byeSeeds: 2, series: true, seriesNeed: [2, 3, 4, 4],
   rounds: ['Wild Card', 'Division Series', 'LCS', 'World Series'],
   roundShort: ['WC', 'DS', 'LCS', 'WS'],
   rungs: ['Wild Card', 'Division Series', 'LCS', 'World Series', 'Champion'],
   stages: ['Field set', 'After Wild Card', 'After Division Series', 'After LCS', 'Champion'],
   gamesPerRound: [4, 4, 2, 1],
-  champTitle: 'World Series champions', word: 'Postseason',
+  champTitle: 'World Series champions', word: 'Postseason', sides: ['AL', 'NL'],
   rules: [
     { re: /win (the )?world series/i, win: true },
     { re: /make (the )?world series/i, reach: 4 },
@@ -162,7 +177,36 @@ const MLB = {
   noteOf(evt, round){ return round === 4 ? 'World Series' : ''; }
 };
 
-export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB };
+// WNBA: 8 teams seeded league-wide, first round (best of 3), semifinals
+// (5) and the Finals (7), each a series like MLB's. ESPN's headlines are
+// "First Round - Game 1", "Semifinals" (2025: "WNBA Semifinals") and
+// "WNBA Finals" (once "WNBA FINALS"). Checked against the 2025 playoffs
+// and the 2026 ones under way (2026-10-04).
+const WNBA = {
+  key: 'wnba', fieldSize: 8, series: true, seriesNeed: [2, 3, 4],
+  rounds: ['First Round', 'Semifinals', 'Finals'],
+  roundShort: ['R1', 'SF', 'F'],
+  rungs: ['First Round', 'Semifinals', 'Finals', 'Champion'],
+  stages: ['Field set', 'After first round', 'After semifinals', 'Champion'],
+  gamesPerRound: [4, 2, 1],
+  champTitle: 'WNBA champions',
+  rules: [
+    { re: /win (the )?finals/i, win: true },
+    { re: /reach (the )?finals/i, reach: 3 },
+    { re: /semifinals/i, reach: 2 }
+  ],
+  roundOf(evt){
+    const h = evt.headline || '';
+    if(/semifinals/i.test(h)) return 2;
+    if(/finals/i.test(h)) return 3;
+    if(/first round/i.test(h)) return 1;
+    return 0;
+  },
+  groupOf(){ return ''; },
+  noteOf(evt, round){ return round === 3 ? 'WNBA Finals' : ''; }
+};
+
+export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB, wnba: WNBA };
 
 // The league's last round, which is also its Champion rung and the stage
 // the champion is crowned on (4 for football, 6 for the NCAA Tournament).
@@ -231,14 +275,13 @@ export function parseScoreboardEvent(event){
   };
 }
 
-// MLB: one event per game → one per series, in parseScoreboardEvent's
+// MLB / WNBA: one event per game → one per series, in parseScoreboardEvent's
 // shape, so buildBracket reads a series like a single game. A series is
 // its round ("ALDS", from "ALDS - Game 2") and its two teams. Its sides'
 // scores are series wins: the best of ESPN's tally on its latest game and
 // the finished games counted here (a missed day can't lose a win). It's
 // final ('post') once a side has the wins it needs, live ('in') while one
 // of its games is, and `begun` from its first pitch.
-const SERIES_NEED = { 1: 2, 2: 3, 3: 4, 4: 4 };
 export function seriesEvents(leagueKey, events){
   const L = POSTSEASON_LEAGUES[leagueKey];
   const series = new Map();
@@ -260,7 +303,7 @@ export function seriesEvents(leagueKey, events){
       if(w && w.id) counted[w.id] = (counted[w.id] || 0) + 1;
     });
     const tally = (games.slice().reverse().find(g => g.series) || {}).series || null;
-    const need = (tally && tally.need) || SERIES_NEED[round] || 4;
+    const need = (tally && tally.need) || (L.seriesNeed || [])[round - 1] || 4;
     const sides = first.sides.map(sd => {
       const wins = sd.id ? Math.max(counted[sd.id] || 0, (tally && tally.wins[sd.id]) || 0) : 0;
       return { ...sd, score: wins, winner: wins >= need };
@@ -268,7 +311,7 @@ export function seriesEvents(leagueKey, events){
     const done = sides.some(sd => sd.winner);
     return {
       id: first.id, date: first.date, headline: (first.headline || '').split(' - ')[0],
-      week: null, detail: '', sides,
+      week: null, detail: '', sides, need,
       state: done ? 'post' : games.some(g => g.state === 'in') ? 'in' : 'pre',
       begun: games.some(g => g.state !== 'pre'),
       lastDate: last.date
@@ -332,7 +375,9 @@ export function buildBracket(leagueKey, events, seeds = {}){
       id: evt.id, date: evt.date, round, playIn, group: L.groupOf(evt), note: L.noteOf(evt, round),
       a: a.id, b: b.id, scoreA: a.score, scoreB: b.score,
       final, live, begun: final || live || !!evt.begun, winner,
-      ot: final && /OT/.test(evt.detail || '')
+      ot: final && /OT/.test(evt.detail || ''),
+      // A series (seriesEvents): the wins it takes; its scores are series wins.
+      need: evt.need || null
     });
   });
   const firstRound = games.filter(g => g.round === 1);
@@ -439,7 +484,10 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
     const final = counts(g);
     // A side is shown once that team has reached this round (at this stage).
     const side = (id, score) => ({ team: id && seen(id) >= g.round ? byId[id] : null, score: final ? score : null, won: final && id === g.winner, lost: final && !!g.winner && id !== g.winner });
-    return { ...g, final, live: isLatest && g.live, roundName: g.playIn ? 'First Four' : L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
+    // A series still being played, at the latest stage: its tally so far.
+    const series = isLatest && g.need && !final && g.a && g.b
+      ? { need: g.need, top: g.scoreA || 0, bot: g.scoreB || 0, wins: { [g.a]: g.scoreA || 0, [g.b]: g.scoreB || 0 } } : null;
+    return { ...g, final, live: isLatest && g.live, series, roundName: g.playIn ? 'First Four' : L.rounds[g.round - 1], top: side(g.a, g.scoreA), bot: side(g.b, g.scoreB) };
   });
   games.forEach(g => [g.top, g.bot].forEach(s => { if(s.team && g.round <= s.team.entered) s.team.path.push(g); }));
 
@@ -487,23 +535,39 @@ export function topRung(teams){
 // The games still to be played between two teams on the same rung, as
 // [higher seed, lower seed] pairs: the ladder sits them side by side on a
 // shared backing. A game counts once both sides are known at this stage.
+// Each pair also carries its game (`pair.game`), for the series line.
 export function matchups(teams, games){
   const byId = Object.fromEntries(teams.map(t => [t.id, t]));
   return (games || []).filter(g => !g.final && g.top.team && g.bot.team).map(g => {
     const a = byId[g.top.team.id], b = byId[g.bot.team.id];
     if(!a || !b || a.rung !== b.rung || a.rung !== g.round - 1) return null;
-    return [a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99));
+    return Object.assign([a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99)), { game: g });
   }).filter(Boolean);
+}
+
+// A series still being played (snapshot's `series`) in words, or null for
+// a game that isn't a series: "Best of 5" before the first win, then
+// "Tied 1-1" or "NYY leads 2-1".
+export function seriesLine(game){
+  const s = game && game.series;
+  if(!s) return null;
+  if(!s.top && !s.bot) return `Best of ${s.need * 2 - 1}`;
+  if(s.top === s.bot) return `Tied ${s.top}\u2013${s.bot}`;
+  const lead = s.top > s.bot ? game.top.team : game.bot.team;
+  return `${(lead && lead.abbr) || ''} leads ${Math.max(s.top, s.bot)}\u2013${Math.min(s.top, s.bot)}`.trim();
 }
 
 // The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung
 // the two sides of each game still to play sit together (matchups), games
 // and lone teams in order of conference (the NCAA's region), then best seed.
 // Up to six chips share a row; more wrap into as many rows as it takes, as
-// even as they can be without splitting a game.
+// even as they can be without splitting a game. With `sides` (MLB's AL and
+// NL) each half of the rung is laid out on its own, three chips to a half
+// row, and `fx` says where each chip sits (its half's own share).
 const PER_ROW = 6;
 export const ROW_H = 40;
-function rungRows(teams, games){
+function rungRows(teams, games, sides = null, perRow = PER_ROW){
+  if(sides) return splitRows(teams, games, sides);
   const seed = t => t.seed ?? 99;
   const pairs = matchups(teams, games);
   const paired = new Set(pairs.flat().map(t => t.id));
@@ -514,18 +578,38 @@ function rungRows(teams, games){
   Object.entries(byRung).forEach(([k, units]) => {
     units.sort((a, b) => (a[0].conf || '').localeCompare(b[0].conf || '') || seed(a[0]) - seed(b[0]) || a[0].abbr.localeCompare(b[0].abbr));
     const total = units.reduce((n, u) => n + u.length, 0);
-    const want = Math.ceil(total / PER_ROW);
+    const want = Math.ceil(total / perRow);
     const even = Math.ceil(total / want);
     const rows = [[]];
     units.forEach(u => {
       const row = rows[rows.length - 1];
       // Two rows split at the halfway mark (football's ladder); three or
       // more also never let a game push a row past six.
-      if(row.length && ((rows.length < want && row.length >= even) || (want > 2 && row.length + u.length > PER_ROW))) rows.push([]);
+      if(row.length && ((rows.length < want && row.length >= even) || (want > 2 && row.length + u.length > perRow))) rows.push([]);
       rows[rows.length - 1].push(...u);
     });
     out[k] = rows;
   });
+  return out;
+}
+
+// rungRows for a league split into halves: each half's rows (PER_ROW / 2
+// to a row) side by side, row r of the rung holding row r of each half. A
+// team whose side isn't known sits in the first half. A pair across the
+// halves (the World Series) is a lone team in each, so it meets in the middle.
+function splitRows(teams, games, sides){
+  const half = t => Math.max(0, sides.indexOf(t.conf));
+  const parts = sides.map((_, h) => rungRows(teams.filter(t => half(t) === h), games.filter(g => [g.top.team, g.bot.team].every(x => !x || half(x) === h)), null, Math.floor(PER_ROW / sides.length)));
+  const out = {}, fx = {};
+  const ks = new Set(parts.flatMap(p => Object.keys(p)));
+  ks.forEach(k => {
+    const n = Math.max(...parts.map(p => (p[k] || []).length));
+    out[k] = Array.from({ length: n }, (_, r) => parts.flatMap(p => (p[k] || [])[r] || []));
+    parts.forEach((p, h) => (p[k] || []).forEach(row => row.forEach((t, i) => {
+      fx[t.id] = (h + (i + 0.5) / row.length) / sides.length;
+    })));
+  });
+  out.fx = fx;
   return out;
 }
 
@@ -534,8 +618,8 @@ function rungRows(teams, games){
 // height. A rung is `rungH` tall unless its chips need three rows or more
 // (the NCAA's first rung, with every drafted team in the field on it).
 // A rung above `top` waits one rungH above the ladder.
-export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs = 5 } = {}){
-  const rows = rungRows(teams, games);
+export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs = 5, sides = null } = {}){
+  const { fx, ...rows } = rungRows(teams, games, sides);
   const heights = [], tops = [];
   for(let k = 0; k < rungs; k++){
     const n = rows[k] ? rows[k].length : 0;
@@ -547,7 +631,7 @@ export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs =
     tops[k] = y;
     y += heights[k];
   }
-  return { heights, tops, height: y, rows };
+  return { heights, tops, height: y, rows, fx: fx || null };
 }
 
 // Where each team's chip sits on the ladder: `fx`, its center as a share of
@@ -555,15 +639,15 @@ export function ladderGeometry(teams, { rungH = 84, top = 4, games = [], rungs =
 // the ladder's top, row by row on its rung (rungRows, ladderGeometry).
 // `crown` ({ x, y } px): where the champion's chip sits on the Champion
 // rung (`champRung`) instead, as the logo of the crown card that rung becomes.
-export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null, champRung = 4 } = {}){
-  const geo = ladderGeometry(teams, { rungH, top, games, rungs: champRung + 1 });
+export function ladderLayout(teams, { rungH = 84, top = 4, games = [], crown = null, champRung = 4, sides = null } = {}){
+  const geo = ladderGeometry(teams, { rungH, top, games, rungs: champRung + 1, sides });
   const pos = {};
   Object.entries(geo.rows).forEach(([k, rows]) => {
     const y0 = geo.tops[k] ?? (top - Number(k)) * rungH;
     rows.forEach((row, r) => row.forEach((t, i) => {
       pos[t.id] = crown && Number(k) === champRung
         ? { fx: 0, x: crown.x, y: y0 + crown.y }
-        : { fx: (i + 0.5) / row.length, y: y0 + (rows.length >= 2 ? 4 + r * ROW_H : 26) };
+        : { fx: geo.fx ? geo.fx[t.id] : (i + 0.5) / row.length, y: y0 + (rows.length >= 2 ? 4 + r * ROW_H : 26) };
     }));
   });
   return pos;

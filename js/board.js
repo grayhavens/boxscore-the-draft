@@ -64,7 +64,7 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache, findCbbTeamKeyByEspnId
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
-import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { startSince } from './since.js';
 import { startHistory } from './history.js';
@@ -97,6 +97,7 @@ import { navigate, enableNavMotion } from './motion.js';
 
 import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
+import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
@@ -284,15 +285,19 @@ function draftWhenHtml(){
 }
 
 // The "playoffs are set" cards (js/postseason.js): one per league whose
-// field is set and whose reveal this device hasn't seen yet. None before
-// the draft: with no teams drafted, Home leads with the Draft card instead.
+// field is set and whose reveal this device hasn't seen yet, then a golf
+// major's card (js/golf-view.js) during its week and the week after. The
+// postseason cards go first: the only overlap is April, when the NCAA
+// Tournament's card is already on its last week. None before the draft:
+// with no teams drafted, Home leads with the Draft card instead.
 function renderPlayoffsHome(){
   const el = document.getElementById('playoffs-home');
   if(!el) return;
-  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key));
+  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key)) + golfMajorHomeHtml();
   el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
 }
 onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
+onGolfData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
 
 // A playoffs card's tap: Standings, on that league, where the reveal plays.
 window.openPlayoffs = key => {
@@ -313,6 +318,10 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
+      ${pre ? `<button type="button" class="set-row" onclick="openGuide('board')">
+        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">New to this? The short version, in three steps</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>` : ''}
       <button type="button" class="set-row" onclick="goToMyMockDraft()">
         <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
         <span class="set-chev">&rsaquo;</span>
@@ -432,7 +441,7 @@ export { LEAGUE_FULL_LABELS };
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-// NFL, CFB, College BB and MLB get a slot for the Regular | Postseason switch once a
+// NFL, CFB, College BB, MLB and WNBA get a slot for the Regular | Postseason switch once a
 // playoff field is set (js/postseason.js), filled once the playoffs reveal
 // (js/postseason-reveal.js) has introduced it; the season label moves under
 // the name to make room. `afterHtml` sits below the card (the postseason's drafted
@@ -447,7 +456,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
-  // On its Postseason view (MLB's '26 postseason), the note names that.
+  // On its Postseason view (MLB's or the WNBA's '26 postseason), the note names that.
   const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
     ? `<div class="prior-season-note">${onPostseason
@@ -480,7 +489,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
   return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
 }
 
-// NFL / CFB / College BB / MLB: the ladder in place of the card's body while Postseason is
+// NFL / CFB / College BB / MLB / WNBA: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
 function postseasonBlockHtml(league){
   ensurePostseason(league.key);
@@ -957,6 +966,8 @@ export function renderStandings(){
       // conference split (see js/standings-wnba.js's header comment for
       // why it no longer shares NBA/NHL/MLB's js/standings-flat.js
       // machinery).
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
       let bodyHtml;
       if(espnWnbaStandingsCache.table){
         const rowsHtml = wnbaStandingsMode === 'byDrafter'
@@ -1052,7 +1063,7 @@ function showView(view){
   if(view === 'admin') showAdminPage();
   else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
-  if(view === 'guide') renderGuidePage();
+  if(view === 'guide') renderGuidePage({ backLabel: guideFromHome ? 'Home' : 'Settings' });
 }
 
 // ---- Settings page ----
@@ -1104,15 +1115,31 @@ export function backToSettings(){
 }
 window.backToSettings = backToSettings;
 
-// Settings -> How Boxscore works (js/guide.js). Pushed like the team
-// page; its back button is backToSettings.
-export function openGuide(){
+// How Boxscore works (js/guide.js), from Settings or, before a group's
+// first draft, from Home's Draft section. Pushed like the team page; its
+// back button (closeGuide) pops to whichever opened it, Home at the same
+// scroll position.
+let guideFromHome = false, guideHomeScrollY = 0;
+export function openGuide(from = 'settings'){
+  guideFromHome = from === 'board';
+  guideHomeScrollY = guideFromHome ? window.scrollY : 0;
   navigate('push', () => {
     showView('guide');
     window.scrollTo(0, 0);
   });
 }
 window.openGuide = openGuide;
+
+export function closeGuide(){
+  if(!guideFromHome){ backToSettings(); return; }
+  const y = guideHomeScrollY;
+  guideFromHome = false;
+  navigate('pop', () => {
+    showView('board');
+    window.scrollTo(0, y);
+  });
+}
+window.closeGuide = closeGuide;
 
 // The gold pill behind the active tab (.tab-pill) springs to its slot
 // via a CSS transition on --tab-i; off the five tabs it fades out.
@@ -1293,6 +1320,7 @@ const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'vi
 const PULL_FETCH_GAP_MS = 10 * 1000;
 let lastPullFetch = 0;
 const activeView = () => document.querySelector('.board > .view.active');
+initBackButton();
 initPullToRefresh({
   view: activeView,
   canPull: () => {
