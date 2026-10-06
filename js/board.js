@@ -81,7 +81,7 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
-import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason } from './postseason.js';
+import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS, LEAGUE_FULL_LABELS } from './league-labels.js';
@@ -491,9 +491,19 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
 
 // NFL / CFB / College BB / MLB / WNBA: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
+// Wide (a league picked on its own, ladderWide): the bigger ladder with
+// the drafted table beside it, in one full-width card. The All overview
+// shows just the ladder, with "Full details" opening the league (its
+// drafted table included), like the other cards' "Full table".
 function postseasonBlockHtml(league){
   ensurePostseason(league.key);
-  if(postseasonPhase(league.key, standingsFilterKey === 'all') !== 'post') return null;
+  const inAll = standingsFilterKey === 'all';
+  if(postseasonPhase(league.key, inAll) !== 'post') return null;
+  if(inAll) return leagueBlockHtml(league, postseasonCardHtml(league.key) + overviewMoreHtml(league.key, 'Full details'));
+  if(ladderWide(inAll)){
+    const drafted = postseasonDraftedHtml(league.key);
+    return leagueBlockHtml(league, `<div class="ps-split">${postseasonCardHtml(league.key, true)}${drafted ? `<div class="ps-side">${drafted}</div>` : ''}</div>`, { span: true });
+  }
   return leagueBlockHtml(league, postseasonCardHtml(league.key), { afterHtml: postseasonDraftedHtml(league.key) });
 }
 
@@ -653,6 +663,12 @@ const OVERVIEW_LEAGUES = {
   mcbb: { ready: () => espnCbbRankingsCache.ranks && computeCbbRankingTable(), fetch: fetchEspnCbbRankingsCached, teamKey: r => findCbbTeamKeyByEspnId(r.id), render: r => renderCbbRankingRow(r), note: 'AP Top 25' }
 };
 
+// An overview card's link to its league on its own, opened at the top of
+// the page rather than where this card was.
+function overviewMoreHtml(key, label){
+  return `<button type="button" class="st-more" onclick="setStandingsFilter('${key}'); window.scrollTo(0, 0)">${label} <span class="chev">›</span></button>`;
+}
+
 function overviewBlockHtml(league){
   const post = postseasonFieldSet(league.key) ? postseasonBlockHtml(league) : null;
   if(post) return post;
@@ -660,8 +676,7 @@ function overviewBlockHtml(league){
   if(!src) return league.key === 'pga' ? leagueBlockHtml(league, pgaStandingsBodyHtml()) : '';
   src.fetch();  // no-op if already fresh
   const rows = src.ready();
-  // The full table opens at the top of the page, not where this card was.
-  const more = `<button type="button" class="st-more" onclick="setStandingsFilter('${league.key}'); window.scrollTo(0, 0)">Full table <span class="chev">›</span></button>`;
+  const more = overviewMoreHtml(league.key, 'Full table');
   if(!rows) return leagueBlockHtml(league, skeletonRowsHtml() + more);
   const ordered = src.leaders ? leagueLeaders(rows, league.key) : rows;
   const mine = row => {

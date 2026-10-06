@@ -37,6 +37,12 @@
    league): they're locked for that team. Only reached rungs are on the
    ladder (topRung), so that's every rung showing.
 
+   At wide widths a league picked on its own gets a bigger ladder
+   (ladderWide, DIMS.wide): rung labels on the left, larger chips, each
+   game's two chips pulled together on a shared backing, and the drafted
+   table beside it instead of under it (postseasonBlockHtml in
+   js/board.js). The All overview's narrow cards keep the phone's.
+
    The ladder is updated in place (paint) while you scrub, so chips move
    with CSS transitions; a full Standings render rebuilds it settled, and
    keepPostseason/restorePostseason carry the live node across one when
@@ -55,17 +61,26 @@ import { currentProfileId } from './identity.js';
 import { canAnimateLive } from './motion.js';
 import { fxOn, once, play, pop, later } from './motion-fx.js';
 import { allowsGroupOverride } from './groups.js';
+import { isWide } from './wide-query.js';
 import { isLeagueLocked } from './season-lock.js';
 import {
   POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, finalRound, isMissRule,
   postseasonStarted, currentRoundName, titleGameDate
 } from './postseason-math.js';
 
-const RUNG_H = 84;
-// The champion's chip as the crown card's logo: its badge doubled (52px),
-// centered 42px in from the rung's left and top.
-const CROWN = { x: 22, y: 29 };
-const CROWN_SCALE = 2;
+// The ladder's sizes. Phone: 84px rungs, 40px chips with 26px badges, six
+// to a row, evenly spread; the champion's chip as the crown card's logo,
+// its badge doubled (52px), centered 42px in from the rung's left and top.
+// Wide (a league picked on its own at 900px and up, ladderWide): taller
+// rungs, 52px chips with 36px badges, eight to a row, each game's two chips
+// side by side on a shared backing (pairGap), and the crown's badge 58px,
+// centered 54px in. `badgeMid`: the badge's center, px from the chip's top
+// (the "v" / series tally sits level with it).
+const DIMS = {
+  phone: { rungH: 84, rowH: 40, oneRowY: 26, perRow: 6, pairGap: null, chipW: 40, badgeMid: 13, crown: { x: 22, y: 29 }, crownScale: 2 },
+  wide: { rungH: 108, rowH: 52, oneRowY: 28, perRow: 8, pairGap: 36, chipW: 52, badgeMid: 18, crown: { x: 28, y: 36 }, crownScale: 1.6 }
+};
+const dimsOf = wide => wide ? DIMS.wide : DIMS.phone;
 const REPLAY_STEP_MS = 1700;
 const COUNT_DELAY_MS = 900, COUNT_MS = 900;
 
@@ -452,7 +467,7 @@ function rungClass(k, S){
 // just over the ladder's top, so it slides down into place as it appears.
 function rungClasses(k, S, top){
   const crowned = k === S.N && S.champ && S.stage === S.N;
-  return `ps-rung ${rungClass(k, S)}${k > top ? ' unset' : ''}${crowned ? ' crowned' : ''}`;
+  return `ps-rung ${rungClass(k, S)}${k > top ? ' unset' : ''}${k === S.N ? ' title-rung' : ''}${crowned ? ' crowned' : ''}`;
 }
 // Where each rung sits and how tall it is (ladderGeometry: the NCAA's
 // first rung grows a row for every six drafted teams on it).
@@ -465,23 +480,36 @@ function rungPts(k, S){
   return m.length ? `+${m.reduce((s, x) => s + x.pts, 0)}` : '';
 }
 
+// The wide ladder (DIMS.wide, rung labels on the left, the drafted table
+// beside it) is for a league picked on its own at 900px and up; the All
+// overview's narrow cards keep the phone's.
+export function ladderWide(inAll){
+  return !inAll && isWide();
+}
+
 // The ladder's teams, rungs and chip spots at this stage.
-function ladderOf(key, S){
+function ladderOf(key, S, D){
   const teams = ladderTeams(key, S);
   const top = topRung(teams);
-  const opts = { rungH: RUNG_H, top, games: S.games, sides: S.L.sides || null };
+  const opts = { rungH: D.rungH, rowH: D.rowH, perRow: D.perRow, pairGap: D.pairGap, top, games: S.games, sides: S.L.sides || null };
   return {
     teams, top,
     geo: ladderGeometry(teams, { ...opts, rungs: S.N + 1 }),
-    pos: ladderLayout(teams, { ...opts, crown: CROWN, champRung: S.N })
+    pos: ladderLayout(teams, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N })
   };
 }
 
+// A chip spot's x, from the ladder's left: its share of the chip lane
+// (`--ps-lane-x` is where the lane starts, past the wide layout's rung
+// labels) plus any px offset.
+const LANE = '(100cqw - var(--ps-label-w))';
+const laneX = (fx, px) => `calc(var(--ps-lane-x) + ${LANE} * ${fx.toFixed(4)} + ${px}px)`;
+
 // One chip's look at this stage: its classes and where it sits.
-function chipView(t, pos, spot){
+function chipView(t, pos, spot, D){
   const p = pos[t.id];
   const out = !t.alive;
-  const scale = t.champion ? CROWN_SCALE : out ? 0.88 : 1;
+  const scale = t.champion ? D.crownScale : out ? 0.88 : 1;
   const cls = ['ps-chip'];
   if(out) cls.push('out');
   if(t.justOut) cls.push('just-out');
@@ -489,7 +517,7 @@ function chipView(t, pos, spot){
   if(t.mine) cls.push('mine');
   if(spot && t.owner !== spot) cls.push('dim');
   if(t.teamKey) cls.push('tap');
-  const x = p.x != null ? `${p.x}px` : `calc((100cqw - var(--ps-label-w)) * ${p.fx.toFixed(4)} - 20px)`;
+  const x = p.x != null ? `${p.x}px` : laneX(p.fx, (p.dx || 0) - D.chipW / 2);
   return { cls: cls.join(' '), transform: `translate(${x}, ${p.y}px) scale(${scale})` };
 }
 
@@ -497,24 +525,27 @@ function chipView(t, pos, spot){
 // pairs read as matchups without boxing anything in. A series still being
 // played puts its tally there instead once a game is in ("1-0", read left
 // to right like the chips, the leader's number brighter), with the red
-// live dot above it while one of its games is on.
-function pairsHtml(teams, S, pos){
-  const lane = '(100cqw - var(--ps-label-w))';
+// live dot above it while one of its games is on. On the wide ladder the
+// pair also shares a soft backing, so a game reads as one unit.
+function pairsHtml(teams, S, pos, D){
   return matchups(teams, S.games).map(pair => {
     const pa = pos[pair[0].id], pb = pos[pair[1].id];
-    if(!pa || !pb || pa.y !== pb.y) return '';
-    const at = (w, dy) => `transform:translate(calc(${lane} * ${((pa.fx + pb.fx) / 2).toFixed(4)} - ${w / 2}px), ${pa.y + dy}px)`;
+    if(!pa || !pb || pa.y !== pb.y || pa.x != null || pb.x != null) return '';
+    const fx = (pa.fx + pb.fx) / 2, dx = ((pa.dx || 0) + (pb.dx || 0)) / 2;
+    const at = (w, dy) => `transform:translate(${laneX(fx, dx - w / 2)}, ${pa.y + dy}px)`;
+    const bg = D.pairGap ? `<span class="ps-pair-bg" style="${at(D.pairGap * 2 + D.chipW + 12, -6)}"></span>` : '';
     const g = pair.game, s = g.series;
-    if(!s || !(s.top || s.bot)) return `<span class="ps-vs" style="${at(12, 7)}">v</span>`;
-    const [l, r] = pa.fx < pb.fx ? pair : [pair[1], pair[0]];
+    const dy = D.badgeMid - 6;
+    if(!s || !(s.top || s.bot)) return `${bg}<span class="ps-vs" style="${at(12, dy)}">v</span>`;
+    const [l, r] = (pa.fx - pb.fx || (pa.dx || 0) - (pb.dx || 0)) < 0 ? pair : [pair[1], pair[0]];
     const wl = s.wins[l.id], wr = s.wins[r.id];
     const n = (w, o) => `<b${w > o ? ' class="lead"' : ''}>${w}</b>`;
-    return `<span class="ps-vs ps-tally${g.live ? ' live' : ''}" style="${at(28, 7)}" role="img" aria-label="${escapeHtml(seriesLine(g))}">${n(wl, wr)}–${n(wr, wl)}</span>`;
+    return `${bg}<span class="ps-vs ps-tally${g.live ? ' live' : ''}" style="${at(28, dy)}" role="img" aria-label="${escapeHtml(seriesLine(g))}">${n(wl, wr)}–${n(wr, wl)}</span>`;
   }).join('');
 }
 
-function chipHtml(key, t, pos, spot){
-  const v = chipView(t, pos, spot);
+function chipHtml(key, t, pos, spot, D){
+  const v = chipView(t, pos, spot, D);
   const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
   return `
     <${t.teamKey ? 'button type="button"' : 'div'} class="${v.cls}" data-team="${t.id}" style="transform:${v.transform}"${tap} aria-label="${escapeHtml(nameOf(t, key))}">
@@ -589,27 +620,29 @@ function sidesHtml(S){
 }
 
 // The card body under the Standings header while Postseason is picked.
-export function postseasonCardHtml(key){
+// `wide`: the wide ladder (ladderWide).
+export function postseasonCardHtml(key, wide = false){
   maybeRevealChampion(key);
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
-  const { teams, top, geo, pos } = ladderOf(key, S);
+  const D = dimsOf(wide);
+  const { teams, top, geo, pos } = ladderOf(key, S, D);
   const rungs = S.L.rungs.map((_, i) => S.N - i).map(k => `
     <div class="${rungClasses(k, S, top)}" data-rung="${k}" style="${rungStyle(k, geo)}">
       <div class="ps-rung-label"><span>${S.L.rungs[k]}</span><span class="ps-rung-pts">${rungPts(k, S)}</span></div>
       ${k === S.N ? crownHtml(key, S) : ''}
     </div>`).join('');
   return `
-    <div class="ps" data-ps="${key}" data-sig="${sigOf(key)}">
+    <div class="ps${wide ? ' ps-wide' : ''}" data-ps="${key}" data-sig="${sigOf(key, wide)}">
       <div class="ps-head">
         ${ladderTitleHtml(key, S)}
         ${S.latest > 0 ? `<button type="button" class="ps-replay" onclick="psReplay('${key}')">${replayLabel(key)}</button>` : ''}
       </div>
       ${sidesHtml(S)}
-      <div class="ps-ladder" style="height:${geo.height}px">
+      <div class="ps-ladder${S.L.sides ? ' sided' : ''}" style="height:${geo.height}px">
         ${rungs}
-        <div class="ps-pairs">${pairsHtml(teams, S, pos)}</div>
-        ${teams.map(t => chipHtml(key, t, pos, spot)).join('')}
+        <div class="ps-pairs">${pairsHtml(teams, S, pos, D)}</div>
+        ${teams.map(t => chipHtml(key, t, pos, spot, D)).join('')}
         ${teams.length ? '' : '<div class="ps-empty">No drafted teams made the field.</div>'}
       </div>
       ${scrubHtml(key, S)}
@@ -659,7 +692,8 @@ function paint(key){
   if(!el){ if(replaying && replaying.key === key) stopReplay(); return; }
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
-  const { teams, top, geo, pos } = ladderOf(key, S);
+  const D = dimsOf(el.classList.contains('ps-wide'));
+  const { teams, top, geo, pos } = ladderOf(key, S, D);
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${geo.height}px`;
   const sides = el.querySelector('.ps-sides');
@@ -673,7 +707,7 @@ function paint(key){
     r.style.height = `${geo.heights[k]}px`;
   });
   const pairs = el.querySelector('.ps-pairs');
-  const pairsNow = pairsHtml(teams, S, pos);
+  const pairsNow = pairsHtml(teams, S, pos, D);
   if(pairs && pairs.dataset.html !== pairsNow){
     pairs.innerHTML = pairsNow;
     pairs.dataset.html = pairsNow;
@@ -681,7 +715,7 @@ function paint(key){
   teams.forEach(t => {
     const chip = el.querySelector(`.ps-chip[data-team="${t.id}"]`);
     if(!chip) return;
-    const v = chipView(t, pos, spot);
+    const v = chipView(t, pos, spot, D);
     chip.className = v.cls;
     chip.style.transform = v.transform;
   });
@@ -894,9 +928,10 @@ function maybeRevealChampion(key){
 
 // ---- Surviving a Standings re-render ----
 
-function sigOf(key){
+// The ladder's layout is part of it: crossing 900px builds a fresh one.
+function sigOf(key, wide){
   const c = cacheFor(key);
-  return `${key}:${c.year}:${c.fetchedAt}:${currentProfileId}`;
+  return `${key}:${c.year}:${c.fetchedAt}:${currentProfileId}:${wide ? 'w' : 'p'}`;
 }
 
 // Before Standings rebuilds: the ladders on screen. After: put each one

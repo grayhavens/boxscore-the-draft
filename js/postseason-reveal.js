@@ -55,7 +55,7 @@ import { escapeHtml } from './escape.js';
 import { renderStandings } from './board.js';
 import {
   bracketFor, snap, ladderTeams, postseasonTitle, fieldSetEyebrow, postseasonLogo, logoImgsHtml, badgeOf, ownerLabel, revealSeen, markRevealSeen,
-  postseasonToggleHtml, postseasonCardHtml, showFieldSet, showLatest, replayPostseason, onPostseasonPhaseTap
+  postseasonToggleHtml, postseasonCardHtml, showFieldSet, showLatest, replayPostseason, onPostseasonPhaseTap, ladderWide
 } from './postseason.js';
 
 const STEPS = [[500, 'open'], [800, 'title'], [1500, 'teams'], [2800, 'mine'], [4000, 'toggle'], [5600, 'flip'], [8000, 'settle']];
@@ -176,11 +176,15 @@ function start(key, card){
   if(slot) slot.innerHTML = postseasonToggleHtml(key, 'reg');
 
   // The travelling badges, parked on their hero slots.
+  // On the wide ladder the grid keeps to a phone-like width, centered,
+  // and the badges are the wide ladder's size.
+  const wide = ladderWide(false);
   const cardBox = card.getBoundingClientRect();
   const heroTop = heroEl.getBoundingClientRect().top - cardBox.top;
-  const w = cardBox.width - 32, cell = w / cols;
+  const w = Math.min(cardBox.width - 32, wide ? cols * 96 : Infinity), cell = w / cols;
+  const left = (cardBox.width - w) / 2, half = wide ? 26 : 20;
   const fly = document.createElement('div');
-  fly.className = 'ps-fly';
+  fly.className = `ps-fly${wide ? ' wide' : ''}`;
   fly.innerHTML = hero.map(t => `
     <div class="ps-chip ps-fly-chip seeded${t.mine ? ' mine' : ''}" data-team="${t.id}">
       <span class="ps-chip-badge">${badgeOf(t)}</span>
@@ -189,12 +193,12 @@ function start(key, card){
   card.appendChild(fly);
   const chips = hero.map((t, h) => {
     const el = fly.querySelector(`[data-team="${t.id}"]`);
-    const x = 16 + (h % cols) * cell + cell / 2 - 20, y = heroTop + HERO_GRID_TOP + Math.floor(h / cols) * HERO_ROW;
+    const x = left + (h % cols) * cell + cell / 2 - half, y = heroTop + HERO_GRID_TOP + Math.floor(h / cols) * HERO_ROW;
     el.style.transform = `translate(${x}px, ${y}px) scale(0.3)`;
     return { t, el, x, y, h, n: travel.indexOf(t) };
   });
 
-  run = { key, card, timers: [] };
+  run = { key, card, timers: [], wide };
   const at = (step, fn) => run.timers.push(setTimeout(() => {
     // The card went away under it (it shouldn't, Standings is held): end.
     if(!card.isConnected){ endPostseasonReveal(); return; }
@@ -257,7 +261,9 @@ function flip(key, card, heroEl, chips){
   // until the travelling ones land on them.
   [...card.children].forEach(el => { if(el !== card.querySelector('.league-tab') && el !== heroEl && !el.classList.contains('ps-fly')) el.remove(); });
   showFieldSet(key);
-  heroEl.insertAdjacentHTML('afterend', postseasonCardHtml(key));
+  // The wide ladder goes in its column now (the drafted table joins it
+  // at the end), so it doesn't change width under the landing badges.
+  heroEl.insertAdjacentHTML('afterend', run.wide ? `<div class="ps-split">${postseasonCardHtml(key, true)}</div>` : postseasonCardHtml(key));
   const ps = card.querySelector('.ps');
   ps.classList.add('ps-arriving', 'ps-pts-wait');
   run.timers.push(setTimeout(() => ps.classList.remove('ps-pts-wait'), PTS_MS));

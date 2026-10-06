@@ -140,3 +140,20 @@ test('MLB ladder: AL on the left half, NL on the right, the World Series in the 
   const ws = matchups(W.teams, W.games).find(p => p.game.round === 4);
   assert.deepEqual(ws.map(t => wpos[t.id].fx).sort(), [0.25, 0.75]);
 });
+
+test('MLB wide ladder: four chips to a half row, the World Series on the center line', () => {
+  const sides = POSTSEASON_LEAGUES.mlb.sides;
+  const wide = { rungH: 108, rowH: 52, perRow: 8, pairGap: 36, sides };
+  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const geo = ladderGeometry(S.teams, { ...wide, top: 1, games: S.games });
+  assert.deepEqual(geo.rows[1].map(r => r.length), [8]);
+  const pos = ladderLayout(S.teams, { ...wide, top: 1, games: S.games });
+  S.teams.forEach(t => assert.ok(t.conf === 'AL' ? pos[t.id].fx < 0.5 : pos[t.id].fx > 0.5, t.abbr));
+  const W = snapshot(bracket(2025), 3, { rules: RULES });
+  const wpos = ladderLayout(W.teams, { ...wide, top: 3, games: W.games });
+  const ws = matchups(W.teams, W.games).find(p => p.game.round === 4);
+  ws.forEach(t => {
+    assert.equal(wpos[t.id].fx, 0.5);
+    assert.equal(wpos[t.id].dx, t.conf === 'AL' ? -36 : 36);
+  });
+});

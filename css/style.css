@@ -2916,7 +2916,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   font: 800 var(--fs-12) var(--font-ui); color: var(--accent);
 }
 
-.ps{ --ps-label-w: 86px; }
+.ps{ --ps-label-w: 86px; --ps-lane-x: 0px; }
 /* MLB's AL / NL labels (sidesHtml), one centered over each half of the
    chip lane. */
 .ps-sides{
@@ -2971,6 +2971,12 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 /* A game still to play: a small gray "v" between its two chips (pairsHtml),
    fading in once they've settled side by side. */
 .ps-pairs{ position: absolute; inset: 0; pointer-events: none; transition: opacity 360ms; }
+/* The wide ladder's backing behind a game's two chips (pairsHtml). */
+.ps-pair-bg{
+  position: absolute; left: 0; top: 0; height: 64px; width: 136px;
+  border-radius: var(--r-md); background: var(--hover);
+  animation: ps-pair-in 360ms var(--ease-out) 420ms both;
+}
 .ps-vs{
   position: absolute; left: 0; top: 0; width: 12px; text-align: center;
   font: 800 var(--fs-10)/12px var(--font-ui); color: var(--text-mute);
@@ -8038,6 +8044,50 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     .st-split{ grid-template-columns: minmax(0, 1fr); }
     .st-split > .st-drafted{ border-left: 0; border-top: 1px solid var(--hairline); }
   }
+}
+
+/* ---- Standings, wide: a league's postseason ladder (postseasonBlockHtml in
+   js/board.js, the wide sizes in js/postseason.js's DIMS) ----
+   The ladder and its scrubber on the left, the drafted table beside it
+   (.ps-side), stacked when the card is narrow. The ladder itself is
+   bigger: rung labels and points lead each rung on the left, chips are
+   52px with 36px badges, each game's two chips share a backing, and MLB's
+   AL and NL halves have a line between them. */
+@media (min-width: 900px){
+  .ps-split{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 32%); align-items: start; }
+  .ps-split > .ps{ min-width: 0; padding: 16px 18px 14px; }
+  .ps-side{ align-self: stretch; border-left: 1px solid var(--hairline); padding: 18px 18px 16px; min-width: 0; }
+  .ps-side .ps-drow{ height: 48px; }
+  .ps-side .ps-dname{ width: 76px; }
+  /* Side by side only when the ladder keeps room for eight chips to a
+     row (and MLB's two halves of pairs); otherwise the table goes under it. */
+  @container (max-width: 1000px){
+    .ps-split{ grid-template-columns: minmax(0, 1fr); }
+    .ps-side{ border-left: 0; border-top: 1px solid var(--hairline); }
+  }
+
+  .ps-wide{ --ps-label-w: 112px; --ps-lane-x: var(--ps-label-w); }
+  .ps-wide .ps-head{ padding-bottom: 12px; }
+  .ps-wide .ps-sides{ margin-right: 0; margin-left: var(--ps-label-w); font-size: var(--fs-11); padding-bottom: 6px; }
+  .ps-wide .ps-rung{ justify-content: flex-start; padding: 10px 8px 0; }
+  .ps-wide .ps-rung-label{ width: calc(var(--ps-label-w) - 16px); align-items: flex-start; text-align: left; gap: 3px; }
+  .ps-wide .ps-rung-label > span:first-child{ font-size: var(--fs-11); }
+  .ps-wide .ps-rung-pts{ font-size: var(--fs-15); }
+  .ps-wide .ps-empty{ left: var(--ps-label-w); right: 0; top: 32px; }
+  .ps-wide .ps-ladder.sided .ps-rung:not(.title-rung)::after{
+    content: ''; position: absolute; top: 10px; bottom: 10px; width: 1px;
+    left: calc(var(--ps-label-w) + (100% - var(--ps-label-w)) / 2);
+    background: var(--divider);
+  }
+  .ps-wide .ps-chip, .ps-fly.wide .ps-chip{ width: 52px; transform-origin: 50% 18px; gap: 4px; }
+  .ps-wide .ps-chip-badge, .ps-fly.wide .ps-chip-badge{ border-radius: 11px; }
+  .ps-wide .ps-chip-badge .badge, .ps-fly.wide .ps-chip-badge .badge{ width: 36px; height: 36px; flex-basis: 36px; border-radius: 10px; font-size: var(--fs-12); }
+  .ps-wide .ps-chip-owner, .ps-fly.wide .ps-chip-owner{ font-size: var(--fs-11); min-height: 12px; }
+  .ps-wide .ps-vs{ font-size: var(--fs-11); }
+  .ps-wide .ps-crown{ padding-left: 100px; }
+  .ps-wide .ps-champ-name{ font-size: var(--fs-24); }
+  .ps-wide .ps-scrub{ margin-top: 10px; }
+  .ps-wide .ps-stops span{ font-size: var(--fs-11); }
 }
 
 /* ---- Scores, wide (js/live-now.js) ----
