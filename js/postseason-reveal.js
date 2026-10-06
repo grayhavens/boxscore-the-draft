@@ -191,9 +191,14 @@ function start(key, card){
       <span class="ps-chip-owner">${key === 'cfb' || key === 'wnba' ? '#' : (t.conf || '?')[0]}${t.seed ?? ''}</span>
     </div>`).join('');
   card.appendChild(fly);
+  // Wide: a last row that isn't full sits centered under the full ones
+  // (the phone's grid fills the strip, so it starts at the left there).
+  const lastRow = Math.floor((hero.length - 1) / cols), lastN = hero.length - lastRow * cols;
+  const rowShift = r => wide && r === lastRow && lastN < cols ? (cols - lastN) * cell / 2 : 0;
   const chips = hero.map((t, h) => {
     const el = fly.querySelector(`[data-team="${t.id}"]`);
-    const x = left + (h % cols) * cell + cell / 2 - half, y = heroTop + HERO_GRID_TOP + Math.floor(h / cols) * HERO_ROW;
+    const r = Math.floor(h / cols);
+    const x = left + rowShift(r) + (h % cols) * cell + cell / 2 - half, y = heroTop + HERO_GRID_TOP + r * HERO_ROW;
     el.style.transform = `translate(${x}px, ${y}px) scale(0.3)`;
     return { t, el, x, y, h, n: travel.indexOf(t) };
   });

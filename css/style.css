@@ -8101,6 +8101,16 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   }
 }
 
+/* ---- Standings, wide: the playoffs reveal's strip (js/postseason-reveal.js) ----
+   Everything in it is centered on the card, as the logo openings already
+   are: a strip without a league logo too (its title and "of your teams"
+   line), and a last row of badges that isn't full (rowShift). */
+@media (min-width: 900px){
+  .ps-hero .ps-hero-head{ align-items: center; }
+  .ps-hero .ps-hero-title{ justify-content: center; }
+  .ps-hero .ps-hero-mine{ justify-content: center; }
+}
+
 /* ---- Standings, wide: a league's postseason ladder (postseasonBlockHtml in
    js/board.js, the wide sizes in js/postseason.js's DIMS) ----
    The ladder and its scrubber on the left, the drafted table beside it

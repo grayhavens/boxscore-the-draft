@@ -510,7 +510,8 @@ furthest along first, with seed, the round each is in or went out in, and points
 when the card is under 1000px), rung labels and points leading each rung on the left, 52px chips with 36px badges,
 eight to a row, each game's two chips pulled together on a shared backing (`pairGap` in `js/postseason-math.js`), MLB's
 AL and NL halves split by a line with the World Series on it, and the playoffs reveal's grid kept phone-width and
-centered. On phones the All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
+centered (a last row that isn't full centered under the others; a strip without a league logo centers its title and
+"of your teams" line too). On phones the All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
 Upcoming / Completed filter; the day shows as Live, Upcoming and Final groups at once (each hidden when empty; a game
 that just ended stays under Live for its two minutes), each league's games a grid of cards (the phone's card markup
 restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little
