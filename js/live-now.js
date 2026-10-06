@@ -466,7 +466,7 @@ function refreshTodayScopeChrome(){
     writeHtml(rowsEl, (PRE_DRAFT
       ? todayScopeRowHtml('all', 'All teams', 'Every team', scopeIsAll())
       : todayScopeRowHtml('all', 'All teams', 'Every drafted team, every owner', scopeIsAll())
-        + todayScopeRowHtml('mine', 'Drafted Teams', 'Your own drafted roster', scopeFilter.mine))
+        + todayScopeRowHtml('mine', 'Drafted teams', 'Your own drafted roster', scopeFilter.mine))
       + todayScopeRowHtml('fav', 'Favorites', 'Teams you’ve starred', scopeFilter.fav));
   }
 }

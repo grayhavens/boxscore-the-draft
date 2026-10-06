@@ -123,12 +123,24 @@ function bindRailKeys(){
   });
 }
 
+// ---- Consoles ----
+// The draft room and Commissioner are full-screen consoles with their own
+// columns, so the team rail steps aside while one is open (html
+// data-console, css/style.css "Consoles, wide"). Commissioner's console
+// covers the whole window, chat included; the draft room keeps the header
+// (its way back out) and chat beside it.
+const CONSOLES = ['draft', 'admin'];
+function consoleView(){
+  if(!isWide()) return null;
+  return CONSOLES.find(v => document.getElementById('view-' + v)?.classList.contains('active')) || null;
+}
+
 // ---- Chat ----
 
 // Showing beside the page: the docked column (unless collapsed) or the
 // open slide-over.
 export function chatBeside(){
-  if(!isWide()) return false;
+  if(!isWide() || consoleView() === 'admin') return false;
   return isDock() ? !collapsed : overOpen;
 }
 
@@ -140,6 +152,9 @@ const chatViewActive = () => {
 
 function syncChat(){
   const root = document.documentElement;
+  const con = consoleView();
+  if(con) root.dataset.console = con;
+  else delete root.dataset.console;
   root.classList.toggle('chat-collapsed', collapsed);
   root.classList.toggle('chat-over', isWide() && !isDock() && overOpen);
   document.querySelectorAll('.tab-btn[data-view="chat"]').forEach(b => b.classList.toggle('chat-on', chatBeside()));

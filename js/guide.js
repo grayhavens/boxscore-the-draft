@@ -338,6 +338,6 @@ window.guideOpenAlerts = () => {
   window.backToSettings();
   loadPushConfig().then(() => setTimeout(() => {
     const el = document.getElementById('set-alerts');
-    if(el && el.firstElementChild) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    el?.firstElementChild?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, 350));
 };

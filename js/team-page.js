@@ -211,8 +211,9 @@ export function backFromTeamPage(){
     rowMotion.finish();
   }
   const { originView } = state;
-  if(canAnimateLive() && collapseToRow(originView)) return;
-  navigate('pop', () => {
+  // Wide: the way in was a crossfade, so the way back is too.
+  if(canAnimateLive() && !isWide() && collapseToRow(originView)) return;
+  navigate(isWide() ? null : 'pop', () => {
     setActiveView('view-' + originView);
     updateUrlParam('view', originView === 'board' ? null : originView);
     updateUrlParam('tp', null);
@@ -830,9 +831,13 @@ function wideShellHtml(teamKey, meta){
   const secondary = (/color:\s*(#[0-9a-f]{6})/i.exec(meta.badgeStyle || '') || [])[1];
   const glow = glowColor(meta.accent || NO_ACCENT, secondary) || NO_ACCENT;
   const crest = meta.badgeUrl ? crestImgsHtml(meta, 'tw-crest-img', ' draggable="false"') : teamBadgeHtml(meta);
+  // Back, as on every pushed page (Settings, the guide). The header shows
+  // no tab selected meanwhile (css/style.css "Pages, wide").
+  const back = backLinkHtml({ label: BACK_LABELS[state.originView] || 'Home', onclick: 'backFromTeamPage()' });
   return `
     <div class="tw" style="--glow:${escapeHtml(glow)}">
       <span class="tw-glow" aria-hidden="true"></span>
+      <div class="ob-back-row tw-back">${back}</div>
       <header class="tw-band">
         <div class="tw-id">
           <div class="tw-crest"><span class="tw-ring" aria-hidden="true"></span><span class="tw-orb" aria-hidden="true"></span>${crest}</div>

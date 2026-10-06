@@ -110,7 +110,7 @@ body{
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.scope-chip:hover{ background: var(--surface-2); color: var(--accent); }
+@media (hover: hover), (max-width: 899px){ .scope-chip:hover{ background: var(--surface-2); color: var(--accent); } }
 
 .scope-chip svg{ width: 12px; height: 12px; }
 
@@ -453,9 +453,7 @@ body{
   transition: background 0.15s ease;
 }
 
-.team.clickable:hover{
-  background: rgba(var(--ink-rgb),0.03);
-}
+@media (hover: hover), (max-width: 899px){ .team.clickable:hover{ background: var(--hover); } }
 
 .team.clickable:active{
   background: rgba(var(--ink-rgb),0.05);
@@ -494,7 +492,7 @@ body{
 
 .favorite-star svg{ width: 18px; height: 18px; }
 
-.favorite-star:hover{ background: var(--fill-soft); color: var(--text-sub); }
+@media (hover: hover), (max-width: 899px){ .favorite-star:hover{ background: var(--fill-soft); color: var(--text-sub); } }
 
 .favorite-star.active{ color: var(--star-on); }
 
@@ -872,7 +870,7 @@ body{
    since that's the part that visually reads as "this game". */
 .tg-card{ transition: background 0.15s ease; }
 .tg-row.clickable{ cursor: pointer; }
-.tg-row.clickable:hover .tg-card{ background: rgba(var(--ink-rgb), 0.03); }
+@media (hover: hover), (max-width: 899px){ .tg-row.clickable:hover .tg-card{ background: var(--hover); } }
 
 .tg-side{
   display: flex;
@@ -1108,7 +1106,7 @@ body{
 
 .modal-close svg{ width: 14px; height: 14px; }
 
-.modal-close:hover{ color: var(--text); background: rgba(var(--ink-rgb),0.1); }
+@media (hover: hover), (max-width: 899px){ .modal-close:hover{ color: var(--text); background: var(--fill-soft); } }
 
 /* Sheet head (the golfer sheet, the draft room's team sheet): the
    favorite star sits beside .modal-close — this wrapper takes over the
@@ -1184,7 +1182,7 @@ body{
 }
 .sheet-desc.block{ display: block; }
 
-.sheet-row:hover{ background: rgba(var(--ink-rgb),0.03); }
+@media (hover: hover), (max-width: 899px){ .sheet-row:hover{ background: var(--hover); } }
 
 .sheet-row.active{ color: var(--accent); font-weight: 700; }
 
@@ -3089,11 +3087,13 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   cursor: pointer; transition: background var(--dur-ui);
 }
 .ps-drow:first-child{ border-top: none; }
-.ps-drow:hover{ background: var(--hover); }
+@media (hover: hover), (max-width: 899px){ .ps-drow:hover{ background: var(--hover); } }
 .ps-drow.on, .ps-drow.on:hover{ background: var(--accent-soft); }
 .ps-dname{ width: 62px; flex: none; font: 700 var(--fs-15) var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ps-drow.me .ps-dname{ color: var(--accent); }
 .ps-dteams{ flex: 1; min-width: 0; display: flex; gap: 4px; overflow: hidden; }
+.ps-dteam{ display: flex; flex: none; }
+.ps-dteam.out{ opacity: var(--ps-out-opacity); filter: var(--ps-out-filter); }
 .ps-dteams .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
 .ps-dbank{ font: 700 var(--fs-15) var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
 .ps-dplay{ min-width: 28px; text-align: right; font: 700 var(--fs-13) var(--font-display); color: var(--provisional); font-variant-numeric: tabular-nums; }
@@ -3159,7 +3159,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 }
 
 .standings-row.clickable{ cursor: pointer; }
-.standings-row.clickable:hover{ background: rgba(var(--ink-rgb),0.03); }
+@media (hover: hover), (max-width: 899px){ .standings-row.clickable:hover{ background: var(--hover); } }
 
 .standings-row + .standings-row{
   border-top: 1px solid var(--divider);
@@ -3582,7 +3582,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   cursor: pointer;
 }
 .icon-btn svg{ width: 14px; height: 14px; }
-.icon-btn:hover{ color: var(--text); background: rgba(var(--ink-rgb), 0.1); }
+@media (hover: hover), (max-width: 899px){ .icon-btn:hover{ color: var(--text); background: var(--fill-soft); } }
 
 .ob-back{
   display: flex;
@@ -4156,7 +4156,7 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
   color: inherit; font: inherit;
 }
 button.fs-col{ cursor: pointer; }
-button.fs-col:hover{ background: var(--hover); }
+@media (hover: hover), (max-width: 899px){ button.fs-col:hover{ background: var(--hover); } }
 .fs-bar{ position: relative; width: 100%; height: 60px; }
 .fs-bar::before{ content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background-color: var(--divider); }
 .fs-bar > i{ position: absolute; left: 22%; right: 22%; bottom: 50%; border-radius: 4px 4px 1px 1px; background-color: var(--win); transform-origin: bottom; }
@@ -4196,7 +4196,7 @@ button.fs-col:hover{ background: var(--hover); }
 }
 .news-card + .news-card{ margin-top: 10px; }
 a.news-card.link{ display: block; color: inherit; text-decoration: none; }
-.news-card:hover{ background: var(--surface-2); }
+@media (hover: hover), (max-width: 899px){ .news-card:hover{ background: var(--surface-2); } }
 .news-card .headline{ font-size: var(--fs-15); font-weight: 700; line-height: 1.3; text-wrap: pretty; }
 .news-dot{ color: var(--lb-stroke); }
 .news-card .news-meta{ font-size: var(--fs-11); font-weight: 700; text-transform: uppercase; letter-spacing: var(--track-label); color: var(--text-mute); margin-top: 8px; }
@@ -4761,7 +4761,7 @@ html.chat-kb .tab-bar{ display: none; }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.chat-react-opt:hover{ background: rgba(var(--ink-rgb),0.08); }
+@media (hover: hover), (max-width: 899px){ .chat-react-opt:hover{ background: var(--fill-soft); } }
 .chat-react-opt.on{ background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-border); }
 .chat-react-pill{
   display: inline-flex;
@@ -4875,7 +4875,7 @@ html.chat-kb .tab-bar{ display: none; }
   color: var(--text-sub);
   cursor: pointer;
 }
-.gif-close:hover{ background: var(--fill-soft); color: var(--text); }
+@media (hover: hover), (max-width: 899px){ .gif-close:hover{ background: var(--fill-soft); color: var(--text); } }
 .gif-close svg{ width: 18px; height: 18px; }
 
 .gif-grid{
@@ -4952,6 +4952,11 @@ html.chat-kb .tab-bar{ display: none; }
    .set-head keeps the two together as one item of the page's 24px-gap
    column. */
 .set-head .page-header{ padding-bottom: 4px; }
+
+/* The wide layout's two columns (see "Settings, wide"). Under 900px they
+   dissolve, so their children stay items of the one column above. */
+.set-side, .set-main{ display: contents; }
+.set-side-foot{ display: none; }
 
 .set-identity{
   display: flex;
@@ -5112,6 +5117,11 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .icon-btn:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
 .tab-btn:active .tab-icon{ transform: scale(0.94); }
 
+/* Hover: rows wash with --hover, cards lift to --surface-2, round icon
+   buttons fill with --fill-soft. Each is behind (hover: hover) or the
+   phone widths, so a touch iPad in the wide layout doesn't keep a tapped
+   row lit; phones are as they were. */
+
 /* Keyboard focus (R4) */
 :where(button, a, [role="button"], [role="switch"], [tabindex]):focus-visible{
   outline: none;
@@ -5203,7 +5213,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   font-family: var(--font-ui); font-size: var(--fs-13); font-weight: 700;
   cursor: pointer;
 }
-.cmp-btn:hover{ background: var(--accent-soft); border-color: var(--accent-border); }
+@media (hover: hover), (max-width: 899px){ .cmp-btn:hover{ background: var(--accent-soft); border-color: var(--accent-border); } }
 
 .cmp-eyebrow{ margin: 4px 2px 12px; }
 .cmp-head{ padding: 16px 16px 14px; margin-bottom: 22px; }
@@ -5328,7 +5338,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   background: none; border: none; border-bottom: 1px solid var(--lb-divider); border-radius: 12px;
   text-align: left; cursor: pointer; color: var(--text);
 }
-.cmp-pick.current, .cmp-pick:hover{ background: rgba(var(--ink-rgb),0.05); }
+.cmp-pick.current{ background: rgba(var(--ink-rgb),0.05); }
+@media (hover: hover), (max-width: 899px){ .cmp-pick:not(.current):hover{ background: var(--hover); } }
 .cmp-pick-rank{ font-size: var(--fs-13); font-weight: 700; color: var(--lb-rank-low); }
 .cmp-pick-name{ font-family: var(--font-display); font-size: var(--fs-17); font-weight: 600; }
 .cmp-pick-gap{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
@@ -7605,7 +7616,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .tab-btn.chat-on::after{ display: none; }
   .tab-btn .chat-badge{ position: static; box-shadow: none; }
   .tab-btn.chat-hit{ flex-direction: row-reverse; }
-  .tab-btn:focus-visible, .wide-icon-btn:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+  .tab-btn:focus-visible{ border-radius: var(--r-sm); }
 
   .wide-icon-btn{
     width: 38px; height: 38px; flex: none;
@@ -7615,7 +7626,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     transition: color var(--dur-ui) var(--ease-out), background var(--dur-ui) var(--ease-out);
   }
   .wide-icon-btn svg{ width: 18px; height: 18px; }
-  .wide-icon-btn:hover{ color: var(--text); background: var(--hover); }
+  @media (hover: hover){ .wide-icon-btn:hover{ color: var(--text); background: var(--hover); } }
   .chat-dock-btn, .chat-over-close{ display: none; }
 
   /* Home's league cards: as many columns as fit, now the content is narrower. */
@@ -7664,7 +7675,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .wr-item:active{ background: var(--press); }
   .wr-item.sel{ color: var(--text); background: var(--hover); }
   .wr-item.sel::after{ content: ""; position: absolute; right: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--accent); }
-  .wr-item:focus-visible, .wr-item.kb:focus{ outline: none; box-shadow: inset 0 0 0 2px var(--accent); border-radius: 12px; }
+  .wr-item:focus-visible, .wr-item.kb:focus{ outline: none; box-shadow: var(--focus-ring-inset); border-radius: 12px; }
   .wr-badge{ position: relative; display: flex; opacity: 0.6; transition: opacity var(--dur-ui) var(--ease-out); }
   .wr-item:hover .wr-badge, .wr-item.sel .wr-badge{ opacity: 1; }
   .wr-badge .badge{ flex-basis: 32px; width: 32px; height: 32px; border-radius: 10px; font-size: var(--fs-10); }
@@ -7794,7 +7805,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     color: var(--text); text-align: left; font: inherit; cursor: pointer;
     transition: border-color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
   }
-  .tw-points:hover{ border-color: var(--accent-border); }
+  @media (hover: hover){ .tw-points:hover{ border-color: var(--accent-border); } }
   .tw-points:active{ transform: scale(0.985); }
   .tw-points svg{ grid-column: 2; grid-row: 1 / 4; color: var(--text-mute); }
   .tw-points-label{ font-size: var(--fs-10); font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-mute); }
@@ -7820,7 +7831,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     color: var(--text); font: inherit; text-align: left;
   }
   button.match-card{ cursor: pointer; transition: transform var(--dur-press) var(--ease-out), border-color var(--dur-ui) var(--ease-out); }
-  button.match-card:hover{ border-color: var(--hairline-strong); }
+  @media (hover: hover){ button.match-card:hover{ border-color: var(--hairline-strong); } }
   button.match-card:active{ transform: scale(0.985); }
   .match-card.live{ border-color: var(--live-border); background: radial-gradient(120% 100% at 50% 0%, var(--live-soft), transparent 70%), var(--surface); }
   .mc-head{ display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -7888,8 +7899,8 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .gbg-bars{ position: relative; height: 132px; display: flex; gap: 4px; }
   .gbg-bars::before{ content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--hairline-strong); }
   .gbg-col{ position: relative; flex: 1 1 0; max-width: 30px; height: 100%; padding: 0; border: 0; border-radius: 5px; background: none; cursor: pointer; }
-  .gbg-col:hover, .gbg-col.on{ background: var(--hover); }
-  .gbg-col:focus-visible{ outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gbg-col.on{ background: var(--hover); }
+  @media (hover: hover){ .gbg-col:hover{ background: var(--hover); } }
   .gbg-bar{ position: absolute; left: 3px; right: 3px; height: var(--h); transition: height 620ms var(--ease-out); transition-delay: calc(var(--i) * 35ms); }
   .gbg-col.w .gbg-bar{ bottom: 50%; background: var(--win); border-radius: 4px 4px 0 0; }
   .gbg-col.l .gbg-bar{ top: 50%; background: var(--loss); border-radius: 0 0 4px 4px; }
@@ -7913,7 +7924,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   /* Results and news */
   .tw-res-row{ width: 100%; display: grid; grid-template-columns: 76px 26px 28px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 46px; padding: 0; border: 0; border-top: 1px solid var(--divider); background: none; color: inherit; font: inherit; text-align: left; }
   button.tw-res-row{ cursor: pointer; }
-  button.tw-res-row:hover{ background: var(--hover); }
+  @media (hover: hover){ button.tw-res-row:hover{ background: var(--hover); } }
   .tw-res-date{ font-size: var(--fs-13); font-weight: 600; color: var(--text-mute); }
   .tw-res-chip{ width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font: 700 var(--fs-11) var(--font-display); }
   .tw-res-chip.w{ background: var(--win-soft); color: var(--win); }
@@ -7926,7 +7937,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .tw-news a{ color: inherit; text-decoration: none; }
   .tw-news-top{ display: flex; flex-direction: column; gap: 6px; margin: 0 -18px; padding: 14px 18px 16px; border-top: 1px solid var(--divider); }
   .tw-news-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin: 0 -18px; padding: 12px 18px; border-top: 1px solid var(--divider); }
-  .tw-news-top:hover, .tw-news-row:hover{ background: var(--hover); }
+  @media (hover: hover){ .tw-news-top:hover, .tw-news-row:hover{ background: var(--hover); } }
   .tw-news-meta{ flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
   .tw-news-row .tw-news-meta{ font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
   .tw-news-lead{ font: 700 var(--fs-22)/1.2 var(--font-display); letter-spacing: -0.4px; text-wrap: balance; }
@@ -7997,7 +8008,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
 /* ---- Standings: the All overview (overviewBlockHtml in js/board.js) ----
    A compact card per league at every width: top five, a dashed gap, the
    drafter's teams further down, and "Full table". One card per row on a
-   phone; at wide widths, as many columns as fit. */
+   phone; at wide widths, as many columns as fit, all one height. */
 .st-ov-note{ padding: 10px 18px 0; font-size: var(--fs-12); font-weight: 600; color: var(--text-mute); }
 .st-gap{ height: 14px; border-top: 1px dashed var(--hairline-strong); margin: 0 18px; }
 .st-gap + .standings-row{ border-top: none; }
@@ -8009,9 +8020,40 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
 .st-more:active{ background: var(--press); }
 @media (hover: hover){ .st-more:hover{ color: var(--text); background: var(--hover); } }
 @media (min-width: 900px){
-  /* Columns rather than grid rows, so a short card tucks under a short one. */
-  .standings-grid.st-overview{ display: block; columns: 380px; column-gap: 20px; }
-  .standings-grid.st-overview > *{ break-inside: avoid; margin-bottom: 20px; }
+  /* A grid: the cards side by side share a height (the row's tallest),
+     each card's "Full table" / "Full details" pinned to its bottom; rows
+     can differ. A league on its Postseason view shows rows here too
+     (postseasonOverviewHtml in js/postseason.js), not the ladder, whose
+     height follows its rounds. */
+  .standings-grid.st-overview{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
+    align-items: stretch;
+  }
+  .standings-grid.st-overview > .league{ display: flex; flex-direction: column; min-width: 0; }
+  .standings-grid.st-overview > .league > .st-more{ margin-top: auto; }
+  /* A card with nothing to open (PGA's "No data available.") keeps its own height. */
+  .standings-grid.st-overview > .league:not(:has(> .st-more)){ align-self: start; }
+
+  .ps-ov{ padding: 12px 12px 4px; display: flex; flex-direction: column; gap: 10px; }
+  .ps-ov .ps-head{ padding-bottom: 0; }
+  .ps-ov-crown{
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px;
+    border-radius: var(--r-md);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+  }
+  .ps-ov-crown .ps-crown-text{ gap: 1px; }
+  .ps-ov-crown .ps-champ-name{ font-size: var(--fs-17); }
+  .ps-ov-crown .ps-champ-pts{ font-size: var(--fs-22); }
+  .ps-ov-rows{ padding-top: 4px; }
+  .standings-row.st-row.ps-ov-row{ grid-template-columns: 22px 26px minmax(0, 1fr) auto auto; }
+  .ps-ov-where{ flex: none; font-size: var(--fs-13); font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+  .ps-ov-row:not(.out) .ps-ov-where{ color: var(--text); }
+  .ps-ov-pts{ flex: none; min-width: 28px; text-align: right; font: 700 var(--fs-15) var(--font-display); color: var(--accent); font-variant-numeric: tabular-nums; }
+  .ps-ov-row.out .badge, .ps-ov-row.out .team-name{ opacity: 0.55; }
 }
 
 /* ---- Standings, wide: one league's card (wideLeagueBlockHtml in js/board.js) ----
@@ -8105,9 +8147,8 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     color: var(--text); font: inherit; text-align: left; cursor: pointer;
     transition: border-color var(--dur-ui) var(--ease-out), background var(--dur-ui) var(--ease-out);
   }
-  .tg-wd:hover{ border-color: var(--hairline-strong); }
+  @media (hover: hover){ .tg-wd:hover{ border-color: var(--hairline-strong); } }
   .tg-wd:active{ background: var(--press); }
-  .tg-wd:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
   .tg-wd.sel{ border-color: var(--accent-border); background: var(--accent-soft); }
   .tg-wd-name{ font: 700 var(--fs-13) var(--font-display); }
   .tg-wd.today .tg-wd-name{ color: var(--accent); }
@@ -8132,8 +8173,10 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     transition: background 0.15s ease, border-color 0.15s ease;
   }
   .tg-row:has(.tg-card.live){ border-color: var(--live-border); background: radial-gradient(120% 140% at 50% -20%, var(--live-soft), var(--surface) 62%); }
-  .tg-row.clickable:hover{ border-color: var(--hairline-strong); }
-  .tg-row.clickable:hover .tg-card{ background: none; }
+  @media (hover: hover){
+    .tg-row.clickable:hover{ border-color: var(--hairline-strong); }
+    .tg-row.clickable:hover .tg-card{ background: none; }
+  }
   .tg-line, .tg-node{ display: none; }
   .tg-rail{ display: flex; align-items: baseline; gap: 6px; padding: 10px 13px 0; text-align: left; }
   .tg-rail-top, .tg-rail-top.pre{ font-size: var(--fs-13); }
@@ -8225,11 +8268,13 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     font: 800 10.5px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
   }
   .obw-row.head > *{ font: inherit; color: inherit; }
-  .obw-row:not(.head):hover{ background: var(--hover); }
-  .obw-row:focus-visible{ outline: 2px solid var(--accent); outline-offset: -2px; }
-  .obw-row.current{ background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  @media (hover: hover){ .obw-row:not(.head):hover{ background: var(--hover); } }
+  .obw-row:focus-visible{ outline: none; box-shadow: var(--focus-ring-inset); }
+  .obw-row.current{ background: var(--lb-accent-wash); }
   .obw-row.current .obw-name{ color: var(--accent); }
-  .obw-row.sel{ box-shadow: inset 3px 0 0 var(--text-sub); }
+  /* The drafter open in the Activity column: the wide layout's selection
+     fill (the week strip's day, a postseason drafted row), not a stripe. */
+  .obw-row.sel, .obw-row.sel:hover{ background: var(--accent-soft); }
   .obw-name{ font-size: var(--fs-14); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .obw-lg, .obw-live, .obw-total, .obw-move{ text-align: center; }
   .obw-live, .obw-total{ text-align: right; }
@@ -8242,8 +8287,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .obw-cell.zero{ color: var(--text-mute); }
   .obw-cell.neg{ color: var(--loss); }
   .obw-cell.live{ color: var(--provisional); }
-  .obw-cell:hover{ box-shadow: inset 0 0 0 1px var(--hairline-strong); }
-  .obw-cell:focus-visible{ outline: 2px solid var(--accent); outline-offset: 1px; }
+  @media (hover: hover){ .obw-cell:hover{ box-shadow: inset 0 0 0 1px var(--hairline-strong); } }
   .obw-live{ font: 600 var(--fs-13) var(--font-display); font-variant-numeric: tabular-nums; }
   .obw-live.lv{ color: var(--provisional); }
   .obw-live.neg{ color: var(--loss); }
@@ -8252,5 +8296,124 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   @container (max-width: 760px){
     .obw-row{ grid-template-columns: 26px minmax(70px, 1fr) repeat(var(--n), 34px) 40px 40px; gap: 4px; padding: 0 10px; }
     .obw-bar, .obw-move{ display: none; }
+  }
+}
+
+/* ---- Settings, wide (renderSettingsPage in js/identity.js) ----
+   Two columns instead of one narrow one: the identity card and the device
+   note in a sticky column on the left, the sections on the right. Each
+   section's rows join into one grouped list with hairlines between them,
+   and rows and choices get hover states. #settings-content only: the
+   guide page shares .settings-page. */
+@media (min-width: 900px){
+  #settings-content.settings-page{
+    max-width: 960px;
+    margin: 0;
+    padding: 0 0 48px;
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    column-gap: 40px;
+    row-gap: 28px;
+    align-items: start;
+  }
+  #settings-content .set-head{ grid-column: 1 / -1; }
+  #settings-content .set-head .page-header{ padding-bottom: 2px; }
+  #settings-content > .set-foot{ display: none; }
+
+  .set-side{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: sticky;
+    top: calc(env(safe-area-inset-top) + var(--wide-head-h) + 28px);
+  }
+  .set-side .set-identity{
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 22px;
+    transition: border-color var(--dur-ui) var(--ease-out), background var(--dur-ui) var(--ease-out);
+  }
+  .set-side .set-mono{ width: 64px; height: 64px; font-size: var(--fs-24); }
+  .set-side .set-identity-text{ width: 100%; }
+  .set-side .set-identity-name{ font-size: var(--fs-22); }
+  .set-side .set-identity-switch{
+    align-self: stretch;
+    padding: 9px 0;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    text-align: center;
+    transition: border-color var(--dur-ui) var(--ease-out);
+  }
+  .set-side-foot{ display: block; padding: 0 4px; font-size: var(--fs-12); line-height: 1.6; color: var(--text-mute); }
+
+  .set-main{ display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+  /* Alerts' slot is empty until push config loads (and stays empty when push is off); no gap for it. */
+  .set-main #set-alerts{ display: contents; }
+
+  /* A section's rows as one grouped list. */
+  .set-main .set-section{ gap: 0; }
+  .set-main .set-label{ margin-bottom: 10px; }
+  .set-main .set-row{
+    padding: 14px 18px;
+    border-radius: 0;
+    border: 1px solid var(--hairline);
+    border-top-width: 0;
+    transition: background var(--dur-ui) var(--ease-out);
+  }
+  .set-main .set-label + .set-row{ border-top-width: 1px; border-radius: var(--r-md) var(--r-md) 0 0; }
+  .set-main .set-row:not(:has(+ .set-row)){ border-bottom-left-radius: var(--r-md); border-bottom-right-radius: var(--r-md); }
+  .set-main .set-section > .set-foot{ margin-top: 10px; text-align: left; }
+
+  .set-main .set-themes{ gap: 12px; }
+  .set-main .set-theme{ padding: 10px; }
+  .set-main .set-swatch{ height: 84px; }
+
+  @media (hover: hover){
+    .set-side .set-identity:hover{ border-color: var(--hairline-strong); }
+    .set-side .set-identity:hover .set-identity-switch{ border-color: var(--accent); }
+    .set-main button.set-row:hover{ background: var(--surface-2); }
+    .set-main .set-theme:not(.on):hover{ border-color: var(--hairline-strong); }
+    .set-main .set-chip:not(.on):hover{ color: var(--text); border-color: var(--text-mute); }
+  }
+}
+
+/* ---- Consoles, wide (html[data-console], js/wide.js) ----
+   The draft room and Commissioner bring their own columns, so the team
+   rail steps aside while one is open. Commissioner's console already
+   covers the window (#view-admin.admin-desk-on) and hides the header;
+   chat goes too. The draft room sits under the header, which runs the
+   full width, and beside chat, instead of under both with a gap left for
+   the phone's tab bar. */
+@media (min-width: 900px){
+  html[data-console] .wide-rail{ display: none; }
+  html[data-console] .tab-bar{ left: 0; }
+  html[data-console="admin"] .chat-screen, html[data-console="admin"] .chat-strip{ display: none; }
+  html[data-console="draft"] .draft-screen{
+    top: calc(env(safe-area-inset-top) + var(--wide-head-h));
+    right: var(--chat-w);
+    bottom: 0;
+  }
+  html[data-console="draft"] .draft-head{ padding-top: 20px; }
+}
+
+/* ---- Pages, wide: shared rules ----
+   Every page starts at the content's left edge under the header, like
+   Home; the guide was the one still centered. Clickable rows and cards
+   that had only a press state get a hover, in the shell's --hover wash. */
+@media (min-width: 900px){
+  .guide-page{ margin: 0; max-width: 640px; }
+  /* A pushed page (the team page and its full screens) sits outside the
+     tabs, as Settings does: no tab reads as selected, and Back names where
+     it returns. The tab keeps .active underneath for js/board.js. */
+  body:has(#view-team-page.active, #view-team-schedule.active, #view-team-squad.active) .tab-btn.active{ color: var(--text-sub); }
+  body:has(#view-team-page.active, #view-team-schedule.active, #view-team-squad.active) .tab-btn.active::after{ display: none; }
+  .tw-back{ position: relative; margin-bottom: 14px; }
+  @media (hover: hover){
+    button.act-row:hover{ background: var(--hover); }
+    button.act-row.lock:hover{ background: var(--accent-soft); }
+    .ps-home:hover{ border-color: var(--accent); }
+    .filter-chip:not(.active):hover{ color: var(--text-sub); }
+    .seg-btn:not(.active):hover{ color: var(--text); }
   }
 }
