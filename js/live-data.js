@@ -7,7 +7,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
-import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, sheetSettled, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, sheetSettled, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE, escapeHtml } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
@@ -1290,6 +1290,8 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // date ("9/18 - 3:00 PM EDT"), which would repeat dateLabel above —
   // strip it so only the time remains.
   const statusDetail = ((summary.status && summary.status.detail) || '').replace(/^\d{1,2}\/\d{1,2}\s*[-–—]\s*/, '');
+  // A playoff game's series count, under the date line.
+  const seriesText = summary.status && summary.status.series;
   const statusHtml = `${dateLabel ? `${dateLabel} &middot; ` : ''}${isLiveNow ? '<span class="gd-live-tag"><span class="dot pulse"></span>Live</span> ' : ''}${statusDetail}`;
 
   // The score itself is now the header's title (see el.innerHTML below)
@@ -1414,6 +1416,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     <div class="gd-head with-back">
       ${iconButtonHtml({ icon: 'chevron-left', label: 'Back', onclick: 'closeGameDetail()', cls: 'gd-back' })}
       <div class="gd-head-main">
+        <div class="gd-title-row">
         ${(() => {
           const awaySide = resolveGameDetailSide(away, leagueKey);
           const homeSide = resolveGameDetailSide(home, leagueKey);
@@ -1433,10 +1436,10 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
           </div>
           `;
         })()}
-        <div class="gd-sub-row">
-          <div class="gd-sub">${statusHtml}</div>
-          <button type="button" class="wide-panel-link gd-share-link" onclick="shareGameDetailToChat()">${SHARE_TO_CHAT_SVG}Share to chat</button>
+        ${iconButtonHtml({ icon: 'chat', label: 'Share to chat', onclick: 'shareGameDetailToChat()', cls: 'gd-share-icon' })}
         </div>
+        <div class="gd-sub">${statusHtml}</div>
+        ${seriesText ? `<div class="gd-series">${escapeHtml(seriesText)}</div>` : ''}
       </div>
     </div>
     <div class="modal-body">
