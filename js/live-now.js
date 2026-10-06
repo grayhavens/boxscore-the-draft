@@ -40,7 +40,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
-import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
+import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached, syncScoresDetail } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
@@ -696,6 +696,7 @@ export async function renderLiveNow(){
       : writeHtml(listEl, emptyHtml(false));
     scoresPrimed = true;
     if(changed) playScoreEffects(listEl, inScope.filter(g => endedNow.has(`${g.day}:${g.id}`)));
+    syncScoresDetail();
     fillWeekCounts();
     return;
   }

@@ -1390,14 +1390,19 @@ function parseEspnGameMedia(data){
 }
 
 // Shared status-block read off data.header.competitions[0] — identical
-// for every sport's summary response.
+// for every sport's summary response. `series` is a playoff series' count
+// as ESPN words it ("CHW lead series 2-0"), or null: the summary lists
+// every series the two teams share (regular season, preseason, the
+// current one), and only the playoff one is the count Game Details shows.
 function parseEspnSummaryStatus(comp){
   const statusType = comp.status && comp.status.type;
+  const playoff = Array.isArray(comp.series) ? comp.series.find(x => x && x.type === 'playoff') : null;
   return statusType ? {
     state: statusType.state,
     detail: statusType.shortDetail,
     period: comp.status.period,
-    displayClock: comp.status.displayClock
+    displayClock: comp.status.displayClock,
+    series: (playoff && typeof playoff.summary === 'string' && playoff.summary) || null
   } : null;
 }
 

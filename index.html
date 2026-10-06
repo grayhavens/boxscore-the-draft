@@ -77,7 +77,11 @@
     </div>
     <div class="peek-banner"><span>Viewing <strong class="peek-name"></strong>'s board</span><button onclick="backToMyBoard()">Back to yours</button></div>
     <div id="live-now-controls"></div>
-    <div id="live-now-list"></div>
+    <!-- Wide: Game Details docks in #live-now-detail beside the cards (js/live-data.js's dockTarget); phones keep the sheet. -->
+    <div class="ln-split">
+      <div id="live-now-list"></div>
+      <aside class="ln-detail" id="live-now-detail" aria-label="Game details"><div class="ln-detail-empty">Pick a game to see its box score.</div></aside>
+    </div>
   </div>
 
   <div id="view-standings" class="view">

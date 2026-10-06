@@ -112,7 +112,7 @@ const APP_ROWS = [
   },
   {
     id: 'scores', icon: 'scores', title: 'Scores',
-    lead: 'Every game with a drafted team, live ones first. Tap one for the box score.',
+    lead: 'Every game with a drafted team, live ones first. Tap one for the box score; on a wide screen it opens beside the games.',
     pre: { lead: 'Every game across your leagues, live ones first.' },
     go: ['Go to Scores', "switchView('live-now')"]
   },
