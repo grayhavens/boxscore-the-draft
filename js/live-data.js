@@ -1413,7 +1413,7 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
     <div class="modal-accent" style="background:${accent};"></div>
     <div class="gd-head with-back">
       ${iconButtonHtml({ icon: 'chevron-left', label: 'Back', onclick: 'closeGameDetail()', cls: 'gd-back' })}
-      <div>
+      <div class="gd-head-main">
         ${(() => {
           const awaySide = resolveGameDetailSide(away, leagueKey);
           const homeSide = resolveGameDetailSide(home, leagueKey);
@@ -1433,7 +1433,10 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
           </div>
           `;
         })()}
-        <div class="gd-sub">${statusHtml}</div>
+        <div class="gd-sub-row">
+          <div class="gd-sub">${statusHtml}</div>
+          <button type="button" class="wide-panel-link gd-share-link" onclick="shareGameDetailToChat()">${SHARE_TO_CHAT_SVG}Share to chat</button>
+        </div>
       </div>
     </div>
     <div class="modal-body">

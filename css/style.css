@@ -4676,17 +4676,18 @@ html.chat-kb .tab-bar{ display: none; }
 /* Game Details' way into the above (see shareGameDetailToChat in
    js/live-data.js). */
 .modal-cta.gd-share{ margin: 0 0 16px; }
-/* Wide: a small pill in the header's top-right corner instead of a
-   full-width button, and a shorter recap photo. */
+/* Wide: Share to chat is a quiet text link at the end of the date line
+   (.gd-share-link, the wide panels' own .wide-panel-link), so the score
+   stays clean at the top; phones keep the full-width button. The recap
+   photo is shorter too. */
+.gd-share-link{ display: none; }
 @media (min-width: 900px){
-  #game-detail-content{ position: relative; }
-  #game-detail-content .gd-head{ padding-right: 150px; }
-  .modal-cta.gd-share{
-    position: absolute; top: 24px; right: 20px;
-    width: auto; min-height: 0; height: 32px; margin: 0; padding: 0 12px; gap: 6px;
-    border-radius: var(--r-pill); font-size: var(--fs-12);
-  }
-  .modal-cta.gd-share svg{ width: 14px; height: 14px; }
+  .modal-cta.gd-share{ display: none; }
+  .gd-head-main{ flex: 1; min-width: 0; }
+  .gd-sub-row{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+  .gd-sub-row .gd-sub{ margin-top: 0; min-width: 0; }
+  .gd-share-link{ display: inline-flex; flex: none; gap: 5px; }
+  .gd-share-link svg{ width: 14px; height: 14px; }
   .gd-photo{ aspect-ratio: 2.4 / 1; }
 }
 
