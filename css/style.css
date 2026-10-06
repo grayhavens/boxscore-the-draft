@@ -1898,6 +1898,7 @@ body{
 .gd-teamstats th:first-child, .gd-teamstats td:first-child{ text-align: left; }
 .gd-teamstats th:last-child, .gd-teamstats td:last-child{ text-align: right; }
 .gd-teamstats td.label{ text-align: center; font-weight: 500; color: var(--text-sub); }
+.gd-teamstats td:not(.label){ white-space: nowrap; }
 
 .linescore-table{
   width: 100%;
@@ -1924,15 +1925,27 @@ body{
   font-variant-numeric: tabular-nums;
 }
 
+/* No wrapping in a box score: a phone squeezing ten columns into 100%
+   width otherwise breaks shooting splits at the hyphen ("9-" over "15")
+   and names over three lines. The table overflows into .box-scroll
+   instead, with the name column pinned so each row stays readable. */
 .box-table th, .box-table td{
   padding: 6px 6px;
   text-align: right;
   border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
 }
 
 .box-table th{ color: var(--text-mute); font-weight: 700; font-size: var(--fs-10); letter-spacing: 0.3px; }
 .box-table th.left{ text-align: left; }
 .box-table td.name{ text-align: left; color: var(--text); font-weight: 600; }
+.box-table th.left, .box-table td.name{
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--sheet);
+  padding-left: 0;
+}
 .box-table td{ color: var(--text-sub); }
 
 .scoring-list{
