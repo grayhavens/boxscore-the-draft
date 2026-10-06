@@ -224,6 +224,8 @@
       <div class="page-header-top">
         <h1>Chat</h1>
         <div class="chat-status" id="chat-status" data-state="connecting">Connecting&hellip;</div>
+        <button class="wide-icon-btn chat-dock-btn" onclick="toggleChatDock()" aria-label="Collapse chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></button>
+        <button class="wide-icon-btn chat-over-close" onclick="closeChatOver()" aria-label="Close chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
       </div>
       <div class="page-sub"><span data-group-name>The Draft</span>'s #1 Source for Smack Talk</div>
     </div>
@@ -298,8 +300,15 @@
      headers are complete before first paint. -->
 <script src="js/page-header.js"></script>
 
+<!-- Wide layout only (900px and up, js/wide.js): the team rail on the
+     left. At those widths the tab bar below becomes the top header, with
+     its .wide-brand and .wide-actions showing; under 900px all three are
+     hidden and nothing changes. -->
+<nav class="wide-rail" id="wide-rail" aria-label="Your teams"></nav>
+
 <nav class="tab-bar">
   <span class="tab-pill" aria-hidden="true"></span>
+  <span class="wide-brand"><span class="wide-brand-name" data-group-name>The Draft</span><span class="wide-brand-sub">Boxscore</span></span>
   <button class="tab-btn active" data-view="board" onclick="switchView('board')">
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg></span>
     <span class="tab-label">Home</span>
@@ -323,7 +332,19 @@
     <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 21v-9.5h5V21"></path><path d="M3 21v-6h6.5"></path><path d="M14.5 21H21v-8h-6.5"></path><path d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg></span>
     <span class="tab-label">Points</span>
   </button>
+  <span class="wide-actions">
+    <button class="wide-icon-btn" onclick="openSettings()" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+  </span>
 </nav>
+
+<!-- Wide layout chat chrome (js/wide.js): the strip a collapsed chat
+     column folds into (1280px and up), and the scrim behind the chat
+     slide-over (900–1279px). -->
+<button class="chat-strip chat-hit" onclick="toggleChatDock()" aria-label="Chat">
+  <span class="chat-strip-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg><span class="chat-badge count-badge"></span></span>
+  <span class="chat-strip-label">Chat</span>
+</button>
+<div class="chat-scrim" onclick="closeChatOver()" aria-hidden="true"></div>
 
 <script type="module" src="js/board.js"></script>
 </body>

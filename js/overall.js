@@ -19,6 +19,15 @@
    Any drafter opens a quick sheet; its Full breakdown pushes the
    per-drafter detail (one accordion card per scoring league). The
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
+
+   Wide layout (900px and up, js/wide.js; obWideHtml below): no segments
+   and no hero card. A strip of your numbers, then the leaderboard with a
+   column per scoring league (each cell that drafter's points there, a
+   neutral heat by size), the Race chart full width under it and History
+   under that; Activity sits in a column on the right, and a drafter's
+   breakdown (or Compare) opens in that column in place of the sheet and
+   the pushed page. The phone keeps the hero, the segments, the sheet and
+   the push.
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, DRAFT_TEAMS, TEAM_META, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { updateUrlParam, segmentedControlHtml, reducedMotion, EASE_OUT, EASE_SPRING, EASE_IN_OUT, countUp, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, ordinal, escapeHtml } from './utils.js';
@@ -34,6 +43,8 @@ import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonus
 
 import { buttonHtml, iconHtml, backLinkHtml, splitBarHtml, pointsTableHtml, lockStampHtml } from './ui.js';
 import { fxOn, play, pop, flashTint, once } from './motion-fx.js';
+import { isWide } from './wide-query.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
 // League color for the per-league card's accent bar. Deliberately NOT
 // each league's real modal accent (LEAGUE_SCORING[key].accent) — those
 // are brand colors picked to sit on a light badge, and half of them are
@@ -567,6 +578,96 @@ function obListHtml(rows){
   `;
 }
 
+// ---- Wide layout (900px and up) ----
+
+// Your numbers as one strip: rank and move, projected, locked, live, and
+// the gap to first (or your lead, when you're first), all sitting on the
+// strip's bottom edge, with the scoring rules button in its top corner.
+function obWideStatsHtml(rows, me){
+  const live = me.provisionalTotal;
+  const stat = (num, lbl, cls = '') => `<div class="obw-stat${cls ? ` ${cls}` : ''}"><span class="obw-stat-num">${num}</span><span class="obw-stat-lbl">${lbl}</span></div>`;
+  const leader = rows[0];
+  const next = rows.find(r => r.total < me.total);
+  const gaps = me.rank === 1
+    ? [next ? stat(`+${me.total - next.total}`, `Ahead of ${escapeHtml(next.name)}`) : '']
+    : [stat(`${leader.total - me.total}`, `Behind ${escapeHtml(leader.name)} (1st)`)];
+  const you = me.id === currentProfileId ? ' &middot; You' : '';
+  return `<div class="obw-stats" data-locked="${me.confirmedTotal}">
+      <div class="obw-stats-row">
+      <div class="obw-me"><span class="ob-detail-eyebrow mute">${escapeHtml(me.name)}${you}</span>
+        <span class="obw-me-rank">${obOrdinalLabel(me.rankLabel)}${obMoveHtml(obRankMove(me), true)}</span></div>
+      ${stat(obPts(me.total), 'Projected', 'proj')}
+      ${stat(me.confirmedTotal, 'Locked', 'lk')}
+      ${stat(obSignedPts(live), 'Live', live < 0 ? 'neg' : 'lv')}
+      ${gaps.join('')}
+      </div>
+      <div class="obw-stats-end">${buttonHtml({ label: 'How scoring works', variant: 'secondary', iconSvg: iconHtml('scoring', { size: 15 }), onclick: 'openScoringSheet()' })}</div>
+    </div>`;
+}
+
+// The leaderboard with a column per scoring league. A league cell is that
+// drafter's points there, tinted by size (no league colors: they're
+// identity, not data); tapping one opens the breakdown at that league.
+function obWideTableHtml(rows){
+  const leagues = rows.length ? rows[0].leagues.map(x => x.league) : [];
+  const scale = Math.max(1, ...rows.map(r => obBarScale(r.confirmedTotal, r.provisionalTotal)));
+  const leaderCount = rows.filter(r => r.rank === 1).length;
+  const hasLeader = leaderCount > 0 && leaderCount < rows.length;
+  const me = obYouId();
+  const short = l => escapeHtml(FILTER_CHIP_LABELS[l.key] || l.label);
+  const head = `<div class="obw-row head" aria-hidden="true"><span class="obw-rank">#</span><span class="obw-name">Drafter</span><span class="obw-bar">Locked &middot; Live</span>`
+    + leagues.map(l => `<span class="obw-lg">${short(l)}</span>`).join('')
+    + `<span class="obw-live">Live</span><span class="obw-total">Total</span><span class="obw-move"></span></div>`;
+  const body = rows.map(r => {
+    const isTop = hasLeader && r.rank === 1;
+    const live = r.provisionalTotal;
+    const cells = r.leagues.map(x => {
+      const heat = Math.min(Math.abs(x.pts), 10);
+      const cls = x.pts < 0 ? 'neg' : (x.pts === 0 ? 'zero' : (x.provisional && !x.confirmed ? 'live' : ''));
+      return `<button type="button" class="obw-cell ${cls}" style="--heat:${(0.02 + heat * 0.022).toFixed(3)}" onclick="event.stopPropagation(); obOpenLeague('${r.id}', '${x.league.key}')" aria-label="${escapeHtml(r.name)}, ${escapeHtml(obLeagueFullName(x.league.key))}: ${x.pts}">${x.awards.length ? obPts(x.pts) : '&middot;'}</button>`;
+    }).join('');
+    const classes = ['obw-row', 'ob-table-row', isTop ? 'leader' : '', r.id === me ? 'current' : '', r.id === obDetailId ? 'sel' : ''].filter(Boolean).join(' ');
+    return `<div class="${classes}" data-id="${r.id}" data-total="${r.total}" role="button" tabindex="0" onclick="obOpenSheet('${r.id}')" onkeydown="if(event.key==='Enter')obOpenSheet('${r.id}')">`
+      + `<span class="obw-rank ob-rank${isTop ? ' rank-1' : ''}">${r.rankLabel}</span>`
+      + `<span class="obw-name">${escapeHtml(r.name)}</span>`
+      + `<span class="obw-bar">${splitBarHtml({ locked: r.confirmedTotal, live, max: scale, size: 'sm' })}</span>`
+      + cells
+      + `<span class="obw-live ${live < 0 ? 'neg' : live === 0 ? 'zero' : 'lv'}">${obSignedPts(live)}</span>`
+      + `<span class="obw-total ob-table-proj">${obPts(r.total)}</span>`
+      + `<span class="obw-move">${obMoveHtml(obRankMove(r), false)}</span></div>`;
+  }).join('');
+  return `<section class="obw-table" style="--n:${leagues.length}">${head}${body}</section>`;
+}
+
+// The right-hand column: Activity, or the breakdown / Compare it opened.
+function obWideSideHtml(rows){
+  const row = obDetailId && rows.find(r => r.id === obDetailId);
+  if(row && obCompareId && rows.some(r => r.id === obCompareId)) return `<div class="ob-detail cmp">${compareHtml(rows, obDetailId, obCompareId)}</div>`;
+  if(row) return `<div class="ob-detail">${obDetailHtml(row, { backLabel: 'Activity' })}</div>`;
+  return `<div class="obw-side-head"><h3 class="obw-side-title">Activity</h3></div>${activityPanelHtml()}`;
+}
+
+function obWideHtml(rows){
+  const me = rows.find(r => r.id === obYouId());
+  const history = hasHistory() ? `<section class="obw-history"><h3 class="obw-h">Past seasons</h3>${historyPanelHtml(obYouId())}</section>` : '';
+  return `<div class="obw">
+      ${me ? obWideStatsHtml(rows, me) : ''}
+      <div class="obw-main">
+        <div class="obw-left">${obWideTableHtml(rows)}${PRE_DRAFT ? '' : raceHtml(rows)}${history}</div>
+        <aside class="obw-side" id="obw-side">${obWideSideHtml(rows)}</aside>
+      </div>
+    </div>`;
+}
+
+// When the side column sits under the table (a narrow window), bring it
+// into view once it has the breakdown.
+function obRevealSide(){
+  requestAnimationFrame(() => {
+    const side = document.getElementById('obw-side');
+    if(side && side.getBoundingClientRect().top > window.innerHeight * 0.6) side.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  });
+}
+
 // ---- Re-rank motion ----
 // Before a list re-render, note where every row sits (the table and the
 // hero's ladder separately), its total and its move chip. Afterwards,
@@ -691,7 +792,7 @@ function obGrowBars(bars, firstRow, skip){
 function obPlayGrow(container, rows, prevHeroTotal){
   const elapsed = performance.now() - obGrowStart;
   if(elapsed >= OB_GROW_MS || reducedMotion()) return;
-  obGrowBars(container.querySelectorAll('.ob-split .split-bar, .ob-ladder-row .split-bar'), 0, Math.round(elapsed));
+  obGrowBars(container.querySelectorAll('.ob-split .split-bar, .ob-ladder-row .split-bar, .obw-bar .split-bar'), 0, Math.round(elapsed));
   // History's hero is a past champion's final total, not yours.
   const heroTotal = obSegment === 'history' ? null : container.querySelector('.ob-hero-total');
   const me = rows.find(r => r.id === obYouId());
@@ -748,6 +849,8 @@ function obSheetHtml(rows, row){
 }
 
 export function obOpenSheet(id){
+  // Wide: the breakdown opens in the side column instead.
+  if(isWide()){ obOpenDetail(id); return; }
   const overlay = obSheetOverlay();
   const rows = obRankedRows();
   const row = rows.find(r => r.id === id);
@@ -849,7 +952,9 @@ function obCardHtml(x, scale){
   `;
 }
 
-function obDetailHtml(row){
+// `backLabel`: what Back returns to ("Points" as a page, "Activity" in
+// the wide layout's side column).
+function obDetailHtml(row, { backLabel = 'Points' } = {}){
   const scoringRows = row.leagues.filter(x => x.awards.length > 0)
     .sort((a, b) => b.pts - a.pts || Math.abs(b.confirmed) - Math.abs(a.confirmed));
   const idle = row.leagues.filter(x => x.awards.length === 0);
@@ -872,7 +977,7 @@ function obDetailHtml(row){
 
   return `
     <div class="ob-back-row">
-      ${backLinkHtml({ label: 'Points', onclick: 'obCloseDetail()' })}
+      ${backLinkHtml({ label: backLabel, onclick: 'obCloseDetail()' })}
       <button type="button" class="cmp-btn" onclick="obOpenComparePicker()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h12"></path><path d="M16 3l4 4-4 4"></path><path d="M16 17H4"></path><path d="M8 13l-4 4 4 4"></path></svg>
         Compare
@@ -928,11 +1033,15 @@ export function obSetSegment(key){
 }
 window.obSetSegment = obSetSegment;
 
-export function obOpenDetail(id, opts){
+// `leagueKey` opens the breakdown with that league's card unfolded (the
+// wide leaderboard's league cells).
+export function obOpenDetail(id, opts, leagueKey = null){
   obDetailId = id;
-  obOpenLeagueKey = null;
+  obOpenLeagueKey = leagueKey;
   obCompareId = null;
-  window.scrollTo(0, 0);
+  // Wide, it's the side column that changes, not the page.
+  if(isWide()) obRevealSide();
+  else window.scrollTo(0, 0);
   renderOverallStandings(opts);
   // "On the line" reads every table this drafter's teams sit in,
   // division ones too, which nothing else on Points loads.
@@ -941,6 +1050,7 @@ export function obOpenDetail(id, opts){
   });
 }
 window.obOpenDetail = obOpenDetail;
+window.obOpenLeague = (id, key) => obOpenDetail(id, null, key);
 
 export function obCloseDetail(){
   obDetailId = null;
@@ -1009,14 +1119,14 @@ export function obPickOpponent(id){
   const fromCompare = !!obCompareId;
   obCloseComparePicker();
   obCompareId = id;
-  if(!fromCompare) window.scrollTo(0, 0);
-  renderOverallStandings({ push: !fromCompare });
+  if(!fromCompare && !isWide()) window.scrollTo(0, 0);
+  renderOverallStandings({ push: !fromCompare && !isWide() });
 }
 window.obPickOpponent = obPickOpponent;
 
 export function obCloseCompare(){
   obCompareId = null;
-  window.scrollTo(0, 0);
+  if(!isWide()) window.scrollTo(0, 0);
   renderOverallStandings();
 }
 window.obCloseCompare = obCloseCompare;
@@ -1038,6 +1148,28 @@ function obPrimeBonus(){
   });
 }
 
+// Wide: the whole page each time (the side column's breakdown, Compare
+// or Activity included); rows that moved glide as on the phone.
+let obHistoryAsked = false;
+function obRenderWide(container, rows, simBanner, growNow, push){
+  if(obDetailId && !rows.some(r => r.id === obDetailId)){ obDetailId = null; obCompareId = null; }
+  if(!obDetailId) obCompareId = null;
+  // Activity is always on screen here, which marks it seen.
+  if(unseenCount() > 0) markActivitySeen(true);
+  if(hasHistory() && !obHistoryAsked){ obHistoryAsked = true; loadHistory(); }
+  const surface = `wide:${obMode}`;
+  const before = !growNow && !push && container.dataset.obSurface === surface ? obSnapshot(container) : null;
+  container.innerHTML = simBanner + obWideHtml(rows);
+  container.dataset.obSurface = surface;
+  raceMount(container, rows);
+  if(obDetailId) setupCompareSticky();
+  if(obCompareId) fillSameRace(rows, obDetailId, obCompareId);
+  if(growNow) obGrowStart = performance.now();
+  obPlayGrow(container, rows, null);
+  if(before) obPlayFlip(container, before, rows);
+  if(obSheetId) obCloseSheet();
+}
+
 const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; set Points Tab Data to Real in Settings for live standings.</div>`;
 
 export function renderOverallStandings(opts){
@@ -1053,6 +1185,11 @@ export function renderOverallStandings(opts){
   obPrimeBonus();
   // Every surface below replaces the Race chart's DOM (if it was up).
   raceUnmount();
+
+  if(isWide()){
+    obRenderWide(container, rows, simBanner, growNow, push);
+    return;
+  }
 
   if(obDetailId){
     const row = rows.find(r => r.id === obDetailId);

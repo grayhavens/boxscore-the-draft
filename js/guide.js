@@ -46,6 +46,7 @@ const GUIDE = [
     points: [
       'Tap any team, here or anywhere else in the app, for its page: recent form, schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division. Tap it to open the full list.',
       'On one of your teams’ pages, swipe sideways anywhere to go to your next team, or tap the dots under its name.',
+      'On an iPad in landscape or a computer, your teams stay in a rail down the left, each page shows everything at once (season stats, schedule, game by game, On the line, results and news), Standings shows full tables with both conferences side by side, and chat sits beside the page: a column you can collapse on a wide screen, or a panel from the Chat button. In the rail, ↑ and ↓ move between your teams.',
       'Star a team on its page to keep it on your board even if someone else drafted it.',
       'Tap a drafter on Points to see their board.',
       'Back after 8 hours or more, Since last time sums up what happened while you were away: where you stand, points that locked, playoff games and upsets, and how you did against each drafter. Swipe the cards away or tap Clear all. A quiet stretch just gets the updates button next to Home.'
@@ -66,6 +67,7 @@ const GUIDE = [
       'Use the arrows to look back at results or ahead at the schedule.',
       'A game that just ended stays under Live for two minutes, with a W for the winner.',
       'Narrow it to drafted teams or your favorites.',
+      'On an iPad in landscape or a computer, the whole day shows at once (Live, Upcoming and Final), and a week strip with each day’s game count replaces the arrows.',
       'Tap a game for its details and highlights.'
     ],
     pre: {
@@ -83,6 +85,7 @@ const GUIDE = [
     id: 'standings', icon: 'standings', title: 'Standings',
     lead: 'The real tables for all 8 leagues, with every team tagged by who drafted it.',
     points: [
+      'All shows each league’s top five plus where your teams sit; tap Full table for the whole thing.',
       'Switch between League (the real table) and Drafted (each drafter’s teams together).',
       'Once the NFL playoffs, the CFP, the NCAA Tournament or the MLB postseason are set, Home keeps a card up (once your group has drafted) for the whole postseason with the current round and how many of your teams are still alive, and their card gets a Postseason view: every playoff team climbing a ladder to the title (for the NCAA Tournament, just the drafted ones). Drag the slider to replay the rounds, and tap a drafter to spotlight their teams.',
       'While MLB is still showing last season, its postseason gets the ladder too, with who drafted each team, but it doesn’t count for points.',
@@ -105,7 +108,8 @@ const GUIDE = [
       'Each league also pays +5 to the drafter whose teams have the best combined record.',
       'Live points can still change until a league’s season ends. Locked points are final.',
       'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
-      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.'
+      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.',
+      'On an iPad in landscape or a computer, the table has a column for every league (tap one to see where those points came from), Activity sits beside it and Race below; a drafter’s breakdown opens in place of Activity.'
     ],
     go: ['Go to Points', "switchView('overall')"]
   },

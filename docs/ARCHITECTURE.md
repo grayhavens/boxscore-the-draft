@@ -33,7 +33,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 ## Modules (static site, `js/`)
 
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
-  `motion.js`, `launch-splash.js`, `page-header.js`, `sw.js` (root).
+  `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
   `pga.js`, `index.js`), `groups.js` (group registry, shared with worker), `sports.js`.
 - **Data fetch:** `espn.js` (ESPN), `api.js` (worker calls, TTL caches), `live-data.js` (team strips, Game Details,
@@ -44,7 +44,8 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   `guide.js`, `admin.js` (Commissioner), `draft.js` (+ `draft-*.js`), `since.js`, `golf-view.js`.
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
-  `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`.
+  `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
+  `standings-cols.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
@@ -458,6 +459,60 @@ leagues and table points for EPL/NHL. It reads the same ranked tables the rules 
 `js/league-facts.js`), so it always agrees with Live points. The team page's Path to points (`teamPathToPoints`) puts each
 rule's line under it, and a drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
 ignore tiebreakers. Only for a league whose season is under way and not locked.
+
+**Wide layout** (900px and up: iPad landscape and desktop; `js/wide.js`, `js/wide-query.js`, css/style.css "Wide
+layout", `docs/desktop-redesign-brief.md`): the same page and views, rearranged; under 900px (phones, iPad Split View,
+iPad mini portrait) nothing changes. The bottom tab bar becomes a 68px top header (group name left, Settings right; each
+view's own logo and Settings button hide). A fixed 96px team rail (`#wide-rail`) lists the displayed drafter's teams by
+league (`setRailDrafter`, called from `renderBoard`, so a peek shows theirs) under "All teams" (Home); the open team
+page's team is selected with a gold bar, a team with a game on gets a red dot (repainted every 30s), and ↑/↓ inside the
+rail moves to the next item and opens it. Chat is the same `#view-chat` beside the page instead of a tab: a 340px column
+from 1280px that collapses to a 52px strip (remembered per device, `bx-chat-collapsed`), and a 380px slide-over with a
+scrim from 900–1279px (the Chat nav item, Esc or the scrim close it). `setChatActive(active, { beside })` keeps it
+connected and marking messages seen while it shows; a `?view=chat` link at these widths lands on Home with chat beside
+it. Tab switches crossfade instead of sliding. The layout's sizes are tokens (`--rail-w`, `--wide-head-h`, `--chat-w`,
+`--chat-over-w`). The team page lays out on its own at these widths (`renderWideTeamPage`): a hero band (crest on the
+team-color orb and glow, standing, name, owner; the live, next or last game as a match card with the opponent's owner;
+the "Your points" card linking to Points; the star), then two columns: Season (record, standing, two key stats, then
+home/away and scoring splits) and Schedule; Game by game (the season's margins as bars, last 20, capped per league,
+`js/team-wide-math.js`; it stands in for a Last 5 strip), Key players (team leaders where the league has player stats;
+otherwise a Full squad link) and On the line (every scoring rule from `teamPathToPoints` with its state and line note;
+rules out of play hide behind "Show all N rules", remembered per device as `bx-otl-all`), then Results and News. It fetches everything the phone page's tabs fetch, at
+once; no swipe, compact bar or row transition. A team with no regular-season games yet gets the reduced page (the band, a
+note and the schedule). Crossing 900px (an iPad rotating) rebuilds an open team page in the other layout. Home's league
+cards fit as many 300px columns as there's room for. Standings: League-view rows become table rows with real stat
+columns from the ESPN rows already loaded (`js/standings-cols.js`: W/D/L, GF/GA/GD and PTS for the EPL; W/L/T, PCT,
+PF/PA, DIFF and streak for the NFL; PCT, GB and streak for NBA/WNBA/MLB; OTL and PTS for the NHL) under a header row,
+with "Drafted by" as its own column; the cells and header are always in the markup and hidden under 900px. A league
+picked on its own renders through `wideLeagueBlockHtml` (the phone's per-league blocks and toggles are untouched, and
+share its state): no League | Drafted toggle, the real table and a Drafted panel (the phone's Drafted rows, headed with
+the league's +5 bonus) show together, the panel beside a single table (EPL, WNBA, and the AP Top 25 for CFB and CBB)
+or under the NFL/NBA/NHL/MLB's two conference tables (`confPairHtml`, side by side) with its rows in two columns.
+Divisions | Conference is a small pill in the card's header (`widePillHtml`, the postseason switch's pill style). A narrow
+table (container query) drops columns marked to give way (`narrow` under 640px, `tiny` under 480px), and every
+Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in CSS
+columns at wide widths), its
+top 5 (conference leagues ranked together, `leagueLeaders`) plus the displayed drafter's teams further down after a
+dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view keeps its ladder
+card. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
+Upcoming / Completed filter; the day shows as Live, Upcoming and Final groups at once (each hidden when empty; a game
+that just ended stays under Live for its two minutes), each league's games a grid of cards (the phone's card markup
+restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little
+larger), and a Monday-to-Sunday week strip replaces the ‹ › arrows (its ‹ › move a week; "Today" appears when today is
+off the strip). Each day's count follows the scope chip; the counts come from the same per-day scoreboards, filled a
+day at a time after the slate on screen paints (`fillWeekCounts`, kept in `daySlates` for 15 minutes). Crossing 900px
+re-renders Scores too. Points (`obWideHtml` in `js/overall.js`): no
+segments and no hero card. A strip of your numbers (rank and move, projected, locked, live, the gap to first (or your
+lead), the scoring rules button); the leaderboard with a column per scoring league from each row's
+`leagues` (a cell is that drafter's points there under a neutral `--heat` tint, red when negative; tapping a cell opens
+the breakdown with that league unfolded, `obOpenLeague`), a locked/live bar, Live, Total and the rank move; the Race
+chart full width under it (drawing no table of its own there) and History ("Past seasons") under that. Activity sits in
+a sticky column on the right; a row tap opens that drafter's breakdown in the column instead of the sheet and push
+(`obOpenSheet` and `obOpenDetail` branch on `isWide()`, Back reads "Activity"), and Compare opens there too. Under about
+1000px of content the column drops under the table. Rows that moved glide as on the phone. Crossing 900px re-renders
+Points. Team color
+appears only in crests and the hero's orb and glow; the glow falls back to the second color only for near-black teams
+(luminance under 0.04, `glowColor`).
 
 **Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): where every team tap in the app goes (there's no team peek
 modal; a golfer opens the golfer sheet). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
