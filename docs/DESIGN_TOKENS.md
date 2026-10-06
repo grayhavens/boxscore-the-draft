@@ -24,6 +24,7 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
 | `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | fill gold 20% / 55% / 26% (warm, like Send) | tints |
+| `--ps-hero-bg` / `--ps-hero-flare` | gold glow from the top of the playoffs reveal strip / the brighter light it opens with | same, in fill gold | reveal strip, Home's postseason card |
 | `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4A6FB8` | **live points that can change** |
 | `--live` (+`-soft`, `-border`) | `#E5484D` | same | **game in progress** |
 | `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#2E8A5C` / `#C2453B` / `#8A7430` | results |
@@ -70,6 +71,8 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
   text gold and is a darker, readable gold in light. The postseason stepper, toggle, rings and champion dot follow this.
 - Postseason ladder, eliminated chip: `--ps-out-opacity` / `--ps-out-filter` (0.4 grayscale in dark; 0.7, slightly darker
   grayscale in light, where 0.4 vanishes on white).
+- Landing helpers in `js/ui.js` not in the design system yet: `tourStepsHtml` (scroll-tour progress segments), `spotsMeterHtml`
+  (a group's roster as bars) and `sportPicksHtml` (sports as chips with picks per drafter).
 - Blur only on the tab bar and sheet overlay.
 
 ## Motion

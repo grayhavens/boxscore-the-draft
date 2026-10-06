@@ -42,6 +42,7 @@ import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { normalizeTeamName, teamBadgeHtml, abbrFromName, segmentedControlHtml, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
+import { standingsColsHtml } from './standings-cols.js';
 
 import { isFreshAt } from './cache-fresh.js';
 export function findFlatTeamKey(leagueKey, realName){
@@ -304,8 +305,9 @@ export function createFlatStandingsBoard(opts){
     const { primary, secondary } = combinedLabel(row);
     const recordHtml = `<span class="person-record-primary">${primary}</span>${secondary ? `<span class="person-record-secondary">${secondary}</span>` : ''}`;
 
+    // The wide layout's stat columns (js/standings-cols.js), hidden on phones.
     return `
-      <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
+      <div class="standings-row st-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
         <div class="standings-rank">${rank}</div>
         ${teamBadgeHtml(meta)}
         <div class="team-main">
@@ -313,6 +315,7 @@ export function createFlatStandingsBoard(opts){
           ${ownerHtml}
         </div>
         <div class="person-record-chip">${recordHtml}</div>
+        ${standingsColsHtml(leagueKey, row)}
       </div>
     `;
   }

@@ -28,10 +28,19 @@
    and simply absent from this view entirely before that. Its
    draftedTeamFor match goes by ESPN team id, not name — see that
    function's own comment for why.
+
+   Wide layout (900px and up, js/wide.js): no Live / Upcoming / Completed
+   filter — the day shows as three groups at once (Live, Upcoming, Final,
+   each hidden when empty), every league's games a grid of cards
+   (css/style.css "Scores, wide" restyles the same card markup), and a
+   week strip with each day's game count replaces the ‹ › arrows. The
+   counts come from the same per-day scoreboards (collectDay), fetched a
+   day at a time after the slate on screen has painted. The phone keeps
+   the timeline, the filter and the arrows.
    ============================================================ */
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
-import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached } from './live-data.js';
+import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached, syncScoresDetail } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
@@ -41,6 +50,7 @@ import { gameCardHtml, gameSectionHtml, tagHtml, scoreBumpHtml } from './ui.js';
 import { fxOn, playClass, pop, floatUp } from './motion-fx.js';
 
 import { isFreshAt } from './cache-fresh.js';
+import { isWide } from './wide-query.js';
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
 // re-pick and stale the moment the slate changes). `dayOffset` is in
@@ -299,7 +309,7 @@ function timeLabel(date){
 // "Final" twice, once here and once in the card).
 function railParts(game){
   const detail = esc(game.detail);
-  if(game.state === 'live') return { time: 'LIVE', sub: detail.replace(/\s+-\s+/, '<br>'), timeTone: 'live' };
+  if(game.state === 'live') return { time: 'LIVE', sub: detail.replace(/\s+-\s+/, isWide() ? ' · ' : '<br>'), timeTone: 'live' };
   if(game.state === 'final') return { time: detail.replace('Final', 'F') };
   if(game.postponed) return { time: 'PPD' };
   if(game.timeTbd) return { time: 'TBD', timeTone: 'pre' };
@@ -415,8 +425,17 @@ export function resetTodayDay(){
   scopeFilter.fav = false;
 }
 
+// The wide layout's week strip: straight to a day.
+export function pickTodayDay(offset){
+  if(offset === dayOffset) return;
+  dayOffset = offset;
+  scoresPrimed = false;
+  renderLiveNow();
+}
+
 window.setTodayFilter = setTodayFilter;
 window.stepTodayDay = stepTodayDay;
+window.pickTodayDay = pickTodayDay;
 
 // ---- Team scope sheet ("Show which teams?") ----
 
@@ -508,6 +527,83 @@ function controlsHtml(liveCount){
   `;
 }
 
+// ---- Wide layout: the week strip and the day's three groups ----
+
+// Each day's games (every scope), kept so the strip's counts follow the
+// scope filter without refetching. Filled by renderLiveNow for the day on
+// screen and by fillWeekCounts for the rest of the week.
+const daySlates = new Map(); // offset -> { at, games }
+const SLATE_TTL_MS = 15 * 60 * 1000;
+
+function slateGames(byLeague, offset){
+  const games = [];
+  LEAGUES.forEach(l => { if(byLeague[l.key]) games.push(...byLeague[l.key].map(g => ({ ...g, league: l, day: offset }))); });
+  return games;
+}
+
+// Monday to Sunday around the day on screen, as day offsets from today.
+function weekOffsets(){
+  const dow = dateForOffset(dayOffset).getDay();     // 0 = Sunday
+  const monday = dayOffset - ((dow + 6) % 7);
+  return Array.from({ length: 7 }, (_, i) => monday + i);
+}
+
+function weekStripHtml(){
+  const days = weekOffsets().map(off => {
+    const d = dateForOffset(off);
+    const slate = daySlates.get(off);
+    const n = slate ? slate.games.filter(gameMatchesScope).length : null;
+    const live = slate && off === 0 && slate.games.some(g => g.state === 'live' && gameMatchesScope(g));
+    const count = n === null ? '&nbsp;' : n ? `${n} game${n === 1 ? '' : 's'}` : 'No games';
+    return `<button type="button" class="tg-wd${off === dayOffset ? ' sel' : ''}${off === 0 ? ' today' : ''}${n === 0 ? ' none' : ''}" onclick="pickTodayDay(${off})"${off === dayOffset ? ' aria-current="date"' : ''}>`
+      + `<span class="tg-wd-name">${off === 0 ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}</span>`
+      + `<span class="tg-wd-date">${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`
+      + `<span class="tg-wd-count">${live ? '<i class="tg-wd-live"></i>' : ''}${count}</span></button>`;
+  }).join('');
+  const back = weekOffsets().includes(0) ? '' : `<button type="button" class="tg-week-today" onclick="pickTodayDay(0)">Today</button>`;
+  return `<div class="tg-week">`
+    + `<button type="button" class="tg-arrow" onclick="stepTodayDay(-7)" aria-label="Previous week">&lsaquo;</button>`
+    + `<div class="tg-week-days">${days}</div>`
+    + `<button type="button" class="tg-arrow" onclick="stepTodayDay(7)" aria-label="Next week">&rsaquo;</button>${back}</div>`;
+}
+
+// The rest of the week's counts, one day at a time once the slate on
+// screen has painted. Each day's scoreboards are cached (fetchDayScoreboard),
+// so walking the strip afterwards costs nothing.
+let weekFillToken = 0;
+async function fillWeekCounts(){
+  const token = ++weekFillToken;
+  for(const off of weekOffsets()){
+    const slate = daySlates.get(off);
+    if(slate && isFreshAt(slate.at, SLATE_TTL_MS)) continue;
+    const byLeague = await collectDay(off).catch(() => null);
+    if(token !== weekFillToken) return;
+    if(byLeague) daySlates.set(off, { at: Date.now(), games: slateGames(byLeague, off) });
+    if(isWide()) writeHtml(document.getElementById('live-now-controls'), weekStripHtml());
+  }
+}
+
+const GROUPS = [['live', 'Live'], ['upcoming', 'Upcoming'], ['final', 'Final']];
+
+// The day as Live / Upcoming / Final, each a run of league sections. A
+// game that just ended stays under Live for a moment, as on the phone.
+function groupsHtml(games, onLiveTab){
+  const inGroup = {
+    live: onLiveTab,
+    upcoming: g => g.state === 'pre',
+    final: g => g.state === 'final' && !onLiveTab(g)
+  };
+  return GROUPS.map(([key, label]) => {
+    const list = games.filter(inGroup[key]);
+    if(!list.length) return '';
+    const sections = LEAGUES.map(league => {
+      const lg = list.filter(g => g.league.key === league.key);
+      return lg.length ? sectionHtml(league.label, lg) : '';
+    }).join('');
+    return `<section class="tg-group ${key}"><h2 class="tg-group-head">${key === 'live' ? '<i class="tg-group-dot"></i>' : ''}${label}<span class="tg-group-n">${list.length}</span></h2>${sections}</section>`;
+  }).join('');
+}
+
 const EMPTY_COPY = {
   live: ['Nothing live', 'No game is in progress right now. Check Upcoming or Completed, or use the arrows to change day.'],
   upcoming: ['Nothing upcoming', 'No games left to start on this date. Use the arrows to find the next slate.'],
@@ -517,7 +613,7 @@ const EMPTY_COPY = {
 function emptyHtml(hasGames){
   const [title, sub] = hasGames
     ? EMPTY_COPY[filterKey]
-    : ['Nothing scheduled', `No ${PRE_DRAFT ? '' : 'drafted '}team plays on this date. Use the arrows to find the next slate.`];
+    : ['Nothing scheduled', `No ${PRE_DRAFT ? '' : 'drafted '}team plays on this date. ${isWide() ? 'Pick another day above.' : 'Use the arrows to find the next slate.'}`];
   return `
     <div class="empty-panel">
       <div class="tg-empty-ring"></div>
@@ -558,8 +654,9 @@ export async function renderLiveNow(){
   const byLeague = await collectDay(offsetAtStart);
   if(token !== renderToken) return;
 
-  const all = [];
-  LEAGUES.forEach(l => { if(byLeague[l.key]) all.push(...byLeague[l.key].map(g => ({ ...g, league: l, day: offsetAtStart }))); });
+  const all = slateGames(byLeague, offsetAtStart);
+  daySlates.set(offsetAtStart, { at: Date.now(), games: all });
+  const wide = isWide();
   // Everything downstream (the count line, the Live badge, the list
   // itself) works off the scope-filtered set, not the full day's slate
   // \u2014 so picking "Drafted" actually narrows what "3 live" means too,
@@ -589,8 +686,20 @@ export async function renderLiveNow(){
       ? `${leagueCount} league${leagueCount === 1 ? '' : 's'} · ${inScope.length} game${inScope.length === 1 ? '' : 's'}`
       : 'No games in this scope';
   }
-  writeHtml(controlsEl, controlsHtml(liveCount));
+  writeHtml(controlsEl, wide ? weekStripHtml() : controlsHtml(liveCount));
   refreshTodayScopeChrome();
+
+  // Wide: every group at once, then the rest of the week's counts.
+  if(wide){
+    const changed = inScope.length
+      ? writeHtml(listEl, groupsHtml(inScope, onLiveTab))
+      : writeHtml(listEl, emptyHtml(false));
+    scoresPrimed = true;
+    if(changed) playScoreEffects(listEl, inScope.filter(g => endedNow.has(`${g.day}:${g.id}`)));
+    syncScoresDetail();
+    fillWeekCounts();
+    return;
+  }
 
   let shown = inScope;
   if(filterKey === 'live') shown = shown.filter(onLiveTab);

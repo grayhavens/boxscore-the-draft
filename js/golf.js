@@ -50,6 +50,16 @@ export function golferHeadshotUrl(athleteId){
 
 const TOUR_CHAMPIONSHIP = /^tour championship$/i;
 
+// The PGA Tour logo off a scoreboard, one per theme (the shape the
+// postseason cards take, js/postseason.js logoImgsHtml), or null.
+export function parseLeagueLogo(scoreboard){
+  const league = scoreboard && Array.isArray(scoreboard.leagues) && scoreboard.leagues[0];
+  const logos = league && Array.isArray(league.logos) ? league.logos : [];
+  const of = rel => { const l = logos.find(x => x && Array.isArray(x.rel) && x.rel.includes(rel)); return l ? l.href : null; };
+  const light = of('default') || (logos[0] && logos[0].href) || null;
+  return light ? { light, dark: of('dark') || light } : null;
+}
+
 // The season's events, in date order.
 export function parseCalendar(scoreboard){
   const league = scoreboard && Array.isArray(scoreboard.leagues) && scoreboard.leagues[0];
@@ -160,6 +170,7 @@ export function condenseLeaderboard(leaderboard){
     start: event.date || null,
     end: event.endDate || null,
     major: !!(event.tournament && event.tournament.major),
+    primary: event.primary !== false,
     tourChampionship: isTourChampionship(event.name),
     team: competitorsOf(event).some(c => !c.athlete && Array.isArray(c.roster)),
     status: statusOf(event),
@@ -211,6 +222,7 @@ export function parseLeaderboard(leaderboard){
     round: typeof period === 'number' ? period : null,
     rounds: t.numberOfRounds || 4,
     major: !!t.major,
+    primary: event.primary !== false,
     cutRound: t.cutRound || 0,
     purse: event.displayPurse || null,
     players
@@ -254,30 +266,148 @@ export function fedexTable(events){
   return rows;
 }
 
-// How many times a golfer hit each `golfAuto` rule (js/seasons/pga.js)
-// over the finished events. Finish tiers don't stack except as the plan
-// says (docs/golf-plan.md): a major win is only a major win (+5, not
-// also a tournament win or a top 10); a top 10 is not also a top 20. A withdrawal or DQ isn't a
-// missed cut, and an event the golfer didn't start counts for nothing.
+// Which `golfAuto` awards one finish earns (js/seasons/pga.js). Finish
+// tiers don't stack except as the plan says (docs/golf-plan.md): a major
+// win is only a major win (+5, not also a tournament win or a top 10); a
+// top 10 is not also a top 20. A withdrawal or DQ isn't a missed cut, and
+// an event the golfer didn't start counts for nothing.
+export function finishAwards({ finish, major = false, tourChampionship = false }){
+  if(isMissedCut(finish)) return [major ? 'majorMissedCut' : 'missedCut'];
+  const pos = finishPosition(finish);
+  if(pos === null) return [];
+  const out = [];
+  if(tourChampionship){ out.push('tourChampionship'); if(pos === 1) out.push('fedexCup'); }
+  // A major win scores the major's +5 instead of the normal win's +2,
+  // and the top 10 / top 20 tiers are for everyone else.
+  if(pos === 1) out.push(major ? 'majorWin' : 'win');
+  else if(major){
+    if(pos <= 10) out.push('majorTop10');
+    else if(pos <= 20) out.push('majorTop20');
+  }
+  return out;
+}
+
+// How many times a golfer hit each `golfAuto` rule over the finished
+// events (finishAwards above).
 export function golferAwardCounts(events, athleteId){
   const n = { win: 0, majorWin: 0, majorTop10: 0, majorTop20: 0, majorMissedCut: 0, missedCut: 0, tourChampionship: 0, fedexCup: 0 };
-  golferResults(events.filter(e => e.status !== 'canceled' && e.status !== 'pre' && e.status !== 'in'), athleteId).forEach(r => {
-    const pos = finishPosition(r.finish);
-    if(isMissedCut(r.finish)){ n[r.major ? 'majorMissedCut' : 'missedCut']++; return; }
-    if(pos === null) return;
-    if(r.tourChampionship){ n.tourChampionship++; if(pos === 1) n.fedexCup++; }
-    // A major win scores the major's +5 instead of the normal win's +2,
-    // and the top 10 / top 20 tiers are for everyone else.
-    if(pos === 1) n[r.major ? 'majorWin' : 'win']++;
-    else if(r.major){
-      if(pos <= 10) n.majorTop10++;
-      else if(pos <= 20) n.majorTop20++;
-    }
-  });
+  golferResults(events.filter(e => e.status !== 'canceled' && e.status !== 'pre' && e.status !== 'in'), athleteId)
+    .forEach(r => finishAwards(r).forEach(a => { n[a]++; }));
   return n;
 }
 
 // Whether the TOUR Championship has been played: the season is over.
 export function fedexSeasonDone(events){
   return events.some(e => e.tourChampionship && e.status === 'post');
+}
+
+// ---- Majors on Home (docs/golf-majors-plan.md) ----
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const MAJOR_WEEK_AFTER_DAYS = 7;
+
+// A week can list more than one event: an opposite-field event is played
+// beside The Open, and ESPN's scoreboard says nothing about which is which.
+// Each leaderboard does (`major`, and `primary`: false for the
+// opposite-field event), so `flags` is { eventId: { major, primary } }
+// for the ones looked at. The major wins, then the week's main event, then
+// ESPN's first.
+export function pickWeekEvent(events, flags = {}){
+  if(!Array.isArray(events) || !events.length) return null;
+  const f = id => flags[id] || {};
+  return events.find(e => f(e.id).major)
+    || events.find(e => f(e.id).primary === true)
+    || events.find(e => f(e.id).primary !== false)
+    || events[0];
+}
+
+// The events whose leaderboard has to be read before pickWeekEvent can
+// be sure: none in a one-event week.
+export function weekEventsToCheck(events, flags = {}){
+  return Array.isArray(events) && events.length > 1 ? events.filter(e => !flags[e.id]).map(e => e.id) : [];
+}
+
+// When a major's Home card shows: from the Monday of its week (start is
+// Thursday midnight Eastern, 04:00Z) until a week after its last day.
+export function majorWindow(start, end){
+  const s = Date.parse(start), e = Date.parse(end);
+  if(Number.isNaN(s) || Number.isNaN(e)) return null;
+  const back = (new Date(s).getUTCDay() + 6) % 7;
+  return { from: s - back * DAY_MS, to: e + (1 + MAJOR_WEEK_AFTER_DAYS) * DAY_MS };
+}
+
+// The major to show on Home, or null. During its week that's the live
+// leaderboard (`current`: golfStore.current in js/golf-view.js, the event
+// and its parsed leaderboard); the week after, the scoreboard has moved
+// on, so it's the finished major from the condensed season (`events`).
+// One shape either way: `finishes` is { athleteId: finish label };
+// `toPar` and `names` only from a live leaderboard (the season's golfer
+// list names the rest).
+export function activeMajor({ current = null, events = [], now = Date.now() } = {}){
+  const board = current && current.board;
+  if(board && board.major){
+    const w = majorWindow(board.start || current.event.start, board.end || current.event.end);
+    if(board.status === 'in' || (w && now >= w.from && now < w.to)) return majorFromBoard(board);
+  }
+  const done = (events || [])
+    .filter(e => e.major && e.status === 'post' && e.results)
+    .filter(e => { const w = majorWindow(e.start, e.end); return w && now >= w.from && now < w.to; })
+    .sort((a, b) => String(b.end).localeCompare(String(a.end)))[0];
+  return done ? majorFromCondensed(done) : null;
+}
+
+// A leaderboard (parseLeaderboard) as activeMajor's shape, whether or not
+// it's a major (the leaderboard sheet pins a drafter's golfers with it).
+export function majorFromBoard(board){
+  const finishes = {}, toPar = {}, names = {};
+  board.players.forEach(p => { finishes[p.id] = p.finish; toPar[p.id] = p.toPar; names[p.id] = p.name; });
+  const cutDone = board.status === 'post' || (board.cutRound > 0 && board.round > board.cutRound)
+    || board.players.some(p => isMissedCut(p.finish));
+  return {
+    id: board.id, name: board.name, start: board.start, end: board.end,
+    status: board.status, round: board.round, rounds: board.rounds, cutDone, finishes, toPar, names
+  };
+}
+
+function majorFromCondensed(e){
+  const finishes = {};
+  Object.entries(e.results).forEach(([id, r]) => { finishes[id] = r[0]; });
+  return {
+    id: e.id, name: e.name, start: e.start, end: e.end,
+    status: 'post', round: null, rounds: null, cutDone: true, finishes, toPar: null, names: {}
+  };
+}
+
+// What a finish in a major is worth under a group's PGA rules (its
+// LEAGUE_SCORING, so a group's own numbers apply). While it's being
+// played that's the current place: points in play, not locked.
+export function majorPoints(finish, rules){
+  const awards = finishAwards({ finish, major: true });
+  return (rules || []).reduce((sum, r) => sum + (r.golfAuto && awards.includes(r.golfAuto.each) ? r.pts : 0), 0);
+}
+
+// Out of the tournament: missed the cut, withdrew or was disqualified.
+export function isOut(finish){
+  return /^(CUT|WD|DQ|MDF)$/.test(String(finish || ''));
+}
+
+// A set of golfers (a drafter's) in a major: those in the field, best
+// place first, each with their points, and the total.
+export function majorGolfers(major, athleteIds, rules){
+  const rows = (athleteIds || [])
+    .map(String)
+    .filter(id => major.finishes[id] !== undefined)
+    .map(id => {
+      const finish = major.finishes[id];
+      return { id, finish, pts: majorPoints(finish, rules), playing: major.status !== 'post' && !isOut(finish) };
+    })
+    .sort((a, b) => (finishPosition(a.finish) ?? 1e9) - (finishPosition(b.finish) ?? 1e9) || Number(b.playing) - Number(a.playing));
+  return { rows, total: rows.reduce((s, r) => s + r.pts, 0), playing: rows.filter(r => r.playing).length };
+}
+
+// Who's leading (or won): every golfer in first place, and their score
+// to par when the live leaderboard has it.
+export function majorLeaders(major){
+  const ids = Object.keys(major.finishes).filter(id => finishPosition(major.finishes[id]) === 1);
+  return { ids, toPar: ids.length && major.toPar ? major.toPar[ids[0]] || null : null };
 }

@@ -13,7 +13,7 @@ import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './worker-base.js';
 import { fetchJSON } from './utils.js';
 import {
   golfScoreboardUrl, golfLeaderboardUrl, golferRecordUrl,
-  parseLeaderboard, parseGolferRecord
+  parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar
 } from './golf.js';
 
 const SEASON_TTL_MS = 10 * 60 * 1000;      // matches the worker's edge cache
@@ -41,12 +41,35 @@ export function fetchGolfSeason(season){
   return cached(`season:${season}`, SEASON_TTL_MS, () => fetchJSON(`${chatWorkerBase()}/golf/season/${season}`));
 }
 
-// The event being played now, or the next one: ESPN's scoreboard picks it.
+// Whether each event looked at is a major, and the week's main event:
+// { eventId: { major, primary } }. Fixed for an event, so kept for the
+// session.
+const weekFlags = {};
+
+// The event being played now, or the next one: ESPN's scoreboard picks
+// the week. A week with more than one event (an opposite-field event
+// beside The Open) lists them in no useful order, so each one's
+// leaderboard is read once to find the major, or the main event
+// (pickWeekEvent, js/golf.js). `logo` is the PGA Tour's, per theme.
 export function fetchCurrentGolfEvent(){
   return cached('current', LEADERBOARD_TTL_MS, async () => {
     const data = await fetchJSON(golfScoreboardUrl());
-    const event = data && Array.isArray(data.events) ? data.events[0] : null;
-    return event ? { id: String(event.id), name: event.name, start: event.date || null, end: event.endDate || null } : null;
+    const events = (data && Array.isArray(data.events) ? data.events : [])
+      .map(e => ({ id: String(e.id), name: e.name, start: e.date || null, end: e.endDate || null }));
+    await Promise.all(weekEventsToCheck(events, weekFlags).map(id => fetchGolfLeaderboard(id).then(b => {
+      if(b) weekFlags[id] = { major: b.major, primary: b.primary };
+    })));
+    const event = pickWeekEvent(events, weekFlags);
+    return event ? { ...event, logo: parseLeagueLogo(data) } : null;
+  });
+}
+
+// A season's schedule, straight from ESPN (the major replay on Home,
+// js/golf-view.js).
+export function fetchGolfCalendar(season){
+  return cached(`calendar:${season}`, SEASON_TTL_MS, async () => {
+    const data = await fetchJSON(golfScoreboardUrl(season));
+    return data ? parseCalendar(data) : null;
   });
 }
 

@@ -7,11 +7,14 @@
    rendered HTML.
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, CHECK_ICON_SVG } from './utils.js';
+import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, CHECK_ICON_SVG, standingsOwnerHtml, findCfbTeamKeyByLocation, segmentedControlHtml } from './utils.js';
+import { escapeHtml } from './escape.js';
+import { standingsHeadHtml, leagueLeaders, overviewRows } from './standings-cols.js';
+import { findFlatTeamKey } from './standings-flat.js';
 import {
   eplStandingsCache, eplStandingsMode, computeEplDrafterCombined, renderEplByDrafterRow,
   renderStandingsRow, eplStandingsToggleHtml, fetchEplStandingsTable, loadEplStandingsCache,
-  renderAllEplCardRecords
+  renderAllEplCardRecords, findEplTeamKeyByEspnName
 } from './standings-epl.js';
 import {
   cfbStandingsMode, computeCfbDrafterCombined, renderCfbByDrafterRow,
@@ -24,7 +27,8 @@ import {
   nflStandingsMode, nflConferenceSubMode, computeNflDrafterCombined, renderNflByDrafterRow,
   computeNflDivisionStandings, computeNflConferenceStandings, renderNflStandingsRow, renderNflGroupHeader,
   nflStandingsToggleHtml, renderAllNflCardRecords, espnNflStandingsCache, fetchEspnNflStandingsCached,
-  loadEspnNflStandingsCache, espnNflDivisionCache, fetchEspnNflDivisionStandingsCached, loadEspnNflDivisionCache
+  loadEspnNflStandingsCache, espnNflDivisionCache, fetchEspnNflDivisionStandingsCached, loadEspnNflDivisionCache,
+  findNflTeamKeyByEspnAbbr
 } from './standings-nfl.js';
 import { loadNflverseCaches } from './nflverse.js';
 import {
@@ -57,10 +61,10 @@ import {
   cbbStandingsMode, computeCbbDrafterCombined, renderCbbByDrafterRow,
   computeCbbRankingTable, renderCbbRankingRow, cbbStandingsToggleHtml, renderAllCbbCardRecords,
   espnCbbRankingsCache, fetchEspnCbbRankingsCached, loadEspnCbbRankingsCache,
-  espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache
+  espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache, findCbbTeamKeyByEspnId
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
-import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive } from './golf-view.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { startSince } from './since.js';
 import { startHistory } from './history.js';
@@ -77,20 +81,23 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
-import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason } from './postseason.js';
+import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
-import { FILTER_CHIP_LABELS } from './league-labels.js';
+import { FILTER_CHIP_LABELS, LEAGUE_FULL_LABELS } from './league-labels.js';
 import { getSettings } from './settings.js';
 import { currentProfileId, paintIdentityChrome, maybeShowWelcome, renderSettingsPage } from './identity.js';
 import { renderGuidePage } from './guide.js';
-import { initChat, setChatActive, paintBadges as paintChatBadges } from './chat.js';
+import { initChat, paintBadges as paintChatBadges } from './chat.js';
+import { initWide, setRailDrafter, onViewShown, wideChatNav } from './wide.js';
+import { isWide, onWideChange } from './wide-query.js';
 import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
 import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
+import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
@@ -278,15 +285,19 @@ function draftWhenHtml(){
 }
 
 // The "playoffs are set" cards (js/postseason.js): one per league whose
-// field is set and whose reveal this device hasn't seen yet. None before
-// the draft: with no teams drafted, Home leads with the Draft card instead.
+// field is set and whose reveal this device hasn't seen yet, then a golf
+// major's card (js/golf-view.js) during its week and the week after. The
+// postseason cards go first: the only overlap is April, when the NCAA
+// Tournament's card is already on its last week. None before the draft:
+// with no teams drafted, Home leads with the Draft card instead.
 function renderPlayoffsHome(){
   const el = document.getElementById('playoffs-home');
   if(!el) return;
-  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key));
+  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key)) + golfMajorHomeHtml();
   el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
 }
 onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
+onGolfData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
 
 // A playoffs card's tap: Standings, on that league, where the reveal plays.
 window.openPlayoffs = key => {
@@ -307,6 +318,10 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
+      ${pre ? `<button type="button" class="set-row" onclick="openGuide('board')">
+        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">New to this? The short version, in three steps</span></span>
+        <span class="set-chev">&rsaquo;</span>
+      </button>` : ''}
       <button type="button" class="set-row" onclick="goToMyMockDraft()">
         <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
         <span class="set-chev">&rsaquo;</span>
@@ -395,6 +410,7 @@ export function renderBoard(){
   }).join('');
 
   document.querySelectorAll('[data-group-name]').forEach(el => { el.textContent = ACTIVE_GROUP.name; });
+  setRailDrafter(currentDraftTeamId);
 
   // The team rows above were just rebuilt from scratch, so every
   // row-status pill and CFB/EPL record chip starts blank again —
@@ -417,35 +433,30 @@ export function renderBoard(){
   renderAllCbbCardRecords();
 }
 
-// Spelled out in both the Teams tab's section headers and the
-// Standings header — the filter chips still keep the short
-// LEAGUES[].label as-is (see FILTER_CHIP_LABELS in js/league-labels.js). Also used by
-// the Scoring modal header and the admin page (js/admin.js) so every
-// "EPL"/"College FB"/"College BB" data.name reads as its full name
-// wherever a header titles itself after the league.
-export const LEAGUE_FULL_LABELS = {
-  epl: 'English Premier League',
-  cfb: 'College Football',
-  mcbb: 'College Basketball'
-};
+// LEAGUE_FULL_LABELS lives in js/league-labels.js now (the wide team
+// page reads it too); re-exported for js/admin.js.
+export { LEAGUE_FULL_LABELS };
 
 
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-// NFL, CFB, College BB and MLB get a slot for the Regular | Postseason switch once a
+// NFL, CFB, College BB, MLB and WNBA get a slot for the Regular | Postseason switch once a
 // playoff field is set (js/postseason.js), filled once the playoffs reveal
 // (js/postseason-reveal.js) has introduced it; the season label moves under
 // the name to make room. `afterHtml` sits below the card (the postseason's drafted
 // table), the two kept together in the grid.
-function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
+// `span`: the wide layout's two-conference card, which takes the grid's
+// full width.
+// `controlsHtml`: the wide layout's view control, in the header row.
+function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, controlsHtml = '' } = {}){
   const headerLabel = LEAGUE_FULL_LABELS[league.key] || league.label;
   const fieldSet = postseasonFieldSet(league.key);
   // MLB/WNBA: the records below are ESPN's real, live '26 standings —
   // still worth showing — but drafted teams don't start scoring until
   // the '27 season actually begins. See PRIOR_SEASON_DISPLAY_LEAGUES
   // in js/data.js.
-  // On its Postseason view (MLB's '26 postseason), the note names that.
+  // On its Postseason view (MLB's or the WNBA's '26 postseason), the note names that.
   const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
     ? `<div class="prior-season-note">${onPostseason
@@ -463,10 +474,11 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
         </div>`
     : `<div class="league-tab-top">
           <div class="league-tab-left">${headerLabel}</div>
+          ${controlsHtml ? `<div class="st-controls">${controlsHtml}</div>` : ''}
           <span class="n">${league.season}</span>
         </div>`;
   const cardHtml = `
-    <div class="league" data-league="${league.key}">
+    <div class="league${span ? ' st-span' : ''}" data-league="${league.key}">
       <div class="league-tab standings-league-tab">
         ${topHtml}
         ${priorSeasonNoteHtml}${frozenNoteHtml}
@@ -477,11 +489,21 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
 }
 
-// NFL / CFB / College BB / MLB: the ladder in place of the card's body while Postseason is
+// NFL / CFB / College BB / MLB / WNBA: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
+// Wide (a league picked on its own, ladderWide): the bigger ladder with
+// the drafted table beside it, in one full-width card. The All overview
+// shows just the ladder, with "Full details" opening the league (its
+// drafted table included), like the other cards' "Full table".
 function postseasonBlockHtml(league){
   ensurePostseason(league.key);
-  if(postseasonPhase(league.key, standingsFilterKey === 'all') !== 'post') return null;
+  const inAll = standingsFilterKey === 'all';
+  if(postseasonPhase(league.key, inAll) !== 'post') return null;
+  if(inAll) return leagueBlockHtml(league, postseasonCardHtml(league.key) + overviewMoreHtml(league.key, 'Full details'));
+  if(ladderWide(inAll)){
+    const drafted = postseasonDraftedHtml(league.key);
+    return leagueBlockHtml(league, `<div class="ps-split">${postseasonCardHtml(league.key, true)}${drafted ? `<div class="ps-side">${drafted}</div>` : ''}</div>`, { span: true });
+  }
   return leagueBlockHtml(league, postseasonCardHtml(league.key), { afterHtml: postseasonDraftedHtml(league.key) });
 }
 
@@ -495,6 +517,196 @@ function postseasonBlockHtml(league){
 // league's own exports from js/standings-flat.js (see js/standings-nba.js
 // etc.) — this only knows the shape they all share, not any
 // sport-specific detail.
+// ---- Standings at wide widths: one league's full card ----
+// No League | Drafted toggle: the real table and the Drafted race (each
+// drafter's teams combined, the league's +5 bonus) show together, the
+// Drafted panel beside a single table or under a pair of conference
+// tables. Conference leagues show both conferences side by side, with
+// Divisions | Conference as a small control in the card's header. The
+// phone keeps its toggles (the per-league blocks in renderStandings);
+// these share their state, so turning an iPad keeps the same view.
+
+// The NBA/NHL/MLB boards (js/standings-flat.js) as renderFlatLeagueBlock
+// and the wide layout read them.
+function flatApi(key){
+  const by = {
+    nba: { cache: espnNbaStandingsCache, fetchCached: fetchEspnNbaStandingsCached, getMode: getNbaStandingsMode,
+      conferences: nbaConferences, computeConferenceStandings: computeNbaConferenceStandings,
+      renderStandingsRow: renderNbaStandingsRow, computeDrafterCombined: computeNbaDrafterCombined,
+      renderByDrafterRow: renderNbaByDrafterRow, toggleHtml: nbaStandingsToggleHtml,
+      hasDivisions: nbaHasDivisions, divisionCache: espnNbaDivisionCache, fetchDivisionCached: fetchEspnNbaDivisionStandingsCached,
+      computeDivisionStandings: computeNbaDivisionStandings, renderGroupHeader: renderNbaGroupHeader,
+      getConferenceSubMode: getNbaConferenceSubMode },
+    nhl: { cache: espnNhlStandingsCache, fetchCached: fetchEspnNhlStandingsCached, getMode: getNhlStandingsMode,
+      conferences: nhlConferences, computeConferenceStandings: computeNhlConferenceStandings,
+      renderStandingsRow: renderNhlStandingsRow, computeDrafterCombined: computeNhlDrafterCombined,
+      renderByDrafterRow: renderNhlByDrafterRow, toggleHtml: nhlStandingsToggleHtml,
+      hasDivisions: nhlHasDivisions, divisionCache: espnNhlDivisionCache, fetchDivisionCached: fetchEspnNhlDivisionStandingsCached,
+      computeDivisionStandings: computeNhlDivisionStandings, renderGroupHeader: renderNhlGroupHeader,
+      getConferenceSubMode: getNhlConferenceSubMode },
+    mlb: { cache: espnMlbStandingsCache, fetchCached: fetchEspnMlbStandingsCached, getMode: getMlbStandingsMode,
+      conferences: mlbConferences, computeConferenceStandings: computeMlbConferenceStandings,
+      renderStandingsRow: renderMlbStandingsRow, computeDrafterCombined: computeMlbDrafterCombined,
+      renderByDrafterRow: renderMlbByDrafterRow, toggleHtml: mlbStandingsToggleHtml,
+      hasDivisions: mlbHasDivisions, divisionCache: espnMlbDivisionCache, fetchDivisionCached: fetchEspnMlbDivisionStandingsCached,
+      computeDivisionStandings: computeMlbDivisionStandings, renderGroupHeader: renderMlbGroupHeader,
+      getConferenceSubMode: getMlbConferenceSubMode }
+  };
+  return by[key];
+}
+
+const NO_DATA_HTML = `<div class="no-live-note">No data available.</div>`;
+const NONE_RANKED_HTML = `<div class="no-live-note">No teams currently ranked.</div>`;
+
+// The one-table leagues' tables (the college ones are the AP Top 25).
+const WIDE_SINGLE = {
+  epl: { ready: () => eplStandingsCache.table, error: () => eplStandingsCache.error, fetch: fetchEplStandingsTable,
+    rows: () => standingsHeadFor('epl') + eplStandingsCache.table.map(r => renderStandingsRow('epl', r)).join('') },
+  wnba: { ready: () => espnWnbaStandingsCache.table, error: () => espnWnbaStandingsCache.error, fetch: fetchEspnWnbaStandingsCached,
+    rows: () => standingsHeadFor('wnba') + espnWnbaStandingsCache.table.map((r, i) => renderWnbaStandingsRow(r, i + 1)).join('') },
+  cfb: { ready: () => espnCfbRankingsCache.ranks, error: () => espnCfbRankingsCache.error, fetch: fetchEspnCfbRankingsCached, title: 'AP Top 25',
+    rows: () => { const r = computeCfbRankingTable(); return r.length ? r.map(x => renderCfbRankingRow(x)).join('') : NONE_RANKED_HTML; } },
+  mcbb: { ready: () => espnCbbRankingsCache.ranks, error: () => espnCbbRankingsCache.error, fetch: fetchEspnCbbRankingsCached, title: 'AP Top 25',
+    rows: () => { const r = computeCbbRankingTable(); return r.length ? r.map(x => renderCbbRankingRow(x)).join('') : NONE_RANKED_HTML; } }
+};
+
+// Each league's Drafted rows: the phone's Drafted view, from the same caches.
+const WIDE_DRAFTED = {
+  epl: { ready: () => eplStandingsCache.table, fetch: fetchEplStandingsTable, rows: () => computeEplDrafterCombined().map((r, i) => renderEplByDrafterRow(r, i + 1)) },
+  wnba: { ready: () => espnWnbaStandingsCache.table, fetch: fetchEspnWnbaStandingsCached, rows: () => computeWnbaDrafterCombined().map((r, i) => renderWnbaByDrafterRow(r, i + 1)) },
+  cfb: { ready: () => espnCfbRecordsCache.rows, fetch: () => { fetchEspnCfbRecordsCached(); fetchCfbRecords(); }, rows: () => computeCfbDrafterCombined().map((r, i) => renderCfbByDrafterRow(r, i + 1)) },
+  mcbb: { ready: () => espnCbbStandingsCache.rows, fetch: fetchEspnCbbStandingsCached, rows: () => computeCbbDrafterCombined().map((r, i) => renderCbbByDrafterRow(r, i + 1)) },
+  nfl: { ready: () => espnNflStandingsCache.rows, fetch: fetchEspnNflStandingsCached, rows: () => computeNflDrafterCombined().map((r, i) => renderNflByDrafterRow(r, i + 1)) }
+};
+
+function wideDraftedPanelHtml(key){
+  const flat = flatApi(key);
+  const src = WIDE_DRAFTED[key] || (flat && {
+    ready: () => flat.cache.rows, fetch: flat.fetchCached,
+    rows: () => flat.computeDrafterCombined().map((r, i) => flat.renderByDrafterRow(r, i + 1))
+  });
+  if(!src) return '';
+  src.fetch();  // no-op if already fresh
+  const bonus = LEAGUE_SCORING[key] && LEAGUE_SCORING[key].bonus;
+  const rows = src.ready() ? src.rows().join('') : skeletonRowsHtml();
+  return `<section class="st-drafted"><div class="st-drafted-head"><h3 class="st-drafted-title">Drafted</h3>`
+    + (bonus ? `<span class="st-drafted-sub">+${bonus.pts} for ${escapeHtml(bonus.label.charAt(0).toLowerCase() + bonus.label.slice(1))}</span>` : '')
+    + `</div><div class="st-drafted-rows">${rows}</div></section>`;
+}
+
+// Divisions | Conference, sized to its labels.
+function widePillHtml(active, handler){
+  return `<div class="st-pill">${segmentedControlHtml([{ key: 'division', label: 'Divisions' }, { key: 'full', label: 'Conference' }], active, handler)}</div>`;
+}
+
+// Both conferences of the NFL, NBA, NHL or MLB, side by side.
+function wideConferencesHtml(key){
+  const nfl = key === 'nfl';
+  const api = nfl ? null : flatApi(key);
+  const hasDivisions = nfl || api.hasDivisions;
+  const sub = nfl ? nflConferenceSubMode : api.getConferenceSubMode();
+  const divisions = hasDivisions && sub === 'division';
+  const handler = nfl ? 'setNflConferenceSubMode' : `set${key[0].toUpperCase()}${key.slice(1)}ConferenceSubMode`;
+  const pill = hasDivisions ? widePillHtml(sub, handler) : '';
+  const cache = nfl ? (divisions ? espnNflDivisionCache : espnNflStandingsCache) : (divisions ? api.divisionCache : api.cache);
+  const ready = divisions ? cache.divisions : cache.rows;
+  if(nfl) (divisions ? fetchEspnNflDivisionStandingsCached : fetchEspnNflStandingsCached)();
+  else (divisions ? api.fetchDivisionCached : api.fetchCached)();  // no-op if already fresh
+  if(!ready) return { html: cache.error ? NO_DATA_HTML : skeletonRowsHtml(), pill };
+  const confs = nfl ? [{ abbr: 'AFC', label: 'AFC' }, { abbr: 'NFC', label: 'NFC' }] : api.conferences;
+  const row = (t, i) => (nfl ? renderNflStandingsRow(t, i + 1) : api.renderStandingsRow(t, i + 1));
+  const parts = confs.map(c => ({
+    label: c.label,
+    html: divisions
+      ? (nfl ? computeNflDivisionStandings(c.abbr) : api.computeDivisionStandings(c.abbr))
+          .map(d => (nfl ? renderNflGroupHeader(d.name) : api.renderGroupHeader(d.name)) + d.teams.map(row).join('')).join('')
+      : (nfl ? computeNflConferenceStandings(c.abbr) : api.computeConferenceStandings(c.abbr)).map(row).join('')
+  }));
+  return { html: confPairHtml(key, parts), pill };
+}
+
+function wideLeagueBlockHtml(league){
+  const key = league.key;
+  const post = postseasonFieldSet(key) ? postseasonBlockHtml(league) : null;
+  if(post) return post;
+  if(key === 'pga') return leagueBlockHtml(league, pgaStandingsBodyHtml());
+  // Before the first draft, or in a league nobody drafted, there's no race.
+  const panel = standingsOwnerHtml(null, key) ? wideDraftedPanelHtml(key) : '';
+  const single = WIDE_SINGLE[key];
+  if(!single){
+    const { html, pill } = wideConferencesHtml(key);
+    return leagueBlockHtml(league, html + (panel ? `<div class="st-under">${panel}</div>` : ''), { span: true, controlsHtml: pill });
+  }
+  single.fetch();  // no-op if already fresh
+  const table = single.ready()
+    ? (single.title ? `<div class="st-conf-title">${single.title}</div>` : '') + single.rows()
+    : (single.error() ? NO_DATA_HTML : skeletonRowsHtml());
+  return leagueBlockHtml(league, panel ? `<div class="st-split"><div class="st-main">${table}</div>${panel}</div>` : table, { span: true });
+}
+
+// ---- Standings: the All overview (every width) ----
+// One compact card per league: its top OVERVIEW_TOP, then any of the
+// displayed drafter's teams further down (with their real rank, after a
+// gap), and "Full table" to open that league on its own. Conference
+// leagues rank both conferences together. Always the League view; the
+// toggles live on the full table. A league on its Postseason view keeps
+// its ladder card.
+const OVERVIEW_TOP = 5;
+const OVERVIEW_LEAGUES = {
+  epl: { ready: () => eplStandingsCache.table, fetch: fetchEplStandingsTable, teamKey: r => findEplTeamKeyByEspnName(r.teamName), render: r => renderStandingsRow('epl', r), head: true },
+  nfl: { ready: () => espnNflStandingsCache.rows, fetch: fetchEspnNflStandingsCached, teamKey: r => findNflTeamKeyByEspnAbbr(r.abbreviation), render: renderNflStandingsRow, head: true, leaders: true, note: 'Best records, AFC and NFC together' },
+  nba: { ready: () => espnNbaStandingsCache.rows, fetch: fetchEspnNbaStandingsCached, teamKey: r => findFlatTeamKey('nba', r.teamNickname), render: renderNbaStandingsRow, head: true, leaders: true, note: 'Best records, East and West together' },
+  nhl: { ready: () => espnNhlStandingsCache.rows, fetch: fetchEspnNhlStandingsCached, teamKey: r => findFlatTeamKey('nhl', r.teamNickname), render: renderNhlStandingsRow, head: true, leaders: true, note: 'Most points, East and West together' },
+  mlb: { ready: () => espnMlbStandingsCache.rows, fetch: fetchEspnMlbStandingsCached, teamKey: r => findFlatTeamKey('mlb', r.teamNickname), render: renderMlbStandingsRow, head: true, leaders: true, note: 'Best records, AL and NL together' },
+  wnba: { ready: () => espnWnbaStandingsCache.table, fetch: fetchEspnWnbaStandingsCached, teamKey: r => findFlatTeamKey('wnba', r.teamNickname), render: renderWnbaStandingsRow, head: true },
+  cfb: { ready: () => espnCfbRankingsCache.ranks && computeCfbRankingTable(), fetch: fetchEspnCfbRankingsCached, teamKey: r => findCfbTeamKeyByLocation(r.location), render: r => renderCfbRankingRow(r), note: 'AP Top 25' },
+  mcbb: { ready: () => espnCbbRankingsCache.ranks && computeCbbRankingTable(), fetch: fetchEspnCbbRankingsCached, teamKey: r => findCbbTeamKeyByEspnId(r.id), render: r => renderCbbRankingRow(r), note: 'AP Top 25' }
+};
+
+// An overview card's link to its league on its own, opened at the top of
+// the page rather than where this card was.
+function overviewMoreHtml(key, label){
+  return `<button type="button" class="st-more" onclick="setStandingsFilter('${key}'); window.scrollTo(0, 0)">${label} <span class="chev">›</span></button>`;
+}
+
+function overviewBlockHtml(league){
+  const post = postseasonFieldSet(league.key) ? postseasonBlockHtml(league) : null;
+  if(post) return post;
+  const src = OVERVIEW_LEAGUES[league.key];
+  if(!src) return league.key === 'pga' ? leagueBlockHtml(league, pgaStandingsBodyHtml()) : '';
+  src.fetch();  // no-op if already fresh
+  const rows = src.ready();
+  const more = overviewMoreHtml(league.key, 'Full table');
+  if(!rows) return leagueBlockHtml(league, skeletonRowsHtml() + more);
+  const ordered = src.leaders ? leagueLeaders(rows, league.key) : rows;
+  const mine = row => {
+    const teamKey = src.teamKey(row);
+    const meta = teamKey && TEAM_META[teamKey];
+    return !!meta && !meta.favoriteOnly && meta.draftTeamId === currentDraftTeamId;
+  };
+  const list = overviewRows(ordered, mine, OVERVIEW_TOP);
+  const body = (src.note ? `<div class="st-ov-note">${escapeHtml(src.note)}</div>` : '')
+    + (src.head ? standingsHeadFor(league.key) : '')
+    + (list.length ? list.map(x => (x.gap ? '<div class="st-gap" aria-hidden="true"></div>' : '') + src.render(x.row, x.rank)).join('') : '<div class="no-live-note">No teams currently reporting.</div>')
+    + more;
+  return leagueBlockHtml(league, body);
+}
+
+// The column labels over a League-view table (shown only at wide widths).
+// "Drafted by" only where the rows show an owner.
+function standingsHeadFor(leagueKey){
+  return standingsHeadHtml(leagueKey, { owner: !!standingsOwnerHtml(null, leagueKey) });
+}
+
+// Wide layout (900px and up): a league's conferences side by side, each
+// its own table, instead of one at a time behind a toggle. `parts`:
+// [{ label, html }] with each conference's rows (and division headers).
+function confPairHtml(leagueKey, parts){
+  return `<div class="st-confs">${parts.map(p => `<div class="st-conf"><div class="st-conf-title">${escapeHtml(p.label)}</div>`
+    + (p.html ? standingsHeadFor(leagueKey) + p.html : '<div class="no-live-note">No teams currently reporting.</div>')
+    + `</div>`).join('')}</div>`;
+}
+
 function renderFlatLeagueBlock(league, api){
   const mode = api.getMode();
   let bodyHtml;
@@ -506,7 +718,7 @@ function renderFlatLeagueBlock(league, api){
     if(api.divisionCache.divisions){
       const divisions = api.computeDivisionStandings(confAbbr);
       const rowsHtml = divisions.length
-        ? divisions.map(div =>
+        ? standingsHeadFor(league.key) + divisions.map(div =>
             api.renderGroupHeader(div.name) + div.teams.map((t, i) => api.renderStandingsRow(t, i + 1)).join('')
           ).join('')
         : `<div class="no-live-note">No teams currently reporting.</div>`;
@@ -533,7 +745,7 @@ function renderFlatLeagueBlock(league, api){
     const confAbbr = api.conferences.find(c => c.mode === mode).abbr;
     const teams = api.computeConferenceStandings(confAbbr);
     const rowsHtml = teams.length
-      ? teams.map((t, i) => api.renderStandingsRow(t, i + 1)).join('')
+      ? standingsHeadFor(league.key) + teams.map((t, i) => api.renderStandingsRow(t, i + 1)).join('')
       : `<div class="no-live-note">No teams currently reporting.</div>`;
     bodyHtml = api.toggleHtml() + rowsHtml;
     api.fetchCached();
@@ -597,13 +809,18 @@ export function renderStandings(){
 
   const shownLeagues = standingsFilterKey === 'all' ? LEAGUES : LEAGUES.filter(l => l.key === standingsFilterKey);
 
+  // All: a compact card per league (overviewBlockHtml) instead of every
+  // full table, on phones too.
+  const overview = standingsFilterKey === 'all';
   const blocksHtml = shownLeagues.map(league => {
+    if(overview) return overviewBlockHtml(league);
+    if(isWide()) return wideLeagueBlockHtml(league);
     if(league.key === 'epl'){
       let bodyHtml;
       if(eplStandingsCache.table){
         const rowsHtml = eplStandingsMode === 'byDrafter'
           ? computeEplDrafterCombined().map((row, i) => renderEplByDrafterRow(row, i + 1)).join('')
-          : eplStandingsCache.table.map(row => renderStandingsRow('epl', row)).join('');
+          : standingsHeadFor('epl') + eplStandingsCache.table.map(row => renderStandingsRow('epl', row)).join('');
         bodyHtml = eplStandingsToggleHtml() + rowsHtml;
         fetchEplStandingsTable(); // no-op if already fresh; quietly refreshes in the background if stale
       } else if(eplStandingsCache.error){
@@ -713,7 +930,7 @@ export function renderStandings(){
         if(espnNflDivisionCache.divisions){
           const divisions = computeNflDivisionStandings(conferenceAbbr);
           const rowsHtml = divisions.length
-            ? divisions.map(div =>
+            ? standingsHeadFor('nfl') + divisions.map(div =>
                 renderNflGroupHeader(div.name) + div.teams.map((t, i) => renderNflStandingsRow(t, i + 1)).join('')
               ).join('')
             : `<div class="no-live-note">No teams currently reporting.</div>`;
@@ -734,7 +951,7 @@ export function renderStandings(){
             const conferenceAbbr = nflStandingsMode.toUpperCase();
             const teams = computeNflConferenceStandings(conferenceAbbr);
             rowsHtml = teams.length
-              ? teams.map((t, i) => renderNflStandingsRow(t, i + 1)).join('')
+              ? standingsHeadFor('nfl') + teams.map((t, i) => renderNflStandingsRow(t, i + 1)).join('')
               : `<div class="no-live-note">No teams currently reporting.</div>`;
           }
           bodyHtml = nflStandingsToggleHtml() + rowsHtml;
@@ -749,37 +966,13 @@ export function renderStandings(){
       return leagueBlockHtml(league, bodyHtml);
     }
 
-    if(league.key === 'nba') return renderFlatLeagueBlock(league, {
-      cache: espnNbaStandingsCache, fetchCached: fetchEspnNbaStandingsCached, getMode: getNbaStandingsMode,
-      conferences: nbaConferences, computeConferenceStandings: computeNbaConferenceStandings,
-      renderStandingsRow: renderNbaStandingsRow, computeDrafterCombined: computeNbaDrafterCombined,
-      renderByDrafterRow: renderNbaByDrafterRow, toggleHtml: nbaStandingsToggleHtml,
-      hasDivisions: nbaHasDivisions, divisionCache: espnNbaDivisionCache, fetchDivisionCached: fetchEspnNbaDivisionStandingsCached,
-      computeDivisionStandings: computeNbaDivisionStandings, renderGroupHeader: renderNbaGroupHeader,
-      getConferenceSubMode: getNbaConferenceSubMode
-    });
-    if(league.key === 'nhl') return renderFlatLeagueBlock(league, {
-      cache: espnNhlStandingsCache, fetchCached: fetchEspnNhlStandingsCached, getMode: getNhlStandingsMode,
-      conferences: nhlConferences, computeConferenceStandings: computeNhlConferenceStandings,
-      renderStandingsRow: renderNhlStandingsRow, computeDrafterCombined: computeNhlDrafterCombined,
-      renderByDrafterRow: renderNhlByDrafterRow, toggleHtml: nhlStandingsToggleHtml,
-      hasDivisions: nhlHasDivisions, divisionCache: espnNhlDivisionCache, fetchDivisionCached: fetchEspnNhlDivisionStandingsCached,
-      computeDivisionStandings: computeNhlDivisionStandings, renderGroupHeader: renderNhlGroupHeader,
-      getConferenceSubMode: getNhlConferenceSubMode
-    });
+    if(league.key === 'nba') return renderFlatLeagueBlock(league, flatApi('nba'));
+    if(league.key === 'nhl') return renderFlatLeagueBlock(league, flatApi('nhl'));
     if(league.key === 'mlb'){
       const post = postseasonBlockHtml(league);
       if(post) return post;
     }
-    if(league.key === 'mlb') return renderFlatLeagueBlock(league, {
-      cache: espnMlbStandingsCache, fetchCached: fetchEspnMlbStandingsCached, getMode: getMlbStandingsMode,
-      conferences: mlbConferences, computeConferenceStandings: computeMlbConferenceStandings,
-      renderStandingsRow: renderMlbStandingsRow, computeDrafterCombined: computeMlbDrafterCombined,
-      renderByDrafterRow: renderMlbByDrafterRow, toggleHtml: mlbStandingsToggleHtml,
-      hasDivisions: mlbHasDivisions, divisionCache: espnMlbDivisionCache, fetchDivisionCached: fetchEspnMlbDivisionStandingsCached,
-      computeDivisionStandings: computeMlbDivisionStandings, renderGroupHeader: renderMlbGroupHeader,
-      getConferenceSubMode: getMlbConferenceSubMode
-    });
+    if(league.key === 'mlb') return renderFlatLeagueBlock(league, flatApi('mlb'));
     // PGA Tour: the FedEx Cup table (js/golf-view.js).
     if(league.key === 'pga') return leagueBlockHtml(league, pgaStandingsBodyHtml());
 
@@ -788,11 +981,13 @@ export function renderStandings(){
       // conference split (see js/standings-wnba.js's header comment for
       // why it no longer shares NBA/NHL/MLB's js/standings-flat.js
       // machinery).
+      const post = postseasonBlockHtml(league);
+      if(post) return post;
       let bodyHtml;
       if(espnWnbaStandingsCache.table){
         const rowsHtml = wnbaStandingsMode === 'byDrafter'
           ? computeWnbaDrafterCombined().map((row, i) => renderWnbaByDrafterRow(row, i + 1)).join('')
-          : espnWnbaStandingsCache.table.map((row, i) => renderWnbaStandingsRow(row, i + 1)).join('');
+          : standingsHeadFor('wnba') + espnWnbaStandingsCache.table.map((row, i) => renderWnbaStandingsRow(row, i + 1)).join('');
         bodyHtml = wnbaStandingsToggleHtml() + rowsHtml;
         fetchEspnWnbaStandingsCached(); // no-op if already fresh; quietly refreshes in the background if stale
       } else if(espnWnbaStandingsCache.error){
@@ -813,7 +1008,7 @@ export function renderStandings(){
   const ladders = keepPostseason(container);
   container.innerHTML = `
     <div class="standings-filter-row"><div class="filter-chips" role="tablist">${chipsHtml}</div></div>
-    <div class="standings-grid">${blocksHtml}</div>
+    <div class="standings-grid${overview ? ' st-overview' : ''}">${blocksHtml}</div>
   `;
   container.querySelector('.filter-chips').scrollLeft = tabsScroll;
   restorePostseason(container, ladders);
@@ -848,16 +1043,24 @@ function preloadDraftRoom(){
 const TAB_ORDER = ['board', 'live-now', 'chat', 'standings', 'overall'];
 
 export function switchView(view){
+  // At wide widths Chat sits beside the page (js/wide.js), not in place of it.
+  if(view === 'chat' && wideChatNav()) return;
   settleTeamTransition();
   const activeTab = document.querySelector('.tab-btn.active');
   const from = TAB_ORDER.indexOf(activeTab ? activeTab.dataset.view : '');
   const to = TAB_ORDER.indexOf(view);
-  const kind = from < 0 || to < 0 || from === to ? null : (to > from ? 'fwd' : 'back');
+  // The sideways tab slide is a phone gesture; wide widths crossfade.
+  const kind = isWide() || from < 0 || to < 0 || from === to ? null : (to > from ? 'fwd' : 'back');
   navigate(kind, () => showView(view));
 }
 window.switchView = switchView;
 
 function showView(view){
+  // A ?view=chat link opened at wide widths: Home, with chat beside it.
+  if(view === 'chat' && isWide()){
+    wideChatNav({ open: true });
+    view = 'board';
+  }
   if(view !== 'standings') endPostseasonReveal();
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -865,7 +1068,7 @@ function showView(view){
   updateUrlParam('view', view === 'board' ? null : view);
   // A tab tapped from the team page leaves it behind.
   updateUrlParam('tp', null);
-  setChatActive(view === 'chat');
+  onViewShown();
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
@@ -875,7 +1078,7 @@ function showView(view){
   if(view === 'admin') showAdminPage();
   else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
-  if(view === 'guide') renderGuidePage();
+  if(view === 'guide') renderGuidePage({ backLabel: guideFromHome ? 'Home' : 'Settings' });
 }
 
 // ---- Settings page ----
@@ -927,15 +1130,31 @@ export function backToSettings(){
 }
 window.backToSettings = backToSettings;
 
-// Settings -> How Boxscore works (js/guide.js). Pushed like the team
-// page; its back button is backToSettings.
-export function openGuide(){
+// How Boxscore works (js/guide.js), from Settings or, before a group's
+// first draft, from Home's Draft section. Pushed like the team page; its
+// back button (closeGuide) pops to whichever opened it, Home at the same
+// scroll position.
+let guideFromHome = false, guideHomeScrollY = 0;
+export function openGuide(from = 'settings'){
+  guideFromHome = from === 'board';
+  guideHomeScrollY = guideFromHome ? window.scrollY : 0;
   navigate('push', () => {
     showView('guide');
     window.scrollTo(0, 0);
   });
 }
 window.openGuide = openGuide;
+
+export function closeGuide(){
+  if(!guideFromHome){ backToSettings(); return; }
+  const y = guideHomeScrollY;
+  guideFromHome = false;
+  navigate('pop', () => {
+    showView('board');
+    window.scrollTo(0, y);
+  });
+}
+window.closeGuide = closeGuide;
 
 // The gold pill behind the active tab (.tab-pill) springs to its slot
 // via a CSS transition on --tab-i; off the five tabs it fades out.
@@ -988,6 +1207,13 @@ initDraftLive();
 initDraftSchedule();
 paintIdentityChrome(currentDraftTeamId);
 initChat();
+initWide();
+// Crossing 900px swaps Standings, Scores and Points between their phone and wide layouts.
+onWideChange(() => {
+  if(isViewActive('standings')) renderStandings();
+  if(isViewActive('live-now')) renderLiveNow();
+  if(isViewActive('overall')) renderOverallStandings();
+});
 applyUrlState();
 enableNavMotion();
 (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
@@ -1109,6 +1335,7 @@ const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'vi
 const PULL_FETCH_GAP_MS = 10 * 1000;
 let lastPullFetch = 0;
 const activeView = () => document.querySelector('.board > .view.active');
+initBackButton();
 initPullToRefresh({
   view: activeView,
   canPull: () => {
