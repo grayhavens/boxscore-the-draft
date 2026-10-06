@@ -4676,6 +4676,19 @@ html.chat-kb .tab-bar{ display: none; }
 /* Game Details' way into the above (see shareGameDetailToChat in
    js/live-data.js). */
 .modal-cta.gd-share{ margin: 0 0 16px; }
+/* Wide: a small pill in the header's top-right corner instead of a
+   full-width button, and a shorter recap photo. */
+@media (min-width: 900px){
+  #game-detail-content{ position: relative; }
+  #game-detail-content .gd-head{ padding-right: 150px; }
+  .modal-cta.gd-share{
+    position: absolute; top: 24px; right: 20px;
+    width: auto; min-height: 0; height: 32px; margin: 0; padding: 0 12px; gap: 6px;
+    border-radius: var(--r-pill); font-size: var(--fs-12);
+  }
+  .modal-cta.gd-share svg{ width: 14px; height: 14px; }
+  .gd-photo{ aspect-ratio: 2.4 / 1; }
+}
 
 /* ---- Reactions (js/chat.js) ---- */
 
@@ -7544,7 +7557,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
    - the team page lays out as a hero band over two columns (.tw).
    Team color shows only in crests and the hero's orb and glow.
    ============================================================ */
-.wide-rail, .wide-brand, .wide-actions, .chat-strip, .chat-scrim, .chat-dock-btn, .chat-over-close{ display: none; }
+.wide-rail, .wide-brand, .wide-actions, .chat-strip, .chat-scrim, .chat-dock-btn, .chat-over-close, .ln-detail{ display: none; }
 
 @media (min-width: 900px){
   body{
@@ -8080,6 +8093,30 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .tg-group.live .tg-score{ font-size: var(--fs-20); }
   .tg-group.live .tg-name{ font-size: var(--fs-14); }
   .tg-group.final .tg-row{ background: none; }
+
+  /* Game Details docked beside the cards (dockTarget in js/live-data.js):
+     the same #game-detail-content as the sheet, moved into a sticky column.
+     Shown only while the day has a game it can open; the cards narrow to
+     one column at the smallest widths rather than losing the column. */
+  .ln-split:has(.tg-row.clickable){ display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, min(44%, 520px)); gap: 20px; align-items: start; }
+  .ln-split:has(.tg-row.clickable) .ln-detail{ display: block; }
+  .ln-split #live-now-list{ min-width: 0; }
+  .ln-split .tg-group:first-child{ margin-top: 0; }
+  .ln-split .tg-section{ grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .ln-split .tg-group.live .tg-section{ grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .ln-detail{
+    position: sticky; top: calc(env(safe-area-inset-top) + var(--wide-head-h) + 16px);
+    max-height: calc(100vh - var(--wide-head-h) - 40px); overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--hairline); border-radius: var(--r-lg); background: var(--surface);
+  }
+  .ln-detail:has(#game-detail-content) .ln-detail-empty{ display: none; }
+  .ln-detail-empty{ padding: 40px 24px; text-align: center; font-size: var(--fs-13); font-weight: 600; color: var(--text-mute); }
+  .ln-detail .modal{ max-width: none; max-height: none; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; animation: none; transform: none; }
+  .ln-detail .modal-accent{ border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .ln-detail .gd-back{ display: none; }
+  .ln-detail .gd-head.with-back{ padding-left: 22px; }
+  .ln-detail .gd-loading{ min-height: 60vh; }
+  .ln-split .tg-row.sel{ border-color: var(--accent-border); box-shadow: inset 0 0 0 1px var(--accent-border); }
 }
 
 /* ---- Points, wide (obWideHtml in js/overall.js) ----

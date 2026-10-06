@@ -506,8 +506,12 @@ that just ended stays under Live for its two minutes), each league's games a gri
 restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little
 larger), and a Monday-to-Sunday week strip replaces the ‹ › arrows (its ‹ › move a week; "Today" appears when today is
 off the strip). Each day's count follows the scope chip; the counts come from the same per-day scoreboards, filled a
-day at a time after the slate on screen paints (`fillWeekCounts`, kept in `daySlates` for 15 minutes). Crossing 900px
-re-renders Scores too. Points (`obWideHtml` in `js/overall.js`): no
+day at a time after the slate on screen paints (`fillWeekCounts`, kept in `daySlates` for 15 minutes). Game Details
+docks in a sticky column beside the cards (`#live-now-detail`) instead of the sheet: `openGameDetail` moves the same
+`#game-detail-content` there (`dockTarget` in `js/live-data.js`) and moves it back to the sheet anywhere else, a click
+on another card swaps it, and `syncScoresDetail` (after each paint) outlines the selected card, picks a game when none
+is showing (live, then final, then upcoming) and refreshes a live one's box score each minute unless a clip is playing.
+The column shows only on a day with a game it can open. Crossing 900px re-renders Scores too. Points (`obWideHtml` in `js/overall.js`): no
 segments and no hero card. A strip of your numbers (rank and move, projected, locked, live, the gap to first (or your
 lead), the scoring rules button); the leaderboard with a column per scoring league from each row's
 `leagues` (a cell is that drafter's points there under a neutral `--heat` tint, red when negative; tapping a cell opens

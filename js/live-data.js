@@ -24,6 +24,7 @@ import { getSeasonPhaseLabel } from './season-phase.js';
 
 import { buttonHtml, iconButtonHtml } from './ui.js';
 import { isFreshAt } from './cache-fresh.js';
+import { isWide } from './wide-query.js';
 // Every league whose Most Recent Result/Next Match comes from ESPN's
 // team-schedule endpoint (js/espn.js's fetchEspnTeamSchedule) rather
 // than TheSportsDB — see the "EPL/NBA/NHL/MLB/WNBA" branch in
@@ -1212,10 +1213,14 @@ function renderGameDetail(accent, leagueKey, summary, situation, selectedTeamId,
   // underlying data exists yet) with no card. Deliberately just a hero
   // image and a plain link-out, never an embedded player here — that's
   // what Top Plays is for.
+  // No photo when the Top Plays player (MLB, NHL) sits right under this
+  // card: a still plus a video stacked together was too much.
   const media = (extras && extras.recap) ? extras.recap : (summary.media || {});
-  const mediaHtml = (media.photoUrl || media.recapHeadline || media.linkUrl) ? `
+  const hasClips = !!(extras && Array.isArray(extras.topPlays) && extras.topPlays.some(p => p && p.videoUrl));
+  const showPhoto = media.photoUrl && !hasClips;
+  const mediaHtml = (showPhoto || media.recapHeadline || media.linkUrl) ? `
     <div class="gd-media">
-      ${media.photoUrl ? `<img class="gd-photo" src="${media.photoUrl}" alt="" loading="lazy">` : ''}
+      ${showPhoto ? `<img class="gd-photo" src="${media.photoUrl}" alt="" loading="lazy">` : ''}
       ${media.recapHeadline ? `
         <div class="gd-recap-headline">${media.recapHeadline}</div>
         ${media.recapSummary ? `<div class="gd-recap-summary">${media.recapSummary}</div>` : ''}
@@ -1626,6 +1631,18 @@ export async function openGameDetail(teamKey, eventId){
   // Guards the awaits below — if the sheet gets closed, or reopened for
   // a different game, while a request is in flight, its result is stale
   // and shouldn't paint over whatever's showing now.
+  // Wide Scores docks the same element in its side column; everywhere
+  // else it lives in the sheet. Moved, not copied, so every render path
+  // below keeps finding it by id.
+  const dock = dockTarget();
+  const refreshing = !!dock && el.parentElement === dock && el.dataset.activeEvent === String(eventId);
+  if(dock && el.parentElement !== dock){
+    if(isSheetOpen(overlay)) closeGameDetail();
+    dock.appendChild(el);
+  }
+  if(!dock && el.parentElement !== overlay) overlay.appendChild(el);
+  if(dock) markDockedGame(eventId);
+
   el.dataset.activeEvent = String(eventId);
   const stale = () => el.dataset.activeEvent !== String(eventId);
 
@@ -1645,14 +1662,31 @@ export async function openGameDetail(teamKey, eventId){
     // way the rest of this app identifies a team's ESPN row (findRow,
     // matched by name) rather than via bundle.espnLive's isHome — that
     // only describes today's/the current game, not necessarily this one.
+    // A docked refresh of the same game keeps the team picked below.
     const row = flatSchedule.findRow(meta);
-    renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, row && row.id, extras);
+    const teamId = refreshing && gameDetailRenderState ? gameDetailRenderState.selectedTeamId : (row && row.id);
+    renderGameDetail(meta.accent || 'var(--accent)', meta.leagueKey, summary, situation, teamId, extras);
+    if(dock) el.dataset.paintedAt = String(Date.now());
     // Off again once it has played, or every later repaint (the team
     // toggle, a live refresh) would fade in too.
     el.classList.toggle('gd-fade-in', !!fadeIn);
     clearTimeout(el._fadeIn);
     if(fadeIn) el._fadeIn = setTimeout(() => el.classList.remove('gd-fade-in'), 400);
   };
+
+  // Docked: no sheet, no scroll lock. A slow load shows the skeleton in
+  // the column (a refresh keeps the old box score up until the new one lands).
+  if(dock){
+    if(early){ paint(early, false); return; }
+    if(!refreshing){
+      el.innerHTML = `<div class="modal-body gd-loading">${skeletonLinesHtml(6)}</div>`;
+      dock.scrollTop = 0;
+    }
+    const result = await load;
+    if(stale()) return;
+    paint(result, !refreshing);
+    return;
+  }
 
   // Unless the golfer sheet is underneath holding the scroll lock, take
   // it here.
@@ -1685,6 +1719,55 @@ export async function openGameDetail(teamKey, eventId){
 window.openGameDetail = openGameDetail;
 
 let gameDetailOwnsLock = false;
+
+/* ---- Docked Game Details (wide Scores) ----
+   At 900px and up, Scores shows Game Details in a column beside the
+   cards (#live-now-detail) instead of a sheet over them, so the rest of
+   the day stays in view and a click on another card just swaps what the
+   column shows. The selected card is outlined (.sel). js/live-now.js
+   calls syncScoresDetail after each paint: it re-marks the selection,
+   picks a game when none is showing (live first, then final, then
+   whatever's next) and refreshes a live game's box score every so often. */
+const DOCK_REFRESH_MS = 60000;
+
+function dockTarget(){
+  const dock = document.getElementById('live-now-detail');
+  const view = document.getElementById('view-live-now');
+  return dock && view && view.classList.contains('active') && isWide() ? dock : null;
+}
+
+function markDockedGame(eventId){
+  const list = document.getElementById('live-now-list');
+  if(!list) return;
+  list.querySelectorAll('.tg-row.sel').forEach(r => r.classList.remove('sel'));
+  const row = list.querySelector(`.tg-row.clickable[data-game="${CSS.escape(String(eventId))}"]`);
+  if(row) row.classList.add('sel');
+}
+
+function openFromRow(row){
+  const m = row && GAME_DETAIL_ONCLICK.exec(row.getAttribute('onclick') || '');
+  if(m) openGameDetail(m[1], m[2]);
+}
+
+export function syncScoresDetail(){
+  const dock = dockTarget();
+  const list = document.getElementById('live-now-list');
+  if(!dock || !list) return;
+  const el = document.getElementById('game-detail-content');
+  const current = el && el.parentElement === dock ? el.dataset.activeEvent : null;
+  const row = current && list.querySelector(`.tg-row.clickable[data-game="${CSS.escape(current)}"]`);
+  if(!row){
+    openFromRow(list.querySelector('.tg-group.live .tg-row.clickable')
+      || list.querySelector('.tg-group.final .tg-row.clickable')
+      || list.querySelector('.tg-row.clickable'));
+    return;
+  }
+  markDockedGame(current);
+  // A live game's box score moves; refresh it now and then, unless a clip is playing.
+  const playing = [...el.querySelectorAll('video')].some(v => !v.paused);
+  const age = Date.now() - Number(el.dataset.paintedAt || 0);
+  if(row.querySelector('.tg-card.live') && age > DOCK_REFRESH_MS && !playing) openFromRow(row);
+}
 
 export function closeGameDetail(){
   const overlay = document.getElementById('game-detail-overlay');
