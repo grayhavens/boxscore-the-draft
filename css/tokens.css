@@ -264,6 +264,22 @@
   :root{ --page-pad: 16px; }
 }
 
+/* Wide layout (js/wide.js, css/style.css "Wide layout"): the team rail,
+   the top header and the chat column. --chat-w is the room the docked
+   chat takes on the right: none under 1280px (it's a slide-over there),
+   a thin strip while collapsed. */
+:root{
+  --rail-w: 96px;
+  --wide-head-h: 68px;
+  --wide-pad: 32px;
+  --chat-w: 0px;
+  --chat-over-w: 380px;
+}
+@media (min-width: 1280px){
+  :root{ --chat-w: 340px; }
+  :root.chat-collapsed{ --chat-w: 52px; }
+}
+
 /* ==== Added from the design system ====
    Tokens docs/design-system/tokens/ defines that no rule uses yet. Screens
    pick them up as they move to js/ui.js (docs/design-system-plan.md). */

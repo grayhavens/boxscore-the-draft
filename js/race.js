@@ -329,6 +329,9 @@ function chartSvg(c){
 // The Points table for the day on screen. Rows that change place glide
 // to their new spot (FLIP); only a new day or focus re-renders it.
 function drawTable(day, head){
+  // The wide Points layout (js/overall.js's obWideHtml) shows the full
+  // leaderboard right above the chart, so the chart draws no table of its own.
+  if(root.closest('.obw')) return;
   const key = `${day}:${focus}:${head}`;
   if(key === lastTableKey) return;
   lastTableKey = key;

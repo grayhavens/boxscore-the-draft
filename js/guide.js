@@ -124,7 +124,7 @@ const APP_ROWS = [
   },
   {
     id: 'standings', icon: 'standings', title: 'Standings',
-    lead: 'The real tables, every team tagged with who drafted it. Playoff brackets once they’re set.',
+    lead: 'The real tables, every team tagged with who drafted it. All shows each league’s top five and where your teams sit. Playoff brackets once they’re set.',
     pre: { lead: 'The real tables for every league.' },
     go: ['Go to Standings', "switchView('standings')"]
   },
@@ -138,6 +138,11 @@ const APP_ROWS = [
     id: 'golf', icon: 'standings', title: 'PGA Tour', when: () => HAS_GOLF,
     lead: 'Golfers score from where they finish. Majors are worth the most and get a card on Home that week.',
     go: ['Go to Standings', "switchView('standings')"]
+  },
+  {
+    id: 'wide', icon: 'home', title: 'On an iPad or computer',
+    lead: 'Your teams stay in a rail on the left (↑ ↓ to move between them), chat sits beside the page, and every tab shows more at once: full tables, the whole day’s games, and Points by league.',
+    go: ['Go to Home', "switchView('board')"]
   },
   {
     id: 'alerts', icon: 'bell', title: 'Alerts',

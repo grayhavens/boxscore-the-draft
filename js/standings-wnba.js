@@ -12,6 +12,7 @@
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnWnbaStandings } from './espn.js';
+import { standingsColsHtml } from './standings-cols.js';
 import { findFlatTeamKey } from './standings-flat.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
@@ -136,7 +137,7 @@ export function renderWnbaStandingsRow(row, rank){
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.losses}</span>${rowPct !== null ? `<span class="person-record-secondary">${formatWinPct(rowPct)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
+    <div class="standings-row st-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
@@ -144,6 +145,7 @@ export function renderWnbaStandingsRow(row, rank){
         ${ownerHtml}
       </div>
       <div class="person-record-chip">${recordHtml}</div>
+      ${standingsColsHtml('wnba', row)}
     </div>
   `;
 }
