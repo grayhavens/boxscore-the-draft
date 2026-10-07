@@ -35,6 +35,7 @@
    ============================================================ */
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { teamBadgeHtml, abbrFromName, segmentedControlHtml, formatWinPct, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { standingsColsHtml } from './standings-cols.js';
 import { fetchEspnNflStandings, fetchEspnNflDivisionStandings } from './espn.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
@@ -327,7 +328,7 @@ export function renderNflStandingsRow(row, rank){
   const recordHtml = `<span class="person-record-primary">${recordLabel}</span>${row.winPercent !== null && row.winPercent !== undefined ? `<span class="person-record-secondary">${formatWinPct(row.winPercent)}</span>` : ''}`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
+    <div class="standings-row st-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
@@ -335,6 +336,7 @@ export function renderNflStandingsRow(row, rank){
         ${ownerHtml}
       </div>
       <div class="person-record-chip">${recordHtml}</div>
+      ${standingsColsHtml('nfl', row)}
     </div>
   `;
 }

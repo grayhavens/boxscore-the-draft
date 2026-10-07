@@ -33,7 +33,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 ## Modules (static site, `js/`)
 
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
-  `motion.js`, `launch-splash.js`, `page-header.js`, `sw.js` (root).
+  `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
   `pga.js`, `index.js`), `groups.js` (group registry, shared with worker), `sports.js`.
 - **Data fetch:** `espn.js` (ESPN), `api.js` (worker calls, TTL caches), `live-data.js` (team strips, Game Details,
@@ -44,7 +44,8 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   `guide.js`, `admin.js` (Commissioner), `draft.js` (+ `draft-*.js`), `since.js`, `golf-view.js`.
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
-  `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`.
+  `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
+  `standings-cols.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
@@ -107,7 +108,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 - **Durable Objects:** `ChatRoom` (one per group), `DraftRoom` (one per room name: `main`, `mock-1`, `mock-<id>`).
   SQLite-backed; migrations `v1`, `v2` in `wrangler.toml`.
 - **Browser:** `localStorage` (identity, settings, caches, admin password, invite code), `sessionStorage` (splash),
-  Cache Storage (`sw.js`, `boxscore-v40`).
+  Cache Storage (`sw.js`, `boxscore-v52`).
 
 ## Deployment
 
@@ -157,7 +158,7 @@ stores the request in KV, rate-limited per IP, with no push alert; instead it em
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
 (top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
-/roster`). Name pickers hide still-open spots. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
+/roster`). Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
 someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
 (`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed
 to `CLAIM_ALERT_EMAIL` like a claim, and listed on the admin page's Platform view (and its "Needs attention") with
@@ -225,6 +226,22 @@ CFB predate that shared engine and are bespoke. WNBA has no real division/confer
 modeling, so it was moved off `standings-flat` onto a single flat league-wide ranking shaped like
 EPL's instead.
 
+During a league's preseason, ESPN's default standings table is the preseason one (exhibition records),
+so `fetchEspnFlatStandings` (`js/espn.js`) asks for `seasontype=2` instead whenever the default comes
+back `seasonType` 1: every team reads 0-0 until opening night. Each row carries ESPN's own `season`
+year, and the core-API division fetches ask for that year rather than the calendar year; for NBA/NHL,
+ESPN's 2027 is 2026-27, so the calendar year used to fetch last season's final division records.
+
+**CFB's Top 25 switches polls** (`js/cfb-poll.js`, tests `tests/cfb-poll.test.mjs`): the AP Top 25
+until the College Football Playoff committee's first ranking (early November), then the CFP's for the
+rest of that season; never both. No date is hardcoded: ESPN's rankings feed gains a `type: 'cfp'` poll
+when the committee ranks (`pickCfbPoll`). The rankings cache records `poll` and `season`, and a CFP
+poll sticks for its season (`keepCfpPoll`) so the AP's postseason polls don't flip it back; a device
+that never saw one asks ESPN's core API (`/rankings/21`, `fetchEspnCfbCfpRankings`) from November to
+January. The labels follow the cache (`cfbPollLabels`): the toggle and the All tab read "AP Top 25" or "CFP Top 25",
+the team page's stat "AP poll" or "CFP". Display only: no CFB rule scores off a poll. ESPN's
+scoreboard ranks follow the CFP on their own once it exists, which is why the table has to as well.
+
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
 strip and next match (Home's rows, the team page's stat strip and next game) and the Game Details sheet,
 plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results
@@ -247,7 +264,7 @@ including across sessions.
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
   `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
   (`js/seasons/pga.js`) resolve in `getLeagueRuleTeams` from `golferAwardCounts` (`js/golf.js`), one entry per occurrence;
-  the +5 bonus is `golfBonus` in `js/compare.js`.
+  the +5 bonus is `golfBonus` in `js/compare.js`. Majors get a Home card (see **Golf majors on Home**).
 - **TheSportsDB** is deprecated as a source: its only remaining caller is `fetchTeamBundle`'s
   fallback branch in `js/live-data.js`, reached when a team with a `sportsdbId` fails to resolve an
   ESPN row on a given refresh.
@@ -395,13 +412,19 @@ into the room (`js/draft-live.js`: top of `.board` and under the Chat header). O
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.
 
-**Feature guide** (`js/guide.js`): one `GUIDE` list feeds both the first-run tour (cards in the welcome
-sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How Boxscore
-works (`#view-guide`, `?view=guide`). In a phone browser the welcome opens on the two Add to Home Screen steps,
-and the name pick and tour only follow "Continue in browser", since the Home Screen app runs the welcome again on its
-first open. Tour cards show just each entry's `lead`. **When a
-feature ships or changes, update its `GUIDE` entry** (`tour: true` adds it to the tour; `pre` is the text shown
-before a group's first draft).
+**Feature guide** (`js/guide.js`): two lists, `SECTIONS` and `APP_ROWS`, feed both the first-run tour (cards in
+the welcome sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How
+Boxscore works (`#view-guide`, `?view=guide`). Before a group's first draft, Home's Draft section links to it too
+(`openGuide('board')`, its back link then says Home; `closeGuide` in `js/board.js`). The page is written for someone who's done a fantasy draft but not this
+kind: three numbered sections on what's different (you draft whole teams; teams score on how their season ends; blue
+live vs gold locked points), each with a still picture of the app, then "Around the app", one tappable row per tab and
+setting. The pictures are the landing page's tour scenes drawn finished (`paintSceneStill` in
+`js/landing-explainer.js`) for the group's own picks per league (`groupCaps`, else `DEFAULT_CAPS`), with made-up
+rivals' names, so they follow the real components and never show a real drafter. In a phone browser the welcome opens
+on the two Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
+Screen app runs the welcome again on its first open. Tour cards are the entries marked `tour`, with their `tourLead`.
+**When a feature ships or changes, update its `APP_ROWS` line** (one sentence; `pre` is the text shown before a
+group's first draft, `when` hides a row from groups it doesn't apply to). Keep the page short.
 
 **System admin** (`admin.html`, `js/system-admin.js`, `worker/system-admin.js`): the platform owner's page at
 `boxscore.space/admin`. It shows each group's draft, chat, activity, alert devices and secrets (present or missing, never
@@ -463,6 +486,83 @@ leagues and table points for EPL/NHL. It reads the same ranked tables the rules 
 rule's line under it, and a drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
 ignore tiebreakers. Only for a league whose season is under way and not locked.
 
+**Wide layout** (900px and up: iPad landscape and desktop; `js/wide.js`, `js/wide-query.js`, css/style.css "Wide
+layout", `docs/desktop-redesign-brief.md`): the same page and views, rearranged; under 900px (phones, iPad Split View,
+iPad mini portrait) nothing changes. The bottom tab bar becomes a 68px top header (group name left, Settings right; each
+view's own logo and Settings button hide). A fixed 96px team rail (`#wide-rail`) lists the displayed drafter's teams by
+league (`setRailDrafter`, called from `renderBoard`, so a peek shows theirs) under "All teams" (Home); the open team
+page's team is selected with a gold bar, a team with a game on gets a red dot (repainted every 30s), and ↑/↓ inside the
+rail moves to the next item and opens it. Chat is the same `#view-chat` beside the page instead of a tab: a 340px column
+from 1280px that collapses to a 52px strip (remembered per device, `bx-chat-collapsed`), and a 380px slide-over with a
+scrim from 900–1279px (the Chat nav item, Esc or the scrim close it). `setChatActive(active, { beside })` keeps it
+connected and marking messages seen while it shows; a `?view=chat` link at these widths lands on Home with chat beside
+it. Tab switches crossfade instead of sliding. The layout's sizes are tokens (`--rail-w`, `--wide-head-h`, `--chat-w`,
+`--chat-over-w`). The team page lays out on its own at these widths (`renderWideTeamPage`): a hero band (crest on the
+team-color orb and glow, standing, name, owner; the live, next or last game as a match card with the opponent's owner;
+the "Your points" card linking to Points; the star), then two columns: Season (record, standing, two key stats, then
+home/away and scoring splits) and Schedule; Game by game (the season's margins as bars, last 20, capped per league,
+`js/team-wide-math.js`; it stands in for a Last 5 strip), Key players (team leaders where the league has player stats;
+otherwise a Full squad link) and On the line (every scoring rule from `teamPathToPoints` with its state and line note;
+rules out of play hide behind "Show all N rules", remembered per device as `bx-otl-all`), then Results and News. A back link naming where it returns sits above the band, as on Settings, and
+no header tab reads as selected while it (or Full schedule / Full squad) shows; Back crossfades, like the way in. It
+fetches everything the phone page's tabs fetch, at once; no swipe, compact bar or row transition. A team with no regular-season games yet gets the reduced page (the band, a
+note and the schedule). Crossing 900px (an iPad rotating) rebuilds an open team page in the other layout. Home's league
+cards fit as many 300px columns as there's room for. Standings: League-view rows become table rows with real stat
+columns from the ESPN rows already loaded (`js/standings-cols.js`: W/D/L, GF/GA/GD and PTS for the EPL; W/L/T, PCT,
+PF/PA, DIFF and streak for the NFL; PCT, GB and streak for NBA/WNBA/MLB; OTL and PTS for the NHL) under a header row,
+with "Drafted by" as its own column; the cells and header are always in the markup and hidden under 900px. A league
+picked on its own renders through `wideLeagueBlockHtml` (the phone's per-league blocks and toggles are untouched, and
+share its state): no League | Drafted toggle, the real table and a Drafted panel (the phone's Drafted rows, headed with
+the league's +5 bonus) show together, the panel beside a single table (EPL, WNBA, and the AP Top 25 for CFB and CBB)
+or under the NFL/NBA/NHL/MLB's two conference tables (`confPairHtml`, side by side) with its rows in two columns.
+Divisions | Conference is a small pill in the card's header (`widePillHtml`, the postseason switch's pill style). A narrow
+table (container query) drops columns marked to give way (`narrow` under 640px, `tiny` under 480px), and every
+Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in a grid
+at wide widths), its
+top 5 (conference leagues ranked together, `leagueLeaders`) plus the displayed drafter's teams further down after a
+dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view shows just its ladder
+card, without the drafted table, and "Full details" opening that league. At wide widths the overview is a grid of
+cards where the cards side by side share a height (each row as tall as its tallest card, "Full table" / "Full details" pinned to the bottom; a card with neither,
+like PGA's empty one, keeps its own height), and a league on its Postseason view shows rows there instead of the ladder
+(`postseasonOverviewHtml` in `js/postseason.js`): the title, the champion card, then the drafted teams in the field,
+furthest along first, with seed, the round each is in or went out in, and points banked (top 5, then yours; no owner column, which the league's own view has). A league picked on its own on its Postseason view gets the wide ladder (`ladderWide`, `DIMS.wide` in
+`js/postseason.js`): one full-width card with the ladder and scrubber on the left and the drafted table beside it (stacked
+when the card is under 1000px), rung labels and points leading each rung on the left, 52px chips with 36px badges,
+eight to a row, each game's two chips pulled together on a shared backing (`pairGap` in `js/postseason-math.js`), MLB's
+AL and NL halves split by a line with the World Series on it, and the playoffs reveal's grid kept phone-width and
+centered (a last row that isn't full centered under the others; a strip without a league logo centers its title and
+"of your teams" line too). On phones the All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
+Upcoming / Completed filter; the day shows as Live, Upcoming and Final groups at once (each hidden when empty; a game
+that just ended stays under Live for its two minutes), each league's games a grid of cards (the phone's card markup
+restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little
+larger), and a Monday-to-Sunday week strip replaces the ‹ › arrows (its ‹ › move a week; "Today" appears when today is
+off the strip). Each day's count follows the scope chip; the counts come from the same per-day scoreboards, filled a
+day at a time after the slate on screen paints (`fillWeekCounts`, kept in `daySlates` for 15 minutes). Game Details
+docks in a sticky column beside the cards (`#live-now-detail`) instead of the sheet: `openGameDetail` moves the same
+`#game-detail-content` there (`dockTarget` in `js/live-data.js`) and moves it back to the sheet anywhere else, a click
+on another card swaps it, and `syncScoresDetail` (after each paint) outlines the selected card, picks a game when none
+is showing (live, then final, then upcoming) and refreshes a live one's box score each minute unless a clip is playing.
+The column shows only on a day with a game it can open. Crossing 900px re-renders Scores too. Points (`obWideHtml` in `js/overall.js`): no
+segments and no hero card. A strip of your numbers (rank and move, projected, locked, live, the gap to first (or your
+lead), the scoring rules button); the leaderboard with a column per scoring league from each row's
+`leagues` (a cell is that drafter's points there under a neutral `--heat` tint, red when negative; tapping a cell opens
+the breakdown with that league unfolded, `obOpenLeague`), a locked/live bar, Live, Total and the rank move; the Race
+chart full width under it (drawing no table of its own there) and History ("Past seasons") under that. Activity sits in
+a sticky column on the right; a row tap opens that drafter's breakdown in the column instead of the sheet and push
+(`obOpenSheet` and `obOpenDetail` branch on `isWide()`, Back reads "Activity"), and Compare opens there too. Under about
+1000px of content the column drops under the table. Rows that moved glide as on the phone. Crossing 900px re-renders
+Points. Team color
+appears only in crests and the hero's orb and glow; the glow falls back to the second color only for near-black teams
+(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`): two columns instead of one
+narrow one, the identity card (bigger, with a Switch button) and the device note and version in a sticky column on the
+left, the sections on the right with each section's rows joined into one list; rows and choices get hover states. The
+two wrappers (`.set-side`, `.set-main`) are `display: contents` under 900px, so the phone page is unchanged. The draft
+room and Commissioner are consoles with their own columns (`html[data-console]`, set by `syncChat` in `js/wide.js`):
+the rail steps aside for both; Commissioner's console covers the window, chat included (`chatBeside` is false
+there), and the draft room sits under the full-width header and beside chat. The guide lines up at the content's left
+edge like every other page. Activity rows, Home's postseason cards, filter chips and segmented controls get hover
+states (`(hover: hover)` only).
+
 **Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): where every team tap in the app goes (there's no team peek
 modal; a golfer opens the golfer sheet). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
 card, a Compare team) grows what was tapped into the page, crest, name and owner flying into the hero (`teamSource`
@@ -505,7 +605,9 @@ the card opens on Postseason. Postseason is a ladder of every playoff team: it o
 teams stay grayed on the rung where they lost, a scrubber replays the rounds, and the Champion rung becomes a crown card
 (the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
 A rung's points are gold once a team has reached it (in the reveal, once the badges land).
-Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
+Below it, Postseason points (`postseasonDraftedHtml`): every drafter with a team in the field, ranked by the points
+their postseason teams have earned between them (gold locked, blue in play), with all of those teams (the eliminated
+ones dimmed); tap one to spotlight their chips. The ladder's title is the league logo with
 "Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
 Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`). They also
 score on the Points tab with no commissioner mark: `getLeagueRuleTeams` unions marks with `postseasonRuleTeams`
@@ -515,9 +617,12 @@ the ladder's stage. The ladder updates in place while you scrub; `keepPostseason
 Standings re-render.
 The toggle is introduced by the **playoffs reveal**: the first time a device opens that league's Standings tab after the
 field is set, a ~10s announcement plays in the card (the logo big, then docked; the seeded field; how many of your teams
-are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder). Until it has played
+are in; a loud toggle that flips to Postseason; the logo and badges flying down into the ladder at the field set). Then
+the ladder climbs one round at a time (`replayPostseason`, the Replay button's steps) and stops on the latest round, so a
+first look during the semifinals walks through each round before it. Until it has played
 (`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
-(`postseasonRevealBusy`), ends at once on a toggle tap, a league switch or leaving the tab, and reduced motion skips it.
+(`postseasonRevealBusy`), ends at once on the latest round on a toggle tap, a league switch or leaving the tab, and
+reduced motion skips straight there.
 Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
@@ -541,13 +646,44 @@ tournament", `isMissRule`) for every drafted team outside the field. ESPN names 
 every day from Sept 26 to Nov 8 so far (`loadDays`, settled days saved per device as `bxPsDay:mlb:<day>`) plus the
 final standings for seeds (`parseNflSeeds(…, 6)`), and `seriesEvents` folds each series' games into one event whose score
 is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A series between games is `begun`, so the
-round reads as under way, and the team page shows its tally ("Leads 2–1"). The lockup is `icons/mlb-postseason-*.png`,
+round reads as under way, and the team page shows its tally ("Leads 2–1"). On the ladder, once a series has a
+game in, its tally replaces the pair's "v" ("1–0", read left to right like the chips, the leader's number brighter,
+a red dot above while a game is on; snapshot's `series` at the latest stage only, worded by `seriesLine` for screen
+readers), so it costs no room. While a game is on (a single game too, which gets the dot on its "v"), the pair's
+mark is a button that calls `openGameDetail` for the live game (`liveId`: `seriesEvents` carries the in-progress
+game's id, since a series' own id is its first game's) through whichever side is a drafted team, so the Scores
+sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split
+into AL / NL columns (`sides`: each half of every rung laid out on its own by `rungRows`, the World Series pair
+meeting in the middle) under small AL / NL labels (`sidesHtml`) that fade once a champion is crowned. The lockup is `icons/mlb-postseason-*.png`,
 drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
 While MLB is in `PRIOR_SEASON_DISPLAY_LEAGUES` the postseason doesn't count (`postseasonScores`): `snap` reads it with no
 rules, so the ladder has no rung points, the crown card no points, the drafted table no points columns, the team page
 shows Series won / Counts: No, Home's card adds "Doesn't count for points", the Standings note names the postseason,
 labels use ESPN's year, and `postseasonRuleTeams` never answers. Once MLB leaves that list, its rules ("Make LCS",
 "Make World Series", "Win World Series") score from the ladder too, alongside `js/playoff-series.js`.
+**WNBA** (`wnba`) is loaded the same way (every day from Sept 10 to Oct 31 so far, `bxPsDay:wnba:<day>`, folded by
+`seriesEvents`): 8 teams, first round (best of 3), semifinals (5), Finals (7), no conferences and no byes. Its seeds are
+league-wide, read from the league-level standings (`standings?level=1`, `parseNflSeeds(…, 8)`). The lockup is
+`icons/wnba-playoffs-*.svg` for every year: the dark file is the league's on-dark artwork, the light one ours with its
+white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
+`PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
+the Finals" and "Win the Finals" score from the ladder.
+**Golf majors on Home** (`golfMajorHomeHtml` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
+`majorGolfers` / `majorLeaders` / `pickWeekEvent` in `js/golf.js`, tested in `tests/golf.test.mjs`; plan in
+`docs/golf-majors-plan.md`): a group with PGA Tour on gets a card in Home's postseason stack (after those cards,
+`renderPlayoffsHome`, repainted through `onGolfData`) for each major from the Monday of its week until a week after its
+last round (`majorWindow`). During the week it reads the live leaderboard (`golfStore.current`); the week after, the
+finished major from the condensed season. Eyebrow "Starts Thu" / "Round 3" / "Final"; the leader or winner; for a
+drafter in a group whose golf scores (`majorsScore`: drafted, not scores-only, not a prior FedEx season) their golfers
+in the field, how many made the cut, and their major points, blue in play then gold. Logos and display names are
+`MAJORS` in `js/seasons/pga.js` (`icons/major-*.png`, dark-theme copies where the artwork is dark), matched by ESPN's
+event name; an unknown major falls back to ESPN's PGA Tour logo. Hidden before a group's first draft, like the
+postseason cards. A tap opens the leaderboard sheet (`openGolfEvent`), which pins the drafter's golfers above the field
+with each one's major points. ESPN's scoreboard lists an opposite-field event beside The Open with no major flag on
+either, so `fetchCurrentGolfEvent` reads each listed event's leaderboard once in such a week (`weekEventsToCheck`) and
+`pickWeekEvent` takes the major, else the main event (`primary`). Local dev and Pages previews replay a major with
+`?major=masters|pga|usopen|open&majorphase=pre|live|final&majormine=4` (sticky until `?major=0`), whether or not the
+group has golf.
 
 **NBA / NHL / MLB playoff rounds** (`js/playoff-series.js`, pure `js/playoff-series-math.js`, tests against
 `tests/fixtures/espn-playoffs-*.json`): "Make conference finals / LCS", "Make the final" and "Win the final" score from
@@ -609,7 +745,7 @@ window at a made-up `yourfriends.boxscore.space`: the landing never shows a real
 lands), your board filling the standard setup's slots with crests, team pages swiping through three of your teams in three
 leagues (each with its league's real Path to points, `pathToPointsHtml`), Scores (`gameCardHtml`), Chat, Points
 (live → locked), and the season race (the Points tab's race card, `.race-*`, replaying to a finish between 80 and
-110 points as the standings under it re-sort). Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
+110 points as the standings under it re-sort). The group cards wait for the fresh roster (`loadRoster(id, { fresh: true })`, same 1.5s cap) because the spots count is drawn once; a stale cache would show filled spots as open. Under it, "Your league, your rules" (`sportPicksHtml`) shows the standard setup's
 sports with their picks each, and what a commissioner can change. Captions with counts follow the setup. Reduced motion: no
 scrubbing; each scene shows its end state and the segments switch steps. Sections rise in the first time they're 35%
 in view.
@@ -619,6 +755,11 @@ still opens offline; a launch whose page takes over 3s runs wholly from the cach
 div exists because the installed PWA's translucent status bar shows real page content through it —
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.
+
+**Android touches:** the manifest has `any` and `maskable` icons plus app `shortcuts` (Scores, Chat, Standings,
+Points); push notifications carry a monochrome `badge-96.png` and a double buzz for draft turns. `js/back-button.js`
+(Android only) gives the system Back the on-screen back button's job: it keeps one history entry per open sheet and
+pushed page, and a Back closes the top sheet (by clicking its backdrop) or taps the page's `.ob-back`.
 
 **More news (Perigon, proof of concept):** a team page's News section shows ESPN headlines first, then up to four
 "More news" stories from Perigon. Perigon's free tier (~150 calls/month) rules out per-team or per-view searches, so

@@ -6,8 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   parseCalendar, fedexSeasonEvents, condenseLeaderboard, parseLeaderboard, parseGolferRecord,
-  finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone
+  finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone,
+  finishAwards, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, majorWindow, activeMajor, majorPoints, majorGolfers, majorLeaders, isOut
 } from '../js/golf.js';
+import { PGA_SCORING } from '../js/seasons/pga.js';
 import { updateSeason } from '../worker/golf.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/golf/${name}.json`, import.meta.url)));
@@ -174,4 +176,121 @@ test('a golfer\'s rule counts come off the finished events', () => {
   assert.equal(golferAwardCounts(events, '999').win, 0);
   assert.equal(fedexSeasonDone(events), true);
   assert.equal(fedexSeasonDone(events.slice(0, 3)), false);
+});
+
+// ---- Majors on Home (docs/golf-majors-plan.md) ----
+
+const day = iso => Date.parse(iso);
+const OPEN_BOARD = parseLeaderboard(OPEN);   // The Open, 2026: Thu Jul 16 – Sun Jul 19
+const OPEN_EVENT = { id: OPEN_BOARD.id, name: OPEN_BOARD.name, start: OPEN_BOARD.start, end: OPEN_BOARD.end };
+const RULES = PGA_SCORING.rules;
+// The Open still being played: round 3, with the cut made.
+const OPEN_LIVE = { ...OPEN_BOARD, status: 'in', round: 3 };
+
+test('finishAwards: one finish, the same tiers as the season counts', () => {
+  assert.deepEqual(finishAwards({ finish: '1', major: true }), ['majorWin']);
+  assert.deepEqual(finishAwards({ finish: '1' }), ['win']);
+  assert.deepEqual(finishAwards({ finish: 'T10', major: true }), ['majorTop10']);
+  assert.deepEqual(finishAwards({ finish: 'T11', major: true }), ['majorTop20']);
+  assert.deepEqual(finishAwards({ finish: '21', major: true }), []);
+  assert.deepEqual(finishAwards({ finish: 'CUT', major: true }), ['majorMissedCut']);
+  assert.deepEqual(finishAwards({ finish: 'WD', major: true }), []);
+  assert.deepEqual(finishAwards({ finish: '1', tourChampionship: true }), ['tourChampionship', 'fedexCup', 'win']);
+});
+
+test('a week with two events: the major, whichever ESPN lists first', () => {
+  const week = fixture('scoreboard-open-week').events.map(e => ({ id: e.id, name: e.name }));
+  const [open, corales] = week;
+  assert.equal(corales.name, 'Corales Puntacana Championship');
+  const flags = { [open.id]: { major: true, primary: true }, [corales.id]: { major: false, primary: false } };
+  assert.equal(pickWeekEvent(week, flags).id, open.id);
+  assert.equal(pickWeekEvent([corales, open], flags).id, open.id);
+  // Only the opposite-field event checked: the other one is the main event.
+  assert.equal(pickWeekEvent([corales, open], { [corales.id]: flags[corales.id] }).id, open.id);
+  // Nothing checked yet: ESPN's first, and both need a look.
+  assert.equal(pickWeekEvent([corales, open]).id, corales.id);
+  assert.deepEqual(weekEventsToCheck(week), [open.id, corales.id]);
+  assert.deepEqual(weekEventsToCheck(week, flags), []);
+  assert.deepEqual(weekEventsToCheck([open]), [], 'a one-event week needs no look');
+  assert.equal(pickWeekEvent([]), null);
+});
+
+test('the leaderboard says whether an event is the week\'s main one', () => {
+  assert.equal(OPEN_BOARD.primary, true, 'missing means primary');
+  const side = structuredClone(OPEN);
+  side.events[0].primary = false;
+  assert.equal(parseLeaderboard(side).primary, false);
+  assert.equal(condenseLeaderboard(side).primary, false);
+});
+
+test('a major shows from the Monday of its week until a week after', () => {
+  const w = majorWindow(OPEN_EVENT.start, OPEN_EVENT.end);
+  assert.equal(new Date(w.from).toISOString(), '2026-07-13T04:00:00.000Z');
+  assert.equal(new Date(w.to).toISOString(), '2026-07-27T04:00:00.000Z');
+  assert.equal(majorWindow(null, OPEN_EVENT.end), null);
+
+  const pre = { event: OPEN_EVENT, board: { ...OPEN_BOARD, status: 'pre', round: null } };
+  assert.equal(activeMajor({ current: pre, now: day('2026-07-12T12:00Z') }), null, 'Sunday before: not yet');
+  assert.equal(activeMajor({ current: pre, now: day('2026-07-13T12:00Z') }).status, 'pre', 'Monday');
+  // Not a major: nothing, whatever the week.
+  const regular = { event: OPEN_EVENT, board: { ...OPEN_BOARD, major: false } };
+  assert.equal(activeMajor({ current: regular, now: day('2026-07-17T12:00Z') }), null);
+  // Still being played on Monday (weather, a playoff): still on.
+  const late = { event: OPEN_EVENT, board: OPEN_LIVE };
+  assert.equal(activeMajor({ current: late, now: day('2026-08-20T12:00Z') }).status, 'in');
+});
+
+test('the week after: the finished major from the season, the scoreboard having moved on', () => {
+  const condensed = condenseLeaderboard(OPEN);
+  const next = { event: { id: 'x', name: '3M Open', start: '2026-07-23T04:00Z', end: '2026-07-26T04:00Z' }, board: null };
+  const m = activeMajor({ current: next, events: [condensed], now: day('2026-07-24T12:00Z') });
+  assert.equal(m.id, condensed.id);
+  assert.equal(m.status, 'post');
+  assert.equal(m.finishes['4251'], '1');
+  assert.equal(activeMajor({ current: next, events: [condensed], now: day('2026-07-27T12:00Z') }), null, 'a week on: gone');
+  assert.equal(activeMajor({ events: [{ ...condensed, major: false }], now: day('2026-07-24T12:00Z') }), null);
+});
+
+test('major points under a group\'s rules, in play while it\'s being played', () => {
+  assert.equal(majorPoints('1', RULES), 5);
+  assert.equal(majorPoints('T6', RULES), 2);
+  assert.equal(majorPoints('T14', RULES), 1);
+  assert.equal(majorPoints('T21', RULES), 0);
+  assert.equal(majorPoints('CUT', RULES), -2);
+  assert.equal(majorPoints('WD', RULES), 0);
+  assert.equal(majorPoints('1', [{ label: 'Win a major', pts: 8, golfAuto: { each: 'majorWin' } }]), 8, 'a group\'s own numbers');
+  assert.ok(isOut('CUT') && isOut('WD') && isOut('DQ') && !isOut('T4') && !isOut(null));
+});
+
+test('a drafter\'s golfers in a major: best first, points, who\'s still playing', () => {
+  const live = activeMajor({ current: { event: OPEN_EVENT, board: OPEN_LIVE }, now: day('2026-07-18T12:00Z') });
+  assert.equal(live.cutDone, true);
+  const mine = majorGolfers(live, ['9131', '10046', '4251', '4683800', '999999'], RULES);
+  assert.deepEqual(mine.rows.map(r => [r.id, r.finish, r.pts, r.playing]), [
+    ['4251', '1', 5, true],
+    ['10046', 'T14', 1, true],
+    ['9131', 'CUT', -2, false],
+    ['4683800', 'WD', 0, false]
+  ], 'not in the field: left out');
+  assert.equal(mine.total, 4);
+  assert.equal(mine.playing, 2);
+
+  const final = activeMajor({ events: [condenseLeaderboard(OPEN)], now: day('2026-07-20T12:00Z') });
+  assert.equal(majorGolfers(final, ['4251'], RULES).playing, 0, 'over: nobody playing');
+});
+
+test('the leader, with a score to par from the live leaderboard', () => {
+  const live = activeMajor({ current: { event: OPEN_EVENT, board: OPEN_LIVE }, now: day('2026-07-18T12:00Z') });
+  assert.deepEqual(majorLeaders(live), { ids: ['4251'], toPar: '-10' });
+  const final = activeMajor({ events: [condenseLeaderboard(OPEN)], now: day('2026-07-20T12:00Z') });
+  assert.deepEqual(majorLeaders(final), { ids: ['4251'], toPar: null });
+  const tied = { ...live, finishes: { a: 'T1', b: 'T1', c: '3' }, toPar: { a: '-9', b: '-9' } };
+  assert.deepEqual(majorLeaders(tied), { ids: ['a', 'b'], toPar: '-9' });
+});
+
+test('the PGA Tour logo, one per theme', () => {
+  const logo = parseLeagueLogo(fixture('scoreboard-open-week'));
+  assert.match(logo.light, /leagues\/500\/pgatour\.png/);
+  assert.match(logo.dark, /500-dark\/pgatour\.png/);
+  assert.equal(parseLeagueLogo({ leagues: [{}] }), null);
 });

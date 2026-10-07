@@ -11,3 +11,15 @@ export const FILTER_CHIP_LABELS = {
   mcbb: 'CBB',
   pga: 'PGA'
 };
+
+// Spelled out in both the Teams tab's section headers and the
+// Standings header — the filter chips still keep the short
+// LEAGUES[].label as-is (FILTER_CHIP_LABELS above). Also used by
+// the Scoring modal header, the admin page (js/admin.js) and the wide
+// team page's standing line, so every "EPL"/"College FB"/"College BB"
+// reads as its full name wherever a header titles itself after the league.
+export const LEAGUE_FULL_LABELS = {
+  epl: 'English Premier League',
+  cfb: 'College Football',
+  mcbb: 'College Basketball'
+};

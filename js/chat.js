@@ -764,14 +764,17 @@ function guardTouchScroll(screen){
 
 // Called by js/board.js's switchView on every tab switch, so this runs
 // on the way out of the Chat tab too.
-export function setChatActive(active){
+// `beside`: showing next to the page at wide widths (js/wide.js's docked
+// column or slide-over) rather than as the whole screen.
+export function setChatActive(active, { beside = false } = {}){
   const el = screenEl();
   if(!el || active === open) return;
   open = active;
   if(active){
-    // Nothing else is showing, so the page has nowhere to scroll — this
-    // just drops whatever offset the previous tab was scrolled to.
-    window.scrollTo(0, 0);
+    // As the whole screen nothing else is showing, so the page has nowhere
+    // to scroll — this just drops whatever offset the previous tab was
+    // scrolled to. Beside the page, the page keeps its place.
+    if(!beside) window.scrollTo(0, 0);
     setStatus(status);
     markSeen();
     paintBadges();

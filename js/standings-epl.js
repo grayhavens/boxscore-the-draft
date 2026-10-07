@@ -11,6 +11,7 @@
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { findDraftedTeamByName, normalizeTeamName, teamBadgeHtml, abbrFromName, ordinal, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { fetchEspnEplStandings } from './espn.js';
+import { standingsColsHtml } from './standings-cols.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -150,7 +151,7 @@ export function renderStandingsRow(leagueKey, row){
   const recordHtml = `<span class="person-record-primary">${row.wins}-${row.draws}-${row.losses}</span><span class="person-record-secondary">${row.points} PTS</span>`;
 
   return `
-    <div class="standings-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
+    <div class="standings-row st-row ${teamKey ? 'clickable' : ''}" ${teamKey ? `onclick="openTeamPage('${teamKey}', 'standings', this)"` : ''}>
       <div class="standings-rank">${row.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
@@ -158,6 +159,7 @@ export function renderStandingsRow(leagueKey, row){
         ${ownerHtml}
       </div>
       <div class="person-record-chip">${recordHtml}</div>
+      ${standingsColsHtml('epl', row)}
     </div>
   `;
 }
