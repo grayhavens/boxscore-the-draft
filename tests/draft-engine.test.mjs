@@ -96,6 +96,9 @@ test('a live order from the room is copied; a deliberate re-run reshuffles', () 
   const redrawn = ok(copied, { type: 'runLottery' }, COMM);
   assert.equal(redrawn.orderSource, 'drawn');
   assert.equal(ok(redrawn, { type: 'reset' }, COMM).orderSource, undefined);
+  // The Live draft order button: copies it, or is refused when there's none.
+  assert.equal(ok(redrawn, { type: 'runLottery', live: true }, { ...COMM, liveOrder: live }).orderSource, 'live');
+  err(redrawn, { type: 'runLottery', live: true }, COMM, 'no_live_order');
   assert.equal(isOrderOf(['a', 'a', 'c', 'd'], D), false);
   assert.equal(isOrderOf(live, D), true);
 });

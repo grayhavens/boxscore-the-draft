@@ -382,7 +382,9 @@ whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 A mock lobby drafts in the live room's order once the live lottery is drawn (until that draft is done): the
 Durable Object reads `main`'s order (internal `GET .../order`) on connect and on the automatic first draw and hands it
 to the reducer as `ctx.liveOrder`; `state.orderSource` is `'live'`, `'drawn'` (re-run on purpose, kept until a reset)
-or unset. **Deploy the worker first:** an old worker just draws a random order.
+or unset. The mock lobby's Random order / Live draft order buttons switch between them (`runLottery { live: true }`,
+refused `no_live_order` when the live room has none). **Deploy the worker first:** an old worker just draws a random
+order.
 **Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
 the moment they go on the clock (`AUTO_DRAFT_SECONDS`, 0.75s: a beat so it reads as a pick), from their queue or else the best team that fits, through the
 same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own

@@ -43,7 +43,7 @@
      pickSeq           monotonic pick counter, so "undo" means "most recent"
    }
 
-   Error codes: forbidden, bad_phase, bad_input, no_order, not_live,
+   Error codes: forbidden, bad_phase, bad_input, no_order, no_live_order, not_live,
    paused, stale, not_your_turn, unknown_team, taken, league_full,
    pool_short, unchanged, nothing_to_undo, empty_slot, bad_slot, exists.
    ============================================================ */
@@ -259,10 +259,12 @@ export function isOrderOf(order, drafters){
 // clients can't send it. state.orderSource says where the order came
 // from: 'live' (copied), 'drawn' (someone ran the lottery on purpose),
 // or unset (the automatic first draw), so the room knows which orders
-// it may replace with the live one.
+// it may replace with the live one. `live` asks for the live order and
+// nothing else: refused when there's none to copy.
 function runLottery(state, a, ctx){
   if(state.phase !== 'lobby') return fail('bad_phase');
   if(a.ifUndrawn && state.order) return fail('already_drawn');
+  if(a.live && !isOrderOf(ctx.liveOrder, state.config.drafters)) return fail('no_live_order');
   if(isOrderOf(ctx.liveOrder, state.config.drafters)){
     state.order = ctx.liveOrder.slice();
     state.orderSource = 'live';

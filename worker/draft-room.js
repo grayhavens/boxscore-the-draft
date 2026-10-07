@@ -89,8 +89,9 @@
    lottery is drawn (and until that draft is done), so practice matches
    the real thing. It's copied on connect and on the automatic first
    draw (ctx.liveOrder, js/draft-engine.js), read from the group's main
-   room (GET .../order, internal only). A lottery someone re-runs in the
-   mock room on purpose is kept until a reset.
+   room (GET .../order, internal only), and again whenever someone taps
+   Live draft order (runLottery { live: true }). A Random order someone
+   draws in the mock room on purpose is kept until a reset.
 
    Sports: a room in the lobby takes its group's drafted sports as its
    caps (worker/sports.js), read on every connect, and PUT .../caps hands
@@ -461,11 +462,11 @@ export class DraftRoom extends DurableObject {
     // this just bounds the string that ends up in the audit log.
     if(from !== null && from.length > 40) return this.send(ws, { type: 'rejected', id: msg.id, error: 'bad_input' });
 
-    // A mock room's automatic first draw copies the live order when
-    // there is one. Fetched before reading the state, which can move on
-    // while it's in flight.
+    // A mock room's automatic first draw, and its Live draft order
+    // button, copy the live order when there is one. Fetched before
+    // reading the state, which can move on while it's in flight.
     const action = msg.action;
-    const liveOrder = action && action.type === 'runLottery' && action.ifUndrawn ? await this.liveOrder() : null;
+    const liveOrder = action && action.type === 'runLottery' && (action.ifUndrawn || action.live) ? await this.liveOrder() : null;
     const before = this.state;
     const result = reduce(before, action, {
       now: Date.now(),
