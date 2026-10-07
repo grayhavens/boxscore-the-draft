@@ -13,7 +13,7 @@ import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
 import { fetchEspnTeamSchedule, fetchEspnScoreboard, findEspnScoreboardLine, fetchEspnSummary, fetchEspnFootballSummary, fetchEspnSoccerSummary, fetchEspnHockeySummary, fetchEspnBasketballSummary } from './espn.js';
 import { fetchMlbGameExtras } from './mlb-stats.js';
 import { fetchNhlGameExtras } from './nhl-clips.js';
-import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached } from './standings-cfb.js';
+import { findCfbRecord, findEspnCfbRow, fetchEspnCfbRecordsCached, cfbPollLabels } from './standings-cfb.js';
 import { findCbbRecord, findEspnCbbRow, fetchEspnCbbStandingsCached, cbbConferenceRank } from './standings-cbb.js';
 import { findEspnNflRow, fetchEspnNflStandingsCached, nflDivisionLabel, nflDivisionRank, nflConferenceRank, fetchEspnNflDivisionStandingsCached } from './standings-nfl.js';
 import { nbaRecordLabel, findEspnNbaRow, fetchEspnNbaStandingsCached, nbaDivisionLabel, nbaDivisionRank, nbaConferenceRank, fetchEspnNbaDivisionStandingsCached } from './standings-nba.js';
@@ -495,7 +495,7 @@ export function renderStats(meta, bundle, elId){
   // CFB: findCfbRecord (js/standings-cfb.js) — ESPN's full FBS
   // standings first, falling back to TheRundown only for the one
   // drafted FCS team ESPN's standings don't cover — carries a real
-  // record and AP Top 25 rank, more useful here than TheSportsDB's
+  // record and Top 25 rank (AP's, then CFP's), more useful here than TheSportsDB's
   // generic Sport/Founded/Stadium bio fields.
   if(meta.leagueKey === 'cfb'){
     const rec = findCfbRecord(meta);
@@ -675,7 +675,9 @@ export function teamRecordStanding(meta){
       const row = findEspnCbbRow(meta), confRank = cbbConferenceRank(meta);
       if(confRank) return { record, standing: ordinal(confRank), group: (row && row.conferenceAbbr) || 'Conference' };
     }
-    return { record, standing: typeof rec.ranking === 'number' ? '#' + rec.ranking : 'NR', group: 'AP poll' };
+    // CFB's poll switches to the CFP's once it ranks (js/cfb-poll.js);
+    // College Basketball's is always the AP's.
+    return { record, standing: typeof rec.ranking === 'number' ? '#' + rec.ranking : 'NR', group: k === 'cfb' ? cfbPollLabels().short : 'AP poll' };
   }
   return null;
 }

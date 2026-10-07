@@ -7,4 +7,4 @@
    confirm a device is actually running the latest build rather than
    a stale cached copy — compare what's on screen to the version
    mentioned when a change ships. */
-export const APP_VERSION = '2026.10.04-10';
+export const APP_VERSION = '2026.10.07-1';

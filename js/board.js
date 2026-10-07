@@ -449,7 +449,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '' } = {}){
   const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
     ? `<div class="prior-season-note">${onPostseason
-      ? `The '${shortYear(ACTIVE_SEASON_ID)} postseason doesn't count — points start with the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`
+      ? `Points earned for '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} postseason only.`
       : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`}</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
@@ -618,7 +618,7 @@ export function renderStandings(){
     if(league.key === 'cfb'){
       const post = postseasonBlockHtml(league);
       if(post) return post;
-      // Each mode has its own ESPN cache — the AP Top 25 (rankings) and
+      // Each mode has its own ESPN cache — the Top 25 (rankings: AP, then CFP) and
       // "Person" (full-roster records) are two different ESPN endpoints
       // (js/standings-cfb.js's header comment), so each is gated on its
       // own cache rather than one shared check. fetchCfbRecords (the
