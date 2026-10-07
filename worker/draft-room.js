@@ -85,12 +85,19 @@
    candidate times (PUT .../poll, password-checked by the worker) and each
    drafter's answer (PUT .../vote, no-auth like a pick).
 
+   Order: a mock lobby drafts in the live room's order once the live
+   lottery is drawn (and until that draft is done), so practice matches
+   the real thing. It's copied on connect and on the automatic first
+   draw (ctx.liveOrder, js/draft-engine.js), read from the group's main
+   room (GET .../order, internal only). A lottery someone re-runs in the
+   mock room on purpose is kept until a reset.
+
    Sports: a room in the lobby takes its group's drafted sports as its
    caps (worker/sports.js), read on every connect, and PUT .../caps hands
    a Commissioner page save straight to an open lobby.
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
-import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
+import { reduce, createState, publicState, onTheClock, syncCaps, isOrderOf } from '../js/draft-engine.js';
 import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
@@ -181,6 +188,7 @@ export class DraftRoom extends DurableObject {
         if(!saved) this.state = newRoomState(this.group, this.room);
       }
       await this.syncGroupCaps();
+      await this.syncLiveOrder();
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
       this.ctx.acceptWebSocket(server);
@@ -203,6 +211,9 @@ export class DraftRoom extends DurableObject {
     }
     if(new URL(request.url).pathname.endsWith('/caps') && request.method === 'PUT'){
       return this.pushCaps(request);
+    }
+    if(new URL(request.url).pathname.endsWith('/order')){
+      return new Response(JSON.stringify({ phase: this.state.phase, order: this.state.order }), { headers: { 'Content-Type': 'application/json' } });
     }
     if(new URL(request.url).pathname.endsWith('/status')){
       return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
@@ -346,6 +357,35 @@ export class DraftRoom extends DurableObject {
     this.broadcast({ type: 'state', now: Date.now(), state: publicState(this.state) });
   }
 
+  // The live room's order for a mock room to copy, or null: not drawn
+  // yet, that draft already done, or a different set of drafters. Rooms
+  // are named the way the worker's draftRoomStub names them.
+  async liveOrder(){
+    if(!isMockRoom(this.room)) return null;
+    const group = this.group || LEGACY_GROUP_ID;
+    const name = group === LEGACY_GROUP_ID ? 'main' : `${group}/main`;
+    try {
+      const stub = this.env.DRAFT_ROOM.get(this.env.DRAFT_ROOM.idFromName(name));
+      const live = await (await stub.fetch('https://draft-room/order')).json();
+      return live.phase !== 'done' && isOrderOf(live.order, this.state.config.drafters) ? live.order : null;
+    } catch (e){
+      return null;
+    }
+  }
+
+  // A mock lobby picks up the live order (or a new one, if the live
+  // lottery was re-run) whenever someone connects, unless the order here
+  // was drawn on purpose.
+  async syncLiveOrder(){
+    const eligible = () => isMockRoom(this.room) && this.state.phase === 'lobby' && this.state.orderSource !== 'drawn';
+    if(!eligible()) return;
+    const order = await this.liveOrder();
+    if(!order || !eligible() || (this.state.order && this.state.order.join(',') === order.join(','))) return;
+    const before = this.state;
+    const result = reduce(before, { type: 'runLottery' }, { now: Date.now(), actor: null, isCommissioner: true, liveOrder: order });
+    if(result.state) await this.commit(before, result.state, null, true, { type: 'runLottery', liveOrder: true });
+  }
+
   // { caps, at } from the worker's PUT /sports, which has already checked
   // the commissioner password. A room nobody has opened yet learns its
   // group from the request, as pushDraftTime does.
@@ -421,12 +461,18 @@ export class DraftRoom extends DurableObject {
     // this just bounds the string that ends up in the audit log.
     if(from !== null && from.length > 40) return this.send(ws, { type: 'rejected', id: msg.id, error: 'bad_input' });
 
+    // A mock room's automatic first draw copies the live order when
+    // there is one. Fetched before reading the state, which can move on
+    // while it's in flight.
+    const action = msg.action;
+    const liveOrder = action && action.type === 'runLottery' && action.ifUndrawn ? await this.liveOrder() : null;
     const before = this.state;
-    const result = reduce(before, msg.action, {
+    const result = reduce(before, action, {
       now: Date.now(),
       actor: from,
       isCommissioner: attachment.commissioner,
-      rand: randomUnit
+      rand: randomUnit,
+      ...(liveOrder ? { liveOrder } : {})
     });
     if(!result.state){
       return this.send(ws, { type: 'rejected', id: msg.id, error: result.error, detail: result.detail });

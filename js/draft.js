@@ -9,7 +9,8 @@
 
    Three screens share the view:
    - Lobby: draft order (lottery), commissioner setup. Phase 'lobby'.
-     A mock lobby draws its order on arrival and puts each seat's bot
+     A mock lobby copies the live room's order once it's drawn (else
+     draws its own on arrival) and puts each seat's bot
      switch on the order rows (one table).
    - Live room: Available pool | Board | My roster + queue. Phases
      'draft' and 'done'. Built once as a shell and then updated region by
@@ -401,7 +402,7 @@ function lobbyHtml(d){
         : "Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. Order is set by random lottery."}</p>
       <div class="dr-card">
         <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${mock
-          ? `${(s.config.bots || []).length} of ${d.n} bots`
+          ? `${s.orderSource === 'live' ? 'Live draft order · ' : ''}${(s.config.bots || []).length} of ${d.n} bots`
           : (!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…'))}</span></div>
         ${rows}
         ${mock && draftStore.commissioner ? botActionsHtml(d, 'dr-wide-only') : ''}
@@ -413,7 +414,8 @@ function lobbyHtml(d){
 }
 
 // Mock rooms only: one table for the draft order and which seats the
-// worker drafts for. The order is drawn automatically on arrival (see
+// worker drafts for. The order is the live room's once its lottery is
+// drawn (worker/draft-room.js), else drawn automatically on arrival (see
 // maybeAutoDraw), so the rows only fall back to roster order for the
 // moment before it lands. Used by the lobby and the mid-draft modal.
 function mockOrderRowsHtml(d){

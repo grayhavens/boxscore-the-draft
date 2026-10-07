@@ -1,7 +1,7 @@
 // Run with: node --test tests/
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reduce, createState, publicState, onTheClock, syncCaps } from '../js/draft-engine.js';
+import { reduce, createState, publicState, onTheClock, syncCaps, isOrderOf } from '../js/draft-engine.js';
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
@@ -81,6 +81,23 @@ test('ifUndrawn draws once and never reshuffles an existing order', () => {
   assert.deepEqual(drawn.order.slice().sort(), D);
   err(drawn, { type: 'runLottery', ifUndrawn: true }, COMM, 'already_drawn');
   ok(drawn, { type: 'runLottery' }, COMM);        // a deliberate re-run still works
+});
+
+test('a live order from the room is copied; a deliberate re-run reshuffles', () => {
+  const s = createState(D, { caps: CAPS });
+  const live = D.slice().reverse();
+  const copied = ok(s, { type: 'runLottery', ifUndrawn: true }, { ...COMM, liveOrder: live });
+  assert.deepEqual(copied.order, live);
+  assert.equal(copied.orderSource, 'live');
+  // Not a permutation of this room's drafters: drawn as usual.
+  const auto = ok(s, { type: 'runLottery', ifUndrawn: true }, { ...COMM, liveOrder: ['a', 'b'] });
+  assert.deepEqual(auto.order.slice().sort(), D);
+  assert.equal(auto.orderSource, undefined);
+  const redrawn = ok(copied, { type: 'runLottery' }, COMM);
+  assert.equal(redrawn.orderSource, 'drawn');
+  assert.equal(ok(redrawn, { type: 'reset' }, COMM).orderSource, undefined);
+  assert.equal(isOrderOf(['a', 'a', 'c', 'd'], D), false);
+  assert.equal(isOrderOf(live, D), true);
 });
 
 test('changing structure clears the lottery and stale-league teams', () => {

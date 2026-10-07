@@ -131,7 +131,7 @@ const GUIDE = [
     id: 'draft', icon: 'draft', title: 'Draft room',
     lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
     points: [
-      'Mock Draft is always open: your own practice room against bots, whenever you like. Nobody else sees it.',
+      'Mock Draft is always open: your own practice room against bots, whenever you like. Nobody else sees it. Once the live draft order is drawn, mocks use it too.',
       'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
       'Once the commissioner sets the next draft’s time, Home counts down to it, and your phone tells you if alerts are on.',
       'While the real draft is live, a banner on every page takes you back to it.',
