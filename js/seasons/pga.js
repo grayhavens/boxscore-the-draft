@@ -35,6 +35,23 @@ export const PGA_SCORING = {
   bonus: { label: 'Most combined FedEx Cup points', pts: 5 }
 };
 
+// The four majors' logos for Home's major card (golfMajorHomeHtml in
+// js/golf-view.js), matched by ESPN's event name, with the name the card
+// shows ("The Masters", not ESPN's "Masters Tournament"). `lockup` logos
+// are wide wordmarks, shown like the MLB postseason's. Each has a light
+// and dark version: the navy ones go white on the dark theme, and the
+// Masters' dark green is lifted so its wordmark reads there.
+export const MAJORS = [
+  { key: 'masters', name: 'The Masters', match: /masters/i, logo: { light: 'icons/major-masters.png', dark: 'icons/major-masters-dark.png' } },
+  { key: 'pga', name: 'PGA Championship', match: /^pga championship/i, logo: { light: 'icons/major-pga-championship-light.png', dark: 'icons/major-pga-championship-dark.png' } },
+  { key: 'usopen', name: 'U.S. Open', match: /^u\.?\s?s\.? open/i, lockup: true, logo: { light: 'icons/major-us-open-light.png', dark: 'icons/major-us-open-dark.png' } },
+  { key: 'open', name: 'The Open', match: /^the open( championship)?$/i, lockup: true, logo: { light: 'icons/major-open-light.png', dark: 'icons/major-open-dark.png' } }
+];
+
+export function majorOf(name){
+  return MAJORS.find(m => m.match.test(String(name || '').trim())) || null;
+}
+
 export function golferKey(name){
   return `pga_${slugify(name).replace(/-/g, '_')}`.slice(0, 60);
 }

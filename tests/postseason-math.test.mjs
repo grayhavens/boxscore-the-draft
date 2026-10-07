@@ -183,6 +183,31 @@ test('opponents sit side by side: NFL Wild Card and Divisional', () => {
   assert.deepEqual(rowOf(pos1, div, 44), ['SEA', 'SF', 'CHI', 'LAR']);
 });
 
+// The wide ladder's sizes (js/postseason.js DIMS.wide).
+const WIDE = { rungH: 108, rowH: 52, oneRowY: 28, perRow: 8, pairGap: 36 };
+
+test('wide ladder: a game is one unit, its chips pairGap either side of its two shares', () => {
+  const S0 = snapshot(nfl(), 0, opts(NFL_RULES, NFL_OWNERS));
+  const pos = ladderLayout(S0.teams, { ...WIDE, top: 1, games: S0.games });
+  matchups(S0.teams, S0.games).forEach(([a, b]) => {
+    assert.equal(pos[a.id].fx, pos[b.id].fx);
+    assert.deepEqual([pos[a.id].dx, pos[b.id].dx], [-36, 36]);
+  });
+  // Twelve Wild Card chips still split into two rows of three games, on the taller rows.
+  const wc = S0.teams.filter(t => t.rung === 0);
+  assert.deepEqual([...new Set(wc.map(t => pos[t.id].y))].sort((x, y) => x - y), [108 + 4, 108 + 56]);
+  assert.deepEqual([...new Set(wc.map(t => pos[t.id].fx))].sort(), [1 / 6, 3 / 6, 5 / 6]);
+  // The byes sit alone on Divisional, on its one row, with no offset.
+  const byes = S0.teams.filter(t => t.rung === 1);
+  assert.ok(byes.every(t => pos[t.id].y === 28 && pos[t.id].dx === 0));
+});
+
+test('phone ladder positions carry no offset', () => {
+  const S0 = snapshot(nfl(), 0, opts(NFL_RULES, NFL_OWNERS));
+  const pos = ladderLayout(S0.teams, { top: 1, games: S0.games });
+  assert.ok(Object.values(pos).every(p => !('dx' in p)));
+});
+
 test('opponents sit side by side: CFP first round and quarterfinals', () => {
   const S0 = snapshot(cfb(), 0, opts(CFB_RULES, {}));
   const pos0 = ladderLayout(S0.teams, { top: 1, games: S0.games });

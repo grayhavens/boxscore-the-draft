@@ -1,6 +1,6 @@
 # Decisions
 
-One line each: decision — reason (source). Inferred from code, comments, docs and commits as of 2026-10-03.
+One line each: decision — reason (source). Inferred from code, comments, docs and commits as of 2026-10-05.
 
 ## Platform and stack
 
@@ -38,6 +38,7 @@ One line each: decision — reason (source). Inferred from code, comments, docs 
 - +5 league bonus to each league's Drafted-standings leader; ties go to whoever is listed first, "fine for now" (points-ux-plan.md).
 - A league's live table only scores from regular season start through postseason end; then the lock counts — stopped scoring off stale/0–0 tables (points-ux-plan.md).
 - MLB/WNBA show live prior-season data flagged as non-scoring rather than hiding it (CLAUDE.md).
+- Postseason ladders show for MLB 2026 but don't score; Home's postseason cards wait until the group has drafted, so a pre-draft Home leads with the Draft card (#236, #238).
 - Rank events logged only on entering/leaving 1st or moving 2+ places; rank-move alerts for 1st place at most once a day (points-ux-plan.md, #222).
 
 ## Trust and auth
@@ -84,4 +85,5 @@ One line each: decision — reason (source). Inferred from code, comments, docs 
 - No proxying or caching of KLIPY (CLAUDE.md).
 - Postseason `fact` events in Activity deferred (points-ux-plan.md).
 - No namespacing of localStorage by group — each subdomain is its own origin (CLAUDE.md).
+- Landing page draws its spots count once, after the fresh roster loads (1.5s cap), so a stale cache never shows filled spots as open (#239).
 - Landing page lists only groups still recruiting (Season Ticket) (CLAUDE.md).

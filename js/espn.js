@@ -1460,14 +1460,19 @@ function parseEspnGameMedia(data){
 }
 
 // Shared status-block read off data.header.competitions[0] — identical
-// for every sport's summary response.
+// for every sport's summary response. `series` is a playoff series' count
+// as ESPN words it ("CHW lead series 2-0"), or null: the summary lists
+// every series the two teams share (regular season, preseason, the
+// current one), and only the playoff one is the count Game Details shows.
 function parseEspnSummaryStatus(comp){
   const statusType = comp.status && comp.status.type;
+  const playoff = Array.isArray(comp.series) ? comp.series.find(x => x && x.type === 'playoff') : null;
   return statusType ? {
     state: statusType.state,
     detail: statusType.shortDetail,
     period: comp.status.period,
-    displayClock: comp.status.displayClock
+    displayClock: comp.status.displayClock,
+    series: (playoff && typeof playoff.summary === 'string' && playoff.summary) || null
   } : null;
 }
 
@@ -2000,6 +2005,10 @@ export async function fetchEspnRegularSeasonEnd(coreLeaguePath, year){
 // device (js/espn-days.js), its games folded into series (seriesEvents).
 // Its seeds come from the final standings like the NFL's. Checked against
 // the 2025 postseason and the 2026 one under way (2026-10-04).
+// The WNBA's is loaded the same way (mid-September to the end of October).
+// Its seeds are league-wide (1-8), which only the league-level standings
+// (`level=1`, one table, no conferences) carry. Checked against the 2025
+// playoffs and the 2026 ones under way (2026-10-04).
 // Shape returned: { events: [parseScoreboardEvent], seeds, logo: { light, dark } | null } | null
 export async function fetchEspnPostseason(leagueKey, year){
   if(leagueKey === 'nfl'){
@@ -2042,6 +2051,19 @@ export async function fetchEspnPostseason(leagueKey, year){
     ]);
     if(!standings || games.failed) return null;
     return { events: seriesEvents('mlb', games.games), seeds: parseNflSeeds(standings, 6), logo: null };
+  }
+  if(leagueKey === 'wnba'){
+    const days = [];
+    const end = Math.min(Date.now(), Date.UTC(year, 9, 31));
+    for(let t = Date.UTC(year, 8, 10); t <= end; t += 864e5) days.push(ymd(new Date(t)));
+    const parse = e => e && e.season && e.season.slug === 'post-season' ? parseScoreboardEvent(e) : null;
+    const [standings, games] = await Promise.all([
+      fetchEspnJSON(`/apis/v2/sports/basketball/wnba/standings?season=${year}&level=1`),
+      loadDays({ store: 'bxPsDay', key: 'wnba', sportPath: 'basketball/wnba', extra: '', parse }, days)
+    ]);
+    if(!standings || games.failed) return null;
+    const league = { children: [{ abbreviation: '', standings: standings.standings }] };
+    return { events: seriesEvents('wnba', games.games), seeds: parseNflSeeds(league, 8), logo: null };
   }
   return null;
 }

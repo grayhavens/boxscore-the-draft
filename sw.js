@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v53';
+const CACHE_NAME = 'boxscore-v69';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const SHELL_FILES = [
   './js/motion-fx.js',
   './js/gestures.js',
   './js/pull-refresh.js',
+  './js/back-button.js',
   './js/cache-fresh.js',
   './js/news-more.js',
   './js/ui.js',
@@ -78,6 +79,7 @@ const SHELL_FILES = [
   './js/gif-picker.js',
   './js/gifs.js',
   './js/guide.js',
+  './js/landing-explainer.js',
   './js/identity.js',
   './js/live-now.js',
   './js/nflverse.js',
@@ -89,6 +91,10 @@ const SHELL_FILES = [
   './js/settings.js',
   './js/standings-cbb.js',
   './js/team-page.js',
+  './js/team-wide-math.js',
+  './js/standings-cols.js',
+  './js/wide.js',
+  './js/wide-query.js',
   './js/sheet.js',
   './js/league-labels.js',
   './js/draft-schedule.js',
@@ -121,6 +127,8 @@ const SHELL_FILES = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './icons/badge-96.png',
   './icons/apple-touch-icon.png',
   './icons/logo-header.png',
   './icons/logo-header-light.png',
@@ -130,7 +138,17 @@ const SHELL_FILES = [
   './icons/cfp-wordmark-light.png',
   './icons/march-madness.png',
   './icons/mlb-postseason-dark.png',
-  './icons/mlb-postseason-light.png'
+  './icons/mlb-postseason-light.png',
+  './icons/wnba-playoffs-dark.svg',
+  './icons/wnba-playoffs-light.svg',
+  './icons/major-masters.png',
+  './icons/major-masters-dark.png',
+  './icons/major-pga-championship-dark.png',
+  './icons/major-pga-championship-light.png',
+  './icons/major-us-open-dark.png',
+  './icons/major-us-open-light.png',
+  './icons/major-open-dark.png',
+  './icons/major-open-light.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -295,6 +313,10 @@ async function showAlert(data){
     tag: data.tag || undefined,
     renotify: !!data.tag,
     icon: './icons/icon-192.png',
+    // Android's status-bar glyph: a white shape on transparent (iOS ignores it).
+    badge: './icons/badge-96.png',
+    // A quick double buzz when it's your turn; other alerts use the default.
+    vibrate: data.kind === 'draft' ? [120, 60, 120] : undefined,
     data: { url: data.url || './', kind: data.kind || '', count }
   });
 }

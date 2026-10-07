@@ -62,8 +62,12 @@ import {
 import {
   backLinkHtml, teamBadgeHtml as badgeHtml, teamOrbHtml, compactBarHtml, pageDotsHtml, sectionCardHtml,
   pathToPointsHtml, formStripHtml, nextGameHtml,
-  filterTabHtml, revealActiveTab
+  filterTabHtml, revealActiveTab, iconHtml,
+  onTheLineHtml, gameByGameHtml, matchCardHtml
 } from './ui.js';
+import { isWide, onWideChange } from './wide-query.js';
+import { gameByGame, gameByGameSub, glowColor } from './team-wide-math.js';
+import { LEAGUE_FULL_LABELS } from './league-labels.js';
 // Every league with a verified roster/team-stats source (see this
 // file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
 // here still gets a real page + Overview tab, just a placeholder
@@ -123,6 +127,14 @@ function setActiveView(viewId){
     // See .tp-still in css/style.css: only needed until the page is next hidden.
     if(v.id !== viewId) v.classList.remove('tp-still');
   });
+  // The wide layout's team rail follows (js/wide.js).
+  document.dispatchEvent(new CustomEvent('bx:viewshown'));
+}
+
+// The team on the page, while the page is showing.
+export function currentTeamPageKey(){
+  const page = document.getElementById('view-team-page');
+  return page && page.classList.contains('active') ? state.teamKey : null;
 }
 
 // Note: this app's `?team=` param already means something else (which
@@ -139,13 +151,14 @@ export function openTeamPage(teamKey, originView, rowEl){
   // A golfer has no team page: the golfer sheet is the whole thing.
   if(TEAM_META[teamKey].kind === 'golfer'){ window.openGolfer(TEAM_META[teamKey].espnAthleteId); return; }
   const origin = originView || 'board';
-  const src = rowEl && canAnimateLive() ? teamSource(rowEl) : null;
+  // Wide: no row growing into the page, just a crossfade.
+  const src = rowEl && canAnimateLive() && !isWide() ? teamSource(rowEl) : null;
   if(src && rowOnScreen(src.el)){
     fxBeginOpen('row');
     expandFromRow(teamKey, origin, src);
     return;
   }
-  navigate('push', () => {
+  navigate(isWide() ? null : 'push', () => {
     fxBeginOpen('push');
     openTeamPageNow(teamKey, origin);
   });
@@ -198,8 +211,9 @@ export function backFromTeamPage(){
     rowMotion.finish();
   }
   const { originView } = state;
-  if(canAnimateLive() && collapseToRow(originView)) return;
-  navigate('pop', () => {
+  // Wide: the way in was a crossfade, so the way back is too.
+  if(canAnimateLive() && !isWide() && collapseToRow(originView)) return;
+  navigate(isWide() ? null : 'pop', () => {
     setActiveView('view-' + originView);
     updateUrlParam('view', originView === 'board' ? null : originView);
     updateUrlParam('tp', null);
@@ -724,6 +738,7 @@ function writeRendered(el, render){
 // rather than an open or a swipe. The bar, hero and tabs stay put; only
 // what the data drives is rewritten, and only where it changed.
 function renderTeamPage({ refresh = false } = {}){
+  if(isWide()){ renderWideTeamPage({ refresh }); return; }
   const el = document.getElementById('team-page-content');
   if(!el) return;
   const teamKey = state.teamKey;
@@ -773,6 +788,425 @@ function renderTeamPage({ refresh = false } = {}){
   playStatsRoll();
 }
 
+/* ---- Wide layout (900px and up) ----
+   The whole team in one scan, no tabs (docs/desktop-redesign-brief.md,
+   handoff ROUND2.md): a hero band (crest, name, standing, the live or
+   next game, what the team is worth to its owner), then two columns —
+   the season's numbers and the schedule; Game by game, key players and
+   On the line — then results and news. On the line shows only the rules
+   still in play until "Show all" (remembered per device). Built from the same caches and
+   fetches as the phone page's tabs; the phone's gestures, compact bar and
+   row transition don't run here. Team color shows only in the crest and
+   the glow behind it. */
+
+const shortDate = iso => {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+const signedNum = n => (n < 0 ? '&minus;' + Math.abs(n) : String(n));
+
+// Who owns an opponent from a schedule event, when it's a drafted team in
+// this league: matched on ESPN's short name or nickname.
+function opponentOwner(leagueKey, names){
+  const want = names.filter(Boolean).map(n => n.toLowerCase());
+  if(!want.length) return null;
+  const key = Object.keys(TEAM_META).find(k => {
+    const m = TEAM_META[k];
+    return m.leagueKey === leagueKey && m.draftTeamId && !m.favoriteOnly
+      && [m.name, m.fullName].filter(Boolean).some(n => want.includes(n.toLowerCase()));
+  });
+  if(!key) return null;
+  const drafter = DRAFT_TEAMS.find(d => d.id === TEAM_META[key].draftTeamId);
+  return drafter ? { teamKey: key, name: drafter.id === currentProfileId ? 'You' : drafter.name, me: drafter.id === currentProfileId } : null;
+}
+
+// Regular-season games played (preseason left out).
+const playedGames = bundle => ((bundle && bundle.espnSchedule && bundle.espnSchedule.recent) || [])
+  .filter(e => e.seasonType !== 1 && Number.isFinite(e.ownScore) && Number.isFinite(e.oppScore));
+
+function wideShellHtml(teamKey, meta){
+  const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
+  const mine = !!drafter && drafter.id === currentProfileId;
+  const owner = PRE_DRAFT ? '' : (mine ? 'Your team' : (drafter ? `${drafter.name}’s team` : 'Undrafted'));
+  const secondary = (/color:\s*(#[0-9a-f]{6})/i.exec(meta.badgeStyle || '') || [])[1];
+  const glow = glowColor(meta.accent || NO_ACCENT, secondary) || NO_ACCENT;
+  const crest = meta.badgeUrl ? crestImgsHtml(meta, 'tw-crest-img', ' draggable="false"') : teamBadgeHtml(meta);
+  // Back, as on every pushed page (Settings, the guide). The header shows
+  // no tab selected meanwhile (css/style.css "Pages, wide").
+  const back = backLinkHtml({ label: BACK_LABELS[state.originView] || 'Home', onclick: 'backFromTeamPage()' });
+  return `
+    <div class="tw" style="--glow:${escapeHtml(glow)}">
+      <span class="tw-glow" aria-hidden="true"></span>
+      <div class="ob-back-row tw-back">${back}</div>
+      <header class="tw-band">
+        <div class="tw-id">
+          <div class="tw-crest"><span class="tw-ring" aria-hidden="true"></span><span class="tw-orb" aria-hidden="true"></span>${crest}</div>
+          <div class="tw-id-text">
+            <div class="tw-tagrow" id="tw-tagrow"></div>
+            <h1 class="tw-name">${escapeHtml(meta.fullName || meta.name)}</h1>
+            ${owner ? `<div class="tw-owner${mine ? ' me' : ''}">${escapeHtml(owner)}${meta.favoriteOnly ? ' · Favorite' : ''}</div>` : ''}
+          </div>
+        </div>
+        <div class="tw-game" id="tw-game"></div>
+        <div class="tw-side"><div id="tw-points"></div><span class="tw-star">${favoriteStarHtml(teamKey)}</span></div>
+      </header>
+      <div class="tw-body" id="tw-body"></div>
+    </div>`;
+}
+
+function wideBodyHtml(reduced, meta){
+  if(reduced){
+    return `<div class="tw-reduced"><div class="wide-panel tw-reduced-card"><span class="wide-panel-label" id="tw-phase"></span>
+      <p>Stats, form and the lines fill in once ${escapeHtml(meta.name)} have played a few games.</p></div>
+      <div id="tw-sched"></div></div>`;
+  }
+  return `
+    <div class="tw-cols">
+      <div class="tw-col"><div id="ps-section"></div><div id="tw-season"></div><div id="tw-sched"></div></div>
+      <div class="tw-col"><div id="tw-gbg"></div><div id="tw-players"></div><div id="tw-otl"></div></div>
+    </div>
+    <div class="tw-bottom"><div id="tw-results"></div><div id="tw-news"></div></div>`;
+}
+
+function renderWideTeamPage({ refresh = false } = {}){
+  const el = document.getElementById('team-page-content');
+  const teamKey = state.teamKey;
+  const meta = TEAM_META[teamKey];
+  if(!el || !meta) return;
+  const bundle = liveDataCache[teamKey];
+  const reduced = !!bundle && !playedGames(bundle).length;
+  const layout = `${teamKey}:${reduced ? 'reduced' : 'full'}`;
+  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.tw'));
+  if(shell){
+    el.dataset.activeTeam = teamKey;
+    el.innerHTML = wideShellHtml(teamKey, meta);
+    delete el.dataset.wideLayout;
+    bindWideTips(el);
+  }
+  const body = document.getElementById('tw-body');
+  if(body && el.dataset.wideLayout !== layout){
+    el.dataset.wideLayout = layout;
+    body.innerHTML = wideBodyHtml(reduced, meta);
+  }
+  renderWideSections(teamKey);
+  if(shell){
+    ensureTables(teamKey);
+    ensureWideData(teamKey, meta);
+  }
+  playGameBars();
+}
+
+// Every section, each rewritten only where its markup changed.
+function renderWideSections(teamKey){
+  const meta = TEAM_META[teamKey];
+  if(!meta || teamKey !== state.teamKey || !isWide()) return;
+  const bundle = liveDataCache[teamKey];
+  const rs = teamRecordStanding(meta);
+  const league = LEAGUES.find(l => l.key === meta.leagueKey);
+  writeHtml(document.getElementById('tw-tagrow'), (rs ? `<span class="tw-standing">${escapeHtml(rs.standing)}</span><span>${escapeHtml(rs.group || 'Standing')}</span><i class="tw-dot"></i>` : '')
+    + `<span>${escapeHtml(LEAGUE_FULL_LABELS[meta.leagueKey] || (league ? league.label : ''))}</span>`);
+  renderWideLive(teamKey);
+  writeHtml(document.getElementById('tw-points'), widePointsHtml(teamKey, meta));
+  const phase = document.getElementById('tw-phase');
+  if(phase){
+    const status = bundle ? seasonStatus(meta, bundle) : null;
+    writeHtml(phase, escapeHtml(status ? status.label : 'Preseason'));
+  }
+  const path = teamPathToPoints(teamKey);
+  writeHtml(document.getElementById('tw-otl'), path ? onTheLineHtml({ ...path, all: otlAll, toggle: 'toggleOnTheLine' }) : '');
+  writeHtml(document.getElementById('tw-season'), wideSeasonHtml(teamKey, meta, rs, bundle));
+  if(writeHtml(document.getElementById('tw-gbg'), wideGameByGameHtml(meta, bundle))) gbgFresh = true;
+  writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(teamKey));
+  writeHtml(document.getElementById('tw-sched'), wideScheduleHtml(teamKey, meta, bundle));
+  writeHtml(document.getElementById('tw-players'), widePlayersHtml(teamKey, meta));
+  writeHtml(document.getElementById('tw-results'), wideResultsHtml(teamKey, meta, bundle));
+  writeHtml(document.getElementById('tw-news'), wideNewsHtml(teamKey));
+}
+
+// The hero's game card: live, else the next game, else the last one.
+function renderWideLive(teamKey){
+  const el = document.getElementById('tw-game');
+  const meta = TEAM_META[teamKey];
+  if(!el || !meta) return;
+  const bundle = liveDataCache[teamKey];
+  if(!bundle){ writeHtml(el, matchCardHtml({ head: 'Next game', when: 'Loading…' })); return; }
+  const ownSide = { badgeHtml: teamBadgeHtml(meta), name: meta.name };
+  const oppBadge = (name, logo, abbr) => badgeHtml({ crestSrc: logo, name, style: NEUTRAL_BADGE_STYLE, text: abbr || abbrFromName(name || '') });
+  const ownerHtml = o => o ? `<span class="mc-owner${o.me ? ' me' : ''}">${escapeHtml(o.name)}</span>` : '';
+  const detail = id => id && GAME_DETAIL_LEAGUES[meta.leagueKey] ? `openGameDetail('${teamKey}', '${id}')` : null;
+  const live = bundle.espnLive && bundle.espnLive.isLive ? bundle.espnLive : null;
+  if(live){
+    const opp = { badgeHtml: oppBadge(live.opponentName, null), name: live.opponentName };
+    const owner = opponentOwner(meta.leagueKey, [live.opponentName]);
+    writeHtml(el, matchCardHtml({
+      live: true, when: live.period || '',
+      left: live.isHome ? opp : ownSide, right: live.isHome ? ownSide : opp,
+      centerHtml: `<span class="mc-score">${escapeHtml(String(live.isHome ? live.opp : live.own))}–${escapeHtml(String(live.isHome ? live.own : live.opp))}</span>`,
+      footLeft: live.isHome ? 'Home' : 'Away', footRightHtml: ownerHtml(owner), onclick: detail(live.eventId)
+    }));
+    return;
+  }
+  const sched = bundle.espnSchedule;
+  const evt = sched && sched.upcoming && sched.upcoming[0];
+  if(evt){
+    const opp = { badgeHtml: oppBadge(evt.opponentName, evt.opponentLogoUrl, evt.opponentAbbr), name: evt.opponentShortName || evt.opponentName };
+    const owner = opponentOwner(meta.leagueKey, [evt.opponentShortName, evt.opponentNickname, evt.opponentName]);
+    const reduced = !playedGames(bundle).length;
+    writeHtml(el, matchCardHtml({
+      head: reduced && evt.seasonType !== 1 ? 'Season starts' : 'Next game', when: nextWhen(evt),
+      left: evt.isHome ? opp : ownSide, right: evt.isHome ? ownSide : opp,
+      centerHtml: `<span class="mc-vs">${evt.isHome ? 'vs' : '@'}</span>`,
+      footLeft: [evt.venueName, evt.broadcast].filter(Boolean).join(' · '), footRightHtml: ownerHtml(owner), onclick: detail(evt.id)
+    }));
+    return;
+  }
+  const last = sched && sched.recent && sched.recent[0];
+  if(last){
+    const opp = { badgeHtml: oppBadge(last.opponentName, last.opponentLogoUrl, last.opponentAbbr), name: last.opponentShortName || last.opponentName };
+    writeHtml(el, matchCardHtml({
+      head: 'Last game', when: shortDate(last.date),
+      left: last.isHome ? opp : ownSide, right: last.isHome ? ownSide : opp,
+      centerHtml: `<span class="mc-score">${last.isHome ? last.oppScore : last.ownScore}–${last.isHome ? last.ownScore : last.oppScore}</span>`,
+      footLeft: last.venueName || '', onclick: detail(last.id)
+    }));
+    return;
+  }
+  writeRendered(el, id => renderNext(teamKey, meta, bundle, id));
+}
+
+// "Your points": what the team holds right now, and whether any of it is
+// locked. A drafted team only; links to Points.
+function widePointsHtml(teamKey, meta){
+  const path = teamPathToPoints(teamKey);
+  if(!path) return '';
+  const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
+  const mine = !!drafter && drafter.id === currentProfileId;
+  const locked = path.rules.some(r => r.state === 'locked' && r.pts !== 0);
+  const live = path.rules.some(r => r.state === 'live');
+  let stateLabel = locked ? (live ? 'Locked + Live' : 'Locked') : (live ? 'Live' : 'Nothing yet');
+  let cls = locked ? 'locked' : (live ? 'live' : '');
+  if(path.now < 0){ stateLabel = locked && !live ? 'Locked' : 'At risk'; cls = 'neg'; }
+  return `<button type="button" class="tw-points ${cls}" onclick="switchView('overall')">`
+    + `<span class="tw-points-label">${mine ? 'Your points' : `${escapeHtml(drafter ? drafter.name : '')}’s points`}</span>`
+    + `<span class="tw-points-num">${signedNum(path.now)}</span><span class="tw-points-state">${stateLabel}</span>`
+    + `${iconHtml('chevron-right', { size: 16 })}</button>`;
+}
+
+// Two key season numbers per league, after record and standing: the
+// phone's Stats tab tiles, from the same caches, picking ones the splits
+// row under them doesn't already say (it has scored and allowed).
+const WIDE_KEY_TILES = { epl: [2, 3], nfl: [2, 3], mlb: [0, 1], nba: [1, 3], wnba: [1, 3], mcbb: [1, 3], nhl: [2, 3], cfb: [1, 2] };
+function wideKeyStats(teamKey, meta){
+  const pick = tiles => tiles ? (WIDE_KEY_TILES[meta.leagueKey] || [0, 1]).map(i => tiles[i]).filter(Boolean) : [];
+  if(meta.leagueKey === 'epl') return pick(statsTilesHtml(teamKey, meta));
+  const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
+  if(cfg){
+    const entry = playerStatsCache[teamKey];
+    return entry && entry.status === 'ready' ? pick(cfg.tiles(entry.data.teamTotals)) : [];
+  }
+  const entry = statsCache[teamKey];
+  return entry && entry.status === 'ready' ? pick(entry.tiles) : [];
+}
+
+function wideSeasonHtml(teamKey, meta, rs, bundle){
+  const cells = [];
+  if(rs){
+    cells.push({ num: rs.record, lbl: 'Record' }, { num: rs.standing, lbl: rs.group || 'Standing' });
+  }
+  cells.push(...wideKeyStats(teamKey, meta));
+  if(!cells.length) return '';
+  const note = PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey) ? '<span class="wide-panel-sub">Doesn’t count yet</span>' : '';
+  return `<section class="wide-panel tw-season"><div class="wide-panel-head"><span class="wide-panel-label">Season</span>${note}</div>`
+    + `<div class="tw-stats">${cells.map(c => `<div class="tw-stat"><span class="tw-stat-num">${c.num}</span><span class="tw-stat-lbl">${escapeHtml(c.lbl)}</span></div>`).join('')}</div>`
+    + wideSplitsHtml(meta, bundle) + `</section>`;
+}
+
+function wideGameByGameHtml(meta, bundle){
+  const g = gameByGame(bundle && bundle.espnSchedule && bundle.espnSchedule.recent, meta.leagueKey);
+  if(!g.games.length) return '';
+  g.games.forEach(x => { x.dateLabel = shortDate(x.date); });
+  return gameByGameHtml({ games: g.games, sub: gameByGameSub(g, meta.leagueKey), firstLabel: g.games[0].dateLabel });
+}
+
+// Home and away records, and what the team scores and allows: totals for
+// the EPL (goals), per game elsewhere.
+function wideSplitsHtml(meta, bundle){
+  const games = playedGames(bundle);
+  if(!games.length) return '';
+  const rec = list => {
+    const w = list.filter(e => e.ownScore > e.oppScore).length, l = list.filter(e => e.ownScore < e.oppScore).length;
+    const d = list.length - w - l;
+    return meta.leagueKey === 'epl' || d ? `${w}–${d}–${l}` : `${w}–${l}`;
+  };
+  const sum = key => games.reduce((n, e) => n + e[key], 0);
+  const epl = meta.leagueKey === 'epl';
+  const per = n => epl ? String(n) : (n / games.length).toFixed(1);
+  const items = [
+    [rec(games.filter(e => e.isHome)), 'Home'],
+    [rec(games.filter(e => !e.isHome)), 'Away'],
+    [per(sum('ownScore')), epl ? 'Goals for' : 'For / game'],
+    [per(sum('oppScore')), epl ? 'Goals against' : 'Against / game']
+  ];
+  return `<div class="tw-splits">${items.map(([n, l]) => `<div><span class="tw-split-num">${n}</span><span class="tw-split-lbl">${l}</span></div>`).join('')}</div>`;
+}
+
+function wideScheduleHtml(teamKey, meta, bundle){
+  const sched = bundle && bundle.espnSchedule;
+  if(!bundle) return `<div class="loading-note">Loading schedule…</div>`;
+  if(!sched) return '';
+  const next = sched.upcoming.slice(0, 5);
+  const rows = next.map((e, i) => {
+    const d = new Date(e.date);
+    const date = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const time = e.timeTbd ? 'TBD' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const owner = opponentOwner(meta.leagueKey, [e.opponentShortName, e.opponentNickname, e.opponentName]);
+    const note = [owner ? `${owner.name === 'You' ? 'Yours' : `${owner.name}’s`}` : '', e.seasonType === 1 ? 'Preseason' : '', e.seasonType === 3 ? 'Postseason' : ''].filter(Boolean).join(' · ');
+    return `<div class="tw-sched-row${i === 0 ? ' next' : ''}"><span class="tw-sched-date">${escapeHtml(date)}</span><span class="tw-sched-vs">${e.isHome ? 'vs' : '@'}</span>`
+      + `<span class="tw-sched-opp"><span>${escapeHtml(e.opponentShortName || e.opponentName)}</span>${note ? `<span class="tw-sched-note">${escapeHtml(note)}</span>` : ''}</span>`
+      + `<span class="tw-sched-time">${escapeHtml(time)}</span></div>`;
+  }).join('');
+  return `<section class="wide-panel tw-sched"><div class="wide-panel-head"><h3 class="wide-panel-title">Schedule</h3>`
+    + `<button type="button" class="wide-panel-link" onclick="openFullSchedule('${teamKey}')">Full schedule ${iconHtml('chevron-right', { size: 14 })}</button></div>`
+    + (rows || `<div class="loading-note">No games scheduled.</div>`) + `</section>`;
+}
+
+// Team leaders where the league has player stats; otherwise a way into
+// the full squad.
+function widePlayersHtml(teamKey, meta){
+  if(!FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey)) return '';
+  const cfg = PLAYER_STATS_LEAGUES[meta.leagueKey];
+  const entry = cfg && playerStatsCache[teamKey];
+  const rows = entry && entry.status === 'ready' ? leaderRowsHtml({ ...cfg, leaders: cfg.leaders.slice(0, 4) }, entry.data) : '';
+  const label = meta.leagueKey === 'nfl' ? 'Full roster' : 'Full squad';
+  return `<section class="wide-panel tw-players"><div class="wide-panel-head"><h3 class="wide-panel-title">${cfg ? 'Key players' : 'Squad'}</h3>`
+    + `<button type="button" class="wide-panel-link" onclick="openFullSquad('${teamKey}')">${label} ${iconHtml('chevron-right', { size: 14 })}</button></div>`
+    + (cfg ? (rows || `<div class="loading-note">${entry && entry.status === 'error' ? 'Player stats aren’t available right now.' : 'Loading players…'}</div>`) : '')
+    + `</section>`;
+}
+
+function wideResultsHtml(teamKey, meta, bundle){
+  const games = playedGames(bundle).slice(0, 5);
+  if(!games.length) return '';
+  const detail = GAME_DETAIL_LEAGUES[meta.leagueKey];
+  const rows = games.map(e => {
+    const r = e.ownScore > e.oppScore ? 'w' : (e.ownScore < e.oppScore ? 'l' : 'd');
+    const tap = detail && e.id ? ` onclick="openGameDetail('${teamKey}', '${e.id}')"` : '';
+    const tag = tap ? 'button' : 'div';
+    return `<${tag}${tap ? ' type="button"' : ''} class="tw-res-row"${tap}><span class="tw-res-date">${escapeHtml(shortDate(e.date))}</span>`
+      + `<span class="tw-res-chip ${r}">${r.toUpperCase()}</span><span class="tw-res-vs">${e.isHome ? 'vs' : '@'}</span>`
+      + `<span class="tw-res-opp">${escapeHtml(e.opponentShortName || e.opponentName)}</span><span class="tw-res-score">${e.ownScore}–${e.oppScore}</span></${tag}>`;
+  }).join('');
+  return `<section class="wide-card"><div class="wide-panel-head"><h3 class="wide-panel-title">Results</h3><span class="wide-panel-sub">Last ${games.length}</span></div>${rows}</section>`;
+}
+
+function wideNewsHtml(teamKey){
+  const entry = newsCache[teamKey];
+  const more = (moreNewsCache[teamKey] || []).filter(a => safeStoryUrl(a.url));
+  const espn = entry && entry.status === 'ready' ? entry.items.filter(a => a.link) : [];
+  const stories = [
+    ...espn.map(a => ({ title: a.headline, blurb: a.description, source: 'ESPN', at: a.published, url: a.link })),
+    ...more.map(a => ({ title: a.title, blurb: '', source: a.source || 'News', at: a.at, url: a.url }))
+  ].slice(0, 6);
+  const head = n => `<div class="wide-panel-head"><h3 class="wide-panel-title">News</h3>${n ? `<span class="wide-panel-sub">${n} stories</span>` : ''}</div>`;
+  if(!stories.length){
+    const loading = !entry || entry.status === 'loading';
+    return `<section class="wide-card tw-news">${head(0)}<div class="loading-note">${loading ? 'Loading news…' : 'No news yet.'}</div></section>`;
+  }
+  const link = (a, inner, cls) => `<a class="${cls}" href="${escapeHtml(a.url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+  const meta = a => `${escapeHtml(a.source)} · ${escapeHtml(timeAgo(a.at))}`;
+  const [lead, ...rest] = stories;
+  return `<section class="wide-card tw-news">${head(stories.length)}`
+    + link(lead, `<span class="tw-news-meta">${meta(lead)}</span><span class="tw-news-lead">${escapeHtml(lead.title)}</span>${lead.blurb ? `<span class="tw-news-blurb">${escapeHtml(lead.blurb)}</span>` : ''}`, 'tw-news-top')
+    + rest.map(a => link(a, `<span class="tw-news-title">${escapeHtml(a.title)}</span><span class="tw-news-meta">${meta(a)}</span>`, 'tw-news-row')).join('')
+    + `</section>`;
+}
+
+// On the line: just the rules still in play, or all of them. Flipped in
+// place so nothing else on the page redraws.
+const OTL_ALL_KEY = 'bx-otl-all';
+let otlAll = false;
+try{ otlAll = localStorage.getItem(OTL_ALL_KEY) === '1'; }catch(err){}
+window.toggleOnTheLine = () => {
+  otlAll = !otlAll;
+  try{ localStorage.setItem(OTL_ALL_KEY, otlAll ? '1' : '0'); }catch(err){}
+  const card = document.querySelector('#tw-otl .otl');
+  if(!card) return;
+  card.classList.toggle('all', otlAll);
+  const btn = card.querySelector('.otl-toggle');
+  if(btn){
+    btn.textContent = otlAll ? btn.dataset.less : btn.dataset.more;
+    btn.setAttribute('aria-expanded', String(otlAll));
+  }
+};
+
+// Everything the phone page fetches per tab, at once.
+function ensureWideData(teamKey, meta){
+  ensureNews(teamKey);
+  ensureMoreNews(teamKey);
+  if(meta.leagueKey !== 'epl' && !PLAYER_STATS_LEAGUES[meta.leagueKey] && FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey) && !statsCache[teamKey]) ensureStats(teamKey, meta);
+  if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
+}
+
+// Game by game's bars grow from the zero line on every team shown (not on
+// a refresh that leaves them as they were).
+let gbgFresh = false;
+function playGameBars(){
+  if(!gbgFresh) return;
+  gbgFresh = false;
+  const bars = document.querySelector('#tw-gbg .gbg-bars');
+  if(!bars || !fxOn()) return;
+  bars.classList.add('grow');
+  requestAnimationFrame(() => requestAnimationFrame(() => bars.classList.remove('grow')));
+}
+
+// Game by game's tooltip: hover with a mouse, tap on touch (a second tap,
+// or a tap elsewhere, closes it).
+function bindWideTips(root){
+  if(root.dataset.tips) return;
+  root.dataset.tips = '1';
+  const tipFor = col => {
+    const chart = col.closest('.gbg-chart');
+    const tip = chart && chart.querySelector('.gbg-tip');
+    if(!tip) return;
+    chart.querySelectorAll('.gbg-col.on').forEach(c => c.classList.remove('on'));
+    col.classList.add('on');
+    tip.textContent = col.dataset.tip;
+    tip.dataset.res = col.dataset.res;
+    tip.classList.add('show');
+  };
+  const clear = chart => {
+    if(!chart) return;
+    chart.querySelectorAll('.gbg-col.on').forEach(c => c.classList.remove('on'));
+    const tip = chart.querySelector('.gbg-tip');
+    if(tip) tip.classList.remove('show');
+  };
+  root.addEventListener('pointerover', event => {
+    if(event.pointerType !== 'mouse') return;
+    const col = event.target.closest('.gbg-col');
+    if(col) tipFor(col);
+  });
+  root.addEventListener('pointerout', event => {
+    if(event.pointerType !== 'mouse') return;
+    const chart = event.target.closest('.gbg-chart');
+    if(chart && !chart.contains(event.relatedTarget)) clear(chart);
+  });
+  root.addEventListener('click', event => {
+    const col = event.target.closest('.gbg-col');
+    if(col){
+      if(col.classList.contains('on') && event.pointerType !== 'mouse') clear(col.closest('.gbg-chart'));
+      else tipFor(col);
+      return;
+    }
+    root.querySelectorAll('.gbg-chart').forEach(clear);
+  });
+}
+
+// Crossing the wide breakpoint (an iPad rotating) rebuilds an open page in
+// the other layout.
+onWideChange(() => {
+  if(currentTeamPageKey()) renderTeamPage();
+});
+
 // The postseason bracket landing fills in an open page's Postseason section.
 onPostseasonData(key => {
   const meta = TEAM_META[state.teamKey];
@@ -782,6 +1216,7 @@ onPostseasonData(key => {
 // The live-data refresh ticks (js/live-data.js) repaint just these two.
 setTeamPageRefresher(teamKey => {
   if(teamKey !== state.teamKey) return;
+  if(isWide()){ renderWideSections(teamKey); return; }
   renderStatStrip(teamKey);
   renderNextGame(teamKey);
 });
@@ -940,7 +1375,7 @@ function bindPageSwipe(){
     slop: MOVE_SLOP,
     ignore: t => t.closest('input, select, textarea') || scrollsSideways(t, page),
     // Clearly sideways only, so a slightly diagonal scroll stays a scroll.
-    accept: (axis, { dx, dy }) => !rowMotion && !gesture && axis === 'x'
+    accept: (axis, { dx, dy }) => !rowMotion && !gesture && axis === 'x' && !isWide()
       && state.swipeOrder.length > 1 && Math.abs(dx) > Math.abs(dy) * 1.2,
     onStart: () => {
       gesture = 'x';
@@ -1021,6 +1456,7 @@ function swipeTo(index, dir){
   state.squadFilter = null;
   if(!tabsFor(TEAM_META[teamKey].leagueKey).some(t => t.key === state.activeTab)) state.activeTab = 'schedule';
   updateUrlParam('tp', teamKey);
+  document.dispatchEvent(new CustomEvent('bx:viewshown'));
   window.scrollTo(0, 0);
   fxBeginOpen('swipe', dir);
   renderTeamPage();
@@ -1227,6 +1663,7 @@ function ensureTables(teamKey){
   setTimeout(() => { early = false; });
   loadStandingsTables([TEAM_META[teamKey].leagueKey]).then(() => (early ? f => f() : whenSettled)(() => {
     if(state.teamKey !== teamKey) return;
+    if(isWide()){ renderWideSections(teamKey); return; }
     renderStatStrip(teamKey);
     playStatsRoll();
     const el = document.getElementById('ptp-section');
@@ -1425,7 +1862,9 @@ function ensureMoreNews(teamKey){
     const stories = teams && teams[teamKey];
     if(!stories || !stories.length || stories === moreNewsCache[teamKey]) return;
     moreNewsCache[teamKey] = stories;
-    if(state.teamKey === teamKey && state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
+    if(state.teamKey !== teamKey) return;
+    if(isWide()) writeHtml(document.getElementById('tw-news'), wideNewsHtml(teamKey));
+    else if(state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
   });
 }
 
@@ -1443,7 +1882,9 @@ function ensureNews(teamKey){
   fetchEspnTeamNews(flat.sportPath, row.id).then(items => {
     newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [], failedAt: Date.now() };
     // Just the news, so the sections above it keep their entrance.
-    if(state.teamKey === teamKey && state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
+    if(state.teamKey !== teamKey) return;
+    if(isWide()) writeHtml(document.getElementById('tw-news'), wideNewsHtml(teamKey));
+    else if(state.activeTab === 'schedule') writeHtml(document.getElementById('news-section'), newsTabHtml(teamKey));
   });
 }
 window.retryTeamPageNews = teamKey => {
@@ -1516,7 +1957,9 @@ function ensureStats(teamKey, meta){
   statsCache[teamKey] = { status: 'loading', tiles: null };
   fetchEspnTeamStatistics(flat.sportPath, row.id).then(byName => {
     statsCache[teamKey] = byName ? { status: 'ready', tiles: buildStatTiles(meta, byName) } : { status: 'error', tiles: null };
-    if(state.teamKey === teamKey && state.activeTab === 'stats') renderTabBody();
+    if(state.teamKey !== teamKey) return;
+    if(isWide()) renderWideSections(teamKey);
+    else if(state.activeTab === 'stats') renderTabBody();
   });
 }
 
@@ -1725,7 +2168,9 @@ function ensurePlayerStats(teamKey, meta){
   playerStatsCache[teamKey] = { status: 'loading', data: null };
   fetchEspnTeamPlayerStats(flat.sportPath, row.id).then(data => {
     playerStatsCache[teamKey] = data ? { status: 'ready', data } : { status: 'error', data: null, failedAt: Date.now() };
-    if(state.teamKey === teamKey && (state.activeTab === 'stats' || state.activeTab === 'squad')) renderTabBody();
+    if(state.teamKey !== teamKey) return;
+    if(isWide()) renderWideSections(teamKey);
+    else if(state.activeTab === 'stats' || state.activeTab === 'squad') renderTabBody();
   });
 }
 
