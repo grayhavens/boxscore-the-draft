@@ -629,7 +629,10 @@ is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A se
 round reads as under way, and the team page shows its tally ("Leads 2–1"). On the ladder, once a series has a
 game in, its tally replaces the pair's "v" ("1–0", read left to right like the chips, the leader's number brighter,
 a red dot above while a game is on; snapshot's `series` at the latest stage only, worded by `seriesLine` for screen
-readers), so it costs no room. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split
+readers), so it costs no room. While a game is on (a single game too, which gets the dot on its "v"), the pair's
+mark is a button that calls `openGameDetail` for the live game (`liveId`: `seriesEvents` carries the in-progress
+game's id, since a series' own id is its first game's) through whichever side is a drafted team, so the Scores
+sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split
 into AL / NL columns (`sides`: each half of every rung laid out on its own by `rungRows`, the World Series pair
 meeting in the middle) under small AL / NL labels (`sidesHtml`) that fade once a champion is crowned. The lockup is `icons/mlb-postseason-*.png`,
 drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.

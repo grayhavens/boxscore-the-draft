@@ -314,6 +314,8 @@ export function seriesEvents(leagueKey, events){
       week: null, detail: '', sides, need,
       state: done ? 'post' : games.some(g => g.state === 'in') ? 'in' : 'pre',
       begun: games.some(g => g.state !== 'pre'),
+      // The game on now, for the live dot's tap (Game Details wants a game id).
+      liveId: (games.slice().reverse().find(g => g.state === 'in') || {}).id || null,
       lastDate: last.date
     };
   });
@@ -375,6 +377,8 @@ export function buildBracket(leagueKey, events, seeds = {}){
       id: evt.id, date: evt.date, round, playIn, group: L.groupOf(evt), note: L.noteOf(evt, round),
       a: a.id, b: b.id, scoreA: a.score, scoreB: b.score,
       final, live, begun: final || live || !!evt.begun, winner,
+      // The ESPN game to open from the live dot (a series' id is its first game's).
+      liveId: live ? (evt.liveId || evt.id) : null,
       ot: final && /OT/.test(evt.detail || ''),
       // A series (seriesEvents): the wins it takes; its scores are series wins.
       need: evt.need || null
