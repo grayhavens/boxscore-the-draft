@@ -2999,10 +2999,18 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-vs.ps-tally{ width: 28px; letter-spacing: 0.02em; }
 .ps-tally b{ font-weight: 800; }
 .ps-tally b.lead{ color: var(--text-sub); }
-.ps-tally.live::before{
+.ps-vs.live::before{
   content: ''; position: absolute; left: 50%; top: -7px; width: 4px; height: 4px; margin-left: -2px;
   border-radius: 50%; background: var(--live);
 }
+/* Live and tappable (pairsHtml): a button that opens Game Details. The
+   pairs layer ignores touches, so this one takes them back; its tap
+   area reaches past the dot above it. */
+.ps-vs.tap{
+  pointer-events: auto; cursor: pointer; padding: 0; border: none; background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.ps-vs.tap::after{ content: ''; position: absolute; left: -10px; right: -10px; top: -16px; bottom: -8px; }
 .ps-arriving .ps-pairs{ opacity: 0; }
 .ps-chip{
   position: absolute; left: 0; top: 0; width: 40px;

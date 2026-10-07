@@ -536,11 +536,17 @@ function pairsHtml(teams, S, pos, D){
     const bg = D.pairGap ? `<span class="ps-pair-bg" style="${at(D.pairGap * 2 + D.chipW + 12, -6)}"></span>` : '';
     const g = pair.game, s = g.series;
     const dy = D.badgeMid - 6;
-    if(!s || !(s.top || s.bot)) return `${bg}<span class="ps-vs" style="${at(12, dy)}">v</span>`;
+    // While a game is on, the red dot opens it in Game Details (the same
+    // sheet a Scores card opens), through whichever side is a drafted team.
+    const openKey = g.live && g.liveId ? (pair.find(t => t.teamKey) || {}).teamKey : null;
+    const tag = (cls, w, inner, label) => openKey
+      ? `<button type="button" class="${cls} live tap" style="${at(w, dy)}" onclick="openGameDetail('${openKey}','${escapeHtml(g.liveId)}')" aria-label="${escapeHtml(label)}">${inner}</button>`
+      : `<span class="${cls}${g.live ? ' live' : ''}" style="${at(w, dy)}"${label ? ` role="img" aria-label="${escapeHtml(label)}"` : ''}>${inner}</span>`;
+    if(!s || !(s.top || s.bot)) return `${bg}${tag('ps-vs', 12, 'v', openKey ? 'Live game, open score' : '')}`;
     const [l, r] = (pa.fx - pb.fx || (pa.dx || 0) - (pb.dx || 0)) < 0 ? pair : [pair[1], pair[0]];
     const wl = s.wins[l.id], wr = s.wins[r.id];
     const n = (w, o) => `<b${w > o ? ' class="lead"' : ''}>${w}</b>`;
-    return `${bg}<span class="ps-vs ps-tally${g.live ? ' live' : ''}" style="${at(28, dy)}" role="img" aria-label="${escapeHtml(seriesLine(g))}">${n(wl, wr)}–${n(wr, wl)}</span>`;
+    return `${bg}${tag('ps-vs ps-tally', 28, `${n(wl, wr)}–${n(wr, wl)}`, openKey ? `${seriesLine(g)}. Live, open score` : seriesLine(g))}`;
   }).join('');
 }
 
