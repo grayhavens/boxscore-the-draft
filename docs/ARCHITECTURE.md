@@ -238,7 +238,7 @@ rest of that season; never both. No date is hardcoded: ESPN's rankings feed gain
 when the committee ranks (`pickCfbPoll`). The rankings cache records `poll` and `season`, and a CFP
 poll sticks for its season (`keepCfpPoll`) so the AP's postseason polls don't flip it back; a device
 that never saw one asks ESPN's core API (`/rankings/21`, `fetchEspnCfbCfpRankings`) from November to
-January. The labels follow the cache (`cfbPollLabels`): the toggle reads "AP Top 25" or "CFP Top 25",
+January. The labels follow the cache (`cfbPollLabels`): the toggle and the All tab read "AP Top 25" or "CFP Top 25",
 the team page's stat "AP poll" or "CFP". Display only: no CFB rule scores off a poll. ESPN's
 scoreboard ranks follow the CFP on their own once it exists, which is why the table has to as well.
 
