@@ -36,7 +36,8 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 
 Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`, `--divider`, `--skeleton`,
 `--overlay` (`--overlay-rgb` at 60%), `--bar-bg`, `--seg-track`/`--seg-thumb`, `--star-on`/`--star-idle`,
-`--focus-ring` (2px bg gap + 2px gold), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` (race chart),
+`--focus-ring` (2px bg gap + 2px gold), `--focus-ring-inset` (the same ring drawn inside, for rows in a scroller or a
+clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` (race chart),
 `--console-rail` (desktop console sidebar). Semantic aliases: `--surface-page|card|raised|sheet`,
 `--text-body|secondary|tertiary`, `--border-card|control`, `--status-positive|negative|live|provisional|locked`.
 
@@ -86,8 +87,8 @@ Other: `--on-accent`, `--on-live`, `--knob`, `--hover`, `--press`, `--fill-soft`
 
 ## Breakpoints (as used in `css/style.css`)
 
-`480px`, `600px`, `700px` (main phone breakpoint, 7 uses), `900px` (phone vs desktop shells: draft room, commissioner,
-system admin), `1100px`, `1179px`. No breakpoint tokens exist; media queries use literals.
+`480px`, `600px`, `700px` (main phone breakpoint, 7 uses), `900px` (phone vs the wide shell and the desktop consoles: draft room, commissioner,
+system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpoint tokens exist; media queries use literals.
 
 ## Components (`js/ui.js`)
 
@@ -131,8 +132,14 @@ ChatBubble, ChatComposer, SettingsRow, Sheet, SheetRow) are still hand-written m
 - **Gestures:** `js/gestures.js` (`attachDrag`, axis lock); constants `LONG_PRESS_MS` 380, `MOVE_SLOP` 8,
   `SWIPE_COMMIT` {team 70, card 90, reply 52}, `FLING_VELOCITY` 0.6. Long press for chat reactions; pull to refresh
   (`js/pull-refresh.js`) with the brand mark.
-- **Desktop (≥900px):** sidebar consoles for the draft room, Commissioner and system admin; under 900px they collapse
-  to phone layouts / a top bar.
+- **Desktop (≥900px):** the wide shell (`js/wide.js`): a top header instead of the tab bar, the team rail on the left
+  (`--rail-w`), chat as a slide-over (900–1279px) or a column (1280px+, `--chat-w`). Pages start at the content's left
+  edge under the header. The draft room and Commissioner are consoles: the rail steps aside (`html[data-console]`),
+  Commissioner covers the window, the draft room keeps the header and chat. Under 900px they collapse to phone
+  layouts / a top bar. Hover: rows wash with `--hover`, cards lift to `--surface-2`, round icon buttons fill with
+  `--fill-soft`; behind `(hover: hover)` (or phone widths) so a touch iPad doesn't keep a tapped row lit. Selection is
+  an `--accent-soft` fill (`--accent-border` where it has an edge), never a stripe. Pushed pages (team page, Settings,
+  the guide) carry a back link and leave no header tab selected.
 - **Safe area:** fixed `.safe-area-top` cover for the iOS translucent status bar; sticky filter rows bleed to edges
   with `--page-pad`.
 - **Callouts:** soft tint fill + matching 1px border + colored text, radius 10; never a left-border stripe.

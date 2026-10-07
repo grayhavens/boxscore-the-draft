@@ -81,7 +81,7 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
-import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
+import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonOverviewHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS, LEAGUE_FULL_LABELS } from './league-labels.js';
@@ -499,7 +499,8 @@ function postseasonBlockHtml(league){
   ensurePostseason(league.key);
   const inAll = standingsFilterKey === 'all';
   if(postseasonPhase(league.key, inAll) !== 'post') return null;
-  if(inAll) return leagueBlockHtml(league, postseasonCardHtml(league.key) + overviewMoreHtml(league.key, 'Full details'));
+  // Wide: rows instead of the ladder, so the overview's cards are one height.
+  if(inAll) return leagueBlockHtml(league, (isWide() ? postseasonOverviewHtml(league.key) : postseasonCardHtml(league.key)) + overviewMoreHtml(league.key, 'Full details'));
   if(ladderWide(inAll)){
     const drafted = postseasonDraftedHtml(league.key);
     return leagueBlockHtml(league, `<div class="ps-split">${postseasonCardHtml(league.key, true)}${drafted ? `<div class="ps-side">${drafted}</div>` : ''}</div>`, { span: true });

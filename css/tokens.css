@@ -227,6 +227,8 @@
   --live-soft: rgba(229, 72, 77, 0.12);
   --live-border: rgba(229, 72, 77, 0.36);
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  /* The same ring drawn inside, for rows in a scroller or a clipped card. */
+  --focus-ring-inset: inset 0 0 0 2px var(--accent);
   /* Neutral ink fills, on --ink-rgb so they flip with the theme. */
   --fill-soft: rgba(var(--ink-rgb), 0.06);
   --divider: rgba(var(--ink-rgb), 0.06);

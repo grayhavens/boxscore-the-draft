@@ -649,29 +649,86 @@ export function postseasonCardHtml(key, wide = false){
     </div>`;
 }
 
-// A postseason that doesn't count has no points columns, and its note
-// says so instead of explaining the colors.
+// The All overview's card at wide widths: rows, like its table cards, so
+// every card in the grid is the same height (a ladder's height follows
+// the league's rounds). The title, the champion when there is one, then
+// the drafted teams in the field, furthest along first: seed, the round
+// each is in (or went out in) and what it's banked. No owner column: who
+// drafted whom is the league's own view (its drafted table). Up to OVERVIEW_ROWS, plus
+// the viewer's own further down after a dashed gap, as the table cards
+// do. "Full details" (js/board.js) opens the league's ladder. Phones keep
+// the ladder (postseasonCardHtml).
+const OVERVIEW_ROWS = 5;
+export function postseasonOverviewHtml(key){
+  const S = snap(key, latestStage(bracketFor(key)));
+  const scores = postseasonScores(key) && !PRE_DRAFT;
+  const field = ladderTeams(key, S).filter(t => PRE_DRAFT || t.owner)
+    .sort((a, b) => b.alive - a.alive || b.rung - a.rung || (a.seed ?? 99) - (b.seed ?? 99));
+  const top = field.slice(0, OVERVIEW_ROWS);
+  const mine = field.slice(OVERVIEW_ROWS).filter(t => t.mine);
+  const row = t => {
+    // The round by name ("Out · Final"), not the ladder's short labels.
+    const where = t.champion ? 'Champion' : t.alive ? S.L.rungs[t.rung] : `Out · ${t.outPlayIn ? 'First Four' : S.L.rungs[t.rung]}`;
+    const open = t.teamKey ? ` clickable" onclick="openTeamPage('${t.teamKey}', 'standings', this)` : '';
+    return `
+      <div class="standings-row st-row ps-ov-row${t.alive ? '' : ' out'}${open}">
+        <div class="standings-rank">${t.seed ?? ''}</div>
+        ${badgeOf(t)}
+        <div class="team-main"><div class="team-name">${escapeHtml(nameOf(t, key))}</div></div>
+        <span class="ps-ov-where">${escapeHtml(where)}</span>
+        ${scores ? `<span class="ps-ov-pts">${t.banked ? `+${t.banked}` : ''}</span>` : ''}
+      </div>`;
+  };
+  const c = champInfo(key);
+  const crown = c ? `
+    <div class="ps-ov-crown">
+      ${badgeOf(c.t)}
+      <div class="ps-crown-text">
+        <div class="ps-champ-eyebrow">${escapeHtml(c.title)}</div>
+        <div class="ps-champ-name">${escapeHtml(nameOf(c.t, key))}</div>
+        <div class="ps-champ-owner${c.mine ? ' me' : ''}">${escapeHtml(c.ownerLine)}</div>
+      </div>
+      ${c.pts !== null && !PRE_DRAFT ? `<div class="ps-champ-pts">+${c.pts}</div>` : ''}
+    </div>` : '';
+  const rows = field.length
+    ? top.map(row).join('') + (mine.length ? '<div class="st-gap" aria-hidden="true"></div>' + mine.map(row).join('') : '')
+    : '<div class="no-live-note">No drafted teams made the field.</div>';
+  return `
+    <div class="ps-ov" data-ps-ov="${key}">
+      <div class="ps-head">${ladderTitleHtml(key, S)}</div>
+      ${crown}
+    </div>
+    <div class="ps-ov-rows">${rows}</div>`;
+}
+
+// Every drafter with a team in the field, ranked by the postseason points
+// their teams have earned between them (then what's still in play): all
+// of those teams, the ones still alive first and the eliminated ones
+// dimmed. A postseason that doesn't count has no points columns (most
+// teams left first), and its note says so instead of explaining the colors.
 function draftedRowsHtml(key, S){
   const spot = uiFor(key).spot;
   const scores = postseasonScores(key);
-  const rows = S.drafters.filter(d => d.alive.length);
-  const gone = S.drafters.filter(d => d.inField && !d.alive.length);
+  const rows = S.drafters.filter(d => d.inField).sort((a, b) => scores
+    ? b.banked - a.banked || b.inPlay - a.inPlay || b.alive.length - a.alive.length
+    : b.alive.length - a.alive.length || b.teams.length - a.teams.length);
+  const teamHtml = t => `<span class="ps-dteam${t.alive ? '' : ' out'}">${badgeOf(t)}</span>`;
   const rowsHtml = rows.map(d => `
     <button type="button" class="ps-drow${spot === d.id ? ' on' : ''}${d.me ? ' me' : ''}" onclick="psSpot('${key}','${d.id}')" aria-pressed="${spot === d.id}">
       <span class="ps-dname">${d.me ? 'You' : escapeHtml(d.name)}</span>
-      <span class="ps-dteams">${d.alive.map(badgeOf).join('')}</span>
-      ${scores ? `<span class="ps-dbank">+${d.banked}</span>
+      <span class="ps-dteams">${[...d.alive, ...d.teams.filter(t => !t.alive)].map(teamHtml).join('')}</span>
+      ${scores ? `<span class="ps-dbank">${d.banked ? `+${d.banked}` : '0'}</span>
       <span class="ps-dplay">${d.inPlay ? `+${d.inPlay}` : ''}</span>` : ''}
     </button>`).join('');
-  const out = gone.length ? `Out: ${gone.map(d => d.me ? 'You' : escapeHtml(d.name)).join(', ')}. ` : '';
   return {
-    table: rowsHtml || '<div class="ps-dempty">No drafted teams left.</div>',
-    note: `${out}${scores ? 'Gold is locked; blue is still in play.' : `The ${postseasonYear(key)} postseason doesn’t count for points.`}`
+    table: rowsHtml || '<div class="ps-dempty">No drafted teams made the field.</div>',
+    note: scores ? 'Points earned this postseason. Gold is locked; blue is still in play. Dimmed teams are out.' : `Dimmed teams are out. The ${postseasonYear(key)} postseason doesn’t count for points.`
   };
 }
 
-// The drafted table under the card: every drafter with a team still
-// alive, tap one to spotlight their chips. Nothing before the first draft.
+// The drafted table under (or beside) the ladder: what each drafter's
+// postseason teams have earned, tap one to spotlight their chips.
+// Nothing before the first draft.
 export function postseasonDraftedHtml(key){
   if(PRE_DRAFT) return '';
   const S = snap(key, stageOf(key));
@@ -679,7 +736,7 @@ export function postseasonDraftedHtml(key){
   const { table, note } = draftedRowsHtml(key, S);
   return `
     <div class="ps-drafted" data-ps-drafted="${key}">
-      <div class="ps-drafted-head"><span>Drafted · still climbing</span><span>Tap to spotlight</span></div>
+      <div class="ps-drafted-head"><span>Postseason points</span><span>Tap to spotlight</span></div>
       <div class="ps-drafted-table">${table}</div>
       <div class="ps-drafted-note">${note}</div>
     </div>`;

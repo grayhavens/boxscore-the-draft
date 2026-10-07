@@ -483,8 +483,9 @@ the "Your points" card linking to Points; the star), then two columns: Season (r
 home/away and scoring splits) and Schedule; Game by game (the season's margins as bars, last 20, capped per league,
 `js/team-wide-math.js`; it stands in for a Last 5 strip), Key players (team leaders where the league has player stats;
 otherwise a Full squad link) and On the line (every scoring rule from `teamPathToPoints` with its state and line note;
-rules out of play hide behind "Show all N rules", remembered per device as `bx-otl-all`), then Results and News. It fetches everything the phone page's tabs fetch, at
-once; no swipe, compact bar or row transition. A team with no regular-season games yet gets the reduced page (the band, a
+rules out of play hide behind "Show all N rules", remembered per device as `bx-otl-all`), then Results and News. A back link naming where it returns sits above the band, as on Settings, and
+no header tab reads as selected while it (or Full schedule / Full squad) shows; Back crossfades, like the way in. It
+fetches everything the phone page's tabs fetch, at once; no swipe, compact bar or row transition. A team with no regular-season games yet gets the reduced page (the band, a
 note and the schedule). Crossing 900px (an iPad rotating) rebuilds an open team page in the other layout. Home's league
 cards fit as many 300px columns as there's room for. Standings: League-view rows become table rows with real stat
 columns from the ESPN rows already loaded (`js/standings-cols.js`: W/D/L, GF/GA/GD and PTS for the EPL; W/L/T, PCT,
@@ -496,16 +497,21 @@ the league's +5 bonus) show together, the panel beside a single table (EPL, WNBA
 or under the NFL/NBA/NHL/MLB's two conference tables (`confPairHtml`, side by side) with its rows in two columns.
 Divisions | Conference is a small pill in the card's header (`widePillHtml`, the postseason switch's pill style). A narrow
 table (container query) drops columns marked to give way (`narrow` under 640px, `tiny` under 480px), and every
-Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in CSS
-columns at wide widths), its
+Standings row is denser. "All" is an overview at every width, phones included (`overviewBlockHtml`): a compact card per league (in a grid
+at wide widths), its
 top 5 (conference leagues ranked together, `leagueLeaders`) plus the displayed drafter's teams further down after a
 dashed gap (`overviewRows`), and "Full table" opening that league; a league on its Postseason view shows just its ladder
-card, without the drafted table, and "Full details" opening that league. A league picked on its own on its Postseason view gets the wide ladder (`ladderWide`, `DIMS.wide` in
+card, without the drafted table, and "Full details" opening that league. At wide widths the overview is a grid of
+cards where the cards side by side share a height (each row as tall as its tallest card, "Full table" / "Full details" pinned to the bottom; a card with neither,
+like PGA's empty one, keeps its own height), and a league on its Postseason view shows rows there instead of the ladder
+(`postseasonOverviewHtml` in `js/postseason.js`): the title, the champion card, then the drafted teams in the field,
+furthest along first, with seed, the round each is in or went out in, and points banked (top 5, then yours; no owner column, which the league's own view has). A league picked on its own on its Postseason view gets the wide ladder (`ladderWide`, `DIMS.wide` in
 `js/postseason.js`): one full-width card with the ladder and scrubber on the left and the drafted table beside it (stacked
 when the card is under 1000px), rung labels and points leading each rung on the left, 52px chips with 36px badges,
 eight to a row, each game's two chips pulled together on a shared backing (`pairGap` in `js/postseason-math.js`), MLB's
 AL and NL halves split by a line with the World Series on it, and the playoffs reveal's grid kept phone-width and
-centered. The All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
+centered (a last row that isn't full centered under the others; a strip without a league logo centers its title and
+"of your teams" line too). On phones the All overview keeps the phone ladder. Crossing 900px re-renders Standings. Scores (`js/live-now.js`): no Live /
 Upcoming / Completed filter; the day shows as Live, Upcoming and Final groups at once (each hidden when empty; a game
 that just ended stays under Live for its two minutes), each league's games a grid of cards (the phone's card markup
 restyled in CSS: the time rail becomes the card's header, the timeline's line and node hide, Live cards run a little
@@ -527,7 +533,15 @@ a sticky column on the right; a row tap opens that drafter's breakdown in the co
 1000px of content the column drops under the table. Rows that moved glide as on the phone. Crossing 900px re-renders
 Points. Team color
 appears only in crests and the hero's orb and glow; the glow falls back to the second color only for near-black teams
-(luminance under 0.04, `glowColor`).
+(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`): two columns instead of one
+narrow one, the identity card (bigger, with a Switch button) and the device note and version in a sticky column on the
+left, the sections on the right with each section's rows joined into one list; rows and choices get hover states. The
+two wrappers (`.set-side`, `.set-main`) are `display: contents` under 900px, so the phone page is unchanged. The draft
+room and Commissioner are consoles with their own columns (`html[data-console]`, set by `syncChat` in `js/wide.js`):
+the rail steps aside for both; Commissioner's console covers the window, chat included (`chatBeside` is false
+there), and the draft room sits under the full-width header and beside chat. The guide lines up at the content's left
+edge like every other page. Activity rows, Home's postseason cards, filter chips and segmented controls get hover
+states (`(hover: hover)` only).
 
 **Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): where every team tap in the app goes (there's no team peek
 modal; a golfer opens the golfer sheet). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
@@ -571,7 +585,9 @@ the card opens on Postseason. Postseason is a ladder of every playoff team: it o
 teams stay grayed on the rung where they lost, a scrubber replays the rounds, and the Champion rung becomes a crown card
 (the champion's chip, doubled, as its logo, its owner and the title win's points) with a bloom, ripples and a rung pop.
 A rung's points are gold once a team has reached it (in the reveal, once the badges land).
-Below it, a drafted table (gold locked, blue in play, tap to spotlight). The ladder's title is the league logo with
+Below it, Postseason points (`postseasonDraftedHtml`): every drafter with a team in the field, ranked by the points
+their postseason teams have earned between them (gold locked, blue in play), with all of those teams (the eliminated
+ones dimmed); tap one to spotlight their chips. The ladder's title is the league logo with
 "Playoffs" (the NFL's shield from ESPN; the CFP's emblem and wordmark from `icons/cfp-*.png`, since ESPN has none).
 Points come from the group's own `LEAGUE_SCORING` rules matched by label to a round (`milestonesFor`). They also
 score on the Points tab with no commissioner mark: `getLeagueRuleTeams` unions marks with `postseasonRuleTeams`

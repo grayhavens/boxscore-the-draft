@@ -85,7 +85,11 @@ const setSheetTitle = t => { document.getElementById('identity-sheet-title').tex
    once per open; after that each control repaints itself in place
    (paintSettingsPage) so the scroll position never resets. The sheet
    (#identity-sheet-overlay) is kept only for the drafter switcher the
-   identity card opens. */
+   identity card opens.
+   At 900px and up (css/style.css "Settings, wide") the identity card and
+   the device note sit in a sticky column (.set-side) beside the sections
+   (.set-main); under 900px both wrappers are display: contents, so the
+   phone page is the same single column it always was. */
 const settingsEl = () => document.getElementById('settings-content');
 
 const THEME_SWATCH = {
@@ -124,11 +128,15 @@ export function renderSettingsPage(backLabel = 'Back'){
         ${backLinkHtml({ label: backLabel, onclick: 'closeSettings()' })}
       </div>
     </div>
-    <button type="button" class="set-identity" onclick="openProfileSwitcher()">
-      <span class="set-mono" id="set-mono">${me.name.charAt(0)}</span>
-      <span class="set-identity-text"><span class="set-identity-name" id="set-name">${me.name}</span><span class="set-row-sub">Drafting on this device</span></span>
-      <span class="set-identity-switch">Switch</span>
-    </button>
+    <aside class="set-side">
+      <button type="button" class="set-identity" onclick="openProfileSwitcher()">
+        <span class="set-mono" id="set-mono">${me.name.charAt(0)}</span>
+        <span class="set-identity-text"><span class="set-identity-name" id="set-name">${me.name}</span><span class="set-row-sub">Drafting on this device</span></span>
+        <span class="set-identity-switch">Switch</span>
+      </button>
+      <div class="set-side-foot">Saved on this device only<br>Version ${APP_VERSION}</div>
+    </aside>
+    <div class="set-main">
     ${sectionHtml('App', `
       <button type="button" class="set-row" onclick="openGuide()">
         <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">Every feature and where to find it</span></span>
@@ -159,6 +167,7 @@ export function renderSettingsPage(backLabel = 'Back'){
       ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
       <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
+    </div>
     <div class="set-foot">Saved on this device only</div>
     <div class="set-foot set-version">Version ${APP_VERSION}</div>
   `;
