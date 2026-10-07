@@ -77,7 +77,7 @@ const SECTIONS = [
     tourLead: 'A snake draft like any fantasy draft, except every pick is a whole real team, across every league.',
     points: [
       `Everyone takes the same mix: ${CAPS_LINE}.`,
-      'Practice in Mock Draft any time. Can’t make the real one? Auto-draft picks for you.'
+      'Practice in Mock Draft any time, in the live draft’s order once it’s drawn. Can’t make the real one? Auto-draft picks for you.'
     ],
     shot: 'board',
     go: ['Open the draft', 'openDraftPicker()']

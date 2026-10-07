@@ -24,6 +24,8 @@
                        (bots after botSeconds, anyone after clockSeconds)
      order             lottery result (drafter ids by round-1 position)
                        or null until the lottery has run
+     orderSource?      'live' (a mock room copied the live room's order),
+                       'drawn' (lottery run on purpose), or unset
      picks             { [slot]: { team, by, at, n, proxy?, auto?, edited? } }
                        `by` is the roster the team lands on (the slot's
                        owner); `proxy` marks a commissioner picking for them,
@@ -41,7 +43,7 @@
      pickSeq           monotonic pick counter, so "undo" means "most recent"
    }
 
-   Error codes: forbidden, bad_phase, bad_input, no_order, not_live,
+   Error codes: forbidden, bad_phase, bad_input, no_order, no_live_order, not_live,
    paused, stale, not_your_turn, unknown_team, taken, league_full,
    pool_short, unchanged, nothing_to_undo, empty_slot, bad_slot, exists.
    ============================================================ */
@@ -205,6 +207,7 @@ function setConfig(state, a){
     // The lottery order and any pool built against the old shape no
     // longer line up; make the commissioner redo them.
     state.order = null;
+    delete state.orderSource;
     state.overrides = {};
     state.pool = state.pool.filter(t => t.league in state.config.caps);
   }
@@ -243,12 +246,33 @@ function setPool(state, a){
   return done(state);
 }
 
+// Is `order` every one of `drafters`, each exactly once?
+export function isOrderOf(order, drafters){
+  return Array.isArray(order) && order.length === drafters.length && new Set(order).size === order.length
+    && order.every(id => drafters.includes(id));
+}
+
 // `ifUndrawn` is the mock lobby's automatic first draw: it must not
 // reshuffle an order someone else drew a moment earlier.
+// ctx.liveOrder is the live room's order, which the draft room hands a
+// mock room (worker/draft-room.js) so practice runs in the real order;
+// clients can't send it. state.orderSource says where the order came
+// from: 'live' (copied), 'drawn' (someone ran the lottery on purpose),
+// or unset (the automatic first draw), so the room knows which orders
+// it may replace with the live one. `live` asks for the live order and
+// nothing else: refused when there's none to copy.
 function runLottery(state, a, ctx){
   if(state.phase !== 'lobby') return fail('bad_phase');
   if(a.ifUndrawn && state.order) return fail('already_drawn');
-  state.order = shuffled(state.config.drafters, ctx.rand || Math.random);
+  if(a.live && !isOrderOf(ctx.liveOrder, state.config.drafters)) return fail('no_live_order');
+  if(isOrderOf(ctx.liveOrder, state.config.drafters)){
+    state.order = ctx.liveOrder.slice();
+    state.orderSource = 'live';
+  } else {
+    state.order = shuffled(state.config.drafters, ctx.rand || Math.random);
+    if(a.ifUndrawn) delete state.orderSource;
+    else state.orderSource = 'drawn';
+  }
   state.overrides = {};
   return done(state);
 }
@@ -272,6 +296,7 @@ function startDraft(state, ctx){
 function reset(state){
   state.phase = 'lobby';
   state.order = null;
+  delete state.orderSource;
   state.picks = {};
   state.overrides = {};
   state.pickSeq = 0;

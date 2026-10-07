@@ -9,7 +9,8 @@
 
    Three screens share the view:
    - Lobby: draft order (lottery), commissioner setup. Phase 'lobby'.
-     A mock lobby draws its order on arrival and puts each seat's bot
+     A mock lobby copies the live room's order once it's drawn (else
+     draws its own on arrival) and puts each seat's bot
      switch on the order rows (one table).
    - Live room: Available pool | Board | My roster + queue. Phases
      'draft' and 'done'. Built once as a shell and then updated region by
@@ -118,6 +119,7 @@ const ERROR_TEXT = {
   bad_phase: "That isn't possible right now.",
   bad_input: 'Something about that request was invalid.',
   no_order: 'Run the lottery first.',
+  no_live_order: 'The live draft order isn\u2019t drawn yet.',
   not_live: 'The draft is not live.',
   paused: 'The draft is paused.',
   stale: 'The board just moved — try again.',
@@ -371,16 +373,21 @@ function lobbyHtml(d){
     // A mock room loads its own pool (maybeAutoPool), so only the real
     // room shows the button.
     const poolBtn = mock ? '' : `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload pool (${s.poolSize})` : 'Load team pool'}</button>`;
+    // A mock room can switch between a random order and the live room's
+    // (the button is off while it's already using the live one).
+    const liveBtn = mock && drawn
+      ? `<button class="dr-btn"${s.orderSource === 'live' ? ' disabled' : ''} onclick="draftLiveOrder()">Live draft order</button>`
+      : '';
     const main = !drawn
       ? `<button class="dr-btn dr-btn-primary" onclick="draftRunLottery()">Run lottery</button>`
       : `<button class="dr-btn dr-btn-primary"${settled ? '' : ' disabled'} onclick="draftStart()">Start draft</button>
-         <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">Re-run lottery</button>`;
+         <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">${mock ? 'Random order' : 'Re-run lottery'}</button>${liveBtn}`;
     // One block: the buttons, then the clock. Phones lay it out two to a
     // row, so a mock's bot speed joins it there to pair with the clock
     // (wider screens keep it beside the bot buttons). The primary button
     // spans the row only when what follows it pairs up evenly.
     const timing = (mock ? botSpeedHtml(d, 'dr-narrow-only') : '') + clockSelectHtml(d);
-    const rest = (drawn ? 1 : 0) + (poolBtn ? 1 : 0) + (mock ? 1 : 0) + 1;
+    const rest = (drawn ? 1 : 0) + (liveBtn ? 1 : 0) + (poolBtn ? 1 : 0) + (mock ? 1 : 0) + 1;
     actions = `<div class="dr-lobby-actions${rest % 2 ? '' : ' span'}">
         <div class="dr-action-group">${main}${poolBtn}</div>
         <div class="dr-action-group">${timing}</div>
@@ -401,7 +408,7 @@ function lobbyHtml(d){
         : "Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. Order is set by random lottery."}</p>
       <div class="dr-card">
         <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${mock
-          ? `${(s.config.bots || []).length} of ${d.n} bots`
+          ? `${s.orderSource === 'live' ? 'Live draft order · ' : ''}${(s.config.bots || []).length} of ${d.n} bots`
           : (!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…'))}</span></div>
         ${rows}
         ${mock && draftStore.commissioner ? botActionsHtml(d, 'dr-wide-only') : ''}
@@ -413,7 +420,8 @@ function lobbyHtml(d){
 }
 
 // Mock rooms only: one table for the draft order and which seats the
-// worker drafts for. The order is drawn automatically on arrival (see
+// worker drafts for. The order is the live room's once its lottery is
+// drawn (worker/draft-room.js), else drawn automatically on arrival (see
 // maybeAutoDraw), so the rows only fall back to roster order for the
 // moment before it lands. Used by the lobby and the mid-draft modal.
 function mockOrderRowsHtml(d){
@@ -2327,6 +2335,7 @@ function applyPendingSelect(d){
 }
 
 window.draftRunLottery = () => run({ type: 'runLottery' }, null);
+window.draftLiveOrder = () => run({ type: 'runLottery', live: true }, null);
 // Loads the pool first if it can't cover the draft yet, in any room, so
 // Start is the only button you need.
 window.draftStart = async () => {
