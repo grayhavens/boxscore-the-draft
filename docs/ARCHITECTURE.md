@@ -226,6 +226,22 @@ CFB predate that shared engine and are bespoke. WNBA has no real division/confer
 modeling, so it was moved off `standings-flat` onto a single flat league-wide ranking shaped like
 EPL's instead.
 
+During a league's preseason, ESPN's default standings table is the preseason one (exhibition records),
+so `fetchEspnFlatStandings` (`js/espn.js`) asks for `seasontype=2` instead whenever the default comes
+back `seasonType` 1: every team reads 0-0 until opening night. Each row carries ESPN's own `season`
+year, and the core-API division fetches ask for that year rather than the calendar year; for NBA/NHL,
+ESPN's 2027 is 2026-27, so the calendar year used to fetch last season's final division records.
+
+**CFB's Top 25 switches polls** (`js/cfb-poll.js`, tests `tests/cfb-poll.test.mjs`): the AP Top 25
+until the College Football Playoff committee's first ranking (early November), then the CFP's for the
+rest of that season; never both. No date is hardcoded: ESPN's rankings feed gains a `type: 'cfp'` poll
+when the committee ranks (`pickCfbPoll`). The rankings cache records `poll` and `season`, and a CFP
+poll sticks for its season (`keepCfpPoll`) so the AP's postseason polls don't flip it back; a device
+that never saw one asks ESPN's core API (`/rankings/21`, `fetchEspnCfbCfpRankings`) from November to
+January. The labels follow the cache (`cfbPollLabels`): the toggle and the All tab read "AP Top 25" or "CFP Top 25",
+the team page's stat "AP poll" or "CFP". Display only: no CFB rule scores off a poll. ESPN's
+scoreboard ranks follow the CFP on their own once it exists, which is why the table has to as well.
+
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
 strip and next match (Home's rows, the team page's stat strip and next game) and the Game Details sheet,
 plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results

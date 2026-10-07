@@ -20,7 +20,7 @@ import {
   cfbStandingsMode, computeCfbDrafterCombined, renderCfbByDrafterRow,
   computeCfbRankingTable, renderCfbRankingRow, cfbStandingsToggleHtml, fetchCfbRecords,
   loadCfbRecordsCache, renderAllCfbCardRecords,
-  espnCfbRankingsCache, fetchEspnCfbRankingsCached, loadEspnCfbRankingsCache,
+  espnCfbRankingsCache, fetchEspnCfbRankingsCached, loadEspnCfbRankingsCache, cfbPollLabels,
   espnCfbRecordsCache, fetchEspnCfbRecordsCached, loadEspnCfbRecordsCache
 } from './standings-cfb.js';
 import {
@@ -460,7 +460,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
   const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
     ? `<div class="prior-season-note">${onPostseason
-      ? `The '${shortYear(ACTIVE_SEASON_ID)} postseason doesn't count — points start with the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`
+      ? `Points earned for '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} postseason only.`
       : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`}</div>`
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
@@ -559,13 +559,14 @@ function flatApi(key){
 const NO_DATA_HTML = `<div class="no-live-note">No data available.</div>`;
 const NONE_RANKED_HTML = `<div class="no-live-note">No teams currently ranked.</div>`;
 
-// The one-table leagues' tables (the college ones are the AP Top 25).
+// The one-table leagues' tables (the college ones are a Top 25: the AP's,
+// and for CFB the CFP's once the committee ranks, js/cfb-poll.js).
 const WIDE_SINGLE = {
   epl: { ready: () => eplStandingsCache.table, error: () => eplStandingsCache.error, fetch: fetchEplStandingsTable,
     rows: () => standingsHeadFor('epl') + eplStandingsCache.table.map(r => renderStandingsRow('epl', r)).join('') },
   wnba: { ready: () => espnWnbaStandingsCache.table, error: () => espnWnbaStandingsCache.error, fetch: fetchEspnWnbaStandingsCached,
     rows: () => standingsHeadFor('wnba') + espnWnbaStandingsCache.table.map((r, i) => renderWnbaStandingsRow(r, i + 1)).join('') },
-  cfb: { ready: () => espnCfbRankingsCache.ranks, error: () => espnCfbRankingsCache.error, fetch: fetchEspnCfbRankingsCached, title: 'AP Top 25',
+  cfb: { ready: () => espnCfbRankingsCache.ranks, error: () => espnCfbRankingsCache.error, fetch: fetchEspnCfbRankingsCached, get title(){ return cfbPollLabels().label; },
     rows: () => { const r = computeCfbRankingTable(); return r.length ? r.map(x => renderCfbRankingRow(x)).join('') : NONE_RANKED_HTML; } },
   mcbb: { ready: () => espnCbbRankingsCache.ranks, error: () => espnCbbRankingsCache.error, fetch: fetchEspnCbbRankingsCached, title: 'AP Top 25',
     rows: () => { const r = computeCbbRankingTable(); return r.length ? r.map(x => renderCbbRankingRow(x)).join('') : NONE_RANKED_HTML; } }
@@ -660,7 +661,7 @@ const OVERVIEW_LEAGUES = {
   nhl: { ready: () => espnNhlStandingsCache.rows, fetch: fetchEspnNhlStandingsCached, teamKey: r => findFlatTeamKey('nhl', r.teamNickname), render: renderNhlStandingsRow, head: true, leaders: true, note: 'Most points, East and West together' },
   mlb: { ready: () => espnMlbStandingsCache.rows, fetch: fetchEspnMlbStandingsCached, teamKey: r => findFlatTeamKey('mlb', r.teamNickname), render: renderMlbStandingsRow, head: true, leaders: true, note: 'Best records, AL and NL together' },
   wnba: { ready: () => espnWnbaStandingsCache.table, fetch: fetchEspnWnbaStandingsCached, teamKey: r => findFlatTeamKey('wnba', r.teamNickname), render: renderWnbaStandingsRow, head: true },
-  cfb: { ready: () => espnCfbRankingsCache.ranks && computeCfbRankingTable(), fetch: fetchEspnCfbRankingsCached, teamKey: r => findCfbTeamKeyByLocation(r.location), render: r => renderCfbRankingRow(r), note: 'AP Top 25' },
+  cfb: { ready: () => espnCfbRankingsCache.ranks && computeCfbRankingTable(), fetch: fetchEspnCfbRankingsCached, teamKey: r => findCfbTeamKeyByLocation(r.location), render: r => renderCfbRankingRow(r), get note(){ return cfbPollLabels().label; } },
   mcbb: { ready: () => espnCbbRankingsCache.ranks && computeCbbRankingTable(), fetch: fetchEspnCbbRankingsCached, teamKey: r => findCbbTeamKeyByEspnId(r.id), render: r => renderCbbRankingRow(r), note: 'AP Top 25' }
 };
 
@@ -836,7 +837,7 @@ export function renderStandings(){
     if(league.key === 'cfb'){
       const post = postseasonBlockHtml(league);
       if(post) return post;
-      // Each mode has its own ESPN cache — the AP Top 25 (rankings) and
+      // Each mode has its own ESPN cache — the Top 25 (rankings: AP, then CFP) and
       // "Person" (full-roster records) are two different ESPN endpoints
       // (js/standings-cfb.js's header comment), so each is gated on its
       // own cache rather than one shared check. fetchCfbRecords (the

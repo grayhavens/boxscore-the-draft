@@ -124,7 +124,7 @@ const APP_ROWS = [
   },
   {
     id: 'standings', icon: 'standings', title: 'Standings',
-    lead: 'The real tables, every team tagged with who drafted it. All shows each league’s top five and where your teams sit. Playoff brackets once they’re set.',
+    lead: 'The real tables, every team tagged with who drafted it. All shows each league’s top five and where your teams sit. Playoff brackets once they’re set. College football shows the AP Top 25 until the CFP rankings come out in November.',
     pre: { lead: 'The real tables for every league.' },
     go: ['Go to Standings', "switchView('standings')"]
   },

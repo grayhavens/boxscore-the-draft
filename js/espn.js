@@ -1,6 +1,6 @@
 /* ============================================================
    ESPN HIDDEN API (see docs/espn-migration-plan.md for the full
-   evaluation this started from). Backs CFB's AP Top 25, all of NFL's
+   evaluation this started from). Backs CFB's Top 25 (AP, then CFP), all of NFL's
    standings/rankings, and EPL's league table — see js/standings-cfb.js,
    js/standings-nfl.js and js/standings-epl.js for how each is wired in.
 
@@ -32,6 +32,7 @@
 import { fetchJSON } from './utils.js';
 import { parseScoreboardEvent, parseNflSeeds, seriesEvents } from './postseason-math.js';
 import { loadDays, ymd } from './espn-days.js';
+import { pickCfbPoll, teamIdFromRef } from './cfb-poll.js';
 
 export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // The hypermedia "core" API — a completely different, much more
@@ -100,6 +101,21 @@ function espnTeamName(team){
   return team.displayName || `${team.location || ''} ${team.name || ''}`.trim() || team.location || '';
 }
 
+// Whether a standings response is ESPN's preseason table (seasonType 1),
+// read off its first group (every group carries the same season).
+export function isPreseasonTable(data){
+  const first = data && Array.isArray(data.children) ? data.children[0] : null;
+  return Number(first && first.standings && first.standings.seasonType) === 1;
+}
+
+// The season a division fetch should ask ESPN's core API for: the one the
+// flat table came back as. Falls back to the calendar year, which is
+// only right for NFL/MLB/WNBA (an NBA/NHL calendar-year 2026 is LAST
+// season, 2025-26, and showed its final records all preseason).
+function standingsSeason(flatRows){
+  return (flatRows[0] && flatRows[0].season) || new Date().getFullYear();
+}
+
 // Shared by every "flat" (conference-grouped, no division nesting)
 // standings puller — NFL, NBA, NHL, MLB and WNBA all share this exact
 // response shape: one or more `children` groups (conferences/leagues),
@@ -115,8 +131,16 @@ function espnTeamName(team){
 // differ (NHL's otLosses/points, MLB's ties/gamesBehind, NBA/WNBA's
 // winPercent/playoffSeed, etc — verified live per sport, see
 // docs/espn-migration-plan.md).
+//
+// During a preseason ESPN's default table is the PRESEASON one (confirmed
+// live 2026-10-07: NBA came back seasonType 1 with exhibition records
+// like 0-1), which reads as if the season had started. Ask for the
+// regular season (seasontype=2) instead: an honest 0-0 until opening night.
 async function fetchEspnFlatStandings(path){
-  const data = await fetchEspnJSON(path);
+  let data = await fetchEspnJSON(path);
+  if(data && isPreseasonTable(data)){
+    data = await fetchEspnJSON(`${path}?seasontype=2`);
+  }
   if(!data || !Array.isArray(data.children)) return null;
 
   const rows = [];
@@ -139,6 +163,10 @@ async function fetchEspnFlatStandings(path){
         // replacing it, to avoid any risk to NFL/NBA/NHL/MLB/WNBA's
         // already-shipped display.
         conferenceShortName: conf.shortName || null,
+        // ESPN's own season year: the year a season ENDS in for leagues
+        // that span two (2027 = NBA/NHL 2026-27). The division fetches
+        // below ask for this, not the calendar year.
+        season: Number(conf.standings && conf.standings.season) || null,
         teamName: espnTeamName(entry.team),
         // The bare nickname ("Cavaliers"), no city — matches this app's
         // own TEAM_META.name exactly (see findFlatTeamKey in
@@ -192,7 +220,8 @@ export async function fetchEspnNflStandings(){
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, ties: r.stats.ties,
     streak: r.stats.streak, pointsFor: r.stats.pointsFor, pointsAgainst: r.stats.pointsAgainst,
-    winPercent: r.stats.winPercent, clincherDescription: r.clincherDescription
+    winPercent: r.stats.winPercent, clincherDescription: r.clincherDescription,
+    season: r.season
   }));
 }
 
@@ -211,7 +240,8 @@ function mapNbaLikeRow(r){
     wins: r.stats.wins, losses: r.stats.losses, streak: r.stats.streak,
     winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind,
     pointsFor: r.stats.pointsFor, pointsAgainst: r.stats.pointsAgainst,
-    clincherDescription: r.clincherDescription
+    clincherDescription: r.clincherDescription,
+    season: r.season
   };
 }
 
@@ -271,7 +301,8 @@ export async function fetchEspnNhlStandings(){
     id: r.id, conference: r.conference, conferenceAbbr: r.conferenceAbbr,
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, otLosses: r.stats.otLosses,
-    points: r.stats.points, streak: r.stats.streak, clincherDescription: r.clincherDescription
+    points: r.stats.points, streak: r.stats.streak, clincherDescription: r.clincherDescription,
+    season: r.season
   }));
 }
 
@@ -292,7 +323,8 @@ export async function fetchEspnMlbStandings(){
     teamName: r.teamName, teamNickname: r.teamNickname, abbreviation: r.abbreviation, logoUrl: r.logoUrl,
     wins: r.stats.wins, losses: r.stats.losses, ties: r.stats.ties,
     winPercent: r.stats.winPercent, gamesBehind: r.stats.gamesBehind, streak: r.stats.streak,
-    pointDifferential: r.stats.pointDifferential, clincherDescription: r.clincherDescription
+    pointDifferential: r.stats.pointDifferential, clincherDescription: r.clincherDescription,
+    season: r.season
   }));
 }
 
@@ -337,7 +369,7 @@ export async function fetchEspnNflDivisionStandings(){
   const byId = {};
   flatRows.forEach(row => { byId[row.id] = row; });
 
-  const seasonYear = new Date().getFullYear();
+  const seasonYear = standingsSeason(flatRows);
   const divisions = await Promise.all(
     Object.entries(NFL_DIVISION_GROUP_IDS).map(async ([division, groupId]) => {
       const data = await fetchJSON(
@@ -418,7 +450,7 @@ async function fetchEspnCoreDivisionStandings(corePath, divisionDefs, recordName
   const byId = {};
   flatRows.forEach(row => { byId[row.id] = row; });
 
-  const seasonYear = new Date().getFullYear();
+  const seasonYear = standingsSeason(flatRows);
   const divisions = await Promise.all(
     Object.entries(divisionDefs).map(async ([division, { groupId, conferenceAbbr, shortName }]) => {
       const data = await fetchJSON(
@@ -544,30 +576,67 @@ export async function fetchEspnMlbDivisionStandings(){
   );
 }
 
-// Real AP Top 25 (or any of ESPN's other 4 CFB polls — Coaches, FCS
-// Coaches, D2/D3 Coaches — pass its exact `name` from the `rankings`
-// array). Richer than TheRundown's flat 1-25 "ranking" field: also
-// carries week-over-week trend, first-place votes, and poll points.
-// Shape returned: [{ rank, previousRank, trend, teamName, location,
-// logoUrl, record, points, firstPlaceVotes }]
-export async function fetchEspnCfbRankings(pollName = 'AP Top 25'){
+// CFB's Top 25: the AP's until the College Football Playoff committee
+// ranks, then the CFP's (pickCfbPoll, js/cfb-poll.js, says why and when).
+// Richer than TheRundown's flat 1-25 "ranking" field: also carries
+// week-over-week trend, first-place votes, and poll points.
+// Shape returned: { poll: 'ap' | 'cfp', season, ranks: [{ rank,
+// previousRank, trend, teamName, location, logoUrl, record, points,
+// firstPlaceVotes }] }, or null.
+export async function fetchEspnCfbRankings(){
   const data = await fetchEspnJSON('/apis/site/v2/sports/football/college-football/rankings');
-  if(!data || !Array.isArray(data.rankings)) return null;
+  const picked = pickCfbPoll(data);
+  if(!picked) return null;
+  return {
+    poll: picked.poll,
+    season: picked.season,
+    ranks: picked.ranks.map(r => ({
+      rank: r.current,
+      previousRank: r.previous,
+      trend: r.trend,
+      teamName: espnTeamName(r.team),
+      location: r.team.location,
+      logoUrl: espnLogoUrl(r.team),
+      record: r.recordSummary,
+      points: r.points,
+      firstPlaceVotes: r.firstPlaceVotes
+    }))
+  };
+}
 
-  const poll = data.rankings.find(p => p.name === pollName);
-  if(!poll || !Array.isArray(poll.ranks)) return null;
-
-  return poll.ranks.map(r => ({
-    rank: r.current,
-    previousRank: r.previous,
-    trend: r.trend,
-    teamName: espnTeamName(r.team),
-    location: r.team.location,
-    logoUrl: espnLogoUrl(r.team),
-    record: r.recordSummary,
-    points: r.points,
-    firstPlaceVotes: r.firstPlaceVotes
-  }));
+// The CFP committee's latest ranking from ESPN's core API, which keeps it
+// after the site feed above has moved on to the AP's postseason polls —
+// for a device that never saw a CFP ranking this season (keepCfpPoll,
+// js/cfb-poll.js, covers one that did). Only returned when it's from
+// `season`; out of season it's last year's final ranking. The core API
+// gives each team as a bare $ref, so names come from the FBS standings
+// (every CFP team is FBS) and logos from ESPN's id-based logo path.
+// Same shape as fetchEspnCfbRankings, or null.
+export async function fetchEspnCfbCfpRankings(season){
+  const [data, teams] = await Promise.all([
+    fetchJSON(`${ESPN_CORE_BASE}/v2/sports/football/leagues/college-football/rankings/21?lang=en&region=us`),
+    fetchEspnCfbFullStandings()
+  ]);
+  if(!data || data.type !== 'cfp' || !Array.isArray(data.ranks) || !Array.isArray(teams)) return null;
+  if(!season || Number(data.season && data.season.year) !== season) return null;
+  const byId = new Map(teams.map(t => [String(t.id), t]));
+  const ranks = data.ranks.map(r => {
+    const id = teamIdFromRef(r.team && r.team.$ref);
+    const team = id && byId.get(id);
+    if(!team) return null;
+    return {
+      rank: r.current,
+      previousRank: r.previous,
+      trend: r.trend,
+      teamName: team.teamName,
+      location: team.location,
+      logoUrl: `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`,
+      record: (r.record && r.record.summary) || null,
+      points: r.points,
+      firstPlaceVotes: r.firstPlaceVotes
+    };
+  }).filter(Boolean);
+  return ranks.length ? { poll: 'cfp', season, ranks } : null;
 }
 
 // Men's College Basketball's AP Top 25 — same shape as fetchEspnCfbRankings
@@ -1113,7 +1182,8 @@ export async function fetchEspnTeamPlayerStats(sportLeaguePath, espnTeamId){
 // Shape returned: { events: [{ id, date, state, detail, completed,
 // competitors: [{ teamId, teamName, teamNickname, location, logoUrl, abbreviation,
 // homeAway, score, rank }] }], season: { type, year } | null }
-// `rank` is the AP Top 25 rank ESPN attaches to college competitors
+// `rank` is the Top 25 rank ESPN attaches to college competitors (the
+// AP's, or for CFB the CFP's once the committee has ranked)
 // (`curatedRank.current`, 1-25; it reports 99 for "unranked", and pro
 // leagues don't send it at all) — null unless actually ranked.
 export async function fetchEspnScoreboard(sportLeaguePath, dates){
