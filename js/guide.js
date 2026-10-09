@@ -1,26 +1,34 @@
 /* ============================================================
-   Feature guide: what the app can do, in two places that read from the
-   one GUIDE list below.
+   Feature guide: how Boxscore works, in two places that read from the
+   SECTIONS and APP_ROWS lists below.
 
+   - The guide page (#view-guide, Settings -> How Boxscore works): three
+     short sections on what's different from a normal fantasy league
+     (you draft teams; teams score on how they finish; live vs locked
+     points), each with a still picture of the app, then "Around the
+     app", one row per tab and setting. Reopenable any time.
    - The tour: a few swipeable one-line cards in the first-run welcome
      sheet (js/identity.js), shown right after a new device picks its
-     name. In a phone browser the welcome opens on the Add to Home Screen
-     steps, and the name pick and tour only follow "Continue in browser";
-     otherwise they run in the Home Screen app on its first open. Its
-     last card turns on alerts where the device can get them.
-   - The guide page (#view-guide, Settings -> How Boxscore works): every
-     entry, each with a button that jumps to it. Reopenable any time.
+     name: the entries marked `tour`, with their `tourLead`. In a phone
+     browser the welcome opens on the Add to Home Screen steps, and the
+     name pick and tour only follow "Continue in browser"; otherwise they
+     run in the Home Screen app on its first open. Its last card turns on
+     alerts where the device can get them.
 
-   Adding a feature: add one entry to GUIDE. `tour: true` puts it in the
-   tour too (keep that to four or so); the tour shows only its `lead`,
-   the guide page adds the `points`. `pre` is the text used instead
-   while this group hasn't held its first draft (ACTIVE_SEASON.preDraft),
-   when Home and Points are still empty and nothing shows a drafter.
+   Adding a feature: usually one APP_ROWS line, a sentence long. Keep the
+   whole page short: the reader has done a fantasy draft and only needs
+   what's different here. `pre` is the text used instead while this group
+   hasn't held its first draft (ACTIVE_SEASON.preDraft).
    ============================================================ */
-import { ACTIVE_GROUP } from './group.js';
+import { ACTIVE_GROUP, ACTIVE_GROUP_ID } from './group.js';
+import { groupCaps } from './groups.js';
+import { DEFAULT_CAPS } from './draft-rules.js';
+import { SPORT_KEYS } from './sports.js';
+import { FILTER_CHIP_LABELS } from './league-labels.js';
+import { preDraftClass } from './seasons/pre-draft.js';
+import { paintSceneStill } from './landing-explainer.js';
 import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
-import {  } from './utils.js';
 
 import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
 const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
@@ -37,161 +45,126 @@ const ICONS = {
   gear: svg('<circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"></path>')
 };
 
-// { id, icon, title, lead, points[], pre?: { lead, points }, go: [label, js], tour? }
-// `go` is an inline onclick; every target is already a window global.
-const GUIDE = [
+// The draft's shape for this group: picks per league (its caps, or the
+// standard setup's), for the copy and the board picture.
+const DRAFTED_LEAGUES = ACTIVE_SEASON.LEAGUES.filter(l => !l.scoresOnly).map(l => l.key);
+const CAPS = (() => {
+  const base = groupCaps(ACTIVE_GROUP_ID) || DEFAULT_CAPS;
+  const caps = {};
+  DRAFTED_LEAGUES.forEach(k => { if(base[k] > 0) caps[k] = base[k]; });
+  return Object.keys(caps).length ? caps : { ...DEFAULT_CAPS };
+})();
+const leagueLabel = k => FILTER_CHIP_LABELS[k] || (ACTIVE_SEASON.LEAGUES.find(l => l.key === k) || {}).label || k.toUpperCase();
+const ROUNDS = Object.values(CAPS).reduce((a, b) => a + b, 0);
+const CAPS_LINE = SPORT_KEYS.filter(k => CAPS[k]).map(k => `${CAPS[k]} ${leagueLabel(k)}`).join(', ');
+const HAS_GOLF = ACTIVE_SEASON.LEAGUES.some(l => l.key === 'pga');
+
+// Written for someone who's done a fantasy draft before but not this
+// kind: what's different, in as few words as it takes. Sections carry a
+// still picture of the app (`shot`: a scene of the landing page's tour,
+// js/landing-explainer.js, drawn for this group's setup, at progress
+// `shotAt`); "Around the app" is one row per tab and setting.
+//
+// { id, icon, title, lead, points?, shot?, shotAt?, go?: [label, js], tour?, tourLead?, pre?: {…}, when? }
+// `tour: true` puts it in the welcome tour (its `tourLead`, else `lead`);
+// `pre` replaces fields while this group hasn't held its first draft;
+// `when` leaves it out for a group it doesn't apply to. `go` is an inline
+// onclick; every target is already a window global.
+const SECTIONS = [
   {
-    id: 'home', icon: 'home', tour: true, title: 'Your teams',
-    lead: 'Home is your board: every team you drafted, grouped by league, with its latest form and next game.',
+    id: 'draft', icon: 'draft', tour: true, title: 'Draft teams, not players',
+    lead: `It’s a snake draft like any fantasy draft, except every pick is a whole real team. ${ROUNDS} rounds, across ${Object.keys(CAPS).length} leagues.`,
+    tourLead: 'A snake draft like any fantasy draft, except every pick is a whole real team, across every league.',
     points: [
-      'Tap any team, here or anywhere else in the app, for its page: recent form, schedule, news, squad and stats. Path to points shows what it’s worth to you, rule by rule, and how close it is to each one, like 1 game behind for the division. Tap it to open the full list.',
-      'On one of your teams’ pages, swipe sideways anywhere to go to your next team, or tap the dots under its name.',
-      'Star a team on its page to keep it on your board even if someone else drafted it.',
-      'Tap a drafter on Points to see their board.',
-      'Back after 8 hours or more, Since last time sums up what happened while you were away: where you stand, points that locked, playoff games and upsets, and how you did against each drafter. Swipe the cards away or tap Clear all. A quiet stretch just gets the updates button next to Home.'
+      `Everyone takes the same mix: ${CAPS_LINE}.`,
+      'Practice in Mock Draft any time, in the live draft’s order once it’s drawn. Can’t make the real one? Auto-draft picks for you.'
     ],
-    pre: {
-      lead: 'Home is your board. Until the draft it shows when the draft starts, or asks which times you can make while the commissioner is still choosing, plus the way into the mock and live rooms; after, it fills in with every team you drafted, grouped by league.',
-      points: [
-        'Tap any team, here or anywhere else in the app, for its page: schedule, news, squad and stats.',
-        'Star a team on its page to keep it on your board even if someone else drafted it.'
-      ]
-    },
-    go: ['Go to Home', "switchView('board')"]
-  },
-  {
-    id: 'scores', icon: 'scores', tour: true, title: 'Scores',
-    lead: 'Every drafted team’s games for the day, live ones first.',
-    points: [
-      'Use the arrows to look back at results or ahead at the schedule.',
-      'A game that just ended stays under Live for two minutes, with a W for the winner.',
-      'Narrow it to drafted teams or your favorites.',
-      'Tap a game for its details and highlights.'
-    ],
-    pre: {
-      lead: 'Every game across the 8 leagues for the day, live ones first.',
-      points: [
-        'Use the arrows to look back at results or ahead at the schedule.',
-        'A game that just ended stays under Live for two minutes, with a W for the winner.',
-        'Narrow it to your favorites.',
-        'Tap a game for its details and highlights.'
-      ]
-    },
-    go: ['Go to Scores', "switchView('live-now')"]
-  },
-  {
-    id: 'standings', icon: 'standings', title: 'Standings',
-    lead: 'The real tables for all 8 leagues, with every team tagged by who drafted it.',
-    points: [
-      'Switch between League (the real table) and Drafted (each drafter’s teams together).',
-      'Once the NFL playoffs, the CFP, the NCAA Tournament or the MLB postseason are set, Home keeps a card up (once your group has drafted) for the whole postseason with the current round and how many of your teams are still alive, and their card gets a Postseason view: every playoff team climbing a ladder to the title (for the NCAA Tournament, just the drafted ones). Drag the slider to replay the rounds, and tap a drafter to spotlight their teams.',
-      'While MLB is still showing last season, its postseason gets the ladder too, with who drafted each team, but it doesn’t count for points.',
-      'MLB and WNBA show last season until their next one starts. Those results don’t count yet.'
-    ],
-    pre: {
-      lead: 'The real tables for all 8 leagues. Tap any team for its page.',
-      points: [
-        'After the draft, every team gets tagged with who drafted it, and a Drafted view puts each drafter’s teams together.',
-        'MLB and WNBA show last season until their next one starts.'
-      ]
-    },
-    go: ['Go to Standings', "switchView('standings')"]
-  },
-  {
-    id: 'points', icon: 'points', tour: true, title: 'Points',
-    lead: 'The leaderboard: where every drafter stands if every season ended today.',
-    points: [
-      'Points come from where teams finish, not single games: division titles, best records, playoffs and titles, minus points for finishing last. NFL, CFP, NCAA Tournament, NBA, NHL and MLB playoff rounds, college football bowls and conference titles, EPL cup winners and European spots, and the WNBA and NCAA Tournament misses, count on their own from ESPN.',
-      'Each league also pays +5 to the drafter whose teams have the best combined record.',
-      'Live points can still change until a league’s season ends. Locked points are final.',
-      'Race charts everyone’s points (or rank) over the season. Drag across it to see any day, tap a month to zoom, or Replay the season so far.',
-      'Tap a drafter for their breakdown, or Compare to go head to head. Activity shows who moved, and a breakdown’s On the line shows their closest calls.'
-    ],
-    go: ['Go to Points', "switchView('overall')"]
-  },
-  {
-    id: 'scoring', icon: 'points', title: 'Scoring rules',
-    lead: 'Every league’s point values in one place, one league at a time.',
-    points: ['Also reachable from the Scoring chip on the Points tab.'],
-    go: ['See the rules', 'openScoringSheet()']
-  },
-  {
-    id: 'chat', icon: 'chat', tour: true, title: 'Chat',
-    lead: `A group chat for ${ACTIVE_GROUP.name}, the button in the middle of the tab bar.`,
-    points: [
-      'Press and hold a message to react to it. Tap one to copy it.',
-      'Use the GIF button to send a GIF.',
-      'Type @ to tag someone. They get an alert, and the Chat tab shows @ until they’ve seen it.',
-      'Share to chat in a game’s box score posts the score as it stands. Its live line catches up once the game moves on.',
-      'The Chat tab shows how many messages you haven’t read, or @ when one tags you.'
-    ],
-    go: ['Go to Chat', "switchView('chat')"]
-  },
-  {
-    id: 'draft', icon: 'draft', title: 'Draft room',
-    lead: `${ACTIVE_GROUP.name}’s snake draft happens right in Boxscore. Find it under Settings, then Draft, or on Home once the next one is scheduled.`,
-    points: [
-      'Mock Draft is always open: your own practice room against bots, whenever you like. Nobody else sees it.',
-      'While the commissioner is choosing a time, Home asks which of their options you can make. Tap every one that works.',
-      'Once the commissioner sets the next draft’s time, Home counts down to it, and your phone tells you if alerts are on.',
-      'While the real draft is live, a banner on every page takes you back to it.',
-      'Can’t make it, or stepping away? Turn on Auto-draft (under My queue, in My team on a phone, or in the lobby) and the room picks for you the moment you’re up: your top queued team that fits, else the best one left.',
-      'Tap any team, in the list, the board or a roster, for a quick outlook, its last season, its record so far and its title odds.',
-      'Tap Scoring under the room’s title to check what each league’s teams are worth.',
-      'Download the board as a spreadsheet once it’s done.'
-    ],
-    pre: {
-      lead: `${ACTIVE_GROUP.name} drafts right here in Boxscore. The Mock Draft and the live draft are both on Home.`,
-      points: [
-        'Try Mock Draft any time to practice against bots and learn how it works.',
-        'Tap any team for a quick outlook, its last season, its record so far and its title odds.',
-        'Tap Scoring under the room’s title to check what each league’s teams are worth.',
-        'Home shows when the live draft starts, once the commissioner sets the time.',
-        'On draft day, a banner on every page takes you into the live room.',
-        'Can’t make the draft? Star teams into your queue and turn on Auto-draft in the room, and it picks for you.',
-        'Turn on draft alerts so your phone tells you when you’re on the clock.'
-      ]
-    },
+    shot: 'board',
     go: ['Open the draft', 'openDraftPicker()']
   },
   {
-    id: 'alerts', icon: 'bell', title: 'Alerts',
-    lead: 'Your phone can tell you when you’re on the clock in the draft, when your teams gain or lose points, when someone posts in chat or tags you, and when the draft’s time is set.',
+    id: 'scoring', icon: 'points', tour: true, title: 'Teams score on how they finish',
+    lead: 'No weekly matchups, no player stats. A team earns points for where its season ends: playoff runs, titles, top records. Finishing last costs you.',
+    tourLead: 'No weekly matchups or player stats. Teams earn points for where their season ends: playoffs, titles, top records.',
     points: [
-      'Turn them on in Settings, under Alerts. Each device is set up on its own.',
-      'On iPhone, alerts only work in the app added to your Home Screen.'
+      'Each league also pays +5 to whoever’s teams have the best combined record.',
+      'A team’s page shows what it’s worth to you and what it’s still chasing.'
     ],
-    pre: {
-      lead: 'Your phone can tell you when you’re on the clock in the draft, when someone posts in chat or tags you, and when the draft’s time is set.',
-      points: [
-        'Turn them on in Settings, under Alerts. Each device is set up on its own.',
-        'On iPhone, alerts only work in the app added to your Home Screen.',
-        'Once the season starts there’s one for your points too.'
-      ]
-    },
+    shot: 'team',
+    go: ['See every rule', 'openScoringSheet()']
+  },
+  {
+    id: 'points', icon: 'points', tour: true, title: 'Blue is live, gold is locked',
+    lead: 'Live points (blue) are what you’d get if every season ended today, so they move with the standings. When a league’s season ends, its points lock (gold).',
+    tourLead: 'Live points (blue) move with the standings. When a league’s season ends, its points lock (gold).',
+    points: ['Every league adds up to one total. Most points when the last season ends wins.'],
+    shot: 'lock', shotAt: 0.4,
+    go: ['Go to Points', "switchView('overall')"]
+  }
+];
+
+const APP_ROWS = [
+  {
+    id: 'home', icon: 'home', title: 'Home',
+    lead: 'Your teams, their form and next game. Tap any team for its page.',
+    pre: { lead: 'The draft countdown and the way in. Your teams show here after.' },
+    go: ['Go to Home', "switchView('board')"]
+  },
+  {
+    id: 'scores', icon: 'scores', title: 'Scores',
+    lead: 'Every game with a drafted team, live ones first. Tap one for the box score; on a wide screen it opens beside the games.',
+    pre: { lead: 'Every game across your leagues, live ones first.' },
+    go: ['Go to Scores', "switchView('live-now')"]
+  },
+  {
+    id: 'chat', icon: 'chat', tour: true, title: 'Chat',
+    lead: 'Your group’s chat. Hold a message to react, type @ to tag someone.',
+    tourLead: `${ACTIVE_GROUP.name}’s own group chat, in the middle of the tab bar.`,
+    go: ['Go to Chat', "switchView('chat')"]
+  },
+  {
+    id: 'standings', icon: 'standings', title: 'Standings',
+    lead: 'The real tables, every team tagged with who drafted it. All shows each league’s top five and where your teams sit. Playoff brackets once they’re set. College football shows the AP Top 25 until the CFP rankings come out in November.',
+    pre: { lead: 'The real tables for every league.' },
+    go: ['Go to Standings', "switchView('standings')"]
+  },
+  {
+    id: 'overall', icon: 'points', title: 'Points',
+    lead: 'The leaderboard, the season race, and each drafter’s breakdown.',
+    pre: { lead: 'The leaderboard, once the draft is done.' },
+    go: ['Go to Points', "switchView('overall')"]
+  },
+  {
+    id: 'golf', icon: 'standings', title: 'PGA Tour', when: () => HAS_GOLF,
+    lead: 'Golfers score from where they finish. Majors are worth the most and get a card on Home that week.',
+    go: ['Go to Standings', "switchView('standings')"]
+  },
+  {
+    id: 'wide', icon: 'home', title: 'On an iPad or computer',
+    lead: 'Your teams stay in a rail on the left (↑ ↓ to move between them), chat sits beside the page, and every tab shows more at once: full tables, the whole day’s games, and Points by league.',
+    go: ['Go to Home', "switchView('board')"]
+  },
+  {
+    id: 'alerts', icon: 'bell', title: 'Alerts',
+    lead: 'Your turn in the draft, points that move, chat. On iPhone, only in the Home Screen app; on Android, in Chrome or the installed app.',
     go: ['Set up alerts', 'guideOpenAlerts()']
   },
   {
     id: 'settings', icon: 'gear', title: 'Settings',
-    lead: 'The gear at the top of every page.',
-    points: [
-      'Switch who you are on this device, pick light or dark, and choose which tab the app opens to.',
-      'Add the app to your Home Screen so it opens full screen, like a real app.'
-    ],
+    lead: 'The gear up top: who you are, light or dark, the tab the app opens to.',
     go: ['Back to Settings', 'backToSettings()']
   }
 ];
 
-// The draft card moves to the front of the tour while there's nothing
-// on Home or Points yet.
-function entries({ tourOnly = false } = {}){
+function resolve(list){
   const pre = !!ACTIVE_SEASON.preDraft;
-  let list = GUIDE.map(g => (pre && g.pre) ? { ...g, ...g.pre } : g);
-  if(tourOnly){
-    list = list.filter(g => g.tour || (pre && g.id === 'draft'));
-    if(pre) list.sort((a, b) => (b.id === 'draft') - (a.id === 'draft'));
-  }
-  return list;
+  return list.filter(g => !g.when || g.when()).map(g => (pre && g.pre) ? { ...g, ...g.pre } : g);
+}
+
+// The welcome tour: the three ideas, then Chat.
+function entries({ tourOnly = false } = {}){
+  const list = [...resolve(SECTIONS), ...resolve(APP_ROWS)];
+  return tourOnly ? list.filter(g => g.tour).map(g => ({ ...g, lead: g.tourLead || g.lead })) : list;
 }
 
 const pointsHtml = points => `<ul class="guide-points">${points.map(p => `<li>${p}</li>`).join('')}</ul>`;
@@ -315,33 +288,48 @@ export function endTour(){ tour = null; }
 
 /* ---- The guide page (#view-guide) ---- */
 
-export function renderGuidePage(){
+// The setup the pictures are drawn for: this group's picks, from every
+// sport's teams (built once, on first open).
+let shotSetup = null;
+const setupForShots = () => shotSetup || (shotSetup = { caps: CAPS, shown: [], catalog: preDraftClass(null) });
+
+const goHtml = go => `<button type="button" class="guide-go" onclick="${go[1]}">${go[0]} <span aria-hidden="true">&rsaquo;</span></button>`;
+
+// `backLabel`: where the back link returns (closeGuide in js/board.js):
+// Settings, or Home before the draft.
+export function renderGuidePage({ backLabel = 'Settings' } = {}){
   const el = document.getElementById('guide-content');
   if(!el) return;
-  const pre = !!ACTIVE_SEASON.preDraft;
   el.innerHTML = `
     <div class="set-head">
       <div class="page-header">
         <div class="page-header-top"><h1>How Boxscore works</h1></div>
-        <div class="page-sub">${pre
-          ? `Everything Boxscore does for ${ACTIVE_GROUP.name}. Your board and the leaderboard fill in after ${ACTIVE_GROUP.name}’s first draft.`
-          : `Everything Boxscore does for ${ACTIVE_GROUP.name}, and where to find it.`}</div>
+        <div class="page-sub">Fantasy sports, but every pick is a whole team, from every league.</div>
       </div>
       <div class="ob-back-row">
-        ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()' })}
+        ${backLinkHtml({ label: backLabel, onclick: 'closeGuide()' })}
       </div>
     </div>
-    ${entries().map(g => `
+    ${resolve(SECTIONS).map((g, i) => `
       <section class="guide-entry" id="guide-${g.id}">
-        <div class="guide-entry-head">
-          <span class="guide-entry-icon">${ICONS[g.icon]}</span>
-          <h2 class="guide-entry-title">${g.title}</h2>
-        </div>
+        <div class="guide-step">${i + 1}</div>
+        <h2 class="guide-entry-title">${g.title}</h2>
         <p class="guide-entry-lead">${g.lead}</p>
-        ${pointsHtml(g.points)}
-        <button type="button" class="guide-go" onclick="${g.go[1]}">${g.go[0]} <span aria-hidden="true">&rsaquo;</span></button>
+        ${g.points ? pointsHtml(g.points) : ''}
+        ${g.shot ? `<div class="guide-shot" data-scene="${g.shot}" data-at="${g.shotAt ?? 1}"></div>` : ''}
+        ${g.go ? goHtml(g.go) : ''}
       </section>`).join('')}
+    <section class="guide-entry guide-app" id="guide-app">
+      <h2 class="guide-entry-title">Around the app</h2>
+      <div class="guide-rows">${resolve(APP_ROWS).map(r => `
+        <button type="button" class="guide-row" id="guide-${r.id}" onclick="${r.go[1]}">
+          <span class="guide-entry-icon">${ICONS[r.icon]}</span>
+          <span class="guide-row-text"><b>${r.title}</b><span>${r.lead}</span></span>
+          <span class="guide-row-go" aria-hidden="true">&rsaquo;</span>
+        </button>`).join('')}</div>
+    </section>
   `;
+  el.querySelectorAll('.guide-shot').forEach(node => paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at)));
 }
 
 // The Alerts entry's button: back to Settings, scrolled to its Alerts
@@ -350,6 +338,6 @@ window.guideOpenAlerts = () => {
   window.backToSettings();
   loadPushConfig().then(() => setTimeout(() => {
     const el = document.getElementById('set-alerts');
-    if(el && el.firstElementChild) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    el?.firstElementChild?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, 350));
 };

@@ -1,5 +1,6 @@
 /* ============================================================
-   CFB Standings: the real AP/CFP-style Top 25, plus each drafter's
+   CFB Standings: the real Top 25 (AP's, then CFP's from its first
+   ranking: js/cfb-poll.js), plus each drafter's
    combined win percentage across their 3 CFB teams.
    Unlike EPL, TheSportsDB has no real standings data for college
    football — it lumps every team under one umbrella "NCAA Division 1"
@@ -7,7 +8,7 @@
    returns genuinely empty (confirmed 2026-09-10, see the migration
    plan). So there's no "League" table view possible here, only "Person".
 
-   Both the AP Top 25 (computeCfbRankingTable/renderCfbRankingRow) and
+   Both the Top 25 (computeCfbRankingTable/renderCfbRankingRow) and
    full-roster win-loss records (findCfbRecord — the board card, the
    team page stat strip, and the "Person" combined-win% view) read
    ESPN's hidden API (js/espn.js) now, not TheRundown — see
@@ -30,7 +31,8 @@
 import { leagueOf, TEAM_META, DRAFT_TEAMS } from './data.js';
 import { fetchJSON, teamBadgeHtml, abbrFromName, formatWinPct, findCfbTeamKeyByLocation, CFB_ESPN_LOCATION_OVERRIDES, normalizeSchoolName, standingsOwnerHtml, standingsToggleHtml, retryPending, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { DASHBOARD_WORKER_BASE, RUNDOWN_SPORT_ID } from './api.js';
-import { fetchEspnCfbRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
+import { fetchEspnCfbRankings, fetchEspnCfbCfpRankings, fetchEspnCfbFullStandings, fetchEspnCfbTeamRecord } from './espn.js';
+import { CFB_POLLS, keepCfpPoll, cfpPossible } from './cfb-poll.js';
 import { renderStandings, standingsDataChanged } from './board.js';
 import { cacheGet, cacheSet } from './frozen-cache.js';
 
@@ -105,7 +107,7 @@ export function fetchCfbRecords(){
   return cfbRecordsPromise;
 }
 
-// Record (and AP rank, if any) shown on each CFB team's board row —
+// Record (and Top 25 rank, if any) shown on each CFB team's board row —
 // reads findCfbRecord below (ESPN-first, TheRundown fallback for the
 // one FCS team ESPN's FBS-only standings doesn't cover), just painted
 // onto the per-team span rather than re-rendering the whole board (see
@@ -129,15 +131,19 @@ export function renderAllCfbCardRecords(){
   leagueOf('cfb').teams.forEach(renderCfbCardRecord);
 }
 
-// ---- AP Top 25 (ESPN-sourced — see the file header comment) ----
+// ---- Top 25: AP, then CFP (ESPN-sourced — see the file header comment
+// and js/cfb-poll.js for when it switches) ----
 
 const ESPN_CFB_RANKINGS_CACHE_KEY = 'teamDashboardEspnCfbRankingsCache';
-// The AP poll only moves once a week (after Saturday's games), so this
+// Either poll only moves once a week, so this
 // could be much longer than an hour — matched to CFB_RECORDS_TTL_MS
 // below anyway, since "how fresh does this need to be" mattering less
 // than "keep every cache in this file on one predictable rhythm".
 const ESPN_CFB_RANKINGS_TTL_MS = 60 * 60 * 1000;
-export const espnCfbRankingsCache = { ranks: null, error: false, loading: false, fetchedAt: null };
+// `poll` is 'ap' or 'cfp' (a cache saved before the CFP switch has none:
+// that was always the AP's); `season` is ESPN's season year, so a CFP
+// poll only sticks for its own season.
+export const espnCfbRankingsCache = { ranks: null, poll: null, season: null, error: false, loading: false, fetchedAt: null };
 let espnCfbRankingsPromise = null;
 
 function espnCfbRankingsIsFresh(){
@@ -155,6 +161,8 @@ export function loadEspnCfbRankingsCache(){
     const parsed = JSON.parse(raw);
     if(parsed && parsed.ranks){
       espnCfbRankingsCache.ranks = parsed.ranks;
+      espnCfbRankingsCache.poll = parsed.poll || 'ap';
+      espnCfbRankingsCache.season = parsed.season || null;
       espnCfbRankingsCache.fetchedAt = parsed.fetchedAt || null;
     }
   } catch (e){}
@@ -166,10 +174,18 @@ export function fetchEspnCfbRankingsCached(){
 
   espnCfbRankingsCache.loading = true;
   espnCfbRankingsPromise = (async () => {
-    const ranks = await fetchEspnCfbRankings();
+    let result = keepCfpPoll(await fetchEspnCfbRankings(), espnCfbRankingsCache);
+    // Still the AP's while the CFP could have ranked: this device may
+    // just never have seen the CFP's (the site feed drops it after its
+    // last ranking), so ask ESPN's core API for this season's.
+    if(result && result.poll === 'ap' && cfpPossible()){
+      result = (await fetchEspnCfbCfpRankings(result.season)) || result;
+    }
     espnCfbRankingsCache.loading = false;
-    if(ranks && ranks.length){
-      espnCfbRankingsCache.ranks = ranks;
+    if(result && result.ranks && result.ranks.length){
+      espnCfbRankingsCache.ranks = result.ranks;
+      espnCfbRankingsCache.poll = result.poll;
+      espnCfbRankingsCache.season = result.season;
       espnCfbRankingsCache.error = false;
       espnCfbRankingsCache.fetchedAt = Date.now();
       saveEspnCfbRankingsCache();
@@ -286,7 +302,7 @@ export function findEspnCfbRow(meta){
   return rows.find(row => normalizeSchoolName(row.location) === wanted) || null;
 }
 
-// The real win-loss record (and AP Top 25 rank, if any) for a drafted
+// The real win-loss record (and Top 25 rank, AP or CFP, if any) for a drafted
 // CFB team — ESPN first (NDSU's individually-fetched row included),
 // falling back to TheRundown's cfbRecordsCache only if a given team's
 // row genuinely isn't there, which in normal operation doesn't happen
@@ -385,9 +401,15 @@ export function setCfbStandingsMode(mode){
 }
 window.setCfbStandingsMode = setCfbStandingsMode;
 
+// The labels for the poll on show ({ label: 'AP Top 25' | 'CFP Top 25',
+// short: 'AP poll' | 'CFP' }), AP until the CFP's has loaded.
+export function cfbPollLabels(){
+  return CFB_POLLS[espnCfbRankingsCache.poll] || CFB_POLLS.ap;
+}
+
 export function cfbStandingsToggleHtml(){
   const segments = [
-    { key: 'ranking', label: 'AP Top 25' },
+    { key: 'ranking', label: cfbPollLabels().label },
     { key: 'byDrafter', label: 'Drafted' }
   ];
   return standingsToggleHtml(segments, cfbStandingsMode, 'setCfbStandingsMode', 'cfb');

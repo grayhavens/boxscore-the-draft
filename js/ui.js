@@ -435,3 +435,73 @@ export function sportPicksHtml({ sports }){
   }).join('');
   return `<div class="sport-picks">${chips}</div>`;
 }
+
+/* ---- Wide layout (900px and up; docs/desktop-redesign-brief.md) ----
+   The team page's wide pieces. Not in the design system yet: they come
+   from the round 2 desktop handoff (ROUND2.md). */
+
+const LINE_STATE_TAGS = { locked: 'Locked', live: 'Live', reach: 'In reach' };
+
+// OnTheLine: every scoring rule of a team's league as a row, the label
+// over On the line's note, with the points chip and its state on the
+// right. Each rule: { label, pts, state: 'locked' | 'live' | 'reach' |
+// 'off', noteHtml } (js/lines.js's teamPathToPoints; noteHtml is
+// trusted). A penalty the team is in reads as a loss: "At risk" while
+// live, "Locked" once final. With `toggle` (an onclick global), rules out
+// of play ('off') hide behind a "Show all" button until `all`; the caller
+// flips .all on the card.
+export function onTheLineHtml({ now, max, rules, all = false, toggle = null }){
+  const fmt = n => (n < 0 ? '&minus;' + Math.abs(n) : (n > 0 ? '+' + n : '0'));
+  const rows = rules.map(r => {
+    const neg = r.pts < 0 && (r.state === 'live' || r.state === 'locked');
+    const tag = neg ? (r.state === 'live' ? 'At risk' : 'Locked') : LINE_STATE_TAGS[r.state];
+    return `<div class="otl-row ${r.state}${neg ? ' neg' : ''}" data-rule="${escapeHtml(r.label)}">`
+      + `<span class="otl-main"><span class="otl-label">${escapeHtml(r.label)}</span>${r.noteHtml ? `<span class="otl-note">${r.noteHtml}</span>` : ''}</span>`
+      + `<span class="otl-side">${tag && r.state !== 'off' ? `<span class="otl-tag">${tag}</span>` : ''}<span class="otl-chip">${fmt(r.pts)}</span></span>`
+      + `</div>`;
+  }).join('');
+  const total = n => (n < 0 ? '&minus;' + Math.abs(n) : String(n));
+  const off = rules.filter(r => r.state === 'off').length;
+  // Nothing to fold when every rule is in play, or none is (a locked league).
+  const folds = !!toggle && off > 0 && off < rules.length;
+  const more = `Show all ${rules.length} rules`, less = 'Show only rules in play';
+  return `<section class="wide-panel otl${folds ? ' folds' : ''}${all || !folds ? ' all' : ''}"><div class="wide-panel-head"><h3 class="wide-panel-title">On the line</h3>`
+    + `<span class="wide-panel-sub">${total(now)} pts now &middot; ${total(max)} possible</span></div>`
+    + `<div class="otl-rows">${rows}</div>`
+    + (folds ? `<button type="button" class="otl-toggle wide-panel-link" onclick="${toggle}()" aria-expanded="${all}" data-more="${more}" data-less="${less}">${all ? less : more}</button>` : '')
+    + `</section>`;
+}
+
+// GameByGame: the season as bars, oldest left, newest right (js/team-wide-
+// math.js's gameByGame). A win grows up from the zero line, a loss down, a
+// draw is a flat mark; a clamped bar gets a notch near its tip. Hover or
+// tap a bar for its date, opponent and score (js/team-page.js wires the
+// tooltip: each bar carries data-tip). `sub` is the header's record line;
+// `firstLabel` the first game's date under the chart.
+export function gameByGameHtml({ games, sub, firstLabel = '' }){
+  const bars = games.map((g, i) => {
+    const tip = `${g.dateLabel} · ${g.home ? 'vs' : '@'} ${g.opp} · ${g.score}`;
+    const bar = g.result === 'd' ? '<i class="gbg-draw"></i>' : `<i class="gbg-bar" style="--h:${g.height}%"></i>`;
+    return `<button type="button" class="gbg-col ${g.result}${g.clamped ? ' clamped' : ''}" style="--i:${i}" data-tip="${escapeHtml(tip)}" data-res="${g.result}" aria-label="${escapeHtml(tip)}">${bar}</button>`;
+  }).join('');
+  return `<section class="wide-panel gbg"><div class="wide-panel-head"><h3 class="wide-panel-title">Game by game</h3>`
+    + `<span class="wide-panel-sub">${escapeHtml(sub)}</span></div>`
+    + `<div class="gbg-chart"><div class="gbg-tip" aria-hidden="true"></div><div class="gbg-bars">${bars}</div></div>`
+    + `<div class="gbg-foot"><span>${escapeHtml(firstLabel)}</span><span>Newest</span></div></section>`;
+}
+
+// MatchCard: the hero band's live or next game. `live` swaps the head to a
+// red LIVE with the clock and tints the card; otherwise it reads NEXT GAME
+// (or `head`) with the date. Sides: { badgeHtml, name } (badges trusted);
+// `centerHtml` is the score or "vs" (trusted). A side with no opponent
+// (the reduced page) is left out. footLeft / footRightHtml sit under a
+// divider.
+export function matchCardHtml({ live = false, head = 'Next game', when = '', left = null, right = null, centerHtml = '', footLeft = '', footRightHtml = '', onclick = null }){
+  const side = s => `<span class="mc-side">${s.badgeHtml}<span class="mc-name">${escapeHtml(s.name)}</span></span>`;
+  const tag = onclick ? 'button' : 'div';
+  return `<${tag}${onclick ? ` type="button" onclick="${onclick}"` : ''} class="match-card${live ? ' live' : ''}">`
+    + `<span class="mc-head"><span class="mc-title">${live ? '<i class="mc-dot"></i>Live' : escapeHtml(head)}</span><span class="mc-when">${escapeHtml(when)}</span></span>`
+    + (left && right ? `<span class="mc-row">${side(left)}<span class="mc-center">${centerHtml}</span>${side(right)}</span>` : '')
+    + (footLeft || footRightHtml ? `<span class="mc-foot"><span>${escapeHtml(footLeft)}</span>${footRightHtml}</span>` : '')
+    + `</${tag}>`;
+}
