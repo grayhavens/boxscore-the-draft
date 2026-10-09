@@ -239,6 +239,7 @@ function draftPollHtml(poll){
       <div class="draft-when-time">Tap every time you can make. The commissioner picks the final one.</div>
       <div class="draft-poll-opts">${optionsHtml}${noneHtml}</div>
       <div class="draft-poll-foot">${roster.length - tally.waiting.length} of ${roster.length} have answered${mine ? '' : ' &middot; you haven&rsquo;t yet'}</div>
+      ${draftWhenGoHtml()}
     </div>`;
 }
 
@@ -255,6 +256,15 @@ window.toggleDraftPollVote = function(at){
   voteDraftPoll(currentProfileId, picks);
 };
 
+// The live room's way in sits at the foot of the card itself, so the
+// card is the one place Home says anything about the live draft.
+function draftWhenGoHtml(){
+  return `
+    <button type="button" class="draft-when-go" onclick="goToDraftRoom('main')">
+      <span>Enter the draft room</span><span class="set-chev">&rsaquo;</span>
+    </button>`;
+}
+
 function draftWhenHtml(){
   const { scheduledAt, poll } = getDraftSchedule();
   if(isDraftPollOpen()) return draftPollHtml(poll);
@@ -264,6 +274,7 @@ function draftWhenHtml(){
         <div class="draft-when-label">Live draft</div>
         <div class="draft-when-date">Date to be set</div>
         <div class="draft-when-time">The commissioner will pick a time</div>
+        ${draftWhenGoHtml()}
       </div>`;
   }
   return `
@@ -274,6 +285,7 @@ function draftWhenHtml(){
       </div>
       <div class="draft-when-date">${scheduleDateLabel(scheduledAt)}</div>
       <div class="draft-when-time">${scheduleTimeLabel(scheduledAt)}</div>
+      ${draftWhenGoHtml()}
     </div>`;
 }
 
@@ -309,10 +321,6 @@ function renderDraftHome(){
       ${draftWhenHtml()}
       <button type="button" class="set-row" onclick="goToMyMockDraft()">
         <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>
-      <button type="button" class="set-row" onclick="goToDraftRoom('main')">
-        <span class="set-row-text"><span class="set-row-title">Live Draft</span><span class="set-row-sub">The real draft lobby</span></span>
         <span class="set-chev">&rsaquo;</span>
       </button>
     </section>` : '';
