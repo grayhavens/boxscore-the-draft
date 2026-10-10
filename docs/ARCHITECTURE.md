@@ -243,7 +243,7 @@ the team page's stat "AP poll" or "CFP". Display only: no CFB rule scores off a 
 scoreboard ranks follow the CFP on their own once it exists, which is why the table has to as well.
 
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
-strip and next match (Home's rows, the team page's stat strip and next game) and the Game Details sheet,
+strip and next match (Home's rows, the team page's stat strip, next game and Recent form) and the Game Details sheet,
 plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
@@ -373,7 +373,7 @@ column with a Draft/Scoring switch and league chips. Its writes (marks, adjustme
 a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker adds that to the system admin log as
 `Commissioner`; a write with no note isn't logged. **Deploy the worker first** (an old one ignores the note). See
 `docs/draft-room-plan.md` for the design and phase status. **Deploy the worker before the static site.**
-Settings' Draft tile (and the Home draft card) offers Mock Draft or Live Draft (`main`). Mock Draft opens the drafter's
+Settings' Draft tile offers Mock Draft or Live Draft (`main`); the Home draft card has both too. Mock Draft opens the drafter's
 own room, `mock-<id>` (`personalMockRoom`), which nobody else is sent to and which starts with everyone else as a bot;
 the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from Commissioner → Draft. Mock rooms (`isMockRoom`:
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
@@ -392,7 +392,8 @@ same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any roo
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
 clock" alert. Picks it makes carry `auto: true`. **Deploy the worker first:** an old worker rejects `setAutoDraft`.
 **Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
-(`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time plus Mock Draft / Live Draft buttons, and hides
+(`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time (or the time poll) in a highlighted card whose foot, "Enter the draft room",
+opens the live room (`main`), then a Mock Draft row; it hides
 the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's
 next draft shows it too. The commissioner sets the time on Commissioner → Draft (`PUT /draft/schedule`,
 password-gated); the live room stores it outside the draft state (a lobby reset keeps it) and returns it as

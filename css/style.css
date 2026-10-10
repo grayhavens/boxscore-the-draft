@@ -5456,6 +5456,15 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .draft-when-rel{ font-size: var(--fs-12); font-weight: 700; color: var(--accent); white-space: nowrap; }
 .draft-when-date{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-20); letter-spacing: -0.3px; margin-top: 2px; }
 .draft-when-time{ font-size: var(--fs-13); color: var(--text-sub); font-variant-numeric: tabular-nums; }
+/* The live room's way in, at the foot of the draft card */
+.draft-when-go{
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; margin-top: 12px; padding: 12px 0 0;
+  border: 0; border-top: 1px solid var(--accent-border); background: none;
+  color: var(--accent); font: 700 var(--fs-14) var(--font-ui); text-align: left; cursor: pointer;
+}
+.draft-when-go .set-chev{ color: inherit; }
+.draft-when[data-set="false"] .draft-when-go{ border-top-color: var(--hairline); color: var(--text); }
 /* The draft time poll (js/draft-poll.js), in the same card before a time is set */
 .draft-poll-opts{ display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .draft-poll-opt{

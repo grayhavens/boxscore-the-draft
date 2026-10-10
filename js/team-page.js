@@ -1213,12 +1213,16 @@ onPostseasonData(key => {
   if(meta && meta.leagueKey === key) writeHtml(document.getElementById('ps-section'), postseasonTeamHtml(state.teamKey));
 });
 
-// The live-data refresh ticks (js/live-data.js) repaint just these two.
+// The live-data refresh ticks (js/live-data.js) repaint the stat strip,
+// the next game and Recent form. A page opened on an old cached bundle
+// otherwise kept its old last five while Full schedule (which reads the
+// cache fresh) already had the newer games.
 setTeamPageRefresher(teamKey => {
   if(teamKey !== state.teamKey) return;
   if(isWide()){ renderWideSections(teamKey); return; }
   renderStatStrip(teamKey);
   renderNextGame(teamKey);
+  if(state.activeTab === 'schedule') writeHtml(document.getElementById('form-section'), recentFormHtml(teamKey, liveDataCache[teamKey]));
 });
 
 // Record, standing and what the team's worth to its owner. Before the
