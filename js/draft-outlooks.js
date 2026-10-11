@@ -215,84 +215,84 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-09-29"
     },
     "epl_afc_bournemouth": {
-      "text": "Marco Rose takes over a side that finished sixth, but they are winless after five and playing more cautiously. A repeat European run looks unlikely; midtable is the realistic range.",
-      "at": "2026-09-29"
+      "text": "Marco Rose's side is winless after six and sits 17th, though the margins in their games have been tight. Getting Junior Kroupi back should help; after last year's sixth place, staying clear of the bottom three is now the first job.",
+      "at": "2026-10-11"
     },
     "epl_arsenal": {
-      "text": "The champions added Bruno Guimarães and remain title favorites for most previews, unbeaten through five. Mikel Arteta's side is the steadiest bet for a top-two finish (+6 or +9) and another Champions League campaign.",
-      "at": "2026-09-29"
+      "text": "The champions went into the break second after their first loss, to Brighton, and Bruno Guimarães has settled in midfield. With City's guilty verdict hanging over the race, Arsenal are the steadiest bet for a top-two finish (+6 or +9) and Champions League points (+4).",
+      "at": "2026-10-11"
     },
     "epl_aston_villa": {
-      "text": "Kept their Champions League place but lost key midfielders and defenders over the summer, and one win in five shows it. Unai Emery's record says they recover; a European finish is likely, top three a stretch.",
-      "at": "2026-09-29"
+      "text": "Needed five tries for a first league win after losing key midfielders and defenders, and sit 14th. Unai Emery has a record of fixing slow starts, but repeating last season's Champions League finish looks unlikely; a Europa push (+3) is the realistic ceiling.",
+      "at": "2026-10-11"
     },
     "epl_brentford": {
-      "text": "Fourth in the early table and one of the league's most stable clubs under Keith Andrews after a ninth-place finish. A top-half side with a small chance at Europe.",
-      "at": "2026-09-29"
+      "text": "Unbeaten after six, with wins over Tottenham and Chelsea and four draws, and fourth in the table. Keith Andrews has kept one of the league's most stable clubs on track; a top-half finish with an outside shot at Europe is the range.",
+      "at": "2026-10-11"
     },
     "epl_brighton": {
-      "text": "Third in the early table under Fabian Hürzeler after an eighth-place finish. European football will test their depth, but a top-half finish with a shot at Europe (+3) looks realistic.",
-      "at": "2026-09-29"
+      "text": "Third after beating Arsenal before the break. Fabian Hürzeler's young, inventive side has started better than almost anyone, though European football will stretch the squad. A top-half finish and a run at Europe (+3) look realistic.",
+      "at": "2026-10-11"
     },
     "epl_chelsea": {
-      "text": "Xabi Alonso takes over a talented but inconsistent squad that finished tenth last season. Cole Palmer's scoring is the swing factor; a return to the European places is the realistic target.",
-      "at": "2026-09-29"
+      "text": "Xabi Alonso's side is fifth but inconsistent, and injuries to Cole Palmer and João Pedro have left them short of goals. Getting both back fit is the swing factor for a Champions League (+4) or Europa League (+3) place.",
+      "at": "2026-10-11"
     },
     "epl_coventry_city": {
-      "text": "Frank Lampard has them back in the top flight for the first time in 25 years, with Haji Wright up front. One win in five already; previews rate them one of the likelier sides to go straight back down (-5).",
-      "at": "2026-09-29"
+      "text": "Frank Lampard's side won at Nottingham Forest for its first top-flight win in 25 years, but has lost the other four. One of the likeliest sides to go straight back down (-5), with Haji Wright's goals their best hope.",
+      "at": "2026-10-11"
     },
     "epl_crystal_palace": {
-      "text": "Lost Oliver Glasner plus defenders Marc Guéhi and Maxence Lacroix; Pierre Sage now manages a thinner squad juggling Europe. After 15th last season, they could be drawn into a relegation fight.",
-      "at": "2026-09-29"
+      "text": "Summer sales and Oliver Glasner's exit left Pierre Sage a much thinner squad, with Adam Wharton the standout. One win in five while also playing in Europe; a relegation fight is a real possibility.",
+      "at": "2026-10-11"
     },
     "epl_everton": {
-      "text": "David Moyes has added solid depth such as Christian Nørgaard and Brennan Johnson after a 13th-place finish. Comfortably midtable is the expectation, with little risk of the drop.",
-      "at": "2026-09-29"
+      "text": "Unbeaten at two wins and three draws under David Moyes, with summer additions like Christian Nørgaard and Brennan Johnson adding depth. Settled midtable is the expectation, with little risk of the drop.",
+      "at": "2026-10-11"
     },
     "epl_fulham": {
-      "text": "Álvaro Arbeloa is an unproven replacement for Marco Silva, and Fulham sit near the bottom without a win in five. Previews see a step down; a relegation fight is possible.",
-      "at": "2026-09-29"
+      "text": "Bottom of the table without a win in six, and pressure is already building on Álvaro Arbeloa in his first season after Marco Silva. Unless things turn quickly, a relegation fight (-5) is the likeliest story.",
+      "at": "2026-10-11"
     },
     "epl_hull_city": {
-      "text": "Previews rated them among the weakest promoted sides, though they've started better than expected (two wins in five). Still a leading relegation candidate, which costs -5.",
-      "at": "2026-09-29"
+      "text": "Two wins in five under Sergej Jakirović is better than previews predicted for the weakest-looking promoted side. Most expect them to fade, so relegation (-5) remains the main risk.",
+      "at": "2026-10-11"
     },
     "epl_ipswich_town": {
-      "text": "Back up after one season away, under Gary O'Neil and with memories of their last quick relegation. Two wins from five is a decent start, but survival is far from assured, and relegation costs -5.",
-      "at": "2026-09-29"
+      "text": "Three wins from six under Gary O'Neil is a solid start for a promoted side, though the results have outrun the performances. Survival is far from assured, and relegation costs -5.",
+      "at": "2026-10-11"
     },
     "epl_leeds_united": {
-      "text": "Fifth in the early table, and goalkeeper James Trafford's arrival steadies a side that finished 14th. Daniel Farke's team looks safe from relegation, with a top-half finish possible.",
-      "at": "2026-09-29"
+      "text": "Sixth and one of the league's most organized sides, with new centre back Tarik Muharemovic and goalkeeper James Trafford shoring up the back. Daniel Farke's team looks safe, with a top-half finish within reach.",
+      "at": "2026-10-11"
     },
     "epl_liverpool": {
-      "text": "A reset year: Arne Slot and Mohamed Salah are gone, and Andoni Iraola starts with Alexander Isak and Florian Wirtz leading the attack. Two wins and three draws has them sixth; top four is realistic, a title push less so.",
-      "at": "2026-09-29"
+      "text": "Unbeaten under Andoni Iraola, but three draws in five show a cautious side still finding goals after Mohamed Salah's exit. Alexander Isak and Florian Wirtz lead the attack. A top-four return (+4) is realistic; a title push is a stretch.",
+      "at": "2026-10-11"
     },
     "epl_manchester_city": {
-      "text": "Life after Pep Guardiola and Rodri has started perfectly: five wins from five under Enzo Maresca, with Erling Haaland leading the league. A genuine title contender again, and a strong bet for top three.",
-      "at": "2026-09-29"
+      "text": "Five wins from five under Enzo Maresca, with Erling Haaland scoring freely. The catch: a panel found City guilty on 114 of the 115 financial charges, and the sanction, possibly a points deduction, is still to come. On the pitch they're title contenders (+9); off it, a real wild card.",
+      "at": "2026-10-11"
     },
     "epl_manchester_united": {
-      "text": "Third last season, and Michael Carrick's first full year added Youri Tielemans without losing much. Some previews rank them second, but a slow start (one win in five) means a top-three repeat has to be earned.",
-      "at": "2026-09-29"
+      "text": "Third last season, but one win from six has them 12th, and Michael Carrick's side looks a long way from last year's form. They still have the squad to climb toward the European places, but a top-three repeat (+3) has to be earned.",
+      "at": "2026-10-11"
     },
     "epl_newcastle": {
-      "text": "Matthias Jaissle took over when Eddie Howe stepped down on July 31, and the summer also cost them Sandro Tonali, Bruno Guimarães and Anthony Gordon. After a 12th-place finish, scoring goals is the big question; midtable is the likeliest outcome.",
-      "at": "2026-09-29"
+      "text": "Eight points from five is a decent return given the summer exits of Sandro Tonali, Bruno Guimarães and Anthony Gordon, plus several injuries. Matthias Jaissle has them organized; midtable with an outside shot at Europe is the range.",
+      "at": "2026-10-11"
     },
     "epl_nottingham": {
-      "text": "Oliver Glasner has taken over after a 16th-place scare, and the owners are willing to spend. Expect a climb toward midtable or better; relegation looks less likely than last year.",
-      "at": "2026-09-29"
+      "text": "Oliver Glasner's side is competent but inconsistent, with one win in five, and lost at home to promoted Coventry. After a 16th-place scare last year, midtable is the likeliest outcome, with relegation a smaller risk than last season.",
+      "at": "2026-10-11"
     },
     "epl_sunderland": {
-      "text": "Seventh last season earned a Europa League place, but a quiet summer and a tight rotation under Régis Le Bris risk fatigue. One win in five; midtable is likelier than another European finish.",
-      "at": "2026-09-29"
+      "text": "Earned a Europa League place by finishing seventh, but one win in six has them 16th. Their underlying numbers are better than the results, so Régis Le Bris's side should climb, though another European finish is unlikely.",
+      "at": "2026-10-11"
     },
     "epl_tottenham_hotspur": {
-      "text": "Roberto De Zerbi inherits a side that finished 17th and is winless in five, near the bottom again. Previews say the squad lacks attacking signings; relegation (-5) is a real, if unlikely, risk.",
-      "at": "2026-09-29"
+      "text": "Winless in six league games and in the bottom three under Roberto De Zerbi, after finishing 17th last season. A League Cup rout is the lone bright spot. The squad lacks attacking punch, and relegation (-5) is a genuine risk.",
+      "at": "2026-10-11"
     },
     "mcbb_alabama": {
       "text": "Returns Aden Holloway among four of its top ten scorers; preseason No. 21. A likely tournament team.",
