@@ -103,7 +103,7 @@ Worker files: `chat-room.js`, `draft-room.js` (Durable Objects), `web-push.js`, 
 ## Storage
 
 - **KV `LEAGUE_FACTS`:** all small shared state. Keys are prefixed per group (`push@<group>:<drafter>`,
-  `roster@<group>`, `sports@<group>`, `access@<group>`, `history@<group>:<season>`, `champions@<group>:seasons`,
+  `roster@<group>`, `size@<group>`, `sports@<group>`, `access@<group>`, `history@<group>:<season>`, `champions@<group>:seasons`,
   `golf:<year>`, `news@<league>`, `news@meta`, `adminlog`, …). The Draft uses the bare prefix.
 - **Durable Objects:** `ChatRoom` (one per group), `DraftRoom` (one per room name: `main`, `mock-1`, `mock-<id>`).
   SQLite-backed; migrations `v1`, `v2` in `wrangler.toml`.
@@ -158,7 +158,11 @@ stores the request in KV, rate-limited per IP, with no push alert; instead it em
 `roster@<group>` KV record (`worker/roster.js`). `applyRoster` in `js/groups.js` is how everything reads it: the
 worker's chat/draft alerts, the landing count, and the app, where `js/roster.js` applies it at boot from `group.js`
 (top-level await: instant from a localStorage copy, and only a device's first launch waits, up to 1.5s, on `GET
-/roster`). Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
+/roster`). **Drafter count:** the Roster card's − / + sets how many drafters a group has (`POST /api/admin/roster/size`,
+KV `size@<group>` = `{ size, at }`, served as `size` on `GET /roster`). `applySize` in `js/groups.js` drops spots off the END of the list, and only open ones
+(`minDrafters` is the floor), so nobody loses a place; the claim flow, chat/draft alerts, the landing count and `js/roster.js` (which trims the `GROUPS` array in place, so `DRAFT_TEAMS` and the board follow) all read it. Locked
+once the group's draft leaves the lobby; a room still in the lobby follows at once (`syncGroupSize` in `worker/draft-room.js`, same `at` guard as caps) and a drawn order is kept: removing a spot just moves everyone behind it up one (growing redoes the lottery). A worker deploy is needed before the site shows the control working.
+Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
 someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
 (`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed
 to `CLAIM_ALERT_EMAIL` like a claim, and listed on the admin page's Platform view (and its "Needs attention") with

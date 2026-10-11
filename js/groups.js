@@ -99,6 +99,27 @@ export function applyRoster(drafters, assigned){
   });
 }
 
+// How many spots a group runs with, set on the system admin page (the
+// size@<group> KV record, worker/roster.js) with no deploy. The list
+// above is the most it can have; a smaller count drops spots off the
+// END, and only ones nobody has taken, so a person never loses their
+// place. `drafters` is the list after applyRoster. Pure, returns a new
+// array when it trims.
+export const MIN_DRAFTERS = 2;
+
+// The fewest spots the list can shrink to: everything up to the last one
+// somebody has.
+export function minDrafters(drafters){
+  let n = drafters.length;
+  while(n > MIN_DRAFTERS && drafters[n - 1].open) n--;
+  return n;
+}
+
+export function applySize(drafters, size){
+  if(!Number.isInteger(size) || size >= drafters.length) return drafters;
+  return drafters.slice(0, Math.max(size, minDrafters(drafters)));
+}
+
 export function isKnownGroup(id){
   return typeof id === 'string' && Object.prototype.hasOwnProperty.call(GROUPS, id);
 }

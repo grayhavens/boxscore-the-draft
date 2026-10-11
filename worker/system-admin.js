@@ -39,6 +39,11 @@
                                    confirmed spot's name or email
      POST /api/admin/roster/release { group, drafter } -> undo a confirmed
                                    spot (worker/roster.js)
+     POST /api/admin/roster/size   { group, size } -> how many drafters the
+                                   group has; trims open spots off the end
+                                   (or brings them back). Only while its
+                                   draft is in the lobby; /status carries
+                                   `size` { current, min, max, locked }
      POST /api/admin/welcome       { group, drafters, subject, body, test }
                                    -> the welcome email to confirmed people
                                    (worker/welcome-email.js)
@@ -61,7 +66,9 @@
    The room and key naming lives in rundown-proxy.js, which passes it in
    as `deps` rather than this module importing the entry point.
    ============================================================ */
-import { GROUPS, GROUP_IDS, isKnownGroup, adminSecretName } from '../js/groups.js';
+import { GROUPS, GROUP_IDS, isKnownGroup, adminSecretName, applyRoster, minDrafters } from '../js/groups.js';
+import { GROUP_MOCK_ROOM } from '../js/draft-rules.js';
+import { saveSize } from './roster.js';
 import { APP_VERSION } from '../js/version.js';
 import { verifyAccessJwt } from './access-auth.js';
 import { makeCommissionerToken, COMMISSIONER_TOKEN_TTL_MS } from './commissioner-token.js';
@@ -76,7 +83,7 @@ const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
 const STATUS_LOG_LINES = 100;
 const POST_ROUTES = ['/commissioner', '/push', '/push/remove', '/claims/dismiss', '/claims/confirm', '/roster/add', '/roster/edit',
-  '/roster/release', '/welcome', '/email', '/access', '/chat/delete', '/interest/dismiss'];
+  '/roster/release', '/roster/size', '/welcome', '/email', '/access', '/chat/delete', '/interest/dismiss'];
 
 function json(data, status = 200){
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -193,6 +200,15 @@ async function groupStatus(env, id, deps){
     claims,
     confirmed,
     drafters,
+    // Spots the group runs with now, the fewest it can shrink to (the last
+    // taken spot) and the most (the list in js/groups.js). Locked once the
+    // draft has left the lobby.
+    size: {
+      current: roster.length,
+      min: minDrafters(applyRoster(group.drafters, assigned)),
+      max: group.drafters.length,
+      locked: !!draft && draft.phase !== 'lobby'
+    },
     // The welcome email: who can get it and when each last did, plus the
     // spots named in js/groups.js, whose email the admin adds.
     welcome: {
@@ -336,6 +352,35 @@ async function handleReleaseSpot(request, env, deps, log){
   return json({ ok });
 }
 
+// Setting a group's drafter count. Open spots come off the end (or back
+// on); a spot somebody holds never does, and nothing changes once the
+// draft has started, since picks are saved by drafter. The rooms still in
+// the lobby follow at once (worker/draft-room.js) and redo their lottery.
+async function handleSetSize(request, env, deps, log){
+  const body = await readBody(request);
+  if(!body || !Number.isInteger(body.size)) return json({ error: 'bad_request' }, 400);
+  const group = GROUPS[body.group];
+  const all = applyRoster(group.drafters, await deps.loadAssigned(env, body.group));
+  const min = minDrafters(all);
+  if(body.size > all.length) return json({ error: 'too_many', max: all.length }, 400);
+  if(body.size < min) return json({ error: 'taken', min }, 409);
+  const draft = await stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, body.group), '/status');
+  if(!draft || draft.phase !== 'lobby') return json({ error: 'locked' }, 409);
+  const was = (await deps.effectiveDrafters(env, body.group)).length;
+  if(was === body.size) return json({ size: body.size });
+  const at = Date.now();
+  await saveSize(env, body.group, body.size, at);
+  const params = `group=${encodeURIComponent(body.group)}`;
+  await Promise.all(['main', GROUP_MOCK_ROOM].map(async room => {
+    const stub = deps.draftRoomStub(new URL(`https://room/?room=${room}`), env, body.group);
+    try {
+      await stub.fetch(new Request(`https://room/size?room=${room}&${params}`, { method: 'PUT', body: JSON.stringify({ size: body.size, at }) }));
+    } catch (e){}
+  }));
+  await log(body.group, 'size', `Set ${group.name} to ${body.size} drafters (was ${was})`);
+  return json({ size: body.size });
+}
+
 async function handleDismissClaim(request, env, deps, log){
   const body = await readBody(request);
   if(!body || typeof body.id !== 'string') return json({ error: 'bad_request' }, 400);
@@ -459,6 +504,7 @@ export async function handleSystemAdmin(request, url, env, deps){
         : route === '/roster/add' ? await handleAddPerson(request, env, deps, identity, log)
         : route === '/roster/edit' ? await handleEditSpot(request, env, deps, log)
         : route === '/roster/release' ? await handleReleaseSpot(request, env, deps, log)
+        : route === '/roster/size' ? await handleSetSize(request, env, deps, log)
         : route === '/welcome' ? await handleWelcome(request, env, deps, identity, log)
         : route === '/email' ? await handleSetEmail(request, env, log)
         : route === '/access' ? await handleAccess(request, env, log)

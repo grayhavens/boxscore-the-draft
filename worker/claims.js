@@ -19,7 +19,7 @@
        claimrate:<ip>  -> count, expiring after an hour
    ============================================================ */
 import { GROUPS, GROUP_DOMAIN, applyRoster } from '../js/groups.js';
-import { effectiveDrafters, loadAssigned, saveAssigned } from './roster.js';
+import { effectiveDrafters, loadAssigned, saveAssigned, activeRoster } from './roster.js';
 import { WELCOME_FROM } from './welcome-email.js';
 
 const RESEND_SEND = 'https://api.resend.com/emails';
@@ -177,7 +177,7 @@ export async function confirmClaim(env, group, claimId, rawName){
   const [claims, assigned] = await Promise.all([loadClaims(env, group), loadAssigned(env, group)]);
   const claim = claims.find(c => c.id === claimId);
   if(!claim) return { error: 'claim' };
-  const drafters = applyRoster(GROUPS[group].drafters, assigned);
+  const drafters = await activeRoster(env, group, assigned);
   if(nameTaken(drafters, name)) return { error: 'taken' };
   const spot = drafters.find(d => d.open);
   if(!spot) return { error: 'full' };
@@ -201,7 +201,7 @@ export async function addPerson(env, group, rawName, rawEmail){
   const email = cleanEmail(rawEmail);
   if(email === null) return { error: 'email' };
   const assigned = await loadAssigned(env, group);
-  const drafters = applyRoster(GROUPS[group].drafters, assigned);
+  const drafters = await activeRoster(env, group, assigned);
   if(nameTaken(drafters, name)) return { error: 'taken' };
   const spot = drafters.find(d => d.open);
   if(!spot) return { error: 'full' };

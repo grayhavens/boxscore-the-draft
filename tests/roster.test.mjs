@@ -1,9 +1,9 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUPS, applyRoster } from '../js/groups.js';
+import { GROUPS, applyRoster, applySize, minDrafters } from '../js/groups.js';
 import { claimsKey, confirmClaim, cleanName, handleClaim, addPerson, editSpot } from '../worker/claims.js';
-import { rosterKey, loadAssigned, releaseSpot, effectiveDrafters, handleRoster } from '../worker/roster.js';
+import { rosterKey, loadAssigned, releaseSpot, effectiveDrafters, handleRoster, saveSize, loadSize } from '../worker/roster.js';
 
 function fakeEnv(){
   const store = new Map();
@@ -115,7 +115,7 @@ test('/roster serves names only, never emails', async () => {
   const spot = firstOpen();
   env.store.set(rosterKey('seasonticket'), JSON.stringify({ [spot.id]: { name: 'Sam', email: 'sam@example.com', at: 1 } }));
   const res = await handleRoster(new Request('https://w/roster?group=seasonticket'), env, 'seasonticket', {}, { json });
-  assert.deepEqual(await res.json(), { assigned: { [spot.id]: { name: 'Sam' } } });
+  assert.deepEqual(await res.json(), { assigned: { [spot.id]: { name: 'Sam' } }, size: null });
 });
 
 test('confirmed spots count as filled when a new claim arrives', async () => {
@@ -130,4 +130,39 @@ test('confirmed spots count as filled when a new claim arrives', async () => {
   });
   const res = await handleClaim(req, env, 'seasonticket', {}, { isAllowedOrigin: () => true, json });
   assert.equal(res.status, 409);
+});
+
+test('applySize drops open spots off the end only, never a taken one', () => {
+  const spots = [{ id: 'a', name: 'Ann' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C', open: true }, { id: 'd', name: 'D', open: true }];
+  assert.deepEqual(applySize(spots, 3).map(d => d.id), ['a', 'b', 'c']);
+  assert.deepEqual(applySize(spots, 2).map(d => d.id), ['a', 'b']);
+  // b is taken, so 1 can't go below 2.
+  assert.deepEqual(applySize(spots, 1).map(d => d.id), ['a', 'b']);
+  assert.equal(minDrafters(spots), 2);
+  // Bigger, missing or junk sizes change nothing.
+  for(const size of [4, 9, null, undefined, 'x', 2.5]) assert.equal(applySize(spots, size), spots);
+  // A taken spot at the end holds the whole list.
+  const full = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B', open: true }, { id: 'c', name: 'C' }];
+  assert.equal(applySize(full, 2).length, 3);
+});
+
+test('a saved size trims the roster the worker uses, claims included', async () => {
+  const env = fakeEnv();
+  const all = GROUPS.seasonticket.drafters.length;
+  await saveSize(env, 'seasonticket', all - 1, 5);
+  assert.deepEqual(await loadSize(env, 'seasonticket'), { size: all - 1, at: 5 });
+  const drafters = await effectiveDrafters(env, 'seasonticket');
+  assert.equal(drafters.length, all - 1);
+  assert.equal(drafters.some(d => d.id === GROUPS.seasonticket.drafters[all - 1].id), false);
+
+  // Fill every remaining open spot; the dropped one is never handed out.
+  const open = drafters.filter(d => d.open).length;
+  withClaims(env, Array.from({ length: open + 1 }, (_, i) => ({ id: `c${i}`, name: `Person ${i}`, email: `p${i}@x.co` })));
+  for(let i = 0; i < open; i++) assert.ok(!(await confirmClaim(env, 'seasonticket', `c${i}`, `Person ${i}`)).error);
+  assert.equal((await confirmClaim(env, 'seasonticket', `c${open}`, 'One too many')).error, 'full');
+
+  const res = await handleRoster(new Request('https://w/roster?group=seasonticket'), env, 'seasonticket', {}, { json });
+  assert.equal((await res.json()).size, all - 1);
+  const none = await handleRoster(new Request('https://w/roster?group=thedraft'), fakeEnv(), 'thedraft', {}, { json });
+  assert.equal((await none.json()).size, null);
 });
