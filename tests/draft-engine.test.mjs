@@ -83,6 +83,31 @@ test('ifUndrawn draws once and never reshuffles an existing order', () => {
   ok(drawn, { type: 'runLottery' }, COMM);        // a deliberate re-run still works
 });
 
+test('the commissioner can set the order by hand, in the lobby only', () => {
+  const s = createState(D, { caps: CAPS });
+  const order = ['c', 'a', 'd', 'b'];
+  err(s, { type: 'setOrder', order }, as('a'), 'forbidden');
+  err(s, { type: 'setOrder', order: ['a', 'b', 'c'] }, COMM, 'bad_input');
+  err(s, { type: 'setOrder', order: ['a', 'a', 'b', 'c'] }, COMM, 'bad_input');
+  err(s, { type: 'setOrder', order: ['a', 'b', 'c', 'z'] }, COMM, 'bad_input');
+  err(s, { type: 'setOrder' }, COMM, 'bad_input');
+  const set = ok(s, { type: 'setOrder', order }, COMM);
+  assert.deepEqual(set.order, order);
+  assert.equal(set.orderSource, 'set');
+  err(set, { type: 'setOrder', order }, COMM, 'unchanged');
+  // Replaces a drawn order and its trades; the lottery can still replace it.
+  const drawn = lobby();
+  const traded = ok(drawn, { type: 'trade', a: 0, b: 1 }, COMM);
+  const over = ok(traded, { type: 'setOrder', order }, COMM);
+  assert.deepEqual(over.overrides, {});
+  assert.equal(ok(over, { type: 'runLottery' }, COMM).orderSource, 'drawn');
+  // Not once the draft has started.
+  err(live(), { type: 'setOrder', order }, COMM, 'bad_phase');
+  // And the draft runs in it.
+  const started = ok(ok(over, { type: 'setPool', teams: POOL }, COMM), { type: 'startDraft' }, COMM);
+  assert.equal(ownerNow(started), 'c');
+});
+
 test('a live order from the room is copied; a deliberate re-run reshuffles', () => {
   const s = createState(D, { caps: CAPS });
   const live = D.slice().reverse();

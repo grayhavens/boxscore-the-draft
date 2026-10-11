@@ -25,7 +25,8 @@
      order             lottery result (drafter ids by round-1 position)
                        or null until the lottery has run
      orderSource?      'live' (a mock room copied the live room's order),
-                       'drawn' (lottery run on purpose), or unset
+                       'drawn' (lottery run on purpose), 'set' (the
+                       commissioner put it in by hand), or unset
      picks             { [slot]: { team, by, at, n, proxy?, auto?, edited? } }
                        `by` is the roster the team lands on (the slot's
                        owner); `proxy` marks a commissioner picking for them,
@@ -106,7 +107,7 @@ export function publicState(state){
 }
 
 const COMMISSIONER_ONLY = new Set([
-  'setConfig', 'setPool', 'runLottery', 'startDraft',
+  'setConfig', 'setPool', 'runLottery', 'setOrder', 'startDraft',
   'undo', 'removePick', 'editPick', 'trade', 'pause', 'resume', 'reset'
 ]);
 
@@ -151,6 +152,7 @@ export function reduce(prev, action, ctx){
     case 'setConfig': return setConfig(state, action);
     case 'setPool': return setPool(state, action);
     case 'runLottery': return runLottery(state, action, ctx);
+    case 'setOrder': return setOrder(state, action);
     case 'startDraft': return startDraft(state, ctx);
     case 'pick': return pick(state, action, ctx);
     case 'undo': return undo(state, ctx);
@@ -273,6 +275,20 @@ function runLottery(state, a, ctx){
     if(a.ifUndrawn) delete state.orderSource;
     else state.orderSource = 'drawn';
   }
+  state.overrides = {};
+  return done(state);
+}
+
+// The commissioner types the order in instead of drawing it: every
+// drafter exactly once, round-1 position first. Lobby only, like the
+// lottery, and it clears trades the same way. 'set' keeps a mock room
+// from swapping it for the live order (worker/draft-room.js).
+function setOrder(state, a){
+  if(state.phase !== 'lobby') return fail('bad_phase');
+  if(!isOrderOf(a.order, state.config.drafters)) return fail('bad_input', 'order');
+  if(state.order && state.order.join(',') === a.order.join(',')) return fail('unchanged');
+  state.order = a.order.slice();
+  state.orderSource = 'set';
   state.overrides = {};
   return done(state);
 }

@@ -70,7 +70,8 @@ to the lobby; or just use a new room name.
    unless they're on auto-draft). Anyone who can't make it: switch on their auto-draft in **Clock &
    auto-draft**, ideally after they've starred a queue.
 5. **Run lottery.** Everyone watching the lobby sees the order revealed from pick 10 up to pick 1. Re-run
-   is available until you start.
+   is available until you start. To use an order you already have instead, tap **Set order**, move each
+   name with the arrows (pick 1 at the top) and **Save order**; this also works after a lottery.
 6. **Start draft** when everyone is in. The header pill reads "Live · Round 1 · Pick 1 of 210".
 
 ## 3. Running it
