@@ -15,204 +15,204 @@
 export const DRAFT_OUTLOOKS = {
   "2026": {
     "cfb_alabama": {
-      "text": "4-0 and No. 7 in the AP poll after last year's CFP quarterfinal. A likely CFP team in a crowded SEC race.",
-      "at": "2026-09-29"
+      "text": "Lost 20-17 at Georgia when a late personal foul sealed it, their first loss. Still a likely CFP team (+2) in a crowded SEC, but they've lost the head-to-head with the conference favorite.",
+      "at": "2026-10-11"
     },
     "cfb_arizona": {
-      "text": "3-1 and receiving AP votes after a nine-win season. A likely bowl team in the Big 12.",
-      "at": "2026-09-29"
+      "text": "5-1 after a nine-win season. A likely bowl team and a Big 12 dark horse.",
+      "at": "2026-10-11"
     },
     "cfb_arizona_state": {
-      "text": "2-1 and unranked. A likely bowl team in the Big 12's middle.",
-      "at": "2026-09-29"
+      "text": "2-2 and unranked. A likely bowl team in the middle of the Big 12.",
+      "at": "2026-10-11"
     },
     "cfb_auburn": {
-      "text": "3-1 after a 5-7 year with only one SEC win. A bowl is possible, but last place in the SEC (-3) is also in play.",
-      "at": "2026-09-29"
+      "text": "3-2 after a 5-7 year with only one SEC win. A bowl is possible, but last place in the SEC (-3) is also in play.",
+      "at": "2026-10-11"
     },
     "cfb_boise_state": {
-      "text": "3-1 and No. 22 in the AP poll, and usually the class of its conference. A likely bowl team with an outside shot at the CFP's Group of Five spot.",
-      "at": "2026-09-29"
+      "text": "4-1 and ranked 23rd, usually the class of its conference. A likely bowl team with a real shot at the CFP's Group of Five spot (+2).",
+      "at": "2026-10-11"
     },
     "cfb_byu": {
-      "text": "3-0 and No. 10 in the AP poll after a 12-2 season. A Big 12 contender (+320) and a realistic CFP candidate.",
-      "at": "2026-09-29"
+      "text": "Unbeaten and eighth in the AP poll after a 12-2 season. A leading Big 12 contender (+2) and a realistic CFP candidate.",
+      "at": "2026-10-11"
     },
     "cfb_clemson": {
-      "text": "3-1 but unranked after a 7-6 year, with long ACC odds (+4400). A bowl team, not a contender.",
-      "at": "2026-09-29"
+      "text": "3-2 and unranked after a 7-6 year. A bowl team, but not an ACC contender with Miami unbeaten.",
+      "at": "2026-10-11"
     },
     "cfb_florida": {
-      "text": "The biggest turnaround in the country: 4-8 last year, 4-0 and No. 8 in the AP poll now, and eighth in title odds. A bowl is all but certain; the CFP is realistic.",
-      "at": "2026-09-29"
+      "text": "Was 4-0 and eighth in the AP poll, but has now lost two straight, the latest a home blowout by South Carolina. A bowl is still likely after last year's 4-8; the CFP has slipped away.",
+      "at": "2026-10-11"
     },
     "cfb_florida_state": {
-      "text": "2-2 after a 5-7 year and near the bottom of the ACC odds. Making a bowl is a toss-up; missing one costs -2.",
-      "at": "2026-09-29"
+      "text": "3-3 after a 5-7 year. Making a bowl is a toss-up; missing one costs -2.",
+      "at": "2026-10-11"
     },
     "cfb_georgia": {
-      "text": "4-0, No. 2 in the AP poll and No. 1 in ESPN's FPI. SEC favorites (+140) and second in title odds; a strong bet for the CFP and a deep run.",
-      "at": "2026-09-29"
+      "text": "Held off Alabama 20-17 on a late field goal to stay unbeaten and should take over No. 1. The SEC favorite and a strong bet for the CFP (+2) and a deep run.",
+      "at": "2026-10-11"
     },
     "cfb_houston": {
-      "text": "3-1 and No. 20 in the AP poll after a 10-win season. A likely bowl team and a Big 12 dark horse.",
-      "at": "2026-09-29"
+      "text": "5-1 and ranked in the low 20s after a 10-win season. A likely bowl team and a Big 12 dark horse.",
+      "at": "2026-10-11"
     },
     "cfb_illinois": {
-      "text": "2-2, including a loss to Ohio State, after a nine-win season. A bowl is realistic, but books see no real Big Ten title chance (+25000).",
-      "at": "2026-09-29"
+      "text": "3-3, including a loss to Ohio State, after a nine-win season. A bowl is realistic; missing one (-2) is the downside.",
+      "at": "2026-10-11"
     },
     "cfb_indiana": {
-      "text": "The undefeated defending national champions are 4-0 again and No. 6 in the AP poll. The Big Ten (+270) runs through Ohio State, but another CFP trip is realistic.",
-      "at": "2026-09-29"
+      "text": "The undefeated defending champions rallied from 11 down in the fourth quarter to beat Nebraska and stay perfect. Another CFP trip (+2) is realistic; the Big Ten title (+2) likely means beating Ohio State.",
+      "at": "2026-10-11"
     },
     "cfb_iowa": {
-      "text": "4-0 and No. 14 in the AP poll. A dependable bowl team; the Big Ten title is a long shot (+2400) with Ohio State, Indiana and Oregon above them.",
-      "at": "2026-09-29"
+      "text": "5-1 and ranked around 20th. A dependable bowl team; the Big Ten title is a long shot with Ohio State and Indiana above them.",
+      "at": "2026-10-11"
     },
     "cfb_iowa_state": {
-      "text": "2-2 after missing a bowl last year. A bowl bid is a coin flip in the Big 12.",
-      "at": "2026-09-29"
+      "text": "3-3 after missing a bowl last year. A bowl bid is a coin flip in the Big 12, and missing one costs -2.",
+      "at": "2026-10-11"
     },
     "cfb_james_madison": {
-      "text": "4-0, receiving AP votes, and Sun Belt favorites (+105) after a CFP trip last year. A strong bet for conference title points and a real shot at the CFP again.",
-      "at": "2026-09-29"
+      "text": "6-0 and the Sun Belt favorite after a CFP trip last year. A strong bet for conference title points (+2) and a real shot at the CFP again.",
+      "at": "2026-10-11"
     },
     "cfb_kansas_state": {
-      "text": "3-1 after a 6-6 year. Likely a bowl team in the Big 12's middle.",
-      "at": "2026-09-29"
+      "text": "3-2 after a 6-6 year. Likely a bowl team in the middle of the Big 12.",
+      "at": "2026-10-11"
     },
     "cfb_kentucky": {
-      "text": "3-1 and ranked No. 24 after missing a bowl last year. A bowl looks likely now, which also avoids the -2 for missing one.",
-      "at": "2026-09-29"
+      "text": "Beat LSU in overtime for a second straight OT win, with quarterback Kenny Minchey running in the winning two-point try. Ranked in the coaches poll; a bowl looks likely after missing one last year.",
+      "at": "2026-10-11"
     },
     "cfb_liberty": {
-      "text": "3-1 after a 4-8 year, and among the Conference USA favorites (+280). A bowl looks likely this time, which avoids the -2.",
-      "at": "2026-09-29"
+      "text": "5-1 after a 4-8 year, and the Conference USA favorite. A bowl looks likely, with a real shot at the conference title (+2).",
+      "at": "2026-10-11"
     },
     "cfb_louisville": {
-      "text": "2-2 but receiving AP votes. Likely a bowl team in the ACC's middle tier.",
-      "at": "2026-09-29"
+      "text": "3-3 after a nine-win year. Likely a bowl team in the ACC's middle tier, though not a safe one.",
+      "at": "2026-10-11"
     },
     "cfb_lsu": {
-      "text": "3-1 and No. 11 in the AP poll after a 7-6 year, with books giving them the seventh-best title odds. A bowl looks safe; the CFP depends on the SEC gauntlet.",
-      "at": "2026-09-29"
+      "text": "Lost in overtime at Kentucky on a two-point conversion, their second loss. A bowl looks safe after last year's 7-6, but the CFP now depends on winning most of a brutal SEC slate.",
+      "at": "2026-10-11"
     },
     "cfb_memphis": {
-      "text": "3-1, and one of the American's contenders (+425). A likely bowl team.",
-      "at": "2026-09-29"
+      "text": "5-1 and one of the American's leading contenders. A likely bowl team with conference-title upside (+2).",
+      "at": "2026-10-11"
     },
     "cfb_miami": {
-      "text": "Last year's national runners-up are 4-0, No. 4 in the AP poll and heavy ACC favorites (-350). Conference title and CFP points look very likely.",
-      "at": "2026-09-29"
+      "text": "Last year's national runners-up are unbeaten and fourth in the AP poll, the clear class of the ACC. Conference title (+2) and CFP points look very likely.",
+      "at": "2026-10-11"
     },
     "cfb_michigan": {
-      "text": "3-1 and just outside the AP Top 25. A bowl team again, with a slim Big Ten title shot (+7000).",
-      "at": "2026-09-29"
+      "text": "3-2 and outside the rankings after a 9-4 year. A bowl team again, with only a slim Big Ten title shot.",
+      "at": "2026-10-11"
     },
     "cfb_missouri": {
-      "text": "3-1 and No. 25 in the AP poll. A likely bowl team, though the SEC title is out of reach.",
-      "at": "2026-09-29"
+      "text": "5-1 and up to 14th in the AP poll. A likely bowl team, though the SEC title is out of reach.",
+      "at": "2026-10-11"
     },
     "cfb_navy": {
-      "text": "1-2 after an 11-win season. A bowl is still likely, but the American title (+4500) looks out of reach.",
-      "at": "2026-09-29"
+      "text": "2-3 after an 11-win season. A bowl is still possible, but the American title looks out of reach and missing one costs -2.",
+      "at": "2026-10-11"
     },
     "cfb_ndsu": {
-      "text": "An FCS powerhouse receiving AP votes, but it plays outside the FBS bowl system. It can't earn the usual bowl or CFP points, so its value depends on how your league scores FCS teams.",
-      "at": "2026-09-29"
+      "text": "An FCS powerhouse that plays outside the FBS bowl system and the CFP. It can't earn the usual bowl, conference or playoff points, so its value depends on how your league scores FCS teams.",
+      "at": "2026-10-11"
     },
     "cfb_nebraska": {
-      "text": "4-0 and receiving AP votes. A bowl looks likely; the Big Ten title isn't.",
-      "at": "2026-09-29"
+      "text": "Led Indiana by 11 in the fourth quarter before losing 20-17, their first loss. A bowl looks very likely; the Big Ten title doesn't.",
+      "at": "2026-10-11"
     },
     "cfb_new_mexico": {
-      "text": "3-1 and among the Mountain West favorites (+200). A good bet for a bowl and a real shot at the conference title (+2).",
-      "at": "2026-09-29"
+      "text": "4-1 and among the Mountain West favorites. A good bet for a bowl and a real shot at the conference title (+2).",
+      "at": "2026-10-11"
     },
     "cfb_notre_dame": {
-      "text": "4-0, No. 3 in the AP poll and fourth in title odds. As an independent there's no conference title to chase, but a CFP spot (+2) looks likely after missing out last year.",
-      "at": "2026-09-29"
+      "text": "6-0 and third in the AP poll. As an independent there's no conference title to chase, but a CFP spot (+2) looks likely after missing out last year.",
+      "at": "2026-10-11"
     },
     "cfb_ohio_state": {
-      "text": "Still books' national title favorite (+475) and even money to win the Big Ten, though a loss already dropped them to No. 5 in the AP poll. A near-lock for the CFP (+2), with semifinal and title-game upside.",
-      "at": "2026-09-29"
+      "text": "Ranked fifth after an early loss, but still the deepest roster in the Big Ten and the conference favorite. A strong bet for the CFP (+2), with semifinal and title-game upside.",
+      "at": "2026-10-11"
     },
     "cfb_oklahoma": {
-      "text": "Made the CFP last year but are 2-2 and unranked. A bowl is still likely; a return to the playoff would take a strong finish.",
-      "at": "2026-09-29"
+      "text": "Beat No. 1 Texas on a walk-off field goal after a shaky 2-2 start. Last year's CFP team is back in the conversation; a bowl looks likely, the CFP possible with a strong finish.",
+      "at": "2026-10-11"
     },
     "cfb_ole_miss": {
-      "text": "Last year's CFP semifinalists are 3-1 and No. 9 in the AP poll. Should be in the CFP mix again, though the SEC title (+2000) is a long shot.",
-      "at": "2026-09-29"
+      "text": "Last year's CFP semifinalists are 4-1 and in the top ten. Should be in the CFP mix again, though the SEC title is a long shot with Georgia rolling.",
+      "at": "2026-10-11"
     },
     "cfb_oregon": {
-      "text": "Last year's CFP semifinalists slipped to No. 15 in the AP poll after a loss. Still a top-ten title bet for books; a CFP spot is likely if they stay in the Big Ten race.",
-      "at": "2026-09-29"
+      "text": "Lost at home to UCLA after six turnovers and a failed late two-point try, their second loss already. Last year's CFP semifinalists now need help in the Big Ten race; a bowl is safe, the CFP (+2) far from it.",
+      "at": "2026-10-11"
     },
     "cfb_penn_state": {
-      "text": "3-1 and just outside the AP Top 25 after a 7-6 year. A bowl is likely; books see little Big Ten title chance (+5500).",
-      "at": "2026-09-29"
+      "text": "3-3 after a road loss to USC, following a 7-6 year. A bowl is still realistic, but the Big Ten title is out of reach and missing a bowl (-2) is a real risk.",
+      "at": "2026-10-11"
     },
     "cfb_smu": {
-      "text": "3-1 and No. 21 in the AP poll. A solid bet for a bowl; an ACC title run would have to go through Miami.",
-      "at": "2026-09-29"
+      "text": "4-1 and ranked in the low 20s. A solid bet for a bowl; an ACC title run would have to go through Miami.",
+      "at": "2026-10-11"
     },
     "cfb_south_carolina": {
-      "text": "2-2 after a 4-8 year and one SEC win. Risk of missing a bowl (-2) and finishing last in the SEC (-3).",
-      "at": "2026-09-29"
+      "text": "Blew out Florida on the road, a big result after a 4-8 year with one SEC win. A bowl is back in play, but last place in the SEC (-3) remains a risk.",
+      "at": "2026-10-11"
     },
     "cfb_tcu": {
-      "text": "2-2 after a nine-win year. A bowl is realistic; the Big 12 title isn't.",
-      "at": "2026-09-29"
+      "text": "2-3 after a nine-win year. A bowl is now a coin flip; missing one costs -2.",
+      "at": "2026-10-11"
     },
     "cfb_tennessee": {
-      "text": "3-1 and No. 17 in the AP poll. A likely bowl team, with the CFP a stretch in a deep SEC.",
-      "at": "2026-09-29"
+      "text": "5-1 and 15th in the AP poll. A likely bowl team with an outside CFP shot in a deep SEC.",
+      "at": "2026-10-11"
     },
     "cfb_texas": {
-      "text": "The new AP No. 1 at 4-0 and third in national title odds. A strong CFP candidate; the SEC title (+240) is a two-horse race with Georgia.",
-      "at": "2026-09-29"
+      "text": "Lost the No. 1 ranking on a last-second field goal against Oklahoma after two late Arch Manning interceptions. One loss doesn't end anything: still a strong CFP candidate, though the SEC title (+2) now likely runs through Georgia.",
+      "at": "2026-10-11"
     },
     "cfb_texas_a_and_m": {
-      "text": "A CFP team last year, but 2-2 and unranked now with long SEC odds (+20000). Still likely to make a bowl; the CFP looks unlikely.",
-      "at": "2026-09-29"
+      "text": "A CFP team last year, now 3-3 and unranked. A bowl is still realistic; the CFP looks out of reach and missing a bowl (-2) is no longer unthinkable.",
+      "at": "2026-10-11"
     },
     "cfb_texas_tech": {
-      "text": "4-0, No. 12 in the AP poll, and Big 12 favorites (+200) after a CFP trip last year. A strong bet for conference title and CFP points.",
-      "at": "2026-09-29"
+      "text": "Unbeaten and in the top 11 after a CFP trip last year. A strong bet for Big 12 title (+2) and CFP points.",
+      "at": "2026-10-11"
     },
     "cfb_toledo": {
-      "text": "3-1 and a leading MAC contender (+260). A bowl is likely, with conference-title upside.",
-      "at": "2026-09-29"
+      "text": "4-2 and a leading MAC contender. A bowl is likely, with conference-title upside.",
+      "at": "2026-10-11"
     },
     "cfb_usc": {
-      "text": "4-1 and No. 18 in the AP poll after a 9-4 year. Bowl points look safe; the Big Ten title is unlikely.",
-      "at": "2026-09-29"
+      "text": "Won at Penn State to reach 6-1 and stay in the playoff picture. Bowl points look safe; the Big Ten title is a long shot.",
+      "at": "2026-10-11"
     },
     "cfb_utah": {
-      "text": "4-0 and No. 13 in the AP poll, and a Big 12 contender (+290). Another bowl is a safe bet; the conference title would add CFP points.",
-      "at": "2026-09-29"
+      "text": "Beat Kansas 41-24 to stay unbeaten, and ranked 12th. A leading Big 12 contender (+2); a conference title would bring a CFP spot.",
+      "at": "2026-10-11"
     },
     "cfb_virginia": {
-      "text": "3-1 after an 11-win season. A likely bowl team and an ACC dark horse (+1900).",
-      "at": "2026-09-29"
+      "text": "4-2 after an 11-win season. A likely bowl team and an ACC dark horse.",
+      "at": "2026-10-11"
     },
     "cfb_virginia_tech": {
-      "text": "4-0 and receiving AP votes after a 3-9 season. A bowl looks likely now, and they're an ACC dark horse.",
-      "at": "2026-09-29"
+      "text": "4-2 after a 3-9 season. A bowl looks likely now, which avoids the -2, and they're an ACC dark horse.",
+      "at": "2026-10-11"
     },
     "cfb_washington": {
-      "text": "3-1 after a nine-win year. A likely bowl team in the Big Ten's middle.",
-      "at": "2026-09-29"
+      "text": "3-3 after a nine-win year. A bowl is realistic in the Big Ten's middle, but not guaranteed.",
+      "at": "2026-10-11"
     },
     "cfb_western_michigan": {
-      "text": "2-2 after a 10-win season, and books' MAC favorites (+194). A good bet for a bowl and a real conference-title shot.",
-      "at": "2026-09-29"
+      "text": "4-2 after a 10-win season and the MAC favorite. A good bet for a bowl and a real conference-title shot (+2).",
+      "at": "2026-10-11"
     },
     "cfb_wisconsin": {
-      "text": "3-1 and receiving AP votes after a 4-8 year. A bowl is realistic this time, which avoids the -2.",
-      "at": "2026-09-29"
+      "text": "4-1 after a 4-8 year. A bowl is realistic this time, which avoids the -2.",
+      "at": "2026-10-11"
     },
     "epl_afc_bournemouth": {
       "text": "Marco Rose's side is winless after six and sits 17th, though the margins in their games have been tight. Getting Junior Kroupi back should help; after last year's sixth place, staying clear of the bottom three is now the first job.",
