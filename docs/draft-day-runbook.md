@@ -68,8 +68,8 @@ to the lobby; or just use a new room name.
 3. **Load team pool.** It should say 258 teams. (Start draft also loads it if it's missing or short, but load and
    check the count here first.) If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
-4. Set the clock length (90s default; the clock is soft — it counts up in red, and nobody is auto-picked
-   unless they're on auto-draft). Anyone who can't make it: switch on their auto-draft in **Clock &
+4. Set the clock length (90s default). When someone's clock runs out the room picks for them (their queue,
+   else the best team that fits) and turns on their auto-draft until they turn it off. Anyone who can't make it: switch on their auto-draft in **Clock &
    auto-draft**, ideally after they've starred a queue.
 5. **Run lottery.** Everyone in the room sees the order fill the board's column heads from pick 10 up to pick 1. Re-run
    is available until you start. To use an order you already have instead, tap **Set order**, move each

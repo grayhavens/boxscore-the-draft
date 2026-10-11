@@ -20,18 +20,20 @@
      phase             'lobby' | 'draft' | 'done'
      config            { drafters: [id], caps: {league: n}, clockSeconds,
                          bots: [id], botSeconds } — bots/botSeconds only
-                       matter in mock rooms, where the worker auto-picks
-                       (bots after botSeconds, anyone after clockSeconds)
+                       matter in mock rooms (the worker picks for bots
+                       after botSeconds); in every room it picks for
+                       anyone after clockSeconds
      order             lottery result (drafter ids by round-1 position)
                        or null until the lottery has run
      orderSource?      'live' (a mock room copied the live room's order),
                        'drawn' (lottery run on purpose), 'set' (the
                        commissioner put it in by hand), or unset
-     picks             { [slot]: { team, by, at, n, proxy?, auto?, edited? } }
+     picks             { [slot]: { team, by, at, n, proxy?, auto?, timeout?, edited? } }
                        `by` is the roster the team lands on (the slot's
                        owner); `proxy` marks a commissioner picking for them,
-                       `auto` the worker's auto-pick (auto-draft, or a mock
-                       room's bot/timeout)
+                       `auto` the worker's auto-pick (auto-draft, a mock
+                       room's bot, or the clock running out), `timeout`
+                       the last of those, which also turned auto-draft on
      overrides         { [slot]: drafterId } — traded slots
      autoDraft         [drafterId] — drafters the worker picks for once
                        they're on the clock (AUTO_DRAFT_SECONDS), in any
@@ -351,6 +353,13 @@ function pick(state, a, ctx){
   // commissioner); anything else made for someone else is a proxy.
   if(a.auto === true && ctx.isCommissioner) record.auto = true;
   else if(ctx.actor !== owner) record.proxy = true;
+  // The clock ran out on them: the worker picks, and keeps picking for
+  // them (auto-draft) until they switch it off.
+  if(record.auto && a.timeout === true){
+    record.timeout = true;
+    const list = state.autoDraft || [];
+    if(!list.includes(owner)) state.autoDraft = list.concat(owner);
+  }
   state.picks[slot] = record;
   settle(state, ctx);
   return done(state);
@@ -362,6 +371,10 @@ function undo(state, ctx){
     if(latest === null || state.picks[k].n > state.picks[latest].n) latest = k;
   });
   if(latest === null) return fail('nothing_to_undo');
+  // Undoing a timeout pick takes back the auto-draft it turned on, or the
+  // worker would pick again for them a beat after the clock restarts.
+  const undone = state.picks[latest];
+  if(undone.timeout) state.autoDraft = (state.autoDraft || []).filter(id => id !== undone.by);
   delete state.picks[latest];
   restart(state, ctx);
   return done(state);
@@ -426,7 +439,8 @@ function resume(state, ctx){
 
 // { drafter, on }: a drafter switches their own auto-draft, and the
 // commissioner anyone's (someone who couldn't make it). Allowed until
-// the draft is done, so it can be set in the lobby ahead of time. Turned
+// the draft is done, so it can be set in the lobby ahead of time. The
+// worker also turns it on for anyone whose clock runs out. Turned
 // on for whoever is already on the clock, it picks as soon as the worker
 // re-arms, AUTO_DRAFT_SECONDS (a beat) after they went on the clock.
 function setAutoDraft(state, a, ctx){

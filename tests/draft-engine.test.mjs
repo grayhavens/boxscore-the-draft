@@ -5,7 +5,7 @@ import { reduce, createState, publicState, onTheClock, syncCaps, isOrderOf } fro
 import {
   naturalOwner, ownerOf, pickLabel, currentSlot, swapSlots, shuffled, totalPicks,
   clockElapsedMs, newClock, pauseClock, resumeClock, availableTeams, writeInAbbr,
-  autoPickTeam, isMockRoom, autoPickLimitMs, AUTO_DRAFT_SECONDS, personalMockRoom, mockRoomOwner, GROUP_MOCK_ROOM
+  autoPickTeam, isMockRoom, autoPickLimitMs, isClockTimeout, AUTO_DRAFT_SECONDS, personalMockRoom, mockRoomOwner, GROUP_MOCK_ROOM
 } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
@@ -476,12 +476,12 @@ test('auto-draft: each drafter sets their own, the commissioner anyone\'s, until
   assert.deepEqual(ok(old, { type: 'setAutoDraft', drafter: 'a', on: true }, as('a')).autoDraft, ['a'], 'a room saved before auto-draft');
 });
 
-test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms only', () => {
+test('autoPickLimitMs: the clock and auto-draft in any room, bots in mock rooms only', () => {
   let s = live();
   s = ok(s, { type: 'setConfig', bots: ['b'], botSeconds: 2, clockSeconds: 30 }, COMM);
   s = ok(s, { type: 'setAutoDraft', drafter: 'c', on: true }, COMM);
-  assert.equal(autoPickLimitMs(s, 'a', false), null, 'the real room\'s clock is soft');
-  assert.equal(autoPickLimitMs(s, 'b', false), null, 'bots are a mock-room thing');
+  assert.equal(autoPickLimitMs(s, 'a', false), 30000, 'the real room picks when the clock runs out');
+  assert.equal(autoPickLimitMs(s, 'b', false), 30000, 'bots are a mock-room thing');
   assert.equal(autoPickLimitMs(s, 'c', false), AUTO_DRAFT_SECONDS * 1000);
   assert.ok(AUTO_DRAFT_SECONDS <= 1, 'auto-draft is a beat, not a wait');
   assert.equal(autoPickLimitMs(s, 'a', true), 30000);
@@ -491,7 +491,28 @@ test('autoPickLimitMs: auto-draft in any room, bots and the clock in mock rooms 
   assert.equal(autoPickLimitMs(s, 'b', true), AUTO_DRAFT_SECONDS * 1000, 'whichever comes first');
   const old = live();
   delete old.autoDraft;
-  assert.equal(autoPickLimitMs(old, 'a', false), null);
+  assert.equal(autoPickLimitMs(old, 'a', false), old.config.clockSeconds * 1000);
+  assert.ok(isClockTimeout(s, 'a', false) && isClockTimeout(s, 'a', true));
+  assert.ok(!isClockTimeout(s, 'c', false), 'auto-draft, not a timeout');
+  const botOnly = { ...s, autoDraft: ['c'] };
+  assert.ok(isClockTimeout(botOnly, 'b', false) && !isClockTimeout(botOnly, 'b', true), 'a bot only in a mock room');
+});
+
+test('a timeout pick turns auto-draft on; undoing it turns it back off', () => {
+  let s = live();
+  const owner = ownerNow(s);
+  s = ok(s, { type: 'pick', team: autoPickTeam(s, owner, []), auto: true, timeout: true }, COMM);
+  const slot = Object.keys(s.picks)[0];
+  assert.equal(s.picks[slot].timeout, true);
+  assert.deepEqual(s.autoDraft, [owner]);
+  const undone = ok(s, { type: 'undo' }, COMM);
+  assert.deepEqual(undone.autoDraft, [], 'undo takes it back');
+  const off = ok(s, { type: 'setAutoDraft', drafter: owner, on: false }, as(owner));
+  assert.deepEqual(off.autoDraft, [], 'they can switch it off');
+  // Only the worker's own auto-pick can set it.
+  const next = ownerNow(off);
+  const self = ok(off, { type: 'pick', team: autoPickTeam(off, next, []), timeout: true }, as(next));
+  assert.deepEqual(self.autoDraft, []);
 });
 
 test('mock rooms are the mock-* names only', () => {
