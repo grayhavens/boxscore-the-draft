@@ -978,6 +978,326 @@ export const DRAFT_OUTLOOKS = {
       "text": "Kirill Kaprizov is scoring, Quinn Hughes is logging heavy minutes and Jesper Wallstedt has been strong in goal. One of the best starts in the league; a real contender for the Central (+2).",
       "at": "2026-10-11"
     },
+    "pga_aaron_rai": {
+      "text": "Won the PGA Championship (+5) and was T11 at the U.S. Open. Little else, though: two top-10s all year and six missed cuts, including The Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_adam_scott": {
+      "text": "Reached the TOUR Championship (+2) and was T9 at The Open, but missed the PGA and U.S. Open cuts (-2 each). Made the Presidents Cup team at 46.",
+      "at": "2026-10-11"
+    },
+    "pga_akshay_bhatia": {
+      "text": "Won the Arnold Palmer Invitational, but missed cuts at three majors (-2 each) and seven times overall. High ceiling, real downside in this scoring.",
+      "at": "2026-10-11"
+    },
+    "pga_aldrich_potgieter": {
+      "text": "The long-hitting South African made just 11 of 23 cuts (-1 each) and missed the Masters cut (-2). Unconfirmed reports have linked him to LIV.",
+      "at": "2026-10-11"
+    },
+    "pga_alex_fitzpatrick": {
+      "text": "Matt's younger brother reached the TOUR Championship (+2) and tied for fourth there. Made 12 of 14 cuts; T23 at the U.S. Open was his best major.",
+      "at": "2026-10-11"
+    },
+    "pga_alex_noren": {
+      "text": "Four top-10s and T18 at The Open, but no wins in 2026 and a missed cut at the U.S. Open (-2). Turned 44 in July.",
+      "at": "2026-10-11"
+    },
+    "pga_alex_smalley": {
+      "text": "Tied for second at the PGA Championship, his best result, and made the TOUR Championship (+2). Still looking for a first PGA Tour win; missed the U.S. Open cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_andrew_putnam": {
+      "text": "Runner-up once and made the cut at the PGA and U.S. Open, but missed seven cuts in 24 starts.",
+      "at": "2026-10-11"
+    },
+    "pga_austin_smotherman": {
+      "text": "Won the Bank of Utah Championship this month (a fall event, so it doesn't count), but missed 10 cuts in 23 starts, including the PGA (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_beau_hossler": {
+      "text": "Runner-up once and averaged 69.1, but missed eight cuts and played no majors. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_ben_griffin": {
+      "text": "Made the cut in all four majors (T14 at the PGA) but went winless in 2026 and missed seven cuts in other events (-1 each).",
+      "at": "2026-10-11"
+    },
+    "pga_brian_harman": {
+      "text": "Made the cut at three majors but missed The Open (-2). Two top-10s and no win in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_bud_cauley": {
+      "text": "Won the RBC Canadian Open. Made the cut in all three majors he played; T18 at The Open was his best.",
+      "at": "2026-10-11"
+    },
+    "pga_cameron_young": {
+      "text": "Won THE PLAYERS and the new Cadillac Championship and made all 20 cuts. Third at the Masters and runner-up at The Open, so he's a strong bet for major top 10s (+2).",
+      "at": "2026-10-11"
+    },
+    "pga_chris_gotterup": {
+      "text": "Three wins in 2026: the Sony Open, the WM Phoenix Open and the John Deere Classic. Made the Presidents Cup team and finished T10 at the PGA, but has yet to contend for a major.",
+      "at": "2026-10-11"
+    },
+    "pga_collin_morikawa": {
+      "text": "Won at Pebble Beach and was T7 at the Masters. Made 16 of 18 cuts and the Presidents Cup team; a reliable TOUR Championship qualifier (+2).",
+      "at": "2026-10-11"
+    },
+    "pga_corey_conners": {
+      "text": "Made all four major cuts (T14 at The Open) and played for the Internationals at the Presidents Cup, but had only one top-10 all season.",
+      "at": "2026-10-11"
+    },
+    "pga_daniel_berger": {
+      "text": "Runner-up once, but missed the cut at the Masters, U.S. Open and The Open (-2 each) and six times in 18 starts.",
+      "at": "2026-10-11"
+    },
+    "pga_davis_thompson": {
+      "text": "Four top-10s, but missed eight cuts and the only major he played, the U.S. Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_eric_cole": {
+      "text": "Four top-10s and a runner-up, but no win, and he played only one major (T53 at The Open).",
+      "at": "2026-10-11"
+    },
+    "pga_gary_woodland": {
+      "text": "Won the Houston Open and was T7 at the U.S. Open. Missed six cuts, including the PGA and The Open (-2 each).",
+      "at": "2026-10-11"
+    },
+    "pga_harris_english": {
+      "text": "T18 at the PGA, but only one top-10 all season and missed cuts at the U.S. Open and The Open (-2 each).",
+      "at": "2026-10-11"
+    },
+    "pga_harry_hall": {
+      "text": "Missed the cut in all four majors (-8 in this scoring) and 10 times overall. Four top-10s in other events.",
+      "at": "2026-10-11"
+    },
+    "pga_hideki_matsuyama": {
+      "text": "Made all 24 cuts, so no penalties, and was top 30 in all four majors. No wins in 2026; a steady TOUR Championship qualifier (+2).",
+      "at": "2026-10-11"
+    },
+    "pga_j_j_spaun": {
+      "text": "Won the Valero Texas Open but missed the cut in three majors (-2 each) and eight times overall. Withdrew from the TOUR Championship.",
+      "at": "2026-10-11"
+    },
+    "pga_j_t_poston": {
+      "text": "Won the Memorial, a signature event, and tied for fourth at the U.S. Open. Missed the cut at the PGA and The Open (-2 each) and six times overall.",
+      "at": "2026-10-11"
+    },
+    "pga_jackson_koivun": {
+      "text": "Won the 3M Open in only his ninth start and made eight cuts in nine events, then earned a Presidents Cup spot.",
+      "at": "2026-10-11"
+    },
+    "pga_jackson_suber": {
+      "text": "T28 at The Open and three top-10s, but missed the U.S. Open cut (-2) and seven cuts overall.",
+      "at": "2026-10-11"
+    },
+    "pga_jacob_bridgeman": {
+      "text": "Won the Genesis Invitational, a signature event, then the Biltmore Championship in September (fall events don't count). Made 24 of 25 cuts but missed the cut at the PGA (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_jake_knapp": {
+      "text": "Finished 11th at the Masters and averaged under 69, but played only 17 events and missed five cuts, including the U.S. Open and The Open (-2 each).",
+      "at": "2026-10-11"
+    },
+    "pga_johnny_keefer": {
+      "text": "Five top-10s and made three major cuts, but missed nine cuts in 27 starts, including the Masters (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_jordan_smith": {
+      "text": "The Englishman averaged 69.3 with two top-10s and was T18 at The Open, but missed the PGA cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_jordan_spieth": {
+      "text": "Made 20 of 23 cuts, with T12 at the Masters and T18 at the PGA, but had no top-10 finishes all season.",
+      "at": "2026-10-11"
+    },
+    "pga_justin_rose": {
+      "text": "Won the Farmers Insurance Open at 45, tied for third at the Masters and was top 11 at the PGA and U.S. Open. Missed the cut at The Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_justin_thomas": {
+      "text": "Came back from back surgery that cost him the start of 2026, tied for fourth at the PGA and made the Presidents Cup team. Made 17 of 18 cuts; no win.",
+      "at": "2026-10-11"
+    },
+    "pga_keegan_bradley": {
+      "text": "No top-10s in 2026 and missed the PGA cut (-2). Made the other three major cuts but finished no better than T21.",
+      "at": "2026-10-11"
+    },
+    "pga_keith_mitchell": {
+      "text": "Tied for fourth at the U.S. Open and averaged 69.3, but missed The Open cut (-2). No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_kristoffer_reitan": {
+      "text": "The Norwegian won the Truist Championship, a signature event, and made the TOUR Championship (+2). Missed six cuts, including the U.S. Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_kurt_kitayama": {
+      "text": "T10 at the PGA and missed only two cuts in 22 starts. No win in 2026, and finished just outside the TOUR Championship field.",
+      "at": "2026-10-11"
+    },
+    "pga_ludvig_aberg": {
+      "text": "Nine top-10s and top 25 in all four majors (T4 at the PGA, T9 at The Open), but no win in 2026. T4 at the TOUR Championship.",
+      "at": "2026-10-11"
+    },
+    "pga_mac_meissner": {
+      "text": "Four top-10s but missed nine cuts in 24 starts and played no majors.",
+      "at": "2026-10-11"
+    },
+    "pga_matt_fitzpatrick": {
+      "text": "Won the Valspar and the RBC Heritage and finished second in FedEx points. Majors were thinner: T18 at the Masters and T14 at the PGA, then a missed cut at The Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_matt_mccarty": {
+      "text": "Missed the cut at three majors (-2 each) and nine times in 28 starts. T24 at the Masters was the highlight.",
+      "at": "2026-10-11"
+    },
+    "pga_matt_wallace": {
+      "text": "Runner-up once and made the cut at the PGA and The Open, but missed seven cuts in 20 starts.",
+      "at": "2026-10-11"
+    },
+    "pga_matti_schmid": {
+      "text": "Tied for fourth at the PGA, but missed nine cuts in 22 starts, including the U.S. Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_maverick_mcnealy": {
+      "text": "T18 at both the Masters and the PGA and made 20 of 23 cuts. Still looking for a second PGA Tour win.",
+      "at": "2026-10-11"
+    },
+    "pga_max_homa": {
+      "text": "T9 at the Masters and runner-up once, but missed the PGA cut (-2) and five cuts overall. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_michael_brennan": {
+      "text": "Won the Wyndham Championship and then the Baycurrent Classic this week (fall events don't count). Made the cut in all four majors.",
+      "at": "2026-10-11"
+    },
+    "pga_michael_kim": {
+      "text": "A runner-up finish and 20 cuts made in 27 starts, but missed the cut at the Masters and The Open (-2 each).",
+      "at": "2026-10-11"
+    },
+    "pga_michael_thorbjornsen": {
+      "text": "Won the Rocket Classic. Majors are a work in progress: a missed PGA cut (-2) and T40 at The Open.",
+      "at": "2026-10-11"
+    },
+    "pga_min_woo_lee": {
+      "text": "Two runner-up finishes and T4 at the TOUR Championship, but missed the cut at the Masters and U.S. Open (-2 each). T18 at the PGA was his best major.",
+      "at": "2026-10-11"
+    },
+    "pga_nick_taylor": {
+      "text": "Made 24 of 26 cuts and the Presidents Cup team, but had just one top-10 and missed the U.S. Open cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_nico_echavarria": {
+      "text": "Won the Cognizant Classic and played for the Internationals at the Presidents Cup, but missed the cut at the Masters and PGA (-2 each) and nine times overall.",
+      "at": "2026-10-11"
+    },
+    "pga_nicolai_h_jgaard": {
+      "text": "Two runner-up finishes, but missed the cut at the Masters, U.S. Open and The Open (-2 each). The Dane still hasn't won on the PGA Tour.",
+      "at": "2026-10-11"
+    },
+    "pga_patrick_cantlay": {
+      "text": "Top 15 at the Masters and made the Presidents Cup team, but no wins in 2026 and a missed cut at the U.S. Open (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_patrick_rodgers": {
+      "text": "Missed the PGA cut (-2) and six cuts overall, with one top-10 all season. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_pierceson_coody": {
+      "text": "A runner-up finish and T23 at the U.S. Open, but missed 10 cuts in 28 starts (-1 each), plus the PGA (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_rickie_fowler": {
+      "text": "No wins, but five top-10s and T18 at The Open. Missed the U.S. Open cut (-2) and planned offseason sinus surgery.",
+      "at": "2026-10-11"
+    },
+    "pga_ricky_castillo": {
+      "text": "Won the Puerto Rico Open, an opposite-field event, and made 20 of 21 cuts. Played only one major and missed that cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_robert_macintyre": {
+      "text": "Six top-10s and a runner-up, but missed the cut at the Masters and PGA (-2 each) and finished 28th of 30 at the TOUR Championship.",
+      "at": "2026-10-11"
+    },
+    "pga_rory_mcilroy": {
+      "text": "Won the Masters again (+5) and was T7 at the PGA. Plays a light schedule (14 starts) and made 13 cuts, so few missed-cut penalties.",
+      "at": "2026-10-11"
+    },
+    "pga_russell_henley": {
+      "text": "Won the Charles Schwab Challenge and tied for third at the Masters. T9 at The Open, but missed the cut at the PGA (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_ryan_fox": {
+      "text": "Won The Open (+5), easily the best year of his career. The New Zealander was otherwise quiet in majors, missing the cut at the Masters (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_ryan_gerard": {
+      "text": "Third at the TOUR Championship and three runner-up finishes, but no win yet. T9 at The Open; missed the U.S. Open cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_ryo_hisatsune": {
+      "text": "Made 24 of 27 cuts and the Presidents Cup team. No wins, and his best major was T35 at the PGA.",
+      "at": "2026-10-11"
+    },
+    "pga_sahith_theegala": {
+      "text": "Made 24 of 26 cuts and was T11 at the U.S. Open. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_sam_burns": {
+      "text": "No wins, but runner-up at the U.S. Open, third at The Open and T7 at the Masters. Few players picked up more major top-10 points (+2 each) in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_sam_stevens": {
+      "text": "T7 at the U.S. Open and made three major cuts, but missed The Open cut (-2) and seven cuts overall. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_scottie_scheffler": {
+      "text": "Won the FedEx Cup (+3) by taking St. Jude and the TOUR Championship, plus The American Express. Top 15 in all four majors (2nd at Augusta, T4 at both Opens) and one missed cut all year. The safest bet for the combined FedEx points bonus (+5).",
+      "at": "2026-10-11"
+    },
+    "pga_sepp_straka": {
+      "text": "Missed the cut at the PGA and U.S. Open (-2 each) and six times overall, with a scoring average near 71. Three top-10s and no wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_shane_lowry": {
+      "text": "Runner-up once and T28 at The Open, but missed the U.S. Open cut (-2) and five cuts in 18 starts. No wins in 2026.",
+      "at": "2026-10-11"
+    },
+    "pga_si_woo_kim": {
+      "text": "No wins, but 11 top-10 finishes and one missed cut in 24 starts; that missed cut came at the U.S. Open (-2). A steady TOUR Championship qualifier (+2) still waiting on a big win.",
+      "at": "2026-10-11"
+    },
+    "pga_steven_fisk": {
+      "text": "Won the ISCO Championship, an opposite-field event, but missed nine cuts in 23 starts, plus the PGA (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_sudarshan_yellamaraju": {
+      "text": "The Canadian had three top-10s but missed the cut at both majors he played (-2 each) and eight times overall.",
+      "at": "2026-10-11"
+    },
+    "pga_sungjae_im": {
+      "text": "Six top-10s and T14 at The Open; made the Presidents Cup team. No wins, and missed the PGA cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_tom_kim": {
+      "text": "Third at the U.S. Open and won the Genesis Scottish Open. Made the TOUR Championship and the Presidents Cup team; missed The Open cut (-2).",
+      "at": "2026-10-11"
+    },
+    "pga_tommy_fleetwood": {
+      "text": "Missed just one cut in 19 starts, though it came at the PGA (-2). T4 at The Open and T11 at the U.S. Open; still chasing his first major.",
+      "at": "2026-10-11"
+    },
+    "pga_viktor_hovland": {
+      "text": "Won the Travelers and was runner-up at the TOUR Championship, but missed the cut in three majors (-2 each). Big upside with real penalty risk.",
+      "at": "2026-10-11"
+    },
+    "pga_wyndham_clark": {
+      "text": "Won the U.S. Open (+5), the Byron Nelson and the BMW Championship. Streaky, though: six missed cuts, including the PGA and The Open (-2 each).",
+      "at": "2026-10-11"
+    },
+    "pga_xander_schauffele": {
+      "text": "Top 20 in every major (T7 at the PGA, T9 at the Masters) and made the Presidents Cup team, but went winless in 2026. Eight top-10s keep him a safe source of major points.",
+      "at": "2026-10-11"
+    },
     "wnba_aces": {
       "text": "The 2025 champions were swept by Golden State in the semifinals, losing the clincher in overtime. A'ja Wilson keeps them a safe playoff bet and a title threat in 2027.",
       "at": "2026-10-11"
