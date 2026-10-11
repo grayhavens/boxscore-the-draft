@@ -30,7 +30,7 @@
                                    (worker/claims.js); /status lists them
      POST /api/admin/claims/confirm { group, id, name, welcome } -> give the
                                    claim's person the next open spot under
-                                   `name`; with welcome { subject, body }
+                                   `name`; with welcome { subject, heading, body }
                                    they're sent the welcome email too, and
                                    the answer's `welcome` says how it went
      POST /api/admin/roster/add    { group, name, email, welcome } -> the
@@ -44,7 +44,7 @@
                                    (or brings them back). Only while its
                                    draft is in the lobby; /status carries
                                    `size` { current, min, max, locked }
-     POST /api/admin/welcome       { group, drafters, subject, body, test }
+     POST /api/admin/welcome       { group, drafters, subject, heading, body, test }
                                    -> the welcome email to confirmed people
                                    (worker/welcome-email.js)
      POST /api/admin/access        { group, action } -> the group's invite
@@ -296,7 +296,7 @@ async function welcomeWithSpot(env, group, result, welcome, identity){
   if(!welcome || typeof welcome !== 'object') return null;
   const contacts = welcomeContacts(group, { [result.drafter]: { name: result.name, email: result.email } }, {});
   return contacts[result.drafter]
-    ? sendWelcome(env, group, contacts, { drafters: [result.drafter], subject: welcome.subject, body: welcome.body }, identity.email)
+    ? sendWelcome(env, group, contacts, { drafters: [result.drafter], subject: welcome.subject, heading: welcome.heading, body: welcome.body }, identity.email)
     : { error: 'no_email' };
 }
 

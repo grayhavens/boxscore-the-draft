@@ -455,8 +455,9 @@ writes a line to the admin log (`adminlog` in KV, `worker/admin-log.js`). Alert 
 push service (never the endpoint), with Remove for an old one. Its **Welcome email** section (`worker/welcome-email.js`) emails a group's confirmed people (their claim's
 email) and any spot named in `js/groups.js` whose email was added there (`emails@<group>` in KV, never the public
 file), through Resend from `admin@boxscore.space` (worker secret `RESEND_API_KEY`, domain verified
-in Resend), with replies to the admin's Access email. `welcome@<group>` in KV records who has had it. Confirming a claim sends it
-to that person in the same request (`welcome: { subject, body }` on `/api/admin/claims/confirm`, the section's text as it
+in Resend), with replies to the admin's Access email. The admin writes its subject, heading (the big title over the message; the
+group's name by default, none if left empty, so it works for any note to the group) and body. `welcome@<group>` in KV records who has had it. Confirming a claim sends it
+to that person in the same request (`welcome: { subject, heading, body }` on `/api/admin/claims/confirm`, the section's text as it
 stands; a "Send the welcome email" checkbox in the confirm row, on by default). A failed send still confirms, and the
 section then offers that person. **Deploy the worker first.** Setup, one time:
 1. Zero Trust → Access → Applications → add a self-hosted app for `boxscore.space` with paths `admin` and `api/admin`,

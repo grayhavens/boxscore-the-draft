@@ -49,6 +49,19 @@ test('welcomeHtml escapes, splits paragraphs, links URLs and adds the button', (
   assert.doesNotMatch(html, /<b>/);
 });
 
+test('welcomeHtml shows the given heading, the group name by default, and none when empty', () => {
+  const base = { groupName: 'A&B', link: 'https://ab.boxscore.space', subject: 'Hi', text: 'Hello' };
+  assert.match(welcomeHtml(base), /font-size:30px[^>]*>A&amp;B<\/div>/);
+  assert.match(welcomeHtml({ ...base, heading: 'Draft night <3' }), /font-size:30px[^>]*>Draft night &lt;3<\/div>/);
+  assert.doesNotMatch(welcomeHtml({ ...base, heading: '  ' }), /font-size:30px/);
+  assert.doesNotMatch(welcomeHtml(base), /Welcome/);
+});
+
+test('buildMessages fills the heading per person', () => {
+  const [msg] = buildMessages('seasonticket', [{ name: 'Sam', email: 'sam@example.com' }], { ...request, heading: 'Hey {name}, {group}' });
+  assert.match(msg.html, /font-size:30px[^>]*>Hey Sam, Season Ticket<\/div>/);
+});
+
 test('welcomeText adds the app link only when the message lacks it', () => {
   assert.equal(welcomeText({ groupName: 'G', link: 'https://g.boxscore.space', text: 'Hi' }), 'Hi\n\nOpen G: https://g.boxscore.space');
   assert.equal(welcomeText({ groupName: 'G', link: 'https://g.boxscore.space', text: 'Go https://g.boxscore.space' }), 'Go https://g.boxscore.space');

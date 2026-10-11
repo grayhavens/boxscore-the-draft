@@ -11,7 +11,10 @@
 
    The admin writes the message as plain text: blank lines split
    paragraphs, single line breaks stay, and bare https links become
-   links. The "Open <group>" button under it always goes to the group's
+   links. The heading over the card is the admin's too (the group's
+   name when none is given; an empty one drops the line), so the same
+   look works for any note to the group, not only a welcome. The "Open
+   <group>" button under it always goes to the group's
    app, and the plain-text part ends with the same link.
    ============================================================ */
 
@@ -35,9 +38,10 @@ function paragraphsHtml(text){
   }).join('');
 }
 
-// The full email. `text` is the message with its placeholders already
-// filled in; `subject` becomes the <title> (and preview text source).
-export function welcomeHtml({ groupName, link, subject, text }){
+// The full email. `text` and `heading` have their placeholders already
+// filled in; `subject` becomes the <title>.
+export function welcomeHtml({ groupName, link, subject, heading = groupName, text }){
+  const title = String(heading).trim();
   const preheader = text.trim().split(/\n\s*\n/)[1] || '';
   return `<!DOCTYPE html>
 <html lang="en">
@@ -57,7 +61,7 @@ export function welcomeHtml({ groupName, link, subject, text }){
     <tr><td align="center" style="padding-bottom:28px">
       <img src="${WELCOME_LOGO}" width="56" height="56" alt="Boxscore" style="display:block;border:0;border-radius:14px">
       <div style="margin-top:18px;font-family:${FONT};font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:${C.accent}">Boxscore</div>
-      <div style="margin-top:6px;font-family:${HEAD_FONT};font-size:30px;font-weight:700;line-height:1.15;color:${C.text}">Welcome to ${esc(groupName)}</div>
+      ${title ? `<div style="margin-top:6px;font-family:${HEAD_FONT};font-size:30px;font-weight:700;line-height:1.15;color:${C.text}">${esc(title)}</div>` : ''}
     </td></tr>
     <tr><td bgcolor="${C.surface}" style="background:${C.surface};border:1px solid ${C.border};border-radius:18px;padding:28px 26px 12px">
       ${paragraphsHtml(text)}
