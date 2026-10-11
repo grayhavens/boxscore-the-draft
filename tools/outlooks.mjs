@@ -10,6 +10,9 @@
       merge it in (stamped with today's date; other teams are untouched):
         node tools/outlooks.mjs apply outlooks.json [--group seasonticket]
 
+   Golfers (league pga) are listed too, with their FedEx Cup rank and
+   points from js/golfers.js in place of ESPN team facts.
+
    --group picks whose next draft the outlooks are for, which sets the
    draft class they're filed under (seasonticket -> 2026, thedraft -> 2027).
    Read the diff before committing.
@@ -50,11 +53,17 @@ if(ACTIVE_GROUP_ID !== GROUP){
 }
 const { NEXT_DRAFT_YEAR, TEAM_CATALOG_SEASON } = await appModule('seasons/index.js');
 const { buildDraftPool } = await appModule('draft-pool.js');
+const { DEFAULT_CAPS } = await appModule('draft-rules.js');
 const { scoutTeam, hasScouting } = await appModule('draft-scout.js');
 const { DRAFT_OUTLOOKS } = await appModule('draft-outlooks.js');
+const { GOLFERS, GOLFER_POOL_SEASON } = await appModule('golfers.js');
+const { PGA_SCORING } = await appModule('seasons/pga.js');
 
 const CLASS = String(NEXT_DRAFT_YEAR);
-const pool = buildDraftPool().filter(hasScouting);
+const isGolfer = t => t.league === 'pga';
+const pool = buildDraftPool([...new Set([...Object.keys(DEFAULT_CAPS), 'pga'])])
+  .filter(t => hasScouting(t) || isGolfer(t));
+const golferById = new Map(GOLFERS.map(g => [g.id, g]));
 
 // ---- facts ----
 
@@ -68,6 +77,11 @@ async function scout(team){
     await new Promise(r => setTimeout(r, 250));
   }
   return scoutTeam(team);
+}
+
+function golferLine(team){
+  const g = golferById.get(team.espnAthleteId) || {};
+  return [`${g.country || 'PGA Tour'}`, `${GOLFER_POOL_SEASON} FedEx Cup #${team.rank}`, `${g.points ?? '?'} pts`].join(' | ');
 }
 
 function factsLine(team, sc){
@@ -97,7 +111,7 @@ if(command === 'facts'){
   console.log(`${teams.length} teams, ${CLASS} draft class (${GROUP}).`);
   const leagues = [...new Set(teams.map(t => t.league))];
   for(const key of leagues){
-    const scoring = TEAM_CATALOG_SEASON.LEAGUE_SCORING[key];
+    const scoring = TEAM_CATALOG_SEASON.LEAGUE_SCORING[key] || (key === 'pga' ? PGA_SCORING : null);
     console.log(`\n== ${key}`);
     if(scoring){
       const rules = scoring.rules.map(r => `${r.label} ${r.pts > 0 ? '+' : ''}${r.pts}`);
@@ -105,8 +119,8 @@ if(command === 'facts'){
       console.log(`scoring: ${rules.join('; ')}`);
     }
     const inLeague = teams.filter(t => t.league === key);
-    const facts = await Promise.all(inLeague.map(async t => [t, await scout(t)]));
-    facts.forEach(([t, sc]) => console.log(`${t.id}${have[t.id] ? ' [has outlook]' : ''} — ${t.name} — ${factsLine(t, sc)}`));
+    const facts = await Promise.all(inLeague.map(async t => [t, isGolfer(t) ? null : await scout(t)]));
+    facts.forEach(([t, sc]) => console.log(`${t.id}${have[t.id] ? ' [has outlook]' : ''} — ${t.name} — ${isGolfer(t) ? golferLine(t) : factsLine(t, sc)}`));
   }
   process.exit(0);
 }
