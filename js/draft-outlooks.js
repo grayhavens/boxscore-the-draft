@@ -484,123 +484,123 @@ export const DRAFT_OUTLOOKS = {
     },
     "mlb_angels": {
       "text": "62-100, last in the AL West. One of the likeliest teams to finish last again (-2) and contend for the AL's worst record (-3).",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_astros": {
-      "text": "Won the AL West at just 81-81 and made the playoffs. An aging core in a division where Seattle and Texas should improve; repeating as division champs is far from certain.",
-      "at": "2026-09-29"
+      "text": "Won the AL West at just 81-81, then went out in the wild-card round. An aging core in a division where Seattle and Texas should improve; repeating as division champs is far from certain.",
+      "at": "2026-10-11"
     },
     "mlb_athletics": {
       "text": "64-98, fourth in the AL West. Still years from contention; last place in the division (-2) and the AL's worst record (-3) are both in play.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_blue_jays": {
-      "text": "Recent World Series participants who slipped to 79-83. Previews expect a bounce-back: Vladimir Guerrero Jr. anchors a front office that spends aggressively.",
-      "at": "2026-09-29"
+      "text": "Slipped to 79-83 and last in the AL East after recent World Series runs. Vladimir Guerrero Jr. anchors a team with a history of spending, and previews expect a bounce-back in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_braves": {
-      "text": "Won the NL East at 94-68 and head into October as division champs. The core is intact for 2027, making them a solid bet for playoff and division points.",
-      "at": "2026-09-29"
+      "text": "Won the NL East at 94-68 before the Dodgers knocked them out in the NLDS. The core is intact and they're linked to free agent Randy Arozarena; a solid bet for playoff and division points in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_brewers": {
-      "text": "Won 103 games and the NL Central with a pitching staff led by Jacob Misiorowski, who projects as one of the game's best starters. A strong bet to contend for the NL's best record (+3) again.",
-      "at": "2026-09-29"
+      "text": "Won 103 games and the NL Central, then beat San Diego to reach the NLCS against the Dodgers again. Jacob Misiorowski leads a deep staff; a strong bet to contend for the NL's best record (+3) in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_cardinals": {
-      "text": "77-85, but a young roster that outperformed expectations; previews think one more starting pitcher makes them a 2027 contender in the NL Central.",
-      "at": "2026-09-29"
+      "text": "77-85, but a young roster that outplayed expectations; previews think one more starting pitcher could make them an NL Central contender in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_cubs": {
-      "text": "Pete Crow-Armstrong is emerging as a superstar, but Seiya Suzuki is expected to leave in free agency. An 89-win playoff team that should contend in the NL Central behind Milwaukee.",
-      "at": "2026-09-29"
+      "text": "An 89-win wild-card team with Pete Crow-Armstrong emerging as a star, but Seiya Suzuki is one of the best hitters on the free-agent market. Should contend again in 2027, likely behind Milwaukee in the NL Central.",
+      "at": "2026-10-11"
     },
     "mlb_diamondbacks": {
       "text": "86 wins but missed the playoffs in a strong NL West. A fringe contender for 2027; a wild card is realistic, the division is not.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_dodgers": {
-      "text": "Won 100 games and the NL West again, and remain the sport's deepest roster. Tarik Skubal is headed for free agency, but expect the Dodgers to spend; the division (+2) and a deep October run are the baseline for 2027.",
-      "at": "2026-09-29"
+      "text": "The two-time defending champions won 100 games, beat Atlanta in the NLDS and face Milwaukee in the NLCS again. Tarik Skubal is the top free agent this winter, but the Dodgers always reload; the NL West (+2) and a deep October run are the 2027 baseline.",
+      "at": "2026-10-11"
     },
     "mlb_giants": {
-      "text": "65-97 and fourth in a strong NL West. A long rebuild ahead; a leading candidate for last in the division (-2).",
-      "at": "2026-09-29"
+      "text": "65-97 and fourth in the NL West. A long rebuild ahead; a leading candidate for last in the division (-2) if Colorado improves at all.",
+      "at": "2026-10-11"
     },
     "mlb_guardians": {
-      "text": "Won a weak AL Central at 85-77 and are into the ALDS. Division repeats are plausible, but the Royals and White Sox are closing in.",
-      "at": "2026-09-29"
+      "text": "Won a weak AL Central at 85-77, beat the White Sox in a five-game ALDS and now face Tampa Bay in the ALCS. Division repeats are their habit, but the White Sox and Royals are closing in.",
+      "at": "2026-10-11"
     },
     "mlb_mariners": {
-      "text": "A disappointing 76-86, and Randy Arozarena is expected to leave in free agency. Julio Rodríguez, Cal Raleigh and deep pitching point to a bounce-back year in 2027.",
-      "at": "2026-09-29"
+      "text": "A disappointing 76-86, and Randy Arozarena, coming off a career-best year, is a top free agent likely to leave. Julio Rodríguez, Cal Raleigh and deep pitching still point to a bounce-back in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_marlins": {
       "text": "80-82, third in the NL East behind Atlanta and Philadelphia. Likely a middle-of-the-pack team in 2027; a playoff spot would be a surprise.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_mets": {
-      "text": "A disappointing 74-88, fifth in the NL East despite star power. Previews expect a big offseason spend; a bounce-back into the wild-card race is realistic.",
-      "at": "2026-09-29"
+      "text": "A disappointing 74-88 and last in the NL East despite star power. Expect a big offseason spend; a bounce-back into the wild-card race is realistic, but last place (-2) happened once already.",
+      "at": "2026-10-11"
     },
     "mlb_nationals": {
-      "text": "77-85, fourth in the NL East. Still building; a playoff push in 2027 is unlikely, but last place isn't a given with the Mets struggling.",
-      "at": "2026-09-29"
+      "text": "77-85, fourth in the NL East. Still building; a 2027 playoff push is unlikely, but last place isn't a given with the Mets below them this year.",
+      "at": "2026-10-11"
     },
     "mlb_orioles": {
-      "text": "79-82 and fourth in the AL East, and ace Trevor Rogers is headed for free agency. Previews still think another big offseason around Pete Alonso makes them a 2027 contender.",
-      "at": "2026-09-29"
+      "text": "79-82 and fourth in the AL East, and Trevor Rogers, one of the top pitchers on the market, is a free agent. Another big winter around Pete Alonso could make them a 2027 contender.",
+      "at": "2026-10-11"
     },
     "mlb_padres": {
-      "text": "A 91-win wild-card team, but Michael King's opt-out and reliever Adrián Morejón's free agency could thin the pitching. Likely a playoff team again, behind the Dodgers in the NL West.",
-      "at": "2026-09-29"
+      "text": "A 91-win team that lost to Milwaukee in the NLDS. Michael King and reliever Adrián Morejón are both free agents, which could thin the pitching; likely a wild-card team again behind the Dodgers.",
+      "at": "2026-10-11"
     },
     "mlb_phillies": {
-      "text": "88 wins and a wild-card spot, second to Atlanta in the NL East. An experienced roster that should remain a playoff contender in 2027.",
-      "at": "2026-09-29"
+      "text": "88 wins and a wild-card exit, second to Atlanta in the NL East. An experienced, expensive roster that should stay a playoff contender in 2027, though the core is getting older.",
+      "at": "2026-10-11"
     },
     "mlb_pirates": {
-      "text": "Finished 82-80, their first winning season in years, but Brandon Lowe (31 homers) is expected to leave in free agency. A fringe wild-card team for 2027.",
-      "at": "2026-09-29"
+      "text": "82-80 for a rare winning season, but Brandon Lowe, coming off a career year, is a free agent. A fringe wild-card team for 2027.",
+      "at": "2026-10-11"
     },
     "mlb_rangers": {
-      "text": "80-82 and second in a weak AL West. With the Astros aging, the division is open, so they're a reasonable division-title sleeper.",
-      "at": "2026-09-29"
+      "text": "80-82 and second in a weak AL West. With the Astros aging, the division is open, so they're a reasonable division-title sleeper for 2027.",
+      "at": "2026-10-11"
     },
     "mlb_rays": {
-      "text": "Won the AL East at 98-64 behind Junior Caminero, who has hit 40 homers in back-to-back years. Freddy Peralta hits free agency, but the core is young; a good bet for the playoffs again.",
-      "at": "2026-09-29"
+      "text": "Won the AL East at 98-64 behind Junior Caminero's 40 homers, swept the Yankees and are in the ALCS. Freddy Peralta is a free agent, but the young core makes them a good bet for the playoffs again.",
+      "at": "2026-10-11"
     },
     "mlb_red_sox": {
-      "text": "An 87-win wild-card team in a strong AL East. Should contend for the playoffs again in 2027, with a division title a long shot behind Tampa and New York.",
-      "at": "2026-09-29"
+      "text": "An 87-win wild-card team in a strong AL East. Should contend for the playoffs again in 2027, with the division a long shot behind Tampa Bay and New York.",
+      "at": "2026-10-11"
     },
     "mlb_reds": {
       "text": "75-87 and last in the NL Central. Young pitching gives them upside, but last place in the division (-2) is a real risk again.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_rockies": {
       "text": "58-104, the worst record in baseball. The clear favorite for last in the NL West (-2) and the NL's worst record (-3) again.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_royals": {
-      "text": "69-93, last in the AL Central, but Bobby Witt Jr. is an MVP-level star and previews tip them to surprise in 2027 if they add outfield bats.",
-      "at": "2026-09-29"
+      "text": "69-93 and last in the AL Central, but Bobby Witt Jr. is an MVP-level star. Previews think added outfield bats could make them a 2027 surprise; another last place (-2) is the risk.",
+      "at": "2026-10-11"
     },
     "mlb_tigers": {
-      "text": "76-86 and fourth in the AL Central after years of contention, and Tarik Skubal is gone. Middle of the pack for 2027; the division is weak enough that it's not hopeless.",
-      "at": "2026-09-29"
+      "text": "76-86 and fourth in the AL Central after trading Tarik Skubal. A middle-of-the-pack team for 2027, though the division is weak enough that a rebound isn't out of reach.",
+      "at": "2026-10-11"
     },
     "mlb_twins": {
-      "text": "77-85 and third in the AL Central, and catcher Ryan Jeffers is set to hit free agency. Likely a middle-of-the-pack team; the playoffs would be a surprise.",
-      "at": "2026-09-29"
+      "text": "77-85 and third in the AL Central, and catcher Ryan Jeffers, one of the best bats on the market, is a free agent. Likely a middle-of-the-pack team; the playoffs would be a surprise.",
+      "at": "2026-10-11"
     },
     "mlb_white_sox": {
-      "text": "The surprise of 2026: 84-78 and a wild-card spot after years at the bottom. Whether it holds up is the question, but the AL Central is winnable.",
-      "at": "2026-09-29"
+      "text": "The surprise of 2026: 84-78 and a wild-card win before Cleveland beat them in a five-game ALDS. Whether it holds is the question, but the AL Central is winnable in 2027.",
+      "at": "2026-10-11"
     },
     "mlb_yankees": {
-      "text": "93 wins but second in the AL East behind Tampa Bay. Aaron Judge keeps them a perennial playoff team; the division title (+2) will be the hard part again.",
-      "at": "2026-09-29"
+      "text": "93 wins, then swept by Tampa Bay in the ALDS. Aaron Judge keeps them a perennial playoff team, but the AL East (+2) went through the Rays this year and will be hard to win back.",
+      "at": "2026-10-11"
     },
     "nba_76ers": {
       "text": "LeBron James and Jaylen Brown join Joel Embiid and Tyrese Maxey, and Embiid reportedly had a strong summer of knee rehab. Backup center Ariel Hukporti is out for the season with a torn Achilles. The highest-variance contender in the East.",
