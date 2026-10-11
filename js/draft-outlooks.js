@@ -851,132 +851,132 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-10-11"
     },
     "nhl_avalanche": {
-      "text": "Last season's Presidents' Trophy winners, ranked second or third in previews. Nathan MacKinnon and company should rack up regular-season points; the question is another playoff exit.",
-      "at": "2026-09-29"
+      "text": "Last season's Presidents' Trophy winners lead most power rankings, scoring at a ridiculous early clip around Nathan MacKinnon and Cale Makar. Strong bets for the Central (+2) and the West's best record (+3).",
+      "at": "2026-10-11"
     },
     "nhl_blackhawks": {
-      "text": "Connor Bedard is sidelined by a summer injury and not yet close to practicing. Lottery-bound in both previews, with last in the Central (-2) and the West's worst record (-3) in play.",
-      "at": "2026-09-29"
+      "text": "1-5 without Connor Bedard, and they've needed big goaltending just to stay in games. Lottery-bound, with last in the Central (-2) and the West's worst record (-3) both likely.",
+      "at": "2026-10-11"
     },
     "nhl_blue_jackets": {
-      "text": "Swapped Kirill Marchenko for Matthew Knies, but Zach Werenski's contract is unresolved. A bubble team at best; missing the playoffs again is the likelier outcome.",
-      "at": "2026-09-29"
+      "text": "Matthew Knies is leading the attack after the Kirill Marchenko trade, and a friendly early schedule gives them a chance to build. A bubble team; missing the playoffs again is slightly likelier.",
+      "at": "2026-10-11"
     },
     "nhl_blues": {
-      "text": "Scored too little last season and need goalie Joel Hofer to carry a heavy load. Previews rank them near the bottom of a strong Central, so last place in the division (-2) is a risk.",
-      "at": "2026-09-29"
+      "text": "Joel Hofer stole a shutout win over Dallas, but a quiet summer left a thin attack. In a strong Central, last place in the division (-2) remains a real risk.",
+      "at": "2026-10-11"
     },
     "nhl_bruins": {
-      "text": "Reached 100 points last season under rookie coach Marco Sturm, but previews see them as overachievers with little behind David Pastrňák. A bubble team this year.",
-      "at": "2026-09-29"
+      "text": "4-2 with Jeremy Swayman strong and J.J. Peterka fitting in, but the underlying play has been mediocre. After a 100-point season, most see them as a bubble team.",
+      "at": "2026-10-11"
     },
     "nhl_canadiens": {
-      "text": "Reached the East final last spring, added veteran Chris Kreider, and are ranked a Cup contender. A strong bet for playoff points, with a real shot at the Atlantic title.",
-      "at": "2026-09-29"
+      "text": "Reached the East final last spring and look tighter defensively under Martin St. Louis, with Chris Kreider added. A strong bet for the playoffs and a real contender for the Atlantic title (+2).",
+      "at": "2026-10-11"
     },
     "nhl_canucks": {
-      "text": "Both previews rank them 32nd after a 25-49-8 season. The favorite for last in the Pacific (-2) and the West's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "2-4 after a 25-49-8 season, though Elias Pettersson looks like his old self early. Still the favorite for last in the Pacific (-2) and a contender for the West's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nhl_capitals": {
-      "text": "Added Alex Tuch and Boone Jenner around Alex Ovechkin after missing the playoffs. Previews see them as a playoff team again, but the Metropolitan runs through Carolina.",
-      "at": "2026-09-29"
+      "text": "3-1 with solid structure and the depth added around Alex Ovechkin, including Alex Tuch and Boone Jenner. A likely playoff team, though the Metropolitan still runs through Carolina.",
+      "at": "2026-10-11"
     },
     "nhl_devils": {
-      "text": "Jack Hughes' health and underwhelming goaltending are the big questions after a seventh-place finish. Talented enough for the playoffs if both hold up; a bubble team otherwise.",
-      "at": "2026-09-29"
+      "text": "Even at 2-2, a 6-0 loss to the Islanders and little scoring have renewed questions about Jack Hughes and the goaltending. Talented enough for the playoffs if both settle; a bubble team otherwise.",
+      "at": "2026-10-11"
     },
     "nhl_ducks": {
-      "text": "Reached the second round, but lost depth to an offer sheet over the summer. Leo Carlsson leads a solid top line; a bubble playoff team in the Pacific.",
-      "at": "2026-09-29"
+      "text": "Leo Carlsson and Cutter Gauthier lead a quick, young attack, and Tristan Luneau is logging big minutes on defense. After a second-round run last spring, a playoff spot in a weak Pacific looks realistic.",
+      "at": "2026-10-11"
     },
     "nhl_flames": {
-      "text": "The league's worst offense last season, with young goalie Dustin Wolf the bright spot. Previews expect a long year; a leading candidate for the West's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "0-4, outscored 16-3, with Dustin Wolf struggling behind the league's weakest attack. A leading candidate for last in the Pacific (-2) and the West's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nhl_flyers": {
-      "text": "A 98-point team last season with young talent like Matvei Michkov and Porter Martone, though previews question whether it's sustainable. On the playoff bubble.",
-      "at": "2026-09-29"
+      "text": "Winless in six and Rick Tocchet has called the play disturbing, with the league's worst five-on-five numbers. After a 98-point season, last in the Metropolitan (-2) and the East's worst record (-3) are now real risks.",
+      "at": "2026-10-11"
     },
     "nhl_golden_knights": {
-      "text": "Last season's Western Conference champions, now under new coach Ryan Craig, in a Pacific Division previews call weak. Good odds for division points (+2) and another long spring.",
-      "at": "2026-09-29"
+      "text": "Last season's Western Conference champions are 4-1 under new coach Ryan Craig, with Jack Eichel piling up assists and Adin Hill sharp. In a Pacific most see as weak, division points (+2) are a strong bet.",
+      "at": "2026-10-11"
     },
     "nhl_hurricanes": {
-      "text": "The Stanley Cup champions return almost the same roster and top both big preseason rankings. Strong favorites to repeat as Metropolitan champs (+2) and contend for the East's best record (+3).",
-      "at": "2026-09-29"
+      "text": "The Stanley Cup champions are missing Seth Jarvis, a 32-goal scorer last year, and the offense has felt it, but they're 4-1-1. Favorites to repeat in the Metropolitan (+2) and contend for the East's best record (+3).",
+      "at": "2026-10-11"
     },
     "nhl_islanders": {
-      "text": "Matthew Schaefer is a budding star, but the roster around him is thin and Mat Barzal is dealing with a knee injury. Likely outside the playoffs.",
-      "at": "2026-09-29"
+      "text": "Ilya Sorokin posted a 37-save shutout of New Jersey, and Matthew Schaefer is a budding star, but Mat Barzal is still out with a knee injury. Likely a bubble team at best.",
+      "at": "2026-10-11"
     },
     "nhl_jets": {
-      "text": "Everything hinges on Connor Hellebuyck, whose availability is uncertain amid trade talk. After a seventh-place finish in the Central, missing the playoffs again is likely.",
-      "at": "2026-09-29"
+      "text": "Playing without Connor Hellebuyck, with Stuart Skinner in goal, and off to a decent start. After a seventh-place finish in the Central, a playoff spot will take a lot from the skaters in front of him.",
+      "at": "2026-10-11"
     },
     "nhl_kings": {
-      "text": "Now built around Artemi Panarin, but last season's playoff spot looked fortunate and the supporting cast is thin. A bubble team in a weak Pacific.",
-      "at": "2026-09-29"
+      "text": "Winless in three with poor goaltending, and Artemi Panarin alone isn't enough. In a weak Pacific a playoff spot is still possible, but this looks like a bubble team at best.",
+      "at": "2026-10-11"
     },
     "nhl_kraken": {
-      "text": "Running back a largely unchanged roster that previews call uninspiring. Likely near the bottom of the Pacific, where last place (-2) is a real risk.",
-      "at": "2026-09-29"
+      "text": "3-2, helped by two lopsided wins over Calgary, though their underlying numbers are middling. Likely near the bottom of the Pacific, where last place (-2) is a real risk.",
+      "at": "2026-10-11"
     },
     "nhl_lightning": {
-      "text": "Consistently strong in the regular season, with Brayden Point expected to bounce back, but they have four straight first-round exits. A likely playoff team with limited deep-run upside.",
-      "at": "2026-09-29"
+      "text": "4-1 despite a power play that hasn't scored yet, and Jon Cooper's team looks like itself again. A likely playoff team with a shot at the Atlantic (+2); the question remains whether they can end four straight first-round exits.",
+      "at": "2026-10-11"
     },
     "nhl_mammoth": {
-      "text": "A loaded young roster with veteran additions; previews call them a dangerous playoff team. The Central is brutal, so a wild-card spot is likelier than the division.",
-      "at": "2026-09-29"
+      "text": "4-2 with a power play converting at a huge rate, as Nick Schmaltz, Clayton Keller and Dylan Guenther lead the way. One of the most dangerous young teams in the West; a wild-card spot is the floor, the Central possible.",
+      "at": "2026-10-11"
     },
     "nhl_maple_leafs": {
-      "text": "Finished last in the Atlantic after a 32-36-14 season. Auston Matthews has to rediscover his scoring and the aging defense and goaltending need to stay healthy; last in the division (-2) remains a risk.",
-      "at": "2026-09-29"
+      "text": "Rookie Gavin McKenna has had an up-and-down start, and Sergei Bobrovsky's play in goal has been mixed. After finishing last in the Atlantic last season, avoiding the basement (-2) is the first goal.",
+      "at": "2026-10-11"
     },
     "nhl_oilers": {
-      "text": "Connor McDavid and Leon Draisaitl now play for Mike Babcock, and they went unbeaten in preseason. Still a top Pacific contender, though depth remains a worry.",
-      "at": "2026-09-29"
+      "text": "Unbeaten in regulation through five, with Evan Bouchard scoring heavily for Mike Babcock's team. Goaltending is the familiar worry, though Devon Levi is gaining ground. Connor McDavid and Leon Draisaitl make them a top Pacific contender (+2).",
+      "at": "2026-10-11"
     },
     "nhl_panthers": {
-      "text": "Missed the playoffs last year, but Aleksander Barkov is healthy and they added Brady Tkachuk. Previews rank them a top-four team again, so expect a big rebound in the Atlantic.",
-      "at": "2026-09-29"
+      "text": "Aleksander Barkov is out at least six weeks and Brad Marchand has a knee injury, so the Brady Tkachuk era started slowly with three overtime games. Still built for a big rebound after missing the playoffs; the Atlantic title (+2) may take a while.",
+      "at": "2026-10-11"
     },
     "nhl_penguins": {
-      "text": "Sidney Crosby is still elite and they had 98 points last season, but they made no major additions and lack a proven starting goalie. Previews expect some regression.",
-      "at": "2026-09-29"
+      "text": "Off to a strong start with new depth pieces fitting in around Sidney Crosby. Goaltending is still the question after a 98-point year, but a playoff return looks realistic.",
+      "at": "2026-10-11"
     },
     "nhl_predators": {
-      "text": "An aging roster in need of a reset, with Mavrik Bourque and Matthew Wood as the young hope. Bottom-five in previews; a candidate for last in the Central (-2).",
-      "at": "2026-09-29"
+      "text": "An aging roster with Mavrik Bourque and Matthew Wood as the young hope, and little scoring so far. Bottom-five in most previews; a candidate for last in the Central (-2).",
+      "at": "2026-10-11"
     },
     "nhl_rangers": {
-      "text": "Traded Artemi Panarin after missing the playoffs, and previews call them a wild card that could miss again or surprise. Last in the Metropolitan (-2) is possible.",
-      "at": "2026-09-29"
+      "text": "4-2 after trading Artemi Panarin, with Sean Durzi steadying the blue line and Eeli Tolvanen scoring. Better than expected so far, though most still see them as a bubble team in the Metropolitan.",
+      "at": "2026-10-11"
     },
     "nhl_red_wings": {
-      "text": "Captain Dylan Larkin has requested a trade, which hangs over the season. Previews rank them in the bottom third; last in the Atlantic (-2) is a real possibility.",
-      "at": "2026-09-29"
+      "text": "1-3-1 and Dylan Larkin, who asked for a trade, hasn't played. The situation hangs over a team ranked in the bottom third; last in the Atlantic (-2) is a real possibility.",
+      "at": "2026-10-11"
     },
     "nhl_sabres": {
-      "text": "Ended a 14-year playoff drought by winning the Atlantic, led by Rasmus Dahlin and a young core. Previews expect another playoff trip, but repeating as division champs will be hard.",
-      "at": "2026-09-29"
+      "text": "Last season's surprise Atlantic champions are 2-3, with Jiri Kulich back scoring after a blood clot. Rasmus Dahlin's group should make the playoffs, but repeating as division champs will be hard.",
+      "at": "2026-10-11"
     },
     "nhl_senators": {
-      "text": "Lost captain Brady Tkachuk to Florida, and Linus Ullmark's form in goal is a question. A bubble team at best after last season's playoff trip.",
-      "at": "2026-09-29"
+      "text": "4-1 to start the post-Brady Tkachuk era, with Linus Ullmark looking solid in goal. A bubble team on paper; a good start gives them a real shot at the playoffs (+1).",
+      "at": "2026-10-11"
     },
     "nhl_sharks": {
-      "text": "Macklin Celebrini, 20, is now captain, and rookie Ivar Stenberg was a preseason standout. Some previews have them third in the Pacific, a real playoff push after years of losing.",
-      "at": "2026-09-29"
+      "text": "3-2 with captain Macklin Celebrini leading a fun young team, though veterans Darnell Nurse and Jacob Trouba have struggled. Some previews have them third in the Pacific; a playoff push is realistic.",
+      "at": "2026-10-11"
     },
     "nhl_stars": {
-      "text": "Jason Robertson and a 50-win core, but three straight West final losses make this Cup-or-bust. Regular-season points are a safe bet; the Central is a fight with Colorado and Minnesota.",
-      "at": "2026-09-29"
+      "text": "A slow start in a deep Central, with depth thinner than in past years. Jason Robertson and the core still give them a safe playoff floor, but after three straight West final losses, the division (+2) is a fight with Colorado and Minnesota.",
+      "at": "2026-10-11"
     },
     "nhl_wild": {
-      "text": "Kirill Kaprizov and Matt Boldy lead an elite top six, though Quinn Hughes' contract future is a distraction. A solid playoff team in a tough Central.",
-      "at": "2026-09-29"
+      "text": "Kirill Kaprizov is scoring, Quinn Hughes is logging heavy minutes and Jesper Wallstedt has been strong in goal. One of the best starts in the league; a real contender for the Central (+2).",
+      "at": "2026-10-11"
     },
     "wnba_aces": {
       "text": "A'ja Wilson led the league in scoring and blocks again, and some think the 2026 title runs through Las Vegas. As long as Wilson is there, they're a safe playoff bet and a title threat.",
