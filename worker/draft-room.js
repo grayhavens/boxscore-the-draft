@@ -54,6 +54,9 @@
             a drafter's private ranked shortlist, stored server-side so it
             follows them across devices. Only ever sent back to sockets
             that ask for it.
+       { type: 'presence', from, visible }
+            which drafter this socket is (null for a spectator) and
+            whether the room is on screen there
        'ping' (bare string; answered 'pong' by the runtime's auto-response)
      server -> client
        { type: 'hello', now, state, pool }           on connect
@@ -63,6 +66,8 @@
        { type: 'authed', ok }                        (also sent unasked on
                                                      connect in a mock room)
        { type: 'queue', teams }
+       { type: 'presence', here: [id] }              who's in the room: on
+                                                     connect, and whenever it changes
        { type: 'error', reason }                     malformed frame / rate limit
      `now` is the server's clock; clients use it to correct their own
      before rendering the countdown from the state's clock timestamps.
@@ -71,6 +76,12 @@
    "You're on the clock" alert on their phone (worker/web-push.js), so
    nobody has to sit watching the room between picks. Mock rooms never
    push: a rehearsal would otherwise buzz every drafter in the group.
+
+   Presence: each socket says which drafter it is and whether the room is
+   on screen ('presence' frame), kept on its attachment so it survives
+   hibernation and goes with the socket. Everyone gets the list of
+   drafters with the room open, which the lobby shows next to each name.
+   Same no-auth tier as `from` on an action.
 
    GET .../result returns the finished board as JSON — what
    tools/export-draft.mjs turns into the next season's data file.
@@ -200,6 +211,7 @@ export class DraftRoom extends DurableObject {
       server.serializeAttachment({ commissioner: mock, authFailures: 0, sent: [] });
       server.send(JSON.stringify({ type: 'hello', now: Date.now(), state: publicState(this.state), pool: this.state.pool }));
       if(mock) server.send(JSON.stringify({ type: 'authed', ok: true }));
+      server.send(JSON.stringify({ type: 'presence', here: this.presentDrafters() }));
       return new Response(null, { status: 101, webSocket: client });
     }
     if(new URL(request.url).pathname.endsWith('/result')){
@@ -481,6 +493,35 @@ export class DraftRoom extends DurableObject {
     }
   }
 
+  // Drafters with the room open and on screen on at least one socket
+  // (a drafter can have it open on two devices). `leaving` is a socket
+  // that's closing but may still be listed.
+  presentDrafters(leaving = null){
+    const here = new Set();
+    for(const socket of this.ctx.getWebSockets()){
+      if(socket === leaving) continue;
+      const a = socket.deserializeAttachment() || {};
+      if(a.who && a.visible) here.add(a.who);
+    }
+    return this.state.config.drafters.filter(id => here.has(id));
+  }
+
+  broadcastPresence(leaving = null){
+    const frame = JSON.stringify({ type: 'presence', here: this.presentDrafters(leaving) });
+    for(const socket of this.ctx.getWebSockets()){
+      if(socket === leaving) continue;
+      try { socket.send(frame); } catch (e){}
+    }
+  }
+
+  handlePresence(ws, attachment, msg){
+    const who = this.state.config.drafters.includes(msg.from) ? msg.from : null;
+    const visible = !!msg.visible;
+    if(attachment.who === who && attachment.visible === visible) return;
+    ws.serializeAttachment({ ...attachment, who, visible });
+    this.broadcastPresence();
+  }
+
   // Sliding-window flood limit, kept on the socket so it survives hibernation.
   allowFrom(ws, attachment){
     const now = Date.now();
@@ -657,16 +698,19 @@ export class DraftRoom extends DurableObject {
       case 'action': return this.handleAction(ws, attachment, msg);
       case 'getQueue': return this.handleGetQueue(ws, msg);
       case 'queue': return this.handleSetQueue(ws, msg);
+      case 'presence': return this.handlePresence(ws, attachment, msg);
       default: return;
     }
   }
 
   async webSocketClose(ws, code){
+    this.broadcastPresence(ws);
     // 1005/1006 are reserved "no status" codes and throw if passed to close().
     try { ws.close(code >= 1000 && code < 1005 ? code : 1000); } catch (e){}
   }
 
   async webSocketError(ws){
+    this.broadcastPresence(ws);
     try { ws.close(1011); } catch (e){}
   }
 }

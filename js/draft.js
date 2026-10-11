@@ -16,7 +16,8 @@
      Available shows the pool it would load (previewPool). The hero
      counts down to the start the commissioner scheduled (live room
      only, js/draft-schedule.js) and says where you pick once the order
-     is drawn; the lottery reveal fills the board's column heads. Setup
+     is drawn; the lottery reveal fills the board's column heads. A green
+     dot after a name there shows who has the room open (draftStore.here). Setup
      (lottery, Set order, team pool, clock, Start) is the commissioner
      bar. A mock lobby copies the live room's order once it's drawn
      (else draws its own on arrival); its bot switches are under Bots &
@@ -64,7 +65,7 @@ import {
 import { getDraftSchedule, onDraftSchedule, isDraftUpcoming, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
-  sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
+  sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue, sendDraftPresence
 } from './draft-client.js';
 import { escapeHtml as esc, EASE_SPRING, EASE_IN_OUT } from './utils.js';
 import { fxOn, play, later, pop, flashTint, ringPulse, sheen, stagger, nudge, flyTo, once, setMotionSpeed, atSpeed } from './motion-fx.js';
@@ -1105,6 +1106,12 @@ function drafterNaturalOwner(d, slot){
   return d.s.order[round % 2 === 0 ? pos : d.n - 1 - pos];
 }
 
+// Before the draft, a green dot after the name of anyone with the room
+// open and on screen (draftStore.here).
+function hereDotHtml(d, id){
+  return d.s.phase === 'lobby' && draftStore.here.includes(id) ? '<span class="dr-here-dot" role="img" aria-label="In the room" title="In the room"></span>' : '';
+}
+
 // Before the order is drawn (or while the lottery reveal is filling it
 // in) a column's head is a dash and nothing in it is marked yours.
 function boardHtml(d){
@@ -1114,7 +1121,7 @@ function boardHtml(d){
   const head = Array.from({ length: n }, (_, c) => {
     const id = order && order[c];
     if(!id || !orderShown(d, id)) return '<div class="dr-bh"><span class="dr-dim">—</span></div>';
-    return `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}" data-id="${esc(id)}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`;
+    return `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}" data-id="${esc(id)}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}${hereDotHtml(d, id)}</div>`;
   }).join('');
   const rows = [];
   for(let r = 0; r < d.rounds; r++){
@@ -1563,7 +1570,7 @@ function phoneBoardHtml(d){
     for(let slot = 0; slot < Math.min(d.total, d.n * 2); slot++){
       const owner = order ? ownerOf(slot, order, overrides) : null;
       const shown = owner && orderShown(d, owner);
-      const name = shown ? (owner === d.me ? 'You' : esc(drafterName(owner))) : '<span class="dr-dim">—</span>';
+      const name = shown ? `${owner === d.me ? 'You' : esc(drafterName(owner))}${hereDotHtml(d, owner)}` : '<span class="dr-dim">—</span>';
       rows.push(`<div class="dm-brow${shown && owner === d.me ? ' mine' : ''}" data-slot="${slot}"><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${name}</span><span class="dm-b-team"><span class="dr-dim">—</span></span></div>`);
     }
     return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">First 2 rounds</span></div>${rows.join('')}`;
@@ -1683,6 +1690,7 @@ function render(){
   if(lastQueueFor !== currentProfileId){
     lastQueueFor = currentProfileId;
     requestDraftQueue();
+    sendDraftPresence();
   }
   maybeStartReveal(d);
   maybeAutoDraw(d);

@@ -16,6 +16,10 @@
    frame carries the server's `now`, the store keeps the offset from the
    local clock, and serverNow() applies it — so a phone with a wrong
    clock still counts down correctly.
+
+   Presence: on connect, and whenever the app goes on or off screen, the
+   socket tells the room which drafter this is; the room answers everyone
+   with who's in it (draftStore.here), which the lobby shows by each name.
    ============================================================ */
 import { chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
@@ -42,6 +46,7 @@ export const draftStore = {
   pool: [],
   queue: [],             // this drafter's ranked shortlist of team ids
   commissioner: false,   // this socket has authenticated as commissioner
+  here: [],              // drafter ids with the room open and on screen
   clockOffset: 0         // serverNow() = Date.now() + clockOffset
 };
 
@@ -89,6 +94,10 @@ function sendFrame(frame){
   return true;
 }
 
+export function sendDraftPresence(){
+  sendFrame({ type: 'presence', from: currentProfileId || null, visible: document.visibilityState === 'visible' });
+}
+
 export function requestDraftQueue(){
   sendFrame({ type: 'getQueue', from: currentProfileId });
 }
@@ -101,6 +110,7 @@ function onFrame(frame){
       draftStore.pool = frame.pool || [];
       draftStore.clockOffset = frame.now - Date.now();
       requestDraftQueue();
+      sendDraftPresence();
       if(wantsCommissioner){
         const password = loadAdminPassword();
         if(password) sendFrame({ type: 'auth', password });
@@ -112,6 +122,9 @@ function onFrame(frame){
       break;
     case 'pool':
       draftStore.pool = frame.pool || [];
+      break;
+    case 'presence':
+      draftStore.here = Array.isArray(frame.here) ? frame.here : [];
       break;
     case 'queue':
       draftStore.queue = frame.teams || [];
@@ -172,6 +185,7 @@ function connect(){
     socket = null;
     clearInterval(pingTimer);
     draftStore.commissioner = false;
+    draftStore.here = [];
     failPending('offline');
     setStatus(wanted ? 'offline' : 'idle');
     scheduleReconnect();
@@ -194,6 +208,7 @@ function reconnectNow(){
 }
 
 document.addEventListener('visibilitychange', () => {
+  sendDraftPresence();
   if(document.visibilityState === 'visible' && wanted && (!socket || socket.readyState !== WebSocket.OPEN)) reconnectNow();
 });
 window.addEventListener('online', reconnectNow);
@@ -214,6 +229,7 @@ export function closeDraftConnection(){
   socket = null;
   failPending('offline');
   draftStore.commissioner = false;
+  draftStore.here = [];
   setStatus('idle');
 }
 

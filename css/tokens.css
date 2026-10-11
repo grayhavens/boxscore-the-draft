@@ -44,6 +44,7 @@
   --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(248,220,140,0.5), rgba(217,180,91,0.18) 70%, rgba(217,180,91,0));
   --win: #5FB88A;
   --win-soft: rgba(95,184,138,0.14);
+  --presence: var(--win);   /* the draft lobby's "in the room" dot */
   --loss: #D97066;
   --loss-soft: rgba(217,112,102,0.14);
   --draw: #B8A369;

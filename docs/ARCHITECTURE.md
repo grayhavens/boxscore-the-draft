@@ -387,7 +387,12 @@ whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
 the board and star a queue early. Available shows the pool Load team pool would send (`previewPool`, the same ids)
 until the commissioner loads it; the hero counts down to the live room's scheduled start (`startAt`, from
 `js/draft-schedule.js`; mock and rehearsal rooms have none) and says where you pick; the lottery reveal fills the
-board's column heads. The lobby setup (Start, lottery, Set order, team pool, clock/bots) is the commissioner bar.
+board's column heads. A green dot after a drafter's name in the board's column heads (and the phone board's rows) shows
+who has the room open and on screen (`hereDotHtml`, lobby only): each socket sends
+`{ type: 'presence', from, visible }` on connect, on a profile switch and on every visibility change, kept on the
+socket's attachment; the room broadcasts `{ type: 'presence', here }` when it changes and when a socket closes. An
+old worker ignores the frame, so no dots show until the worker is deployed.
+The lobby setup (Start, lottery, Set order, team pool, clock/bots) is the commissioner bar.
 A mock lobby drafts in the live room's order once the live lottery is drawn (until that draft is done): the
 Durable Object reads `main`'s order (internal `GET .../order`) on connect and on the automatic first draw and hands it
 to the reducer as `ctx.liveOrder`; `state.orderSource` is `'live'`, `'drawn'` (re-run on purpose, kept until a reset)
