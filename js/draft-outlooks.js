@@ -295,192 +295,192 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-10-11"
     },
     "mcbb_alabama": {
-      "text": "Returns Aden Holloway among four of its top ten scorers; preseason No. 21. A likely tournament team.",
-      "at": "2026-09-29"
+      "text": "Aden Holloway's drug charge was dismissed and he returns after a two-game suspension; Amari Allen is a projected first-rounder. No. 21 in ESPN's rankings; a likely tournament team.",
+      "at": "2026-10-11"
     },
     "mcbb_arizona": {
-      "text": "A 36-3 Final Four team that returns Motiejus Krivas and adds five-star Caleb Holt. Preseason top six; a strong Big 12 contender.",
-      "at": "2026-09-29"
+      "text": "A 36-3 Final Four team that returns Motiejus Krivas and Ivan Kharchenkov and adds five-star Caleb Holt. Fourth in ESPN's rankings, with Tommy Lloyd's best defense yet; a strong Big 12 contender (+3).",
+      "at": "2026-10-11"
     },
     "mcbb_arkansas": {
-      "text": "Returns Billy Richmond III and adds five-star JJ Andrews; tenth preseason and eighth in title odds. A likely tournament team with Elite Eight (+2) upside.",
-      "at": "2026-09-29"
+      "text": "Brings in the nation's top recruiting class, led by lottery prospect Jordan Smith and three other five-stars, around Billy Richmond III. Ranked 7th by CBS and 12th by ESPN; a likely tournament team with Elite Eight (+2) upside.",
+      "at": "2026-10-11"
     },
     "mcbb_auburn": {
-      "text": "Won the NIT after a 7-11 SEC season, and lost Keyshawn Hall to St. John's. A bubble team; missing the tournament (-2) is a real risk.",
-      "at": "2026-09-29"
+      "text": "Won the NIT after a 7-11 SEC season, then lost Keyshawn Hall to St. John's and Elyjah Freeman to Texas. Outside the preseason rankings; missing the tournament (-2) is a real risk.",
+      "at": "2026-10-11"
     },
     "mcbb_baylor": {
-      "text": "17-17 and 6-12 in the Big 12. Bubble at best; last place in the conference (-3) is a risk.",
-      "at": "2026-09-29"
+      "text": "17-17 and 6-12 in the Big 12, and lost Tounde Yessoufou to St. John's. Bubble at best; last place in the conference (-3) is a risk.",
+      "at": "2026-10-11"
     },
     "mcbb_byu": {
-      "text": "Adds five-star Bruce Branch III to Robert Wright III; preseason No. 24. Should make the tournament after a 9-9 Big 12 year.",
-      "at": "2026-09-29"
+      "text": "Lost AJ Dybantsa to the NBA, but Robert Wright III is back and top-10 recruit Bruce Branch III arrives. No. 20 in ESPN's rankings; should make the tournament after a 9-9 Big 12 year.",
+      "at": "2026-10-11"
     },
     "mcbb_cincinnati": {
-      "text": "18-15 and missed the tournament. A bubble team at best in the Big 12.",
-      "at": "2026-09-29"
+      "text": "18-15 and missed the tournament, then lost Moustapha Thiam to Michigan. A bubble team at best in the Big 12.",
+      "at": "2026-10-11"
     },
     "mcbb_creighton": {
       "text": "16-18 and a sub-.500 Big East team. Likely to miss the tournament (-2) unless the rebuild clicks fast.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mcbb_duke": {
-      "text": "Went 35-3 and returns four of its top six scorers, led by Patrick Ngongba II and Caleb Foster. Co-favorite for the title (+600); ACC regular-season points (+3) look likely again.",
-      "at": "2026-09-29"
+      "text": "No. 2 in both ESPN's and CBS's preseason rankings after going 35-3. Patrick Ngongba II, Caleb Foster and Cayden Boozer return, and Wisconsin transfer John Blackwell joins. ACC regular-season points (+3) look likely again, with a deep March run in reach.",
+      "at": "2026-10-11"
     },
     "mcbb_florida": {
-      "text": "No. 1 in CBS's preseason Top 25 and books' co-favorite (+600), bringing back six of its top seven scorers including Thomas Haugh and Alex Condon. A strong bet for the SEC regular-season title (+3) and a deep March run.",
-      "at": "2026-09-29"
+      "text": "No. 1 in both ESPN's and CBS's preseason rankings, bringing back Thomas Haugh, Alex Condon, Rueben Chinyelu and Boogie Fland. A strong bet for the SEC regular-season title (+3) and a deep March run.",
+      "at": "2026-10-11"
     },
     "mcbb_georgia": {
-      "text": "A 22-win first-round team. A bubble team in the SEC; missing the tournament (-2) is possible.",
-      "at": "2026-09-29"
+      "text": "A 22-win first-round team that lost Somto Cyril to Miami and Jeremiah Wilkinson to Arkansas. A bubble team in the SEC; missing the tournament (-2) is possible.",
+      "at": "2026-10-11"
     },
     "mcbb_gonzaga": {
-      "text": "31-4 last year; returns Braden Huff and adds Houston transfer Isiah Harwell. Preseason No. 12 and a favorite in the rebuilt Pac-12, so conference title points are well within reach.",
-      "at": "2026-09-29"
+      "text": "Braden Huff and Arizona State transfer Massamba Diop give them a strong frontcourt, but three backcourt transfers are waiting on eligibility. Ranked 8th by CBS and 14th by ESPN; a favorite in the rebuilt Pac-12, where conference titles pay well.",
+      "at": "2026-10-11"
     },
     "mcbb_houston": {
-      "text": "Lost Isiah Harwell to Gonzaga but adds LSU transfer Dedan Thomas Jr. to a veteran core. Preseason No. 14; a safe tournament bet.",
-      "at": "2026-09-29"
+      "text": "Lost its top four scorers, so Kelvin Sampson leans on Joseph Tugler, LSU transfer Dedan Thomas Jr. and Kent State's Delrecco Gillespie. Ranked 18th by ESPN; still a safe tournament bet, though less of a Big 12 favorite than usual.",
+      "at": "2026-10-11"
     },
     "mcbb_illinois": {
-      "text": "Final Four team that returns five of its top eight scorers, including Andrej Stojakovic. Third in CBS's preseason Top 25 and fourth in title odds; a Big Ten title contender.",
-      "at": "2026-09-29"
+      "text": "Last year's Final Four team returns David Mirkovic, Andrej Stojakovic and both Ivisic twins, adding Providence's Stefan Vaaks. Third in ESPN's rankings, fourth in CBS's; a Big Ten title contender (+3).",
+      "at": "2026-10-11"
     },
     "mcbb_indiana": {
-      "text": "Missed the postseason last year, but CBS has them just outside its preseason Top 25 and books' title odds are 25th of 100. A tournament return is realistic.",
-      "at": "2026-09-29"
+      "text": "Missed the postseason last year, but CBS has them just outside its preseason Top 25. A tournament return (+1) is realistic, which would also avoid the -2.",
+      "at": "2026-10-11"
     },
     "mcbb_iowa_state": {
-      "text": "Returns four of its top six scorers, including Tamin Lipsey, and ranks 11th preseason. A dependable tournament team in the Big 12.",
-      "at": "2026-09-29"
+      "text": "Just outside ESPN's preseason Top 25 after a Sweet 16 run. A dependable tournament team in the Big 12.",
+      "at": "2026-10-11"
     },
     "mcbb_kansas": {
-      "text": "Adds five-stars Tyran Stokes and Taylen Kinney but lost Flory Bidunga to Louisville. Preseason No. 18; a tournament team with upside.",
-      "at": "2026-09-29"
+      "text": "Adds Tyran Stokes, the No. 1 recruit, plus Taylen Kinney, and Melvin Council Jr. and Tre White were cleared for a fifth year. Lost Flory Bidunga to Louisville. No. 19 in ESPN's rankings; a tournament team with upside.",
+      "at": "2026-10-11"
     },
     "mcbb_kentucky": {
-      "text": "Adds Iowa State transfer Milan Momcilovic to Malachi Moreno; preseason No. 19. A likely tournament team, though the SEC title looks like a stretch.",
-      "at": "2026-09-29"
+      "text": "Added Iowa State transfer Milan Momcilovic, maybe the country's best shooter, plus Zoom Diallo, but Malachi Moreno has to take a step. No. 25 in ESPN's rankings; a likely tournament team, though the SEC title looks like a stretch.",
+      "at": "2026-10-11"
     },
     "mcbb_louisville": {
-      "text": "Adds Kansas transfer Flory Bidunga to Adrian Wooley and ranks eighth preseason, seventh in title odds. A strong bet for the tournament and an ACC contender.",
-      "at": "2026-09-29"
+      "text": "Loaded up on transfers, including Flory Bidunga, Jackson Shelstad and Karter Knox, plus five-star big Obinna Ekezie. No. 15 in ESPN's rankings; a strong tournament bet and an ACC contender.",
+      "at": "2026-10-11"
     },
     "mcbb_marquette": {
       "text": "12-20 and 7-13 in the Big East. Likely to miss the tournament (-2); last in the conference (-3) is in play.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mcbb_memphis": {
       "text": "13-19 and missed the postseason. A rebuild year; missing the tournament (-2) is likely.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mcbb_miami": {
-      "text": "Returns four of its top seven scorers including Malik Reneau and is ranked 17th preseason. A likely tournament team in the ACC.",
-      "at": "2026-09-29"
+      "text": "Malik Reneau is waiting on a fifth year, and Villanova's Acaden Lewis and Georgia's Somto Cyril join five-star Caleb Gaskins. No. 11 in ESPN's rankings; a likely tournament team in the ACC.",
+      "at": "2026-10-11"
     },
     "mcbb_mich_state": {
-      "text": "Returns five of its top eight scorers, led by Jeremy Fears Jr., and sits seventh in CBS's rankings. A likely tournament team and Big Ten contender.",
-      "at": "2026-09-29"
+      "text": "Jeremy Fears Jr. is a national player of the year favorite, with Coen Carr back too. Sixth in both ESPN's and CBS's rankings; a likely tournament team and a Big Ten contender.",
+      "at": "2026-10-11"
     },
     "mcbb_michigan": {
-      "text": "The defending national champions (37-3) return Elliot Cadeau, Trey McKenney and Roddy Gayle. Preseason No. 16 by CBS, higher elsewhere; a Big Ten contender again.",
-      "at": "2026-09-29"
+      "text": "The defending champions have a new coach, Mike Boynton, after Dusty May left, and five-star recruit Brandon McCoy tore his ACL. Elliot Cadeau and Trey McKenney return; ranked 3rd by CBS but 22nd by ESPN.",
+      "at": "2026-10-11"
     },
     "mcbb_missouri": {
-      "text": "Adds five-star Jason Crowe Jr. to Mark Mitchell and Trent Pierce; preseason No. 23. A likely tournament team in the SEC.",
-      "at": "2026-09-29"
+      "text": "Five-star Jason Crowe Jr. headlines a big portal and freshman haul around Trent Pierce, though Mark Mitchell's fifth year is pending. No. 16 in ESPN's rankings; a likely tournament team.",
+      "at": "2026-10-11"
     },
     "mcbb_ndsu": {
       "text": "27-8 and 14-2 in the Summit League, then a first-round loss. Conference titles (+3, +2) are its path to points; a tournament bid depends on winning the Summit.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mcbb_nebraska": {
-      "text": "A 28-7 Sweet 16 team. Likely back in the tournament, though the Big Ten title is a long shot.",
-      "at": "2026-09-29"
+      "text": "A 28-7 Sweet 16 team, just outside ESPN's preseason Top 25. Likely back in the tournament, though the Big Ten title is a long shot.",
+      "at": "2026-10-11"
     },
     "mcbb_north_carolina": {
-      "text": "Just outside CBS's preseason Top 25 after a first-round exit. A likely tournament team, but not an ACC favorite.",
-      "at": "2026-09-29"
+      "text": "Just outside ESPN's and CBS's preseason Top 25 after a first-round exit, and lost Seth Trimble to Louisville and Derek Dixon to Arizona. A likely tournament team, but not an ACC favorite.",
+      "at": "2026-10-11"
     },
     "mcbb_ohio_state": {
       "text": "A 21-win first-round team. Likely a bubble team in the Big Ten.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mcbb_oregon": {
-      "text": "12-20 and 5-15 in the Big Ten. Strong candidate to miss the tournament (-2) and finish near the bottom of the conference (-3).",
-      "at": "2026-09-29"
+      "text": "12-20 and 5-15 in the Big Ten, then lost Jackson Shelstad to Louisville. Strong candidate to miss the tournament (-2) and finish near the bottom of the conference (-3).",
+      "at": "2026-10-11"
     },
     "mcbb_purdue": {
-      "text": "An Elite Eight team that returns five of its top nine scorers, including C.J. Cox; preseason No. 25. A dependable tournament team.",
-      "at": "2026-09-29"
+      "text": "An Elite Eight team that returns C.J. Cox among five of its top nine scorers. Just outside ESPN's preseason Top 25; a dependable tournament team.",
+      "at": "2026-10-11"
     },
     "mcbb_saint_mary_s": {
-      "text": "27-6 and 16-2 in conference. With Gonzaga gone to the Pac-12, they're a leading WCC contender, and conference titles are where the points are.",
-      "at": "2026-09-29"
+      "text": "27-6 and 16-2 in conference, but lost Mikey Lewis to Texas. With Gonzaga gone to the Pac-12, they're a leading WCC contender, and conference titles are where the points are.",
+      "at": "2026-10-11"
     },
     "mcbb_san_diego_state": {
-      "text": "22-11 but missed the tournament. A bubble team in its conference.",
-      "at": "2026-09-29"
+      "text": "22-11 but missed the tournament. A bubble team in the new Pac-12.",
+      "at": "2026-10-11"
     },
     "mcbb_slu": {
-      "text": "29-6 and a second-round team. A contender for its conference titles, which is where the points are.",
-      "at": "2026-09-29"
+      "text": "29-6 and a second-round team. A contender for the Atlantic 10 titles, which is where the points are.",
+      "at": "2026-10-11"
     },
     "mcbb_st_johns": {
-      "text": "Went 18-2 in the Big East and adds Auburn transfer Keyshawn Hall to Ian Jackson. Preseason No. 13; a strong Big East contender.",
-      "at": "2026-09-29"
+      "text": "Went 18-2 in the Big East and adds Baylor transfer Tounde Yessoufou to Ian Jackson, but Keyshawn Hall and two others are waiting on eligibility. No. 10 in ESPN's rankings; a strong Big East contender.",
+      "at": "2026-10-11"
     },
     "mcbb_tennessee": {
-      "text": "Adds Wake Forest transfer Juke Harris to Dewayne Brown II after an Elite Eight run. Preseason No. 15 and ninth in title odds.",
-      "at": "2026-09-29"
+      "text": "Rebuilt through the portal around DeWayne Brown II, adding Juke Harris, Terrence Hill Jr., Jalen Haralson and more after an Elite Eight run. Eighth in ESPN's preseason rankings; a likely tournament team with Elite Eight (+2) upside.",
+      "at": "2026-10-11"
     },
     "mcbb_texas": {
-      "text": "Returns top scorer Matas Vokietaitis and adds five-star Marcus Spears Jr.; CBS ranks them fifth and books fifth. After a 9-9 SEC year, a big step up is expected.",
-      "at": "2026-09-29"
+      "text": "Returns top scorer Matas Vokietaitis and adds five-star Marcus Spears Jr. and five transfers, though Mikey Lewis has a foot injury. Ranked 7th by ESPN and 9th by CBS; a big step up from last year's 9-9 SEC record is expected.",
+      "at": "2026-10-11"
     },
     "mcbb_texas_a_and_m": {
-      "text": "A 22-win second-round team. A likely bubble-to-tournament team in the SEC.",
-      "at": "2026-09-29"
+      "text": "A 22-win second-round team. A bubble-to-tournament team in a deep SEC.",
+      "at": "2026-10-11"
     },
     "mcbb_texas_tech": {
-      "text": "A 23-win tournament team that books still rate highly (13th in title odds). Likely back in the tournament; the Big 12 title is a stretch.",
-      "at": "2026-09-29"
+      "text": "JT Toppin is an All-American if healthy, and three key newcomers are awaiting eligibility rulings. Ninth in ESPN's rankings; likely back in the tournament, with a Big 12 title possible if the pieces clear.",
+      "at": "2026-10-11"
     },
     "mcbb_ucla": {
-      "text": "Returns Trent Perry, Eric Dailey Jr. and Xavier Booker and ranks 20th preseason. A solid tournament bet in the Big Ten.",
-      "at": "2026-09-29"
+      "text": "Returns Trent Perry, Eric Dailey Jr. and Xavier Booker, and adds Texas Tech's Jaylen Petty. No. 24 in ESPN's rankings; a solid tournament bet in the Big Ten.",
+      "at": "2026-10-11"
     },
     "mcbb_uconn": {
-      "text": "Last year's national runners-up return Braylon Mullins and Silas Demary. Top-five preseason and third in title odds; a strong Big East regular-season bet.",
-      "at": "2026-09-29"
+      "text": "Last year's national runners-up return Silas Demary Jr., Braylon Mullins and Jayden Ross, and added Duke's Nik Khamenia. Fifth in both ESPN's and CBS's rankings; a strong Big East regular-season bet (+3).",
+      "at": "2026-10-11"
     },
     "mcbb_utah_state": {
-      "text": "29-7 and a second-round team. A contender for its conference titles, which is where the points are.",
-      "at": "2026-09-29"
+      "text": "29-7 and a second-round team. A contender for its conference titles in the new Pac-12, which is where the points are.",
+      "at": "2026-10-11"
     },
     "mcbb_vanderbilt": {
-      "text": "27-9 and a second-round team last year. A likely tournament team in a deep SEC.",
-      "at": "2026-09-29"
+      "text": "Point guard Tyler Tanner is a Wooden Award contender, and a deep portal class joins him. No. 23 in ESPN's rankings; a likely tournament team in a deep SEC.",
+      "at": "2026-10-11"
     },
     "mcbb_villanova": {
-      "text": "A 24-win tournament team that went 15-5 in the Big East. Likely back in the tournament.",
-      "at": "2026-09-29"
+      "text": "A 24-win tournament team that went 15-5 in the Big East, though it lost Acaden Lewis to Miami. Just outside ESPN's Top 25; likely back in the tournament.",
+      "at": "2026-10-11"
     },
     "mcbb_virginia": {
-      "text": "A 30-6 team that returns Thijs De Ridder and Sam Lewis among five of its top ten scorers. Ninth preseason; an ACC title contender behind Duke.",
-      "at": "2026-09-29"
+      "text": "A 30-6 team that returns Thijs De Ridder, Sam Lewis, Johann Grunloh and point guard Chance Mallory. No. 13 in ESPN's rankings; an ACC title contender behind Duke.",
+      "at": "2026-10-11"
     },
     "mcbb_wisconsin": {
-      "text": "A 24-win tournament team that fell in the first round. Likely back on the bubble or better in the Big Ten.",
-      "at": "2026-09-29"
+      "text": "A 24-win tournament team that fell in the first round, then lost John Blackwell to Duke. Likely on the bubble in the Big Ten.",
+      "at": "2026-10-11"
     },
     "mcbb_xavier": {
       "text": "15-18 and 6-14 in the Big East. Likely to miss the tournament (-2), with last place (-3) a risk.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "mlb_angels": {
       "text": "62-100, last in the AL West. One of the likeliest teams to finish last again (-2) and contend for the AL's worst record (-3).",
