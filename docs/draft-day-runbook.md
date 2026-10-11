@@ -61,15 +61,17 @@ to the lobby; or just use a new room name.
 
 1. Run the preflight above.
 2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the
-   draft room has no sign-in button of its own), then "Open draft lobby". The Draft section there shows
+   draft room has no sign-in button of its own), then "Open draft room". The Draft section there shows
    whether the pool is loaded and the lottery has run.
+   Before the start the room is the full draft room (board, Available, queues) with a countdown in the
+   hero; every setup button below is in the commissioner bar across the top.
 3. **Load team pool.** It should say 258 teams. (Start draft also loads it if it's missing or short, but load and
    check the count here first.) If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
 4. Set the clock length (90s default; the clock is soft — it counts up in red, and nobody is auto-picked
    unless they're on auto-draft). Anyone who can't make it: switch on their auto-draft in **Clock &
    auto-draft**, ideally after they've starred a queue.
-5. **Run lottery.** Everyone watching the lobby sees the order revealed from pick 10 up to pick 1. Re-run
+5. **Run lottery.** Everyone in the room sees the order fill the board's column heads from pick 10 up to pick 1. Re-run
    is available until you start. To use an order you already have instead, tap **Set order**, move each
    name with the arrows (pick 1 at the top) and **Save order**; this also works after a lottery.
 6. **Start draft** when everyone is in. The header pill reads "Live · Round 1 · Pick 1 of 210".

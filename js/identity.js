@@ -302,7 +302,7 @@ export function openDraftPicker(){
       <span class="set-chev">&rsaquo;</span>
     </button>
     <button class="sheet-row" onclick="goToDraftRoom('main')">
-      <span class="sheet-row-text">Live Draft<span class="sheet-desc block">The real draft lobby</span></span>
+      <span class="sheet-row-text">Live Draft<span class="sheet-desc block">The real draft room</span></span>
       <span class="set-chev">&rsaquo;</span>
     </button>`;
   openSheetOverlay(document.getElementById('identity-sheet-overlay'));

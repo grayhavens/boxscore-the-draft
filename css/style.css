@@ -5616,11 +5616,9 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-btn-gold{ background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 
 /* Lobby */
-.dr-lobby{ max-width: 720px; margin: 0 auto; padding: 20px 20px 60px; display: flex; flex-direction: column; gap: 22px; }
 .dr-eyebrow{ font-size: var(--fs-11); font-weight: 700; letter-spacing: var(--track-label); color: var(--text-mute); display: flex; align-items: center; gap: 8px; }
 .dr-eyebrow.gold{ color: var(--accent); }
 .dr-eyebrow.win{ color: var(--win); }
-.dr-lobby-copy{ margin: 0; max-width: 560px; font-size: var(--fs-15); line-height: 1.5; color: var(--text-sub); }
 .dr-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-lg); overflow: hidden; }
 .dr-card-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 14px 18px; border-bottom: 1px solid var(--hairline); }
 .dr-card-head h3{ margin: 0; font-size: var(--fs-17); font-weight: 700; }
@@ -5628,7 +5626,6 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-order-row:last-child{ border-bottom: 0; }
 /* The live room's auto-draft switches: no pick-number column. */
 .dr-order-row.dr-auto-row{ grid-template-columns: 1fr auto; }
-.dr-order-row.shown{ background: var(--seg-track); }
 .dr-order-row.me{ background: var(--accent-soft); }
 .dr-order-n{ font-size: var(--fs-18); font-weight: 800; font-variant-numeric: tabular-nums; }
 .dr-order-name{ font-size: var(--fs-17); font-weight: 600; }
@@ -5636,31 +5633,12 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-move-btns{ display: flex; gap: 6px; }
 .dr-move-btn{ width: 34px; padding: 0; font-size: var(--fs-15); }
 .dr-you{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-tag); color: var(--accent); }
-.dr-first-picks{ font-size: var(--fs-13); color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .dr-actions{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .dr-actions-sub{ gap: 12px; }
 .dr-bot-actions{ padding: 14px 18px; margin: 0; }
 .dr-bot-tag{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-label); color: var(--text-mute); }
 .dr-inline{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-13); color: var(--text-sub); }
 .dr-inline select{ height: 34px; border-radius: var(--r-sm); border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); padding: 0 8px; font: inherit; }
-.dr-wait{ font-size: var(--fs-13); color: var(--text-sub); }
-/* The lobby's commissioner controls: buttons, then the clock, on one line.
-   Under 600px a two-column grid (the primary button across both when the
-   rest pair up), so no control is left on a line by itself. */
-.dr-lobby-actions{ display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
-.dr-action-group{ display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-.dr-action-group:empty{ display: none; }
-.dr-narrow-only{ display: none; }
-@media (max-width: 600px){
-  .dr-wide-only{ display: none; }
-  .dr-narrow-only{ display: flex; }
-  .dr-lobby-actions{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .dr-action-group{ display: contents; }
-  .dr-lobby-actions .dr-btn{ width: 100%; padding: 0 10px; }
-  .dr-lobby-actions.span .dr-btn-primary{ grid-column: 1 / -1; }
-  .dr-lobby-actions .dr-inline{ justify-content: space-between; min-width: 0; }
-}
-
 /* Live room layout */
 .dr-layout{
   height: 100%;
@@ -5942,12 +5920,11 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-proxy-btn{ margin-top: 10px; height: 32px; }
 .dr-proxy-note{ padding: 8px 12px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-12); font-weight: 600; flex: 0 0 auto; }
 .dr-cell.editable{ cursor: pointer; }
-/* Auto-draft: my switch (under My queue, and the lobby), the AUTO tag
+/* Auto-draft: my switch (under My queue), the AUTO tag
    beside the name on the clock card, and the board's dot. */
 .dr-auto{ display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; margin: 14px 0 0; border-radius: var(--r-sm); background: var(--seg-track); }
 .dr-auto-label{ font: var(--type-meta); font-size: var(--fs-13); color: var(--text); }
 .dr-auto .switch{ flex: 0 0 auto; }
-.dr-lobby .dr-auto{ margin: 0; }
 .dr-clock-name .dr-badge{ font-family: var(--font-ui); font-weight: 700; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
 /* A dot rather than a word: board columns are too narrow for a tag. */
 .dr-auto-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: middle; }
@@ -6401,6 +6378,8 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .draft-clock-time span{ font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
 .draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
 .draft-clock.hurry .draft-clock-time b{ color: var(--live); }
+/* The countdown to the start: "1:05:09" or "2d 4h" needs a smaller size. */
+.draft-clock.long .draft-clock-time b{ font-size: 21px; }
 
 /* ClockHero (clockHeroHtml): the card while you're on the clock, and the
    pick landing it turns into (pickLandingHtml) once your pick is in. */

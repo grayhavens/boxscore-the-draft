@@ -305,15 +305,19 @@ export function mentionListHtml({ options, active = 0 }){
 // DraftClock: the on-the-clock ring. The ring is drawn one second ahead of
 // the time and eases there over 1s, so it lands as the number changes.
 // `hurry` (the last 8 seconds) turns it red; the draft room keeps it ticking
-// with setDraftClock rather than re-rendering.
+// with setDraftClock rather than re-rendering. Before the draft the same
+// ring counts down to the start: `text` replaces the time ("2d 4h",
+// "1:05:09") and `label` the "to pick" under it; a long text gets a
+// smaller size (.long).
 export const DRAFT_CLOCK_C = 339.3;
 export const draftClockOffset = (secondsLeft, total) =>
   (DRAFT_CLOCK_C * (1 - Math.max(secondsLeft - 1, 0) / Math.max(total, 1))).toFixed(1);
 const clockText = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-export function draftClockHtml({ secondsLeft, total, hurry = false }){
+export function draftClockHtml({ secondsLeft, total, hurry = false, text = null, label = 'to pick' }){
   const s = Math.max(0, Math.ceil(secondsLeft));
-  return `<div class="draft-clock${hurry ? ' hurry' : ''}" data-sec="${s}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="draft-clock-track" cx="60" cy="60" r="54"></circle><circle class="draft-clock-ring" cx="60" cy="60" r="54" style="stroke-dashoffset:${draftClockOffset(s, total)}"></circle></svg><div class="draft-clock-time"><b>${clockText(s)}</b><span>to pick</span></div></div>`;
+  const shown = text === null ? clockText(s) : text;
+  return `<div class="draft-clock${hurry ? ' hurry' : ''}${shown.length > 5 ? ' long' : ''}" data-sec="${s}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="draft-clock-track" cx="60" cy="60" r="54"></circle><circle class="draft-clock-ring" cx="60" cy="60" r="54" style="stroke-dashoffset:${draftClockOffset(s, total)}"></circle></svg><div class="draft-clock-time"><b>${escapeHtml(shown)}</b><span>${escapeHtml(label)}</span></div></div>`;
 }
 
 // The first call on a freshly rendered clock jumps straight to the time
