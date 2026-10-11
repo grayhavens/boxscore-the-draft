@@ -603,124 +603,124 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-09-29"
     },
     "nba_76ers": {
-      "text": "The summer's biggest swing: LeBron James and Jaylen Brown join Joel Embiid and Tyrese Maxey. Books have them third for the title, but health and chemistry make them the highest-variance contender.",
-      "at": "2026-09-29"
+      "text": "LeBron James and Jaylen Brown join Joel Embiid and Tyrese Maxey, and Embiid reportedly had a strong summer of knee rehab. Backup center Ariel Hukporti is out for the season with a torn Achilles. The highest-variance contender in the East.",
+      "at": "2026-10-11"
     },
     "nba_blazers": {
-      "text": "Traded for Ja Morant to join Damian Lillard and Scoot Henderson, and previews expect some growing pains. Likely a play-in team; the Northwest is out of reach.",
-      "at": "2026-09-29"
+      "text": "Micah Nori is the new coach, and the trade for Ja Morant pairs him with Damian Lillard and Scoot Henderson. Previews expect growing pains; a play-in team, with the Northwest out of reach.",
+      "at": "2026-10-11"
     },
     "nba_bucks": {
-      "text": "Traded Giannis Antetokounmpo to Miami and hired Taylor Jenkins to run a rebuild. Near-consensus bottom-two team; a leading candidate for last in the Central and the East's worst record.",
-      "at": "2026-09-29"
+      "text": "Traded Giannis Antetokounmpo to Miami and hired Taylor Jenkins to run a rebuild. A near-consensus bottom-three team, and a leading candidate for last in the Central (-2) and the East's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nba_bulls": {
-      "text": "A rebuild built around Caleb Wilson and Matas Buzelis. Expect a lottery team; last place in the Central (-2) is the main risk.",
-      "at": "2026-09-29"
+      "text": "Tiago Splitter takes over a rebuild built around Caleb Wilson and Matas Buzelis, who left a preseason game with an ankle injury. Expect a lottery team; last place in the Central (-2) is the main risk.",
+      "at": "2026-10-11"
     },
     "nba_cavaliers": {
-      "text": "James Harden, Donovan Mitchell and Evan Mobley get a full season together after last year's run to the East finals. The Central is theirs to win (+160) if Detroit slips, and a top-four seed is likely.",
-      "at": "2026-09-29"
+      "text": "James Harden, Donovan Mitchell and Evan Mobley get a full season together after last year's run to the East finals. A top-four seed looks likely, and the Central (+2) is a real race with Detroit.",
+      "at": "2026-10-11"
     },
     "nba_celtics": {
-      "text": "Jayson Tatum is back, and they traded Jaylen Brown for Paul George and added Mitchell Robinson after a 56-win season. Expect a top-four seed in the East; the Atlantic is a three-way fight with New York and Philadelphia.",
-      "at": "2026-09-29"
+      "text": "Jayson Tatum is back, and they swapped Jaylen Brown for Paul George and added Mitchell Robinson after a 56-win season. Expect a top-four seed; the Atlantic (+2) is a three-way fight with New York and Philadelphia.",
+      "at": "2026-10-11"
     },
     "nba_clippers": {
-      "text": "Lost Kawhi Leonard to Toronto and are short on draft picks after league penalties. Previews rank them near the bottom; last in the Pacific (-2) or the West's worst record (-3) are real risks.",
-      "at": "2026-09-29"
+      "text": "Lost Kawhi Leonard to Toronto, and the league's salary-cap penalties cost them five first-round picks, a $30 million fine and a one-year ban for Steve Ballmer. Previews rank them near the bottom; last in the Pacific (-2) is a real risk.",
+      "at": "2026-10-11"
     },
     "nba_grizzlies": {
-      "text": "Traded Ja Morant and are starting over around rookie Cam Boozer and Zach Edey. A rebuilding year; last in the Southwest (-2) and the West's worst record (-3) are both on the table.",
-      "at": "2026-09-29"
+      "text": "Traded Ja Morant and are starting over around rookie Cam Boozer and Zach Edey, whose health is the big question. A rebuilding year; last in the Southwest (-2) and the West's worst record (-3) are both on the table.",
+      "at": "2026-10-11"
     },
     "nba_hawks": {
-      "text": "Life after Trae Young: a fast-paced team built around Jalen Johnson, with Lu Dort added. Previews have them around the East's play-in line; a playoff spot is possible but hardly safe.",
-      "at": "2026-09-29"
+      "text": "Life after Trae Young: a fast team built around Jalen Johnson, with Lu Dort added on defense. Previews call them too good to bottom out but short of a conference-finals ceiling; a play-in or low playoff seed is likeliest.",
+      "at": "2026-10-11"
     },
     "nba_heat": {
-      "text": "Landed Giannis Antetokounmpo to pair with Bam Adebayo, which should make them a strong defensive team. Shooting is the question; books rate them a real East threat at +950.",
-      "at": "2026-09-29"
+      "text": "Landed Giannis Antetokounmpo to pair with Bam Adebayo, which should make them a strong defensive team. Shooting is the question, but they're a real threat for the Southeast (+2) and a deep East run.",
+      "at": "2026-10-11"
     },
     "nba_hornets": {
-      "text": "Traded LaMelo Ball to Minnesota and are leaning on Brandon Miller, Kon Knueppel and a deep bench. A play-in contender at best; missing the playoffs is the likelier result.",
-      "at": "2026-09-29"
+      "text": "Traded LaMelo Ball to Minnesota and are leaning on Brandon Miller, Kon Knueppel and a deep bench after a 44-win year. A play-in contender; missing the playoffs is slightly likelier.",
+      "at": "2026-10-11"
     },
     "nba_jazz": {
       "text": "Rookie Darryn Peterson joins Lauri Markkanen and Jaren Jackson Jr., and some previews call them a sleeper. Still a long way from the Northwest's top; avoiding last place (-2) is the realistic bar.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "nba_kings": {
-      "text": "Domantas Sabonis, Zach LaVine and rookie Darius Acuff Jr. can score, but previews call the defense historically bad. Ranked last in most previews: a prime candidate for the West's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "Domantas Sabonis, Zach LaVine and rookie Darius Acuff Jr. can score, but the defense projects as one of the worst in years. Ranked last on nearly every preview list: a prime candidate for the West's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nba_knicks": {
-      "text": "The defending champions bring back nearly the whole title roster, minus Mitchell Robinson, who left for Boston. A top-three team in every preview and slight favorites in the Atlantic (+160).",
-      "at": "2026-09-29"
+      "text": "The defending champions bring back nearly the whole title roster, minus Mitchell Robinson, who left for Boston. A top-three team in almost every preview and the slight favorite in the Atlantic (+2).",
+      "at": "2026-10-11"
     },
     "nba_lakers": {
-      "text": "Luka Dončić's team now, with LeBron gone and Walker Kessler added to protect the rim. Books favor them to win the Pacific (-130), which makes division points a realistic target.",
-      "at": "2026-09-29"
+      "text": "Luka Dončić's team now, with LeBron James gone and Walker Kessler added to protect the rim. Previews are mixed on the supporting cast, but they're favored to win a soft Pacific (+2).",
+      "at": "2026-10-11"
     },
     "nba_magic": {
-      "text": "Paolo Banchero and Franz Wagner headline an expensive roster that underachieved last season. Previews see them as a mid-pack East playoff team, not a contender.",
-      "at": "2026-09-29"
+      "text": "Sean Sweeney replaces Jamahl Mosley as coach of an expensive roster led by Paolo Banchero and Franz Wagner that underachieved last season. Previews see a mid-pack East playoff team, not a contender.",
+      "at": "2026-10-11"
     },
     "nba_mavericks": {
-      "text": "Cooper Flagg's second season depends on Kyrie Irving coming back healthy. After a 26-win year they're a lottery-to-play-in team; last in the Southwest (-2) is a real risk.",
-      "at": "2026-09-29"
+      "text": "Dusty May takes over from Jason Kidd, and Cooper Flagg's second season depends on Kyrie Irving returning healthy from his knee injury. Dereck Lively is out indefinitely. A play-in team at best; last in the Southwest (-2) is a real risk.",
+      "at": "2026-10-11"
     },
     "nba_nets": {
-      "text": "Julius Randle leads a young, rebuilding roster, and books have them as the longest shot for the title. Strong candidates for last in the Atlantic (-2) and the East's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "Julius Randle leads a young, rebuilding roster ranked near the bottom of every preview. Strong candidates for last in the Atlantic (-2) and the East's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nba_nuggets": {
-      "text": "Nikola Jokić is still the league's best player, but the supporting cast was reshuffled over the summer. A playoff team for sure; how far they go depends on the new pieces fitting around him.",
-      "at": "2026-09-29"
+      "text": "Nikola Jokić ran the league's best offense last season, but a first-round exit and a reshuffled supporting cast raise questions. A sure playoff team; a deep run depends on the new pieces and the defense.",
+      "at": "2026-10-11"
     },
     "nba_pacers": {
-      "text": "Tyrese Haliburton returns from his Achilles injury, with Ivica Zubac and Kelly Oubre Jr. added. After a 19-63 year without him, a return to the playoffs is realistic if he's himself.",
-      "at": "2026-09-29"
+      "text": "Tyrese Haliburton is back from his Achilles tear, with only a mild ankle tweak in preseason, and Ivica Zubac and Kelly Oubre Jr. were added. After a 19-63 year without him, a return to the playoffs (+1) is realistic.",
+      "at": "2026-10-11"
     },
     "nba_pelicans": {
-      "text": "Hoping Dejounte Murray's return from an Achilles tear steadies a roster built around Zion Williamson. Previews project a lottery team; last in the Southwest (-2) is in play.",
-      "at": "2026-09-29"
+      "text": "Jamahl Mosley takes over, hoping Dejounte Murray's return from an Achilles tear steadies a roster built around Zion Williamson. Previews project a lottery team; last in the Southwest (-2) is in play.",
+      "at": "2026-10-11"
     },
     "nba_pistons": {
-      "text": "Last season's East No. 1 seed at 60-22, built around Cade Cunningham and Jalen Duren. Even-money favorites in the Central, and a realistic contender for the East's best record (+3) again.",
-      "at": "2026-09-29"
+      "text": "Last season's East No. 1 seed at 60-22, built around Cade Cunningham and Jalen Duren, lost in the second round. Favored to win the Central (+2) again and a realistic contender for the East's best record (+3).",
+      "at": "2026-10-11"
     },
     "nba_raptors": {
-      "text": "Kawhi Leonard is back in Toronto alongside Scottie Barnes, and some previews rank them top six. If Leonard stays healthy they're a playoff lock; the Atlantic is crowded, though.",
-      "at": "2026-09-29"
+      "text": "Kawhi Leonard is back in Toronto alongside Scottie Barnes, and previews rate them a high-upside playoff team. If Leonard stays healthy they're a safe playoff pick; the Atlantic is crowded, though.",
+      "at": "2026-10-11"
     },
     "nba_rockets": {
-      "text": "A deep roster built around Alperen Şengün, Amen Thompson and Kevin Durant. Solid bet for the playoffs, but the Spurs make the Southwest (+750) a long shot.",
-      "at": "2026-09-29"
+      "text": "A deep roster built around Alperen Şengün, Amen Thompson and Kevin Durant, though previews call them a flawed contender. A solid bet for the playoffs, but the Spurs make the Southwest a long shot.",
+      "at": "2026-10-11"
     },
     "nba_spurs": {
-      "text": "Last year's runners-up are many previews' No. 1, with Victor Wembanyama at an MVP level and Tobias Harris added. Heavy Southwest favorites (-1200), so division points are close to banked and a deep run is likely.",
-      "at": "2026-09-29"
+      "text": "Last year's runners-up rank first or second in nearly every preview, with Victor Wembanyama anchoring one of the league's best defenses and Tobias Harris added. Heavy Southwest favorites (+2) with a real shot at the West's best record (+3).",
+      "at": "2026-10-11"
     },
     "nba_suns": {
-      "text": "Devin Booker's team has health questions around Jalen Green and Mark Williams. Previews see a fringe play-in team, though the Pacific (+265) is weaker than it looks.",
-      "at": "2026-09-29"
+      "text": "Devin Booker's team has health questions around Jalen Green and Mark Williams, and previews have them retooling. A fringe play-in team, though the Pacific is weak enough to keep them in the race.",
+      "at": "2026-10-11"
     },
     "nba_thunder": {
-      "text": "Co-favorites for the title with Shai Gilgeous-Alexander still the league's toughest cover, though they moved on from Lu Dort, Isaiah Joe and Aaron Wiggins. A safe bet for the Northwest (+2) and a strong one for the West's best record (+3).",
-      "at": "2026-09-29"
+      "text": "Title favorites again, with Shai Gilgeous-Alexander the league's toughest cover and Chet Holmgren's health the main watch item. They lost depth in Lu Dort, Isaiah Joe and Aaron Wiggins, but remain a safe bet for the Northwest (+2) and a strong one for the West's best record (+3).",
+      "at": "2026-10-11"
     },
     "nba_timberwolves": {
-      "text": "Traded Julius Randle and brought in LaMelo Ball to pair with Anthony Edwards. High ceiling if Ball settles in, but the Northwest belongs to Oklahoma City; think playoffs and a possible second-round run.",
-      "at": "2026-09-29"
+      "text": "Traded Julius Randle and brought in LaMelo Ball to pair with Anthony Edwards, and some previews pick them to reach the Finals. The Northwest belongs to Oklahoma City, but playoffs and a deep run are realistic.",
+      "at": "2026-10-11"
     },
     "nba_warriors": {
-      "text": "Stephen Curry's supporting cast is aging (Draymond Green is 36, Al Horford 40) and Kristaps Porziņģis is injury-prone. Previews project a play-in team, and last place in the Pacific (-2) isn't out of the question.",
-      "at": "2026-09-29"
+      "text": "Jimmy Butler is still working back from a torn ACL and may return around midseason, and the rest of Stephen Curry's supporting cast is aging. Rookie Yaxel Lendeborg impressed in summer league. A play-in team in most previews.",
+      "at": "2026-10-11"
     },
     "nba_wizards": {
-      "text": "Added Trae Young to a veteran-heavy build (Khris Middleton, Deandre Ayton) after a 17-65 season, and previews call the fit confusing. Still near the bottom of the East, so last in the Southeast (-2) is a strong possibility.",
-      "at": "2026-09-29"
+      "text": "Added Trae Young to a veteran-heavy build with Khris Middleton and Deandre Ayton after a 17-65 season, and previews question the fit. Still near the bottom of the East, so last in the Southeast (-2) is a strong possibility.",
+      "at": "2026-10-11"
     },
     "nfl_49ers": {
       "text": "4-0 with the league's best point differential, and Brock Purdy, Christian McCaffrey and George Kittle are all producing. The NFC West (+2) and the NFC's best record (+3) both run through them right now.",
