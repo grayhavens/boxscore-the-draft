@@ -723,132 +723,132 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-09-29"
     },
     "nfl_49ers": {
-      "text": "Brock Purdy is playing at an MVP level and George Kittle is back from his Achilles, so a 3-0 start looks real. The NFC West runs through them, and the top NFC seed (+3) is in play if the injuries stay manageable.",
-      "at": "2026-09-29"
+      "text": "4-0 with the league's best point differential, and Brock Purdy, Christian McCaffrey and George Kittle are all producing. The NFC West (+2) and the NFC's best record (+3) both run through them right now.",
+      "at": "2026-10-11"
     },
     "nfl_bears": {
-      "text": "Caleb Williams is out three to four weeks with a hamstring strain, so 38-year-old Case Keenum is starting. A 2-1 start gives them a cushion, but repeating as NFC North champs depends on treading water until Williams returns.",
-      "at": "2026-09-29"
+      "text": "3-1 even with Caleb Williams out with a hamstring strain; Ben Johnson's offense still crushed the Jets with a backup starting. Williams could return soon. The defending NFC North champs are right in the division race (+2).",
+      "at": "2026-10-11"
     },
     "nfl_bengals": {
-      "text": "The offense can keep them in any game, but the defense just let Aaron Rodgers' Steelers put up 30. A playoff spot is realistic; the AFC North title (+2) means getting past a Ravens team that books still favor.",
-      "at": "2026-09-29"
+      "text": "Joe Burrow's offense lost Ja'Marr Chase to a concussion in a home loss to the Jaguars, though he's expected back soon. The defense is the worry; a playoff spot is realistic, the AFC North (+2) harder with the Ravens and Browns ahead.",
+      "at": "2026-10-11"
     },
     "nfl_bills": {
-      "text": "Books' second favorite for the Super Bowl and heavy AFC East favorites, with Josh Allen 3-0 even on off days and Dalton Kincaid emerging as his top target. Among the safest bets for playoff and division points.",
-      "at": "2026-09-29"
+      "text": "Their first loss came at home to the Patriots, a game where they drifted away from James Cook and the run game. Josh Allen still makes them the AFC East favorite (+2), and a deep run is realistic.",
+      "at": "2026-10-11"
     },
     "nfl_broncos": {
-      "text": "Last year's 14-3 AFC West champs lean on their defense while Courtland Sutton and the offense sputter. The Chiefs are back to 3-0, so the division (+2) is a real fight, but a playoff spot looks likely.",
-      "at": "2026-09-29"
+      "text": "Last year's 14-3 AFC West champs are 2-2 after a close loss to San Francisco, and they've lost both starting cornerbacks to injury. Bo Nix and the defense should get them into the playoff mix, but the Chiefs lead the division.",
+      "at": "2026-10-11"
     },
     "nfl_browns": {
-      "text": "A surprise 2-1 start behind a defense that's playing well together. Still long shots in a division with the Ravens and Bengals; the draw is avoiding last place (-2) more than chasing a title.",
-      "at": "2026-09-29"
+      "text": "Three straight wins, including a Thursday win over Pittsburgh, behind a defense that keeps getting after the quarterback. Tied for the AFC North lead at 3-1; avoiding last place (-2) looks likely and a wild-card push is possible.",
+      "at": "2026-10-11"
     },
     "nfl_bucs": {
-      "text": "0-3 and Baker Mayfield is out at least three weeks with a thumb injury, leaving rookie Jalon Daniels under center. The NFC South is weak enough to recover in, but last place in the division (-2) is a real risk right now.",
-      "at": "2026-09-29"
+      "text": "Won in Dallas for their first victory after four one-score losses, with undrafted rookie Jalon Daniels starting for the injured Baker Mayfield. The NFC South is weak enough to climb back into once Mayfield returns; last place (-2) is still a risk.",
+      "at": "2026-10-11"
     },
     "nfl_cardinals": {
-      "text": "Jacoby Brissett has been steadier than expected, but after a 3-14 season this is still one of the NFL's thinnest rosters. Books have them near the bottom; last place in the NFC West (-2) is the likeliest outcome.",
-      "at": "2026-09-29"
+      "text": "1-3 after letting a lead slip against the Giants, and still one of the thinnest rosters in the league after a 3-14 year. Last place in the NFC West (-2) is the likeliest outcome.",
+      "at": "2026-10-11"
     },
     "nfl_chargers": {
-      "text": "0-3 with three turnovers in their last loss and Omarion Hampton struggling to carry the run game. A playoff team last year, but books now put them 19th in the Super Bowl market and the AFC West looks out of reach.",
-      "at": "2026-09-29"
+      "text": "0-4 and the offense is broken: Justin Herbert is forcing plays, and Jim Harbaugh has been asked about coordinator Mike McDaniel's job. A playoff team last year, now at risk of last in the AFC West (-2) and the AFC's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nfl_chiefs": {
-      "text": "Back to form after a 6-11 year: 3-0, Patrick Mahomes in control, and Kenneth Walker III giving them a real run game. Books make them AFC West favorites again, so division (+2) and playoff points are well within reach.",
-      "at": "2026-09-29"
+      "text": "4-0 after a 6-11 year, with Patrick Mahomes back in control and Kenneth Walker III giving them a real run game. Receiver depth is the weak spot. Strong favorites for the AFC West (+2), with the AFC's top seed (+3) in play.",
+      "at": "2026-10-11"
     },
     "nfl_colts": {
-      "text": "Daniel Jones is back from his Achilles but turning the ball over, and the defense and kicker have had to win games. They look like a middle-of-the-pack AFC South team, with a wild-card spot possible but far from safe.",
-      "at": "2026-09-29"
+      "text": "Daniel Jones is back from his Achilles and the defense has carried them to 2-2. A middle-of-the-pack AFC South team with a wild-card shot, though the Jaguars are the clear division favorite.",
+      "at": "2026-10-11"
     },
     "nfl_commanders": {
-      "text": "Jayden Daniels is hurt, but Marcus Mariota just led an upset of the champion Seahawks. After a 5-12 year, a playoff push depends on Daniels' timeline; the NFC East is open with the Eagles and Cowboys wobbling.",
-      "at": "2026-09-29"
+      "text": "Jayden Daniels is hurt and Marcus Mariota left their last game with a knee injury, forcing rookie third-stringer Athan Kaliakmanis into action. At 1-3, last in the NFC East (-2) is a real risk until Daniels returns.",
+      "at": "2026-10-11"
     },
     "nfl_cowboys": {
-      "text": "Dak Prescott is playing at a Pro Bowl level, but late-game defense has cost them twice already. Books still rate them the Eagles' main NFC East rival, and a wild-card spot looks realistic if the defense firms up.",
-      "at": "2026-09-29"
+      "text": "Lost at home on Thursday to a winless Tampa Bay team, a week after a last-minute win over Houston. Dak Prescott's offense is explosive but the defense keeps leaking. A wild-card push is possible; the NFC East is wide open.",
+      "at": "2026-10-11"
     },
     "nfl_dolphins": {
-      "text": "Books' longest shot in the league at +100000 after an 0-3 start, with De'Von Achane lost to a torn ACL. Strong candidates for last in the AFC East (-2) and the conference's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "0-4 under first-year coach Jeff Hafley, with a low-ceiling offense and De'Von Achane out for the season with a torn ACL. Strong candidates for last in the AFC East (-2) and the AFC's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nfl_eagles": {
-      "text": "Still NFC East favorites, but Jalen Hurts struggled badly in a loss to a Case Keenum-led Bears team. The division title (+2) is theirs to lose; whether they're a real Super Bowl threat again depends on the offense finding a rhythm.",
-      "at": "2026-09-29"
+      "text": "Saquon Barkley and DeVonta Smith are both out with hamstring injuries, and the offense sputtered in a loss to the Rams. Still the team to beat in a muddled NFC East (+2), but a deep January run looks less likely than last year.",
+      "at": "2026-10-11"
     },
     "nfl_falcons": {
-      "text": "Bijan Robinson carried them to a lopsided win over the Packers, but the quarterback spot is still unsettled. The NFC South is winnable, so they're a division sleeper even with long Super Bowl odds.",
-      "at": "2026-09-29"
+      "text": "Bijan Robinson and Brian Robinson Jr. combined for five rushing touchdowns in a rout of the Saints, and Michael Penix Jr. is under center. In an NFC South with no clear leader, they're a real division-title candidate (+2).",
+      "at": "2026-10-11"
     },
     "nfl_giants": {
-      "text": "Jaxson Dart is out for the season, so they traded for J.J. McCarthy just to steady the position. A 2-1 start is a bonus, but after a 4-13 year the NFC East basement (-2) is still the bigger risk.",
-      "at": "2026-09-29"
+      "text": "3-1 thanks to a defense that's playing well, but Jaxson Dart is out for the season after knee surgery. After a 4-13 year, holding on in the NFC East depends on the stopgap quarterbacks; last place (-2) is still a risk.",
+      "at": "2026-10-11"
     },
     "nfl_jaguars": {
-      "text": "Last year's AFC South champs just dominated the Patriots, and Travis Hunter is making plays on defense. Books favor them to win the division again, which makes them solid value for playoff and division points.",
-      "at": "2026-09-29"
+      "text": "Last year's AFC South champs are 3-1 after a road win in Cincinnati, with Trevor Lawrence steady and Travis Hunter contributing. Penalties are the main flaw. Favorites to repeat in the division (+2), with Houston 0-4.",
+      "at": "2026-10-11"
     },
     "nfl_jets": {
-      "text": "Showed fight in a comeback against the Lions, and rookie tight end Kenyon Sadiq looks like a real piece. Still rebuilding after a 3-14 season and stuck behind the Bills, so avoiding last in the AFC East (-2) is the goal.",
-      "at": "2026-09-29"
+      "text": "1-3 after being run off the field by the Bears, outgained by more than 300 yards. Still rebuilding after a 3-14 season, so avoiding last in the AFC East (-2) and the AFC's worst record (-3) is the realistic goal.",
+      "at": "2026-10-11"
     },
     "nfl_lions": {
-      "text": "Jahmyr Gibbs is carrying the offense and Jared Goff is steady, but the defense keeps giving up fourth-quarter leads. After missing the playoffs last year they're a coin flip for the NFC North, now crowded with the 3-0 Vikings.",
-      "at": "2026-09-29"
+      "text": "Lost to Carolina with Jahmyr Gibbs bottled up, and the defense keeps fading late. At 2-2 and behind the unbeaten Vikings and the Bears, the NFC North is a three-way fight; a wild-card spot is the realistic aim.",
+      "at": "2026-10-11"
     },
     "nfl_packers": {
-      "text": "A 21-point loss to the Falcons that Matt LaFleur called humbling, no running game, and Tucker Kraft still finding his way back from an ACL. Books have fallen off them fast; the playoffs look shaky in a deep NFC North.",
-      "at": "2026-09-29"
+      "text": "Lost linebacker Edgerrin Cooper for the season to a torn Achilles, and even their win in Tampa was ugly. Jordan Love's offense has no consistent run game, and a crowded NFC North makes the playoffs shaky.",
+      "at": "2026-10-11"
     },
     "nfl_panthers": {
-      "text": "Won the NFC South last year, but Bryce Young is banged up and the receivers are thin after Jalen Coker's injury. The division is open with Tampa Bay reeling, so they're a reasonable division-title flier.",
-      "at": "2026-09-29"
+      "text": "Upset Detroit behind 329 passing yards from Bryce Young and two Chuba Hubbard touchdowns, despite missing receiver Jalen Coker. The defending NFC South champs are 2-2 in a division with no clear leader.",
+      "at": "2026-10-11"
     },
     "nfl_patriots": {
-      "text": "Last year's AFC champs look lost at 1-2: Drake Maye is posting career-worst numbers without A.J. Brown. Books still give them the Bills' best AFC East challenge, but a return trip deep into January looks unlikely.",
-      "at": "2026-09-29"
+      "text": "Last year's AFC champs got back to 2-2 with a road win in Buffalo, and Drake Maye is making clutch plays again. Still the Bills' main AFC East rival; a playoff return is realistic.",
+      "at": "2026-10-11"
     },
     "nfl_raiders": {
-      "text": "The surprise of the season at 3-0, with Kirk Cousins starting ahead of top pick Fernando Mendoza and Brock Bowers the focal point. After a 3-14 year, books still doubt them, making them a high-upside, high-risk pick.",
-      "at": "2026-09-29"
+      "text": "3-1 with Kirk Cousins starting and Brock Bowers the focal point, and they pushed the unbeaten Chiefs to the wire. Ashton Jeanty's foot injury could cost him time. After a 3-14 year, a wild-card run would be a big bonus.",
+      "at": "2026-10-11"
     },
     "nfl_rams": {
-      "text": "Books' Super Bowl favorites, but they blew a 16-0 halftime lead to Denver and Puka Nacua is nursing a groin injury. A 1-2 start is a blip for a roster this good; NFC West title and deep-run points are both realistic.",
-      "at": "2026-09-29"
+      "text": "Rallied past the Eagles in the fourth quarter to get back to 2-2, and Matthew Stafford still has one of the deepest rosters in the league. The NFC West (+2) is a real fight with the 49ers and Seahawks; deep-run points are realistic.",
+      "at": "2026-10-11"
     },
     "nfl_ravens": {
-      "text": "Lamar Jackson has the passing game humming again with Zay Flowers back, and books make them AFC North favorites and third in the Super Bowl market. Red-zone trouble is the only real knock after a disappointing 8-9 year.",
-      "at": "2026-09-29"
+      "text": "Lamar Jackson sprained his ankle and is expected to miss a couple of weeks, with Tyler Huntley starting. The roster is good enough to tread water; the AFC North (+2) is still theirs to lose once Jackson is back.",
+      "at": "2026-10-11"
     },
     "nfl_saints": {
-      "text": "Tyler Shough is productive but faded late against the Raiders. Books actually make them slight favorites in a wide-open NFC South (+134), so there's more division-title upside here than their +8000 Super Bowl odds suggest.",
-      "at": "2026-09-29"
+      "text": "Blown out by Atlanta, allowing more than 200 rushing yards, to fall to 1-3. Tyler Shough has been productive, but the defense has collapsed; last in the NFC South (-2) is now a bigger risk than a division title.",
+      "at": "2026-10-11"
     },
     "nfl_seahawks": {
-      "text": "The defending champions, but Sam Darnold threw a pick-six in an upset loss to Washington. Still a strong NFC West contender and fifth in the Super Bowl market, with the Rams and 49ers making the division a three-way fight.",
-      "at": "2026-09-29"
+      "text": "The defending champions bounced back from the loss to Washington by routing the Chargers 27-6. The defense is elite again; the NFC West is a three-way fight with the 49ers and Rams, but a playoff spot looks safe.",
+      "at": "2026-10-11"
     },
     "nfl_steelers": {
-      "text": "Aaron Rodgers finally opened up the passing game in a 30-point win over Cincinnati, and D.K. Metcalf is producing. Last year's AFC North champs are a wild-card-type team; books have the Ravens ahead of them.",
-      "at": "2026-09-29"
+      "text": "Aaron Rodgers and D.K. Metcalf rallied late in a Thursday loss to Cleveland, but the offense has been uneven and the coaching staff tense. Last year's AFC North champs look like a wild-card hopeful at best.",
+      "at": "2026-10-11"
     },
     "nfl_texans": {
-      "text": "0-3 with no run game and too little at receiver for the defense to carry. A playoff team last year, but they're now the AFC South's biggest question mark; a slow start makes the division (+2) a long shot.",
-      "at": "2026-09-29"
+      "text": "0-4 after giving up another late lead, and the defense that carried them last year has slipped. C.J. Stroud lacks help at receiver. Last place in the AFC South (-2) is now as likely as a playoff return.",
+      "at": "2026-10-11"
     },
     "nfl_titans": {
-      "text": "0-3 and Cam Ward is still up and down in his second year. Books' second-longest shot, and the favorite for last in the AFC South (-2) and a contender for the AFC's worst record (-3).",
-      "at": "2026-09-29"
+      "text": "0-4 and Cam Ward's second season is off to a rough start in a low-ceiling offense. The favorite for last in the AFC South (-2) and a leading contender for the AFC's worst record (-3).",
+      "at": "2026-10-11"
     },
     "nfl_vikings": {
-      "text": "3-0 on the back of an elite defense while the offense is inconsistent and Justin Jefferson nurses an ankle injury. Books now make them NFC North favorites (+144), just ahead of the Lions.",
-      "at": "2026-09-29"
+      "text": "4-0 on an elite defense, but the offense has failed to score a touchdown in two of those wins, and Justin Jefferson is nursing an ankle sprain. They lead the NFC North for now; the playoffs look likely, a division title (+2) less certain.",
+      "at": "2026-10-11"
     },
     "nhl_avalanche": {
       "text": "Last season's Presidents' Trophy winners, ranked second or third in previews. Nathan MacKinnon and company should rack up regular-season points; the question is another playoff exit.",
