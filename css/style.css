@@ -7344,7 +7344,7 @@ body.sysadmin-page{ padding: 0; }
 .sysadmin-input:focus{ outline: none; border-color: var(--accent-border); }
 textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 .sysadmin-input.name{ font-size: var(--fs-15); font-weight: 600; }
-.sysadmin-input.subject{ padding: 12px 14px; font-size: var(--fs-15); font-weight: 700; }
+.sysadmin-input.subject, .sysadmin-input.heading{ padding: 12px 14px; font-size: var(--fs-15); font-weight: 700; }
 .sysadmin-input.body{ line-height: 1.55; }
 .sysadmin-input.mono{ font-family: var(--sysadmin-mono); font-size: var(--fs-13); }
 .sysadmin-preview-cap{ display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: var(--fs-12); color: var(--text-sub); }

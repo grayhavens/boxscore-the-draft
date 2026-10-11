@@ -42,7 +42,7 @@
      Enforce turns the gate on. The welcome email carries the link and
      {code}. Beside it, an announcement alert to the whole group.
    - Welcome email, for a group that takes claims or has emails: an
-     editable subject and body sent to everyone with an email (a claim's,
+     editable subject, heading and body sent to everyone with an email (a claim's,
      or one added for a spot named in js/groups.js) from
      admin@boxscore.space (worker/welcome-email.js), with a live preview
      beside it and a test copy to you first. It offers the email to
@@ -99,7 +99,7 @@ let confirming = null;   // { group, id, name }: the claim whose name is open fo
 let adding = null;       // { group, name, email }: Add person, open
 let editing = null;      // { group, drafter, name, email }: a confirmed spot being edited
 let selected = null;     // PLATFORM or the id of the group on screen; null picks one
-let welcomeDrafts = {};  // group id -> { subject, body } as edited, kept across re-renders
+let welcomeDrafts = {};  // group id -> { subject, heading, body } as edited, kept across re-renders
 let announceDrafts = {}; // group id -> announcement as typed, kept across re-renders
 let chatRecent = {};     // group id -> latest messages, once loaded
 let logOpen = false;     // the admin log shows every line, not just the latest
@@ -762,6 +762,7 @@ function welcomeDefaults(g){
   const when = at ? new Date(at).toLocaleString([], { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : '';
   return {
     subject: 'Welcome to {group}',
+    heading: '{group}',
     body: [
       'Hi {name},',
       'You’re in! Welcome to {group}, our draft league on Boxscore.',
@@ -793,7 +794,7 @@ const fillWelcome = (t, vars) => t.replace(/\{(name|group|link|code)\}/g, (_, k)
 function welcomePreviewHtml(g){
   const draft = welcomeDraft(g);
   const vars = welcomeVars(g);
-  return welcomeHtml({ groupName: g.name, link: vars.link, subject: fillWelcome(draft.subject, vars), text: fillWelcome(draft.body, vars) });
+  return welcomeHtml({ groupName: g.name, link: vars.link, subject: fillWelcome(draft.subject, vars), heading: fillWelcome(draft.heading, vars), text: fillWelcome(draft.body, vars) });
 }
 
 // Confirmed people have their claim's email; a spot named in
@@ -826,9 +827,10 @@ function welcomeSection(g){
   return block('Welcome email', `
     <div class="sysadmin-pair wide">
       <div class="sysadmin-card pad">
-        <input class="sysadmin-input subject" type="text" maxlength="120" value="${esc(draft.subject)}" aria-label="Subject" oninput="sysadminWelcomeEdit('${g.id}', 'subject', this.value)">
+        <input class="sysadmin-input subject" type="text" maxlength="120" value="${esc(draft.subject)}" aria-label="Subject" placeholder="Subject" oninput="sysadminWelcomeEdit('${g.id}', 'subject', this.value)">
+        <input class="sysadmin-input heading" type="text" maxlength="80" value="${esc(draft.heading)}" aria-label="Heading" placeholder="Heading (none if empty)" oninput="sysadminWelcomeEdit('${g.id}', 'heading', this.value)">
         <textarea class="sysadmin-input body" rows="14" maxlength="5000" aria-label="Body" oninput="sysadminWelcomeEdit('${g.id}', 'body', this.value)">${esc(draft.body)}</textarea>
-        <span class="sysadmin-help">{name}, {group}, {link} and {code} are filled in for each person.${open ? ' Confirming a claim or adding a person sends this to them.' : ''} Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
+        <span class="sysadmin-help">The heading is the big title over the message. {name}, {group}, {link} and {code} are filled in for each person.${open ? ' Confirming a claim or adding a person sends this to them.' : ''} Sent from admin@boxscore.space${canTest ? `; replies go to ${esc(status.you)}` : ''}.</span>
         <div class="sysadmin-btn-row">
           ${btn('Send me a test', `sysadminWelcome('${g.id}', true)`, { off: !canTest || !people.length })}
           ${btn('Reset text', `sysadminWelcomeReset('${g.id}')`)}
@@ -1081,7 +1083,7 @@ window.sysadminWelcome = (groupId, test, drafter = null) => {
   if(!test && !confirm(`Email ${target.map(c => `${c.name} (${c.email})`).join(', ')}?`)) return;
   act(async () => {
     const { ok, data } = await api('/welcome', {
-      group: groupId, drafters: target.map(c => c.drafter), subject: draft.subject, body: draft.body, test
+      group: groupId, drafters: target.map(c => c.drafter), subject: draft.subject, heading: draft.heading, body: draft.body, test
     });
     if(!ok) return welcomeError(data);
     if(test) return `Test sent to ${status.you}, written as ${target[0].name}.`;
@@ -1194,7 +1196,7 @@ function fillSpot(groupId, path, body, email, verb){
   const draft = autoWelcome && email && status.platform.secrets.email ? welcomeDraft(group) : null;
   if(!confirm(`${verb} ${name} to ${group.name}? They’ll show up in the app under this name${draft ? `, and the welcome email goes to ${email}` : ''}.`)) return;
   act(async () => {
-    const { ok, data } = await api(path, { ...body, group: groupId, name, ...(draft ? { welcome: { subject: draft.subject, body: draft.body } } : {}) });
+    const { ok, data } = await api(path, { ...body, group: groupId, name, ...(draft ? { welcome: { subject: draft.subject, heading: draft.heading, body: draft.body } } : {}) });
     if(!ok) return personError(data);
     confirming = adding = null;
     load();

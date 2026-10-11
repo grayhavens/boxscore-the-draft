@@ -10,7 +10,7 @@
    addresses, all in one batch call. Replies go to the admin's own
    Cloudflare Access email.
 
-   The admin page writes the subject and body. {name}, {group}, {link} and {code}
+   The admin page writes the subject, heading and body. {name}, {group}, {link} and {code}
    are filled in per person here; the body is plain text, sent as-is (plus
    the app link) and in the Boxscore-themed HTML of js/welcome-template.js.
 
@@ -20,9 +20,11 @@
                           js/groups.js
 
    Routes (admin, worker/system-admin.js):
-     POST /api/admin/welcome { group, drafters, subject, body, test }
+     POST /api/admin/welcome { group, drafters, subject, heading, body, test }
+       heading: the title over the message; left out, it's the group's
+       name (an older admin page doesn't send one).
        test: true sends one copy, as the first drafter, to the admin only.
-     POST /api/admin/claims/confirm with welcome: { subject, body } sends
+     POST /api/admin/claims/confirm with welcome: { subject, heading, body } sends
        it to the person just confirmed, in the same request.
      POST /api/admin/email { group, drafter, email } -> set or ('') clear
        a named spot's email
@@ -33,7 +35,7 @@ import { loadAccess } from './access-code.js';
 
 const RESEND_BATCH = 'https://api.resend.com/emails/batch';
 export const WELCOME_FROM = 'Boxscore <admin@boxscore.space>';
-export const WELCOME_LIMITS = { subject: 120, body: 5000 };
+export const WELCOME_LIMITS = { subject: 120, heading: 80, body: 5000 };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function welcomeKey(group){
@@ -106,12 +108,13 @@ export function fillTemplate(text, vars){
 // `code` is the group's invite code (worker/access-code.js), when it has
 // one: the link carries it, and {code} spells it out for the Home Screen
 // app, which has its own storage and asks for it on first open.
-export function buildMessages(groupId, recipients, { subject, body, replyTo, code }){
+export function buildMessages(groupId, recipients, { subject, heading, body, replyTo, code }){
   const vars = { group: GROUPS[groupId].name, code: code || '', link: `https://${groupId}.${GROUP_DOMAIN}${code ? `/#code=${code}` : ''}` };
   return recipients.map(r => {
     const filled = fillTemplate(body, { ...vars, name: r.name });
     const filledSubject = fillTemplate(subject, { ...vars, name: r.name });
-    const parts = { groupName: vars.group, link: vars.link, subject: filledSubject, text: filled };
+    const parts = { groupName: vars.group, link: vars.link, subject: filledSubject, text: filled,
+      ...(typeof heading === 'string' ? { heading: fillTemplate(heading, { ...vars, name: r.name }) } : {}) };
     return {
       from: WELCOME_FROM,
       to: [r.email],
@@ -129,6 +132,7 @@ export async function sendWelcome(env, groupId, contacts, request, adminEmail){
   const subject = typeof request.subject === 'string' ? request.subject.trim().slice(0, WELCOME_LIMITS.subject) : '';
   const body = typeof request.body === 'string' ? request.body.trim().slice(0, WELCOME_LIMITS.body) : '';
   if(!subject || !body) return { error: 'empty' };
+  const heading = typeof request.heading === 'string' ? request.heading.trim().slice(0, WELCOME_LIMITS.heading) : undefined;
   const ids = Array.isArray(request.drafters) ? [...new Set(request.drafters)] : [];
   const people = ids.map(id => contacts[id] ? { id, ...contacts[id] } : null);
   if(!people.length || people.includes(null)) return { error: 'bad_drafters' };
@@ -138,7 +142,7 @@ export async function sendWelcome(env, groupId, contacts, request, adminEmail){
   if(test && !replyTo) return { error: 'no_admin_email' };
   const recipients = test ? [{ name: people[0].name, email: replyTo }] : people;
   const access = await loadAccess(env, groupId, 0);
-  const messages = buildMessages(groupId, recipients, { subject: test ? `[Test] ${subject}` : subject, body, replyTo, code: access ? access.code : '' });
+  const messages = buildMessages(groupId, recipients, { subject: test ? `[Test] ${subject}` : subject, heading, body, replyTo, code: access ? access.code : '' });
 
   let res;
   try {
