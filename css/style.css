@@ -8434,7 +8434,37 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     right: var(--chat-w);
     bottom: 0;
   }
-  html[data-console="draft"] .draft-head{ padding-top: 20px; }
+  /* One slim bar above the columns instead of a title block plus a
+     commissioner row (~190px down to ~56px), so Available shows more
+     teams on a short window. Title and subtitle sit on one line, with the
+     commissioner's buttons right-aligned beside them; with no commissioner
+     bar the head runs the full width. The bars' hairlines line up because
+     both share the row's height. */
+  html[data-console="draft"] .draft-screen.view.active{
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  html[data-console="draft"] .draft-head{
+    display: flex; align-items: center;
+    padding: 10px 12px 10px var(--page-pad);
+  }
+  html[data-console="draft"] .draft-head:has(+ .draft-comm[hidden]){ grid-column: 1 / -1; }
+  html[data-console="draft"] .draft-head .page-header{ flex-direction: row; align-items: baseline; gap: 12px; padding: 0; min-width: 0; }
+  html[data-console="draft"] .draft-head .page-header-top{ flex-wrap: nowrap; }
+  html[data-console="draft"] .draft-head .page-header h1{ font-size: var(--fs-22); white-space: nowrap; }
+  html[data-console="draft"] .draft-head .page-sub{ white-space: nowrap; }
+  /* Narrow windows: the buttons scroll sideways rather than wrap (the
+     first child's auto margin right-aligns them without clipping the
+     start, which justify-content: flex-end would). */
+  html[data-console="draft"] .draft-comm{
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    padding: 10px var(--page-pad) 10px 12px;
+  }
+  html[data-console="draft"] .draft-comm::-webkit-scrollbar{ display: none; }
+  html[data-console="draft"] .draft-comm > *{ flex: 0 0 auto; }
+  html[data-console="draft"] .draft-comm > :first-child{ margin-left: auto; }
+  html[data-console="draft"] .draft-body{ grid-column: 1 / -1; }
 }
 
 /* ---- Pages, wide: shared rules ----
