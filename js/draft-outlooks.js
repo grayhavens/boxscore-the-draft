@@ -979,64 +979,64 @@ export const DRAFT_OUTLOOKS = {
       "at": "2026-10-11"
     },
     "wnba_aces": {
-      "text": "A'ja Wilson led the league in scoring and blocks again, and some think the 2026 title runs through Las Vegas. As long as Wilson is there, they're a safe playoff bet and a title threat.",
-      "at": "2026-09-29"
+      "text": "The 2025 champions were swept by Golden State in the semifinals, losing the clincher in overtime. A'ja Wilson keeps them a safe playoff bet and a title threat in 2027.",
+      "at": "2026-10-11"
     },
     "wnba_dream": {
-      "text": "Top seed in the East at 30-14. A proven regular-season team; they should contend for a top-two record again next year.",
-      "at": "2026-09-29"
+      "text": "The East's top seed at 30-14 swept the Liberty to reach their first Finals since 2013, against Golden State starting Oct. 17. A proven contender for a top-two record (+2) again in 2027.",
+      "at": "2026-10-11"
     },
     "wnba_fever": {
-      "text": "Caitlin Clark and Kelsey Mitchell powered the highest-scoring offense in league history (96 points per game). Health (Clark's back, Aliyah Boston's leg) is the question, but they're a strong playoff bet for 2027.",
-      "at": "2026-09-29"
+      "text": "Caitlin Clark and Kelsey Mitchell powered the highest-scoring offense in league history, but they went out in the first round. Health (Clark's back, Aliyah Boston's leg) is the question; a strong playoff bet for 2027.",
+      "at": "2026-10-11"
     },
     "wnba_fire": {
-      "text": "An expansion team that went 17-27 in year one, respectable for a new club. Still more likely to miss the playoffs (-3) than make them in 2027.",
-      "at": "2026-09-29"
+      "text": "Portland's expansion team went 17-27 in year one, respectable for a new club. Still more likely to miss the playoffs (-3) than make them in 2027.",
+      "at": "2026-10-11"
     },
     "wnba_liberty": {
-      "text": "A 26-18 playoff team whose injuries kept them from ever settling on a lineup. More talented than their record; a healthier season could put them back in the title mix.",
-      "at": "2026-09-29"
+      "text": "A 26-18 team that never settled on a lineup through injuries, then reached the semifinals before the Dream swept them. More talented than the record; a healthier 2027 could put them back in the title mix.",
+      "at": "2026-10-11"
     },
     "wnba_lynx": {
-      "text": "The league's best record at 33-11 and top seed in the West. A consistent contender that should be in the top-two record race (+2) again in 2027.",
-      "at": "2026-09-29"
+      "text": "The league's best record at 33-11, then a stunning first-round exit. A consistent regular-season machine that should be in the top-two record race (+2) again in 2027.",
+      "at": "2026-10-11"
     },
     "wnba_mercury": {
-      "text": "Slumped to 16-28 and missed the playoffs. They need a rebound offseason; missing the playoffs again (-3) is the likelier outcome.",
-      "at": "2026-09-29"
+      "text": "Slumped to 16-28 and missed the playoffs. They need a big offseason; missing the playoffs again (-3) is the likelier outcome.",
+      "at": "2026-10-11"
     },
     "wnba_mystics": {
-      "text": "A surprising 28-16 and second in the East. A young team on the rise, but they'll need to show it wasn't a one-off.",
-      "at": "2026-09-29"
+      "text": "A surprising 28-16 and second in the East before a first-round exit. A young team on the rise, but they'll need to show it wasn't a one-off.",
+      "at": "2026-10-11"
     },
     "wnba_sky": {
-      "text": "16-28 and out of the playoffs again. Still rebuilding; missing the playoffs (-3) is likely in 2027.",
-      "at": "2026-09-29"
+      "text": "16-28 and out of the playoffs again despite signing Azura Stevens. Still rebuilding; missing the playoffs (-3) is likely in 2027.",
+      "at": "2026-10-11"
     },
     "wnba_sparks": {
       "text": "16-28 and sixth in the West. A lottery-level team that will likely miss the playoffs again (-3).",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "wnba_storm": {
       "text": "8-36, the worst record in the league. The favorite for a bottom-three finish (-2) and missing the playoffs (-3) again.",
-      "at": "2026-09-29"
+      "at": "2026-10-11"
     },
     "wnba_sun": {
-      "text": "11-33, one of the league's worst records, and in a rebuild. Strong candidate for a bottom-three record (-2) and missing the playoffs (-3).",
-      "at": "2026-09-29"
+      "text": "11-33, among the league's worst records, even with Brittney Griner added. Still rebuilding; a strong candidate for a bottom-three record (-2) and missing the playoffs (-3).",
+      "at": "2026-10-11"
     },
     "wnba_tempo": {
-      "text": "An expansion team that went 11-33 in year one. Improvement is likely, but a bottom-three record (-2) and missing the playoffs (-3) remain the likeliest outcomes.",
-      "at": "2026-09-29"
+      "text": "Toronto's expansion team went 11-33 in year one. Improvement is likely, but a bottom-three record (-2) and missing the playoffs (-3) remain the likeliest outcomes.",
+      "at": "2026-10-11"
     },
     "wnba_valkyries": {
-      "text": "A remarkable 32-12 in only their second season, good for second in the West. If that holds, they're a strong bet for playoff points again in 2027.",
-      "at": "2026-09-29"
+      "text": "Only in their second season, they went 32-12 and swept the defending champion Aces to become the fastest expansion team to reach the Finals. Gabby Williams, added this year, anchors the defense; a strong bet for playoff points again.",
+      "at": "2026-10-11"
     },
     "wnba_wings": {
-      "text": "Made the playoffs at 27-17 despite a brutal run of injuries, including 2026 No. 1 pick Azzi Fudd. With a healthier roster they could climb in 2027.",
-      "at": "2026-09-29"
+      "text": "Made the playoffs at 27-17 despite a brutal run of injuries, including 2026 No. 1 pick Azzi Fudd, then lost in the first round. With a healthier roster they could climb in 2027.",
+      "at": "2026-10-11"
     }
   }
 };
