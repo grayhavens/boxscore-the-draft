@@ -159,6 +159,7 @@ const ui = {
   autoDrawFor: null,      // mock lobby: room:seq the automatic first draw was sent for
   autoPoolFor: null,      // mock lobby: room:caps the automatic pool load was sent for
   revealTimer: null,
+  orderDraft: null,       // Set order modal: the order being edited, or null
   lastOrderKey: undefined, // undefined until the first state has been seen (so a late joiner doesn't replay the reveal)
   shell: null,            // 'live' once the live-room shell is built
   toastTimer: null,
@@ -378,16 +379,18 @@ function lobbyHtml(d){
     const liveBtn = mock && drawn
       ? `<button class="dr-btn"${s.orderSource === 'live' ? ' disabled' : ''} onclick="draftLiveOrder()">Live draft order</button>`
       : '';
+    // Set order: the commissioner types the order in instead of drawing it.
+    const setBtn = `<button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftOpenOrder()">Set order</button>`;
     const main = !drawn
-      ? `<button class="dr-btn dr-btn-primary" onclick="draftRunLottery()">Run lottery</button>`
+      ? `<button class="dr-btn dr-btn-primary" onclick="draftRunLottery()">Run lottery</button>${setBtn}`
       : `<button class="dr-btn dr-btn-primary"${settled ? '' : ' disabled'} onclick="draftStart()">Start draft</button>
-         <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">${mock ? 'Random order' : 'Re-run lottery'}</button>${liveBtn}`;
+         <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">${mock ? 'Random order' : 'Re-run lottery'}</button>${setBtn}${liveBtn}`;
     // One block: the buttons, then the clock. Phones lay it out two to a
     // row, so a mock's bot speed joins it there to pair with the clock
     // (wider screens keep it beside the bot buttons). The primary button
     // spans the row only when what follows it pairs up evenly.
     const timing = (mock ? botSpeedHtml(d, 'dr-narrow-only') : '') + clockSelectHtml(d);
-    const rest = (drawn ? 1 : 0) + (liveBtn ? 1 : 0) + (poolBtn ? 1 : 0) + (mock ? 1 : 0) + 1;
+    const rest = (drawn ? 1 : 0) + 1 + (liveBtn ? 1 : 0) + (poolBtn ? 1 : 0) + (mock ? 1 : 0) + 1;
     actions = `<div class="dr-lobby-actions${rest % 2 ? '' : ' span'}">
         <div class="dr-action-group">${main}${poolBtn}</div>
         <div class="dr-action-group">${timing}</div>
@@ -405,11 +408,11 @@ function lobbyHtml(d){
         ? (mockRoomOwner(draftStore.room, s.config.drafters)
           ? 'Your own practice draft. Nothing counts and nobody else sees it. Bots pick on their own, and if your clock runs out you\u2019re auto-picked from your queue, or the best team left.'
           : 'Group rehearsal, nothing counts. Anyone here can set it up and run it. Bots pick on their own, and anyone whose clock runs out is auto-picked from their queue, or the best team left.')
-        : "Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. Order is set by random lottery."}</p>
+        : `Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. ${s.orderSource === 'set' ? 'The commissioner set the order.' : 'Order is set by random lottery.'}`}</p>
       <div class="dr-card">
         <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${mock
           ? `${s.orderSource === 'live' ? 'Live draft order · ' : ''}${(s.config.bots || []).length} of ${d.n} bots`
-          : (!drawn ? 'Not drawn yet' : (settled ? 'Locked in' : 'Drawing…'))}</span></div>
+          : (!drawn ? 'Not drawn yet' : (!settled ? 'Drawing…' : (s.orderSource === 'set' ? 'Set by the commissioner' : 'Locked in')))}</span></div>
         ${rows}
         ${mock && draftStore.commissioner ? botActionsHtml(d, 'dr-wide-only') : ''}
       </div>
@@ -1264,6 +1267,23 @@ function modalBody(d){
       <div class="dr-card dr-modal-card">${mock ? botControlsHtml(d) : autoDraftRowsHtml(d)}</div>
       <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Done</button></div>`;
   }
+  if(ui.modal === 'order' && ui.orderDraft){
+    if(!draftStore.commissioner || d.s.phase !== 'lobby') return null;
+    const list = ui.orderDraft;
+    const rows = list.map((id, pos) => `<div class="dr-order-row${id === d.me ? ' me' : ''}">
+        <span class="dr-order-n">${pos + 1}</span>
+        <span class="dr-order-name">${esc(drafterName(id))}</span>
+        <span class="dr-move-btns">
+          <button class="dr-btn dr-move-btn"${pos === 0 ? ' disabled' : ''} aria-label="Move ${esc(drafterName(id))} up" onclick="draftMoveOrder(${pos}, -1)">↑</button>
+          <button class="dr-btn dr-move-btn"${pos === list.length - 1 ? ' disabled' : ''} aria-label="Move ${esc(drafterName(id))} down" onclick="draftMoveOrder(${pos}, 1)">↓</button>
+        </span>
+      </div>`).join('');
+    const same = d.s.order && d.s.order.join(',') === list.join(',');
+    return `<h3>Set the draft order</h3>
+      <p>Pick 1 at the top. ${d.s.order ? 'Saving replaces the current order and clears any trades.' : 'Use this instead of the lottery.'}</p>
+      <div class="dr-card dr-modal-card">${rows}</div>
+      <div class="dr-modal-btns"><button class="dr-btn dr-btn-gold"${same ? ' disabled' : ''} onclick="draftSaveOrder()">Save order</button><button class="dr-btn" onclick="draftCloseModal()">Cancel</button></div>`;
+  }
   if(ui.modal === 'reset'){
     return `<h3>Reset the draft?</h3>
       <p>This clears every pick, any trades and the lottery order, and returns everyone to the lobby. The team pool is kept (write-ins are removed).</p>
@@ -1608,7 +1628,8 @@ function render(){
     if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
     root().innerHTML = lobbyHtml(d);
     renderCommBar(null);
-    renderModal(null);
+    // Set order is the lobby's only sheet.
+    renderModal(ui.modal === 'order' ? d : null);
     renderTeamSheet(null);
     return;
   }
@@ -1644,7 +1665,8 @@ function maybeStartReveal(d){
   ui.lastOrderKey = orderKey;
   clearInterval(ui.revealTimer);
   // Mock rooms skip it: a practice run shouldn't make you wait 6s per draw.
-  if(orderKey && !firstLook && d.s.phase === 'lobby' && !isMockRoom(draftStore.room)){
+  // A hand-set order (setOrder) skips it too: nothing was drawn.
+  if(orderKey && !firstLook && d.s.phase === 'lobby' && !isMockRoom(draftStore.room) && d.s.orderSource !== 'set'){
     ui.revealed = 0;
     ui.revealTimer = setInterval(() => {
       ui.revealed += 1;
@@ -2336,6 +2358,27 @@ function applyPendingSelect(d){
 
 window.draftRunLottery = () => run({ type: 'runLottery' }, null);
 window.draftLiveOrder = () => run({ type: 'runLottery', live: true }, null);
+// Set order: starts from the order there is (or the roster), moved one
+// place at a time, and only reaches the room on Save.
+window.draftOpenOrder = () => {
+  const s = draftStore.state;
+  if(!s || s.phase !== 'lobby') return;
+  ui.orderDraft = (s.order || s.config.drafters).slice();
+  ui.modal = 'order';
+  scheduleRender();
+};
+window.draftMoveOrder = (pos, step) => {
+  const list = ui.orderDraft;
+  const to = pos + step;
+  if(!list || to < 0 || to >= list.length) return;
+  [list[pos], list[to]] = [list[to], list[pos]];
+  scheduleRender();
+};
+window.draftSaveOrder = async () => {
+  if(!ui.orderDraft) return;
+  const result = await run({ type: 'setOrder', order: ui.orderDraft }, null);
+  if(result.ok){ toast('Draft order saved.'); window.draftCloseModal(); }
+};
 // Loads the pool first if it can't cover the draft yet, in any room, so
 // Start is the only button you need.
 window.draftStart = async () => {
@@ -2402,7 +2445,7 @@ window.draftDownload = async () => {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 };
 
-window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; scheduleRender(); };
+window.draftCloseModal = () => { ui.modal = null; ui.trade = null; ui.editSlot = null; ui.orderDraft = null; scheduleRender(); };
 window.draftOpenReset = () => { ui.modal = 'reset'; scheduleRender(); };
 window.draftOpenSettings = () => { ui.modal = 'settings'; scheduleRender(); };
 // The shared Scoring sheet (js/scoring-sheet.js), on the league being browsed.

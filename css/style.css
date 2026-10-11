@@ -5632,6 +5632,9 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-order-row.me{ background: var(--accent-soft); }
 .dr-order-n{ font-size: var(--fs-18); font-weight: 800; font-variant-numeric: tabular-nums; }
 .dr-order-name{ font-size: var(--fs-17); font-weight: 600; }
+/* Set order modal: the up/down buttons on each row. */
+.dr-move-btns{ display: flex; gap: 6px; }
+.dr-move-btn{ width: 34px; padding: 0; font-size: var(--fs-15); }
 .dr-you{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-tag); color: var(--accent); }
 .dr-first-picks{ font-size: var(--fs-13); color: var(--text-sub); font-variant-numeric: tabular-nums; }
 .dr-actions{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }

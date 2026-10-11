@@ -91,7 +91,8 @@
    draw (ctx.liveOrder, js/draft-engine.js), read from the group's main
    room (GET .../order, internal only), and again whenever someone taps
    Live draft order (runLottery { live: true }). A Random order someone
-   draws in the mock room on purpose is kept until a reset.
+   draws in the mock room on purpose, or one set by hand (setOrder), is
+   kept until a reset.
 
    Sports: a room in the lobby takes its group's drafted sports as its
    caps (worker/sports.js), read on every connect, and PUT .../caps hands
@@ -382,9 +383,9 @@ export class DraftRoom extends DurableObject {
 
   // A mock lobby picks up the live order (or a new one, if the live
   // lottery was re-run) whenever someone connects, unless the order here
-  // was drawn on purpose.
+  // was drawn or set on purpose.
   async syncLiveOrder(){
-    const eligible = () => isMockRoom(this.room) && this.state.phase === 'lobby' && this.state.orderSource !== 'drawn';
+    const eligible = () => isMockRoom(this.room) && this.state.phase === 'lobby' && this.state.orderSource !== 'drawn' && this.state.orderSource !== 'set';
     if(!eligible()) return;
     const order = await this.liveOrder();
     if(!order || !eligible() || (this.state.order && this.state.order.join(',') === order.join(','))) return;
