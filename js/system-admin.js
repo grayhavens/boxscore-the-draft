@@ -609,6 +609,25 @@ function claimsHtml(g){
     `<div class="sysadmin-card flush attn">${g.claims.map(c => claimRow(g, c, nextSpot)).join('')}</div>`);
 }
 
+// How many drafters the group has. − and + take open spots off the end
+// (or put them back); a spot someone holds stays, and the count is fixed
+// once the draft has started (worker/system-admin.js).
+function sizeHtml(g){
+  const z = g.size;
+  const sub = z.locked ? 'Fixed: the draft has started'
+    : z.current === z.min && z.min < z.max ? 'Everyone after this is in a spot; Undo one to go lower'
+    : z.min === z.max ? 'Every spot is taken or named'
+    : `Between ${z.min} and ${z.max}. The draft lottery is redone if you change it`;
+  return `
+    <div class="sysadmin-list-row compact">
+      <span class="sysadmin-row-text"><span class="sysadmin-row-title">Drafters: ${z.current}</span><span class="sysadmin-row-sub">${sub}</span></span>
+      <span class="sysadmin-btn-row">
+        ${btn('−', `sysadminSetSize('${g.id}', ${z.current - 1})`, { small: true, off: z.locked || z.current <= z.min })}
+        ${btn('+', `sysadminSetSize('${g.id}', ${z.current + 1})`, { small: true, off: z.locked || z.current >= z.max })}
+      </span>
+    </div>`;
+}
+
 // Every spot in one table: the roster as the worker applies it
 // (worker/roster.js), joined with the confirmed claims, the welcome
 // email's contacts and the named spots' emails.
@@ -680,6 +699,7 @@ function rosterHtml(g){
     </div>`;
   return block('Roster', `
     <div class="sysadmin-card flush">
+      ${sizeHtml(g)}
       ${form}
       <div class="sysadmin-scroll">
         <div class="sysadmin-table roster">
@@ -1207,6 +1227,23 @@ window.sysadminEditSubmit = groupId => {
     editing = null;
     load();
     return `Saved ${data.name}.`;
+  });
+};
+
+const SIZE_ERRORS = {
+  locked: 'The draft has started, so the number of drafters is fixed.',
+  taken: 'Someone is in the spot you’d remove. Undo them first.',
+  too_many: 'That’s more spots than the group has.'
+};
+
+window.sysadminSetSize = (groupId, size) => {
+  const group = status.groups.find(g => g.id === groupId);
+  if(busy || !group) return;
+  act(async () => {
+    const { ok, data } = await api('/roster/size', { group: groupId, size });
+    if(!ok) return SIZE_ERRORS[data.error] || `Couldn’t change it (${data.error || 'error'}). The worker may need a deploy first.`;
+    load();
+    return `${group.name} has ${size} drafters.`;
   });
 };
 

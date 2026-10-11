@@ -8,16 +8,22 @@
    open count, chat and draft alerts, and the admin page.
 
    KV: roster@<group> -> { <drafterId>: { name, email, at } }
+       size@<group>   -> { size, at }  how many spots the group runs with
+                         (applySize in js/groups.js drops open spots off
+                         the end); set on the admin page, only while the
+                         group's draft is still in the lobby
 
    Routes:
-     GET /roster?group=      public: { assigned: { <id>: { name } } },
-                             names only, never emails
+     GET /roster?group=      public: { assigned: { <id>: { name } }, size },
+                             names only, never emails; size is null until
+                             the admin sets one
      (admin, worker/system-admin.js)
      POST /api/admin/claims/confirm  { group, id, name, welcome } -> fill a
                                      spot (and send the welcome email)
      POST /api/admin/roster/release  { group, drafter }  -> free it again
+     POST /api/admin/roster/size     { group, size }     -> how many spots
    ============================================================ */
-import { GROUPS, applyRoster } from '../js/groups.js';
+import { GROUPS, applyRoster, applySize } from '../js/groups.js';
 
 export function rosterKey(group){
   return `roster@${group}`;
@@ -33,14 +39,35 @@ export async function saveAssigned(env, group, assigned){
   else await env.LEAGUE_FACTS.delete(rosterKey(group));
 }
 
-// Groups with no open spot in js/groups.js skip the KV read entirely. A
-// failed read falls back to the placeholders: callers are alerts, which
-// shouldn't fail over a name.
+export function sizeKey(group){
+  return `size@${group}`;
+}
+
+// { size, at } or null when the admin never set one.
+export async function loadSize(env, group){
+  const stored = await env.LEAGUE_FACTS.get(sizeKey(group), 'json');
+  return stored && Number.isInteger(stored.size) ? { size: stored.size, at: Number(stored.at) || 0 } : null;
+}
+
+export async function saveSize(env, group, size, at){
+  await env.LEAGUE_FACTS.put(sizeKey(group), JSON.stringify({ size, at }));
+}
+
+// The spots a group runs with: names applied, then trimmed to its size.
+// `size` can be handed in (a save not yet visible to KV reads).
+export async function activeRoster(env, group, assigned, size){
+  const drafters = applyRoster(GROUPS[group].drafters, assigned || await loadAssigned(env, group));
+  return applySize(drafters, size === undefined ? ((await loadSize(env, group)) || {}).size : size);
+}
+
+// Groups with no open spot in js/groups.js skip the KV read entirely (a
+// full roster can't be trimmed either). A failed read falls back to the
+// placeholders: callers are alerts, which shouldn't fail over a name.
 export async function effectiveDrafters(env, group){
   const drafters = GROUPS[group].drafters;
   if(!drafters.some(d => d.open)) return drafters;
   try {
-    return applyRoster(drafters, await loadAssigned(env, group));
+    return await activeRoster(env, group);
   } catch (e){
     return drafters;
   }
@@ -58,8 +85,8 @@ export async function releaseSpot(env, group, drafterId){
 
 export async function handleRoster(request, env, group, headers, { json }){
   if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-  const assigned = await loadAssigned(env, group);
+  const [assigned, size] = await Promise.all([loadAssigned(env, group), loadSize(env, group)]);
   const names = {};
   for(const [id, a] of Object.entries(assigned)) names[id] = { name: a.name };
-  return json({ assigned: names }, 200, { ...headers, 'Cache-Control': 'no-store' });
+  return json({ assigned: names, size: size ? size.size : null }, 200, { ...headers, 'Cache-Control': 'no-store' });
 }

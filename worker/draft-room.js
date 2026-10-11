@@ -103,7 +103,7 @@ import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPi
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
-import { effectiveDrafters } from './roster.js';
+import { effectiveDrafters, activeRoster, loadSize } from './roster.js';
 import { liveGroupCaps } from './sports.js';
 import { pushToDrafters } from './web-push.js';
 import { draftTimeAlert } from './draft-time-alert.js';
@@ -168,6 +168,8 @@ export class DraftRoom extends DurableObject {
       this.poll = poll ? JSON.parse(poll.v) : null;
       const capsAt = this.sql.exec("SELECT v FROM kv WHERE k = 'capsAt'").toArray()[0];
       this.capsAt = capsAt ? Number(capsAt.v) : 0;
+      const sizeAt = this.sql.exec("SELECT v FROM kv WHERE k = 'sizeAt'").toArray()[0];
+      this.sizeAt = sizeAt ? Number(sizeAt.v) : 0;
     });
   }
 
@@ -189,6 +191,7 @@ export class DraftRoom extends DurableObject {
         if(!saved) this.state = newRoomState(this.group, this.room);
       }
       await this.syncGroupCaps();
+      await this.syncGroupSize();
       await this.syncLiveOrder();
       const mock = isMockRoom(this.room);
       const { 0: client, 1: server } = new WebSocketPair();
@@ -212,6 +215,9 @@ export class DraftRoom extends DurableObject {
     }
     if(new URL(request.url).pathname.endsWith('/caps') && request.method === 'PUT'){
       return this.pushCaps(request);
+    }
+    if(new URL(request.url).pathname.endsWith('/size') && request.method === 'PUT'){
+      return this.pushSize(request);
     }
     if(new URL(request.url).pathname.endsWith('/order')){
       return new Response(JSON.stringify({ phase: this.state.phase, order: this.state.order }), { headers: { 'Content-Type': 'application/json' } });
@@ -387,15 +393,9 @@ export class DraftRoom extends DurableObject {
     if(result.state) await this.commit(before, result.state, null, true, { type: 'runLottery', liveOrder: true });
   }
 
-  // { caps, at } from the worker's PUT /sports, which has already checked
-  // the commissioner password. A room nobody has opened yet learns its
-  // group from the request, as pushDraftTime does.
-  async pushCaps(request){
-    let body;
-    try { body = await request.json(); } catch (e){ body = null; }
-    const caps = body && body.caps;
-    if(!caps || typeof caps !== 'object' || !Number.isSafeInteger(body.at)) return new Response('Expected { caps, at }', { status: 400 });
-    const params = new URL(request.url).searchParams;
+  // A room nobody has opened yet learns its name and group from the request
+  // that first reaches it.
+  learnRoom(params){
     if(this.room === null){
       this.room = params.get('room') || 'main';
       this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('room', ?)", this.room);
@@ -407,6 +407,54 @@ export class DraftRoom extends DurableObject {
       const saved = this.sql.exec("SELECT v FROM kv WHERE k = 'state'").toArray()[0];
       if(!saved) this.state = newRoomState(this.group, this.room);
     }
+  }
+
+  // The group's drafter count changed on the admin page (worker/roster.js),
+  // or since this room was made: while the room is still in the lobby its
+  // drafters become the group's active spots, which clears the lottery
+  // (setConfig). `pushed` is a save handed over by the worker; KV reads can
+  // lag a save, so an older record than the last one applied is ignored.
+  // A group that never had a count set leaves the room alone.
+  async syncGroupSize(pushed){
+    const group = this.group || LEGACY_GROUP_ID;
+    let live = pushed;
+    if(!live){
+      try { live = await loadSize(this.env, group); } catch (e){}
+    }
+    if(!live || live.at < this.sizeAt) return;
+    if(live.at > this.sizeAt){
+      this.sizeAt = live.at;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('sizeAt', ?)", String(live.at));
+    }
+    if(this.state.phase !== 'lobby') return;
+    const ids = (await activeRoster(this.env, group, undefined, live.size)).map(d => d.id);
+    if(ids.join(',') === this.state.config.drafters.join(',')) return;
+    const owner = mockRoomOwner(this.room, ids);
+    const before = this.state;
+    const result = reduce(before, { type: 'setConfig', drafters: ids, ...(owner ? { bots: ids.filter(id => id !== owner) } : {}) },
+      { now: Date.now(), actor: null, isCommissioner: true });
+    if(result.state) await this.commit(before, result.state, null, true, { type: 'setConfig', drafters: ids });
+  }
+
+  // { size, at } from the worker's admin save, which has already checked it.
+  async pushSize(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    if(!body || !Number.isSafeInteger(body.size) || !Number.isSafeInteger(body.at)) return new Response('Expected { size, at }', { status: 400 });
+    this.learnRoom(new URL(request.url).searchParams);
+    await this.syncGroupSize({ size: body.size, at: body.at });
+    return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // { caps, at } from the worker's PUT /sports, which has already checked
+  // the commissioner password. A room nobody has opened yet learns its
+  // group from the request, as pushDraftTime does.
+  async pushCaps(request){
+    let body;
+    try { body = await request.json(); } catch (e){ body = null; }
+    const caps = body && body.caps;
+    if(!caps || typeof caps !== 'object' || !Number.isSafeInteger(body.at)) return new Response('Expected { caps, at }', { status: 400 });
+    this.learnRoom(new URL(request.url).searchParams);
     await this.syncGroupCaps({ caps, at: body.at });
     return new Response(JSON.stringify(this.status()), { headers: { 'Content-Type': 'application/json' } });
   }
