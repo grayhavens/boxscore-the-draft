@@ -383,6 +383,11 @@ the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from 
 `mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
 rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
 whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
+**Before the draft** (phase `lobby`) there's no separate lobby page: everyone gets the same room, so they can look over
+the board and star a queue early. Available shows the pool Load team pool would send (`previewPool`, the same ids)
+until the commissioner loads it; the hero counts down to the live room's scheduled start (`startAt`, from
+`js/draft-schedule.js`; mock and rehearsal rooms have none) and says where you pick; the lottery reveal fills the
+board's column heads. The lobby setup (Start, lottery, Set order, team pool, clock/bots) is the commissioner bar.
 A mock lobby drafts in the live room's order once the live lottery is drawn (until that draft is done): the
 Durable Object reads `main`'s order (internal `GET .../order`) on connect and on the automatic first draw and hands it
 to the reducer as `ctx.liveOrder`; `state.orderSource` is `'live'`, `'drawn'` (re-run on purpose, kept until a reset)
@@ -393,7 +398,7 @@ order.
 **Auto-draft** works in both kinds of room: `state.autoDraft` lists drafters the worker picks for
 the moment they go on the clock (`AUTO_DRAFT_SECONDS`, 0.75s: a beat so it reads as a pick), from their queue or else the best team that fits, through the
 same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any room). Each drafter switches their own
-(`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), or the lobby; the commissioner can switch anyone's from the live
+(`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), before or during the draft; the commissioner can switch anyone's from the live
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
 clock" alert. Picks it makes carry `auto: true`. **Deploy the worker first:** an old worker rejects `setAutoDraft`.
 **Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft

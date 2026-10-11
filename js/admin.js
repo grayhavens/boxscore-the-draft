@@ -26,8 +26,8 @@
    (PUT /draft/schedule), which every drafter's Home counts down to. Before that, a draft time poll
    (js/draft-poll.js, PUT /draft/poll): two or three candidate times that Home asks every drafter
    about, with who can make each one listed here. Setting up the pool and clock,
-   the lottery and the start all stay in the lobby, where everyone
-   watches the lottery reveal.
+   the lottery and the start all stay in the draft room's commissioner
+   bar, where everyone watches the lottery reveal.
 
    The password prompt here is a convenience gate so
    casual visitors don't land on an editing UI; the real protection is
@@ -179,7 +179,7 @@ let pollError = '';
 // The button into the live room and what you can do once there.
 function draftRoomLink(st){
   return {
-    cta: st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft lobby'),
+    cta: st.phase === 'draft' ? 'Open draft room' : (st.phase === 'done' ? 'Open final board' : 'Open draft room'),
     note: st.phase === 'lobby'
       ? "Load the team pool, set the pick clock, run the lottery and start the draft from the lobby. You're signed in there as commissioner."
       : "You're signed in there as commissioner: pause, undo, trade, change picks and download the board from the bar under the header."

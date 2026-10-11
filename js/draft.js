@@ -7,20 +7,27 @@
    turn it is, caps, what's still available) come from the same pure
    modules the server runs: js/draft-rules.js and js/draft-engine.js.
 
-   Three screens share the view:
-   - Lobby: draft order (lottery), commissioner setup. Phase 'lobby'.
-     A mock lobby copies the live room's order once it's drawn (else
-     draws its own on arrival) and puts each seat's bot
-     switch on the order rows (one table).
-   - Live room: Available pool | Board | My roster + queue. Phases
-     'draft' and 'done'. Built once as a shell and then updated region by
-     region, so the search box keeps focus and scroll positions survive
-     every incoming pick.
+   One room for every phase: Available pool | Board | My roster + queue.
+   Built once as a shell and then updated region by region, so the
+   search box keeps focus and scroll positions survive every incoming
+   pick.
+   - Before the draft (phase 'lobby') anyone can come in, look over the
+     board and star a queue. Until the commissioner loads the team pool,
+     Available shows the pool it would load (previewPool). The hero
+     counts down to the start the commissioner scheduled (live room
+     only, js/draft-schedule.js) and says where you pick once the order
+     is drawn; the lottery reveal fills the board's column heads. Setup
+     (lottery, Set order, team pool, clock, Start) is the commissioner
+     bar. A mock lobby copies the live room's order once it's drawn
+     (else draws its own on arrival); its bot switches are under Bots &
+     clock.
+   - Phases 'draft' and 'done': the live draft and the finished board.
    - The clock re-renders only its own three elements every 250ms; a
      full render happens only when the server sends new state.
 
    Commissioner controls (a bar under the header, on every screen size,
-   in the live room and mock rooms alike): pause/resume, undo, trade,
+   in the live room and mock rooms alike): the setup above before the
+   draft; then pause/resume, undo, trade,
    draft settings (clock; bots too in a mock room), download, reset, tap
    a filled board cell/row to change that pick, and "Pick for {name}" to
    draft for whoever is on the clock. Signing in happens only on Settings →
@@ -29,7 +36,7 @@
    anyone who isn't signed in.
    Mock rooms sign everyone in automatically (worker/draft-room.js).
    Auto-draft (both rooms): each drafter's own switch under My
-   queue, in the right column or the My team tab on phones (and in the lobby), has the worker draft for them as soon
+   queue, in the right column or the My team tab on phones, has the worker draft for them as soon
    as they go on the clock; the commissioner can switch it on for
    anyone from the live room's settings.
    Phones (<=700px) get their own shell — a compact clock over Pick /
@@ -54,6 +61,7 @@ import {
   leagueCounts, clockElapsedMs, WRITE_IN_LEAGUES, isMockRoom, mockRoomOwner, DEFAULT_BOT_SECONDS,
   autoPickLimitMs
 } from './draft-rules.js';
+import { getDraftSchedule, onDraftSchedule, isDraftUpcoming, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
 import {
   draftStore, subscribeDraft, openDraftConnection, closeDraftConnection, serverNow,
   sendDraftAction, resumeCommissioner, saveDraftQueue, requestDraftQueue
@@ -219,9 +227,23 @@ function fullState(){
   return fullCache.full;
 }
 
+// Before the commissioner loads the team pool, Available shows the one
+// Load team pool would send (the same ids, so a queue starred now still
+// lines up). Display only: anything that sends an action or checks the
+// room's real pool (poolShort) reads fullState() instead.
+let previewCache = null;
+function previewPool(s){
+  const key = JSON.stringify(s.config.caps);
+  if(!previewCache || previewCache.key !== key){
+    previewCache = { key, pool: buildDraftPool(Object.keys(s.config.caps).filter(k => s.config.caps[k] > 0)) };
+  }
+  return previewCache.pool;
+}
+
 function derive(){
-  const s = fullState();
+  let s = fullState();
   if(!s) return null;
+  if(s.phase === 'lobby' && !s.pool.length) s = { ...s, pool: previewPool(s) };
   const d = { s, me: currentProfileId, n: s.config.drafters.length };
   d.total = totalPicks(s.config);
   d.rounds = totalRounds(s.config.caps);
@@ -337,96 +359,13 @@ function statusPill(d){
   }
 }
 
-// ---- Lobby ----
-
-function lobbyHtml(d){
-  const { s } = d;
-  const order = s.order;
-  const drawn = !!order;
-  const revealed = ui.revealed === null ? d.n : ui.revealed;
-  const mock = isMockRoom(draftStore.room);
-  const rows = mock ? mockOrderRowsHtml(d) : Array.from({ length: d.n }, (_, pos) => {
-    const visible = drawn && pos >= d.n - revealed;
-    const id = visible ? order[pos] : null;
-    const isMe = id === d.me;
-    return `<div class="dr-order-row${isMe ? ' me' : ''}${visible ? ' shown' : ''}">
-      <span class="dr-order-n">${pos + 1}</span>
-      <span class="dr-order-name">${id ? esc(drafterName(id)) : '<span class="dr-dim">—</span>'}</span>
-      ${isMe ? '<span class="dr-you">YOU</span>' : ''}
-    </div>`;
-  }).join('');
-
-  let firstPicks = '';
-  if(drawn && revealed >= d.n){
-    const myPos = order.indexOf(d.me);
-    if(myPos >= 0){
-      const picks = [];
-      for(let slot = 0; slot < d.total && picks.length < 4; slot++){
-        if(ownerOf(slot, order, s.overrides) === d.me) picks.push('#' + (slot + 1));
-      }
-      firstPicks = `<div class="dr-first-picks">Your first picks: ${picks.join(', ')} …</div>`;
-    }
-  }
-
-  const settled = !drawn || revealed >= d.n;
-  let actions;
-  if(draftStore.commissioner){
-    // A mock room loads its own pool (maybeAutoPool), so only the real
-    // room shows the button.
-    const poolBtn = mock ? '' : `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload pool (${s.poolSize})` : 'Load team pool'}</button>`;
-    // A mock room can switch between a random order and the live room's
-    // (the button is off while it's already using the live one).
-    const liveBtn = mock && drawn
-      ? `<button class="dr-btn"${s.orderSource === 'live' ? ' disabled' : ''} onclick="draftLiveOrder()">Live draft order</button>`
-      : '';
-    // Set order: the commissioner types the order in instead of drawing it.
-    const setBtn = `<button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftOpenOrder()">Set order</button>`;
-    const main = !drawn
-      ? `<button class="dr-btn dr-btn-primary" onclick="draftRunLottery()">Run lottery</button>${setBtn}`
-      : `<button class="dr-btn dr-btn-primary"${settled ? '' : ' disabled'} onclick="draftStart()">Start draft</button>
-         <button class="dr-btn"${settled ? '' : ' disabled'} onclick="draftRunLottery()">${mock ? 'Random order' : 'Re-run lottery'}</button>${setBtn}${liveBtn}`;
-    // One block: the buttons, then the clock. Phones lay it out two to a
-    // row, so a mock's bot speed joins it there to pair with the clock
-    // (wider screens keep it beside the bot buttons). The primary button
-    // spans the row only when what follows it pairs up evenly.
-    const timing = (mock ? botSpeedHtml(d, 'dr-narrow-only') : '') + clockSelectHtml(d);
-    const rest = (drawn ? 1 : 0) + 1 + (liveBtn ? 1 : 0) + (poolBtn ? 1 : 0) + (mock ? 1 : 0) + 1;
-    actions = `<div class="dr-lobby-actions${rest % 2 ? '' : ' span'}">
-        <div class="dr-action-group">${main}${poolBtn}</div>
-        <div class="dr-action-group">${timing}</div>
-      </div>`;
-  } else if(mock){
-    // A mock room signs every socket in on connect; this is the moment before.
-    actions = '<div class="dr-wait">Connecting…</div>';
-  } else {
-    actions = `<div class="dr-wait">${drawn ? 'Waiting for the commissioner to start the draft.' : 'Waiting for the commissioner to run the lottery.'}</div>`;
-  }
-
-  return `
-    <div class="dr-lobby">
-      <p class="dr-lobby-copy">${mock
-        ? (mockRoomOwner(draftStore.room, s.config.drafters)
-          ? 'Your own practice draft. Nothing counts and nobody else sees it. Bots pick on their own, and if your clock runs out you\u2019re auto-picked from your queue, or the best team left.'
-          : 'Group rehearsal, nothing counts. Anyone here can set it up and run it. Bots pick on their own, and anyone whose clock runs out is auto-picked from their queue, or the best team left.')
-        : `Live snake draft. Take a team from any league in any round, until you hit that league's roster cap. ${s.orderSource === 'set' ? 'The commissioner set the order.' : 'Order is set by random lottery.'}`}</p>
-      <div class="dr-card">
-        <div class="dr-card-head"><h3>Draft order</h3><span class="dr-dim">${mock
-          ? `${s.orderSource === 'live' ? 'Live draft order · ' : ''}${(s.config.bots || []).length} of ${d.n} bots`
-          : (!drawn ? 'Not drawn yet' : (!settled ? 'Drawing…' : (s.orderSource === 'set' ? 'Set by the commissioner' : 'Locked in')))}</span></div>
-        ${rows}
-        ${mock && draftStore.commissioner ? botActionsHtml(d, 'dr-wide-only') : ''}
-      </div>
-      ${firstPicks}
-      ${autoDraftHtml(d)}
-      ${actions}
-    </div>`;
-}
+// ---- Mock rooms: bots ----
 
 // Mock rooms only: one table for the draft order and which seats the
 // worker drafts for. The order is the live room's once its lottery is
 // drawn (worker/draft-room.js), else drawn automatically on arrival (see
 // maybeAutoDraw), so the rows only fall back to roster order for the
-// moment before it lands. Used by the lobby and the mid-draft modal.
+// moment before it lands. In the Bots & clock sheet.
 function mockOrderRowsHtml(d){
   const { config, order } = d.s;
   const bots = config.bots || [];
@@ -442,17 +381,16 @@ function mockOrderRowsHtml(d){
   }).join('');
 }
 
-// `speedClass` lets the lobby show this bot speed on wide screens only.
-function botActionsHtml(d, speedClass = ''){
+function botActionsHtml(d){
   return `<div class="dr-actions dr-actions-sub dr-bot-actions">
         <button class="dr-btn" onclick="draftSetBots('others')">Everyone but me</button>
         <button class="dr-btn" onclick="draftSetBots('none')">No bots</button>
-        ${botSpeedHtml(d, speedClass)}
+        ${botSpeedHtml(d)}
       </div>`;
 }
 
-function botSpeedHtml(d, cls = ''){
-  return `<label class="dr-inline${cls ? ' ' + cls : ''}">Bots pick in ${selectHtml(BOT_CHOICES, d.s.config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>`;
+function botSpeedHtml(d){
+  return `<label class="dr-inline">Bots pick in ${selectHtml(BOT_CHOICES, d.s.config.botSeconds || DEFAULT_BOT_SECONDS, 'draftSetBotSeconds')}</label>`;
 }
 
 function botControlsHtml(d){
@@ -806,6 +744,7 @@ function clockCardParts(d){
   // full before the card catches up (landedFor).
   const landed = landedFor(d);
   if(landed && s.phase !== 'draft') return [landedHeroHtml(d, landed), ''];
+  if(s.phase === 'lobby') return lobbyHeroParts(d, phone, wide);
   if(s.phase === 'done'){
     const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`;
     return [phone
@@ -895,6 +834,97 @@ function clockCardParts(d){
       <span class="dr-strip-timer"><span class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</span><span class="dr-timer" id="dr-timer">0:00</span><span class="dr-bar"><span id="dr-bar"></span></span></span>
       ${expandBtn}
     </div>`, banners];
+}
+
+// ---- Before the draft: the countdown ----
+
+// When the draft starts, for the hero: the live room only (a mock or
+// rehearsal room has no schedule), and only while it's still ahead or
+// just past (isDraftUpcoming).
+function startAt(){
+  if(draftStore.room !== 'main') return null;
+  const sch = getDraftSchedule();
+  return isDraftUpcoming(sch) ? sch.scheduledAt : null;
+}
+
+// "2d 4h", "1:05:09", "4:09", or "Soon" once the time has come.
+function countdownText(ms){
+  if(ms <= 0) return 'Soon';
+  const sec = Math.ceil(ms / 1000);
+  const days = Math.floor(sec / 86400);
+  if(days >= 1) return `${days}d ${Math.floor((sec % 86400) / 3600)}h`;
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), r = sec % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+}
+
+// "today at 7:00 PM EDT", "tomorrow at …", "Saturday, October 17 at …"
+function startLabel(at){
+  const rel = scheduleRelativeLabel(at);
+  const day = rel === 'Today' || rel === 'Tomorrow' ? rel.toLowerCase() : scheduleDateLabel(at);
+  return `${day} at ${scheduleTimeLabel(at)}`;
+}
+
+// Is the lottery reveal still filling in the order?
+const revealing = d => !!d.s.order && ui.revealed !== null && ui.revealed < d.n;
+// Has drafter `id`'s spot been revealed yet? (Everyone, once it settles.)
+function orderShown(d, id){
+  const pos = d.s.order ? d.s.order.indexOf(id) : -1;
+  return pos >= 0 && (!revealing(d) || pos >= d.n - ui.revealed);
+}
+
+// Where you pick, once the order is drawn: "You pick 2nd · 1.02, 2.19, 3.02 …"
+function lobbySub(d){
+  const { s } = d;
+  if(!s.order) return isMockRoom(draftStore.room) ? 'Drawing the order…' : 'The draft order isn’t drawn yet';
+  if(revealing(d)) return 'Drawing the order…';
+  const pos = s.order.indexOf(d.me);
+  if(pos < 0) return `${drafterName(s.order[0])} picks first`;
+  const picks = [];
+  for(let slot = 0; slot < d.total && picks.length < 3; slot++){
+    if(ownerOf(slot, s.order, s.overrides) === d.me) picks.push(pickLabel(slot, d.n));
+  }
+  return `You pick ${ordinal(pos + 1)} · ${picks.join(', ')} …`;
+}
+
+// The hero before the draft: the ring counts down to the start
+// (updateClock keeps it ticking), the title says when, the subline where
+// you pick. Minimized on desktop, the strip.
+function lobbyHeroParts(d, phone, wide){
+  const mock = isMockRoom(draftStore.room);
+  const at = startAt();
+  const text = at ? countdownText(at - Date.now()) : '—';
+  const label = at ? (at > Date.now() ? 'to start' : 'starting') : 'not started';
+  const title = mock ? 'Practice draft' : at ? `Draft starts ${startLabel(at)}` : 'The draft hasn’t started';
+  const sub = lobbySub(d);
+  if(phone || wide){
+    const minBtn = wide ? iconButtonHtml({ icon: 'chevron-down', label: 'Minimize the clock', onclick: 'draftHeroMin(true)', cls: 'clock-hero-min' }) : '';
+    return [clockHeroHtml({ clockHtml: draftClockHtml({ secondsLeft: 1, total: 1, text, label }), title, sub, others: true, cornerHtml: minBtn }), ''];
+  }
+  const expandBtn = iconButtonHtml({ icon: 'chevron-down', label: 'Show the big clock', onclick: 'draftHeroMin(false)', cls: 'dr-strip-expand' });
+  return [`
+    <div class="dr-clock-card strip">
+      <span class="dr-eyebrow">${mock ? 'PRACTICE' : 'BEFORE THE DRAFT'}</span>
+      <span class="dr-clock-name"><span class="dr-clock-who">${esc(title)}</span></span>
+      <span class="dr-clock-sub">${esc(sub)}</span>
+      <span class="dr-strip-timer"><span class="dr-timer" id="dr-timer">${esc(text)}</span></span>
+      ${expandBtn}
+    </div>`, ''];
+}
+
+// Ticks the countdown in place (from updateClock), without a render.
+function updateCountdown(){
+  const at = startAt();
+  if(!at) return;
+  const text = countdownText(at - Date.now());
+  const b = document.querySelector('#dr-clock .draft-clock-time b');
+  if(b && b.textContent !== text){
+    b.textContent = text;
+    b.closest('.draft-clock').classList.toggle('long', text.length > 5);
+    if(text === 'Soon') scheduleRender();   // the label changes too
+  }
+  const timer = document.getElementById('dr-timer');
+  if(timer && timer.textContent !== text) timer.textContent = text;
 }
 
 // The ring turns red for the last 8 seconds.
@@ -1075,21 +1105,27 @@ function drafterNaturalOwner(d, slot){
   return d.s.order[round % 2 === 0 ? pos : d.n - 1 - pos];
 }
 
+// Before the order is drawn (or while the lottery reveal is filling it
+// in) a column's head is a dash and nothing in it is marked yours.
 function boardHtml(d){
   const { s, n } = d;
   const order = s.order;
   const cur = d.clockInfo ? d.clockInfo.slot : -1;
-  const head = order.map(id => `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}" data-id="${esc(id)}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`).join('');
+  const head = Array.from({ length: n }, (_, c) => {
+    const id = order && order[c];
+    if(!id || !orderShown(d, id)) return '<div class="dr-bh"><span class="dr-dim">—</span></div>';
+    return `<div class="dr-bh${id === d.me ? ' me' : ''}${d.clockInfo && d.clockInfo.owner === id ? ' clock' : ''}" data-id="${esc(id)}"${autoDraftOn(d, id) ? ' title="Auto-draft is on"' : ''}>${autoDraftOn(d, id) ? '<span class="dr-auto-dot" aria-label="Auto-draft"></span>' : ''}${esc(drafterName(id))}${id === d.me ? ' (you)' : ''}</div>`;
+  }).join('');
   const rows = [];
   for(let r = 0; r < d.rounds; r++){
     const cells = [];
     for(let c = 0; c < n; c++){
       const slot = r * n + (r % 2 === 0 ? c : n - 1 - c);
-      const owner = ownerOf(slot, order, s.overrides);
+      const owner = order ? ownerOf(slot, order, s.overrides) : null;
       const pick = s.picks[slot];
-      const traded = owner !== order[c];   // the column is the snake's owner; anything else was traded
+      const traded = !!order && owner !== order[c];   // the column is the snake's owner; anything else was traded
       const label = pickLabel(slot, n);
-      const mine = owner === d.me;
+      const mine = owner === d.me && orderShown(d, owner);
       if(pick){
         const team = teamById(s.pool, pick.team);
         const lg = team ? leagueUi(team.league) : { label: '', color: '#94969E' };
@@ -1098,7 +1134,7 @@ function boardHtml(d){
       } else if(slot === cur){
         cells.push(`<div class="dr-cell current" data-current="1" data-slot="${slot}"><div class="dr-cell-top"><span>${label}</span></div><div class="dr-cell-clock">On the clock</div></div>`);
       } else {
-        cells.push(`<div class="dr-cell empty${mine ? ' mine' : ''}" data-slot="${slot}"><div class="dr-cell-top"><span>${label}</span></div>${traded ? `<div class="dr-cell-traded">→ ${esc(drafterName(owner))}</div>` : ''}</div>`);
+        cells.push(`<div class="dr-cell empty${mine ? ' mine' : ''}" data-slot="${slot}"><div class="dr-cell-top"><span>${label}</span></div>${traded && orderShown(d, owner) ? `<div class="dr-cell-traded">→ ${esc(drafterName(owner))}</div>` : ''}</div>`);
       }
     }
     rows.push(`<div class="dr-round"><div class="dr-round-n">${r + 1}<small>${r % 2 === 0 ? '→' : '←'}</small></div>${cells.join('')}</div>`);
@@ -1187,7 +1223,24 @@ function queueHtml(d){
 // The password is only ever entered on Settings → Commissioner
 // (js/admin.js); once it's saved there, this room signs in with it
 // (resumeCommissioner) and the bar appears. Nobody else sees one.
+// Before the draft: the setup that used to be the lobby page. Buttons
+// that change the order wait for a lottery reveal to finish.
+function commLobbyHtml(d){
+  const { s } = d;
+  const mock = isMockRoom(draftStore.room);
+  const drawn = !!s.order;
+  const off = revealing(d) ? ' disabled' : '';
+  return `<span class="dr-comm-label">COMMISSIONER</span>
+    <button class="dr-btn dr-btn-gold"${drawn && !revealing(d) ? '' : ' disabled'} onclick="draftStart()">Start draft</button>
+    <button class="dr-btn"${off} onclick="draftRunLottery()">${mock ? 'Random order' : (drawn ? 'Re-run lottery' : 'Run lottery')}</button>
+    <button class="dr-btn"${off} onclick="draftOpenOrder()">Set order</button>
+    ${mock && drawn ? `<button class="dr-btn"${s.orderSource === 'live' ? ' disabled' : ''} onclick="draftLiveOrder()">Live draft order</button>` : ''}
+    ${mock ? '' : `<button class="dr-btn" onclick="draftLoadPool()">${s.poolSize ? `Reload pool (${s.poolSize})` : 'Load team pool'}</button>`}
+    <button class="dr-btn" onclick="draftOpenSettings()">${mock ? 'Bots &amp; clock' : 'Clock &amp; auto-draft'}</button>`;
+}
+
 function commBarHtml(d){
+  if(d.s.phase === 'lobby') return commLobbyHtml(d);
   const anyPicks = Object.keys(d.s.picks).length > 0;
   const live = d.s.phase === 'draft';
   const mock = isMockRoom(draftStore.room);
@@ -1200,12 +1253,12 @@ function commBarHtml(d){
     <button class="dr-btn dr-btn-ghost" onclick="draftOpenReset()">Reset</button>`;
 }
 
-// Off the lobby, in every room, for the signed-in commissioner only (a
-// mock room signs everyone in on connect).
+// In every room and phase, for the signed-in commissioner only (a mock
+// room signs everyone in on connect).
 function renderCommBar(d){
   const el = document.getElementById('draft-comm');
   if(!el) return;
-  const show = !!d && d.s.phase !== 'lobby' && draftStore.commissioner;
+  const show = !!d && draftStore.commissioner;
   el.hidden = !show;
   if(show && regionHtml.get('draft-comm') !== commBarHtml(d)){
     const html = commBarHtml(d);
@@ -1262,7 +1315,7 @@ function modalBody(d){
     if(!draftStore.commissioner) return null;
     const mock = isMockRoom(draftStore.room);
     return `<h3>${mock ? 'Bots &amp; clock' : 'Clock &amp; auto-draft'}</h3>
-      <p>${mock ? 'Takes effect from the pick on the clock now. Bots pick on their own; anyone else is auto-picked when the clock runs out.' : `The clock is soft: it counts up in red when time runs out. Only drafters on auto-draft are picked for, as soon as they go on the clock. Switch it on for anyone who can't make it.`}</p>
+      <p>${mock ? `${d.s.phase === 'draft' ? 'Takes effect from the pick on the clock now. ' : ''}Bots pick on their own; anyone else is auto-picked when the clock runs out.` : `The clock is soft: it counts up in red when time runs out. Only drafters on auto-draft are picked for, as soon as they go on the clock. Switch it on for anyone who can't make it.`}</p>
       <div class="dr-actions dr-actions-sub">${clockSelectHtml(d)}</div>
       <div class="dr-card dr-modal-card">${mock ? botControlsHtml(d) : autoDraftRowsHtml(d)}</div>
       <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Done</button></div>`;
@@ -1397,6 +1450,7 @@ function sheetActionsHtml(d, team, pickSlot){
       ? buttonHtml({ label: 'Edit pick', variant: 'secondary', onclick: `draftSheetEditPick(${pickSlot})` }) : '';
     return `${edit}<div class="modal-cta-note">Drafted by ${esc(owner === d.me ? 'you' : drafterName(owner))} · Pick ${pickLabel(pickSlot, d.n)}</div>`;
   }
+  if(d.s.phase === 'lobby') return d.s.config.drafters.includes(d.me) ? '<div class="modal-cta-note">Star it now; you can draft once the draft starts</div>' : '';
   if(d.s.phase !== 'draft') return '';
   if(!teamFits(d, team)){
     const whose = d.proxy ? `${drafterName(d.actor)}'s` : 'Your';
@@ -1501,7 +1555,19 @@ function phoneQueueHtml(d){
 }
 
 // The last three rounds, newest first, ending at whoever is on the clock.
+// Before the draft, the first two rounds in order.
 function phoneBoardHtml(d){
+  if(d.s.phase === 'lobby'){
+    const { order, overrides } = d.s;
+    const rows = [];
+    for(let slot = 0; slot < Math.min(d.total, d.n * 2); slot++){
+      const owner = order ? ownerOf(slot, order, overrides) : null;
+      const shown = owner && orderShown(d, owner);
+      const name = shown ? (owner === d.me ? 'You' : esc(drafterName(owner))) : '<span class="dr-dim">—</span>';
+      rows.push(`<div class="dm-brow${shown && owner === d.me ? ' mine' : ''}" data-slot="${slot}"><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${name}</span><span class="dm-b-team"><span class="dr-dim">—</span></span></div>`);
+    }
+    return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">First 2 rounds</span></div>${rows.join('')}`;
+  }
   const last = d.clockInfo ? d.clockInfo.slot : d.total - 1;
   const first = Math.max(0, (Math.floor(last / d.n) - 2) * d.n);
   const rows = [];
@@ -1624,16 +1690,6 @@ function render(){
   setMotionSpeed(isMockRoom(draftStore.room) ? 2 : 1);
   const events = draftEvents(d);
   noteLanding(d, events);
-  if(d.s.phase === 'lobby'){
-    if(ui.shell !== 'lobby'){ ui.shell = 'lobby'; }
-    root().innerHTML = lobbyHtml(d);
-    renderCommBar(null);
-    // Set order is the lobby's only sheet.
-    renderModal(ui.modal === 'order' ? d : null);
-    renderTeamSheet(null);
-    return;
-  }
-  if(ui.shell === 'lobby') ui.shell = null;
   const clockWas = clockSnapshot();
   if(isPhone()) renderPhone(d); else renderLive(d);
   playDraftEvents(d, events);
@@ -1708,7 +1764,7 @@ function loadPool(){
 // it's ready to start. Once per room and set of sports, so a pool that
 // still comes up short (too few teams in a league) isn't resent forever.
 function maybeAutoPool(d){
-  if(d.s.phase !== 'lobby' || !draftStore.commissioner || !isMockRoom(draftStore.room) || !poolShort(d.s)) return;
+  if(d.s.phase !== 'lobby' || !draftStore.commissioner || !isMockRoom(draftStore.room) || !poolShort(fullState())) return;
   const key = `${draftStore.room}:${JSON.stringify(d.s.config.caps)}`;
   if(ui.autoPoolFor === key) return;
   ui.autoPoolFor = key;
@@ -2164,6 +2220,7 @@ function clockDerive(){
 function updateClock(){
   if(document.hidden) return;
   const d = clockDerive();
+  if(d && d.s.phase === 'lobby') return updateCountdown();
   if(!d || d.s.phase !== 'draft') return;
   const limit = clockLimitMs(d);
   const left = limit - clockElapsedMs(d.s.clock, serverNow());
@@ -2382,8 +2439,8 @@ window.draftSaveOrder = async () => {
 // Loads the pool first if it can't cover the draft yet, in any room, so
 // Start is the only button you need.
 window.draftStart = async () => {
-  const d = derive();
-  if(d && poolShort(d.s) && !(await loadPool()).ok) return;
+  const real = fullState();
+  if(real && poolShort(real) && !(await loadPool()).ok) return;
   run({ type: 'startDraft' }, null);
 };
 window.draftSetClock = value => run({ type: 'setConfig', clockSeconds: Number(value) }, null);
@@ -2582,6 +2639,9 @@ if(phoneQuery){
   if(phoneQuery.addEventListener) phoneQuery.addEventListener('change', onChange);
   else if(phoneQuery.addListener) phoneQuery.addListener(onChange);
 }
+
+// A new start time (or a fresh read of it) repaints the countdown.
+onDraftSchedule(() => scheduleRender());
 
 export function setDraftActive(on){
   if(on === active) return;
