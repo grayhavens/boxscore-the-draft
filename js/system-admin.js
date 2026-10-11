@@ -617,7 +617,7 @@ function sizeHtml(g){
   const sub = z.locked ? 'Fixed: the draft has started'
     : z.current === z.min && z.min < z.max ? 'Everyone after this is in a spot; Undo one to go lower'
     : z.min === z.max ? 'Every spot is taken or named'
-    : `Between ${z.min} and ${z.max}. The draft lottery is redone if you change it`;
+    : `Between ${z.min} and ${z.max}. Removing a spot moves everyone behind it up one in the draft order`;
   return `
     <div class="sysadmin-list-row compact">
       <span class="sysadmin-row-text"><span class="sysadmin-row-title">Drafters: ${z.current}</span><span class="sysadmin-row-sub">${sub}</span></span>

@@ -161,7 +161,7 @@ worker's chat/draft alerts, the landing count, and the app, where `js/roster.js`
 /roster`). **Drafter count:** the Roster card's − / + sets how many drafters a group has (`POST /api/admin/roster/size`,
 KV `size@<group>` = `{ size, at }`, served as `size` on `GET /roster`). `applySize` in `js/groups.js` drops spots off the END of the list, and only open ones
 (`minDrafters` is the floor), so nobody loses a place; the claim flow, chat/draft alerts, the landing count and `js/roster.js` (which trims the `GROUPS` array in place, so `DRAFT_TEAMS` and the board follow) all read it. Locked
-once the group's draft leaves the lobby; a room still in the lobby follows at once (`syncGroupSize` in `worker/draft-room.js`, same `at` guard as caps) and its lottery is redone. A worker deploy is needed before the site shows the control working.
+once the group's draft leaves the lobby; a room still in the lobby follows at once (`syncGroupSize` in `worker/draft-room.js`, same `at` guard as caps) and a drawn order is kept: removing a spot just moves everyone behind it up one (growing redoes the lottery). A worker deploy is needed before the site shows the control working.
 Name pickers hide still-open spots. The roster table on the admin page labels a spot "Commissioner" when `js/groups.js` marks it `commissioner: true` (a label only), otherwise Named or Confirmed. Undo frees a spot. Under the group cards, "Interested in Boxscore?" takes
 someone with no group to join (name, email, start a group or join one, an optional note): `POST /interest`
 (`worker/interest.js`), platform-wide rather than a group's, bounded like `/claim`, stored in KV `interest`, emailed

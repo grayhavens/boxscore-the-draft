@@ -433,7 +433,17 @@ export class DraftRoom extends DurableObject {
     const before = this.state;
     const result = reduce(before, { type: 'setConfig', drafters: ids, ...(owner ? { bots: ids.filter(id => id !== owner) } : {}) },
       { now: Date.now(), actor: null, isCommissioner: true });
-    if(result.state) await this.commit(before, result.state, null, true, { type: 'setConfig', drafters: ids });
+    if(!result.state) return;
+    // Shrinking keeps a drawn order: whoever was behind a removed spot just
+    // moves up one place each. Growing, or an order that doesn't line up,
+    // is redrawn from the lobby as setConfig left it.
+    const kept = before.order && before.order.filter(id => ids.includes(id));
+    if(kept && isOrderOf(kept, ids)){
+      result.state.order = kept;
+      if(before.orderSource) result.state.orderSource = before.orderSource;
+      result.state.overrides = before.overrides || {};
+    }
+    await this.commit(before, result.state, null, true, { type: 'setConfig', drafters: ids });
   }
 
   // { size, at } from the worker's admin save, which has already checked it.
