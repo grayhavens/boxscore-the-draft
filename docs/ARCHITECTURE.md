@@ -388,7 +388,7 @@ the board and star a queue early. Available shows the pool Load team pool would 
 until the commissioner loads it; the hero counts down to the live room's scheduled start (`startAt`, from
 `js/draft-schedule.js`; mock and rehearsal rooms have none) and says where you pick; the lottery reveal fills the
 board's column heads. A green dot after a drafter's name in the board's column heads (and the phone board's rows) shows
-who has the room open and on screen (`hereDotHtml`, lobby only): each socket sends
+who has the room open and on screen (`hereDotHtml`, in the lobby and during the draft, not on a finished board): each socket sends
 `{ type: 'presence', from, visible }` on connect, on a profile switch and on every visibility change, kept on the
 socket's attachment; the room broadcasts `{ type: 'presence', here }` when it changes and when a socket closes. An
 old worker ignores the frame, so no dots show until the worker is deployed.

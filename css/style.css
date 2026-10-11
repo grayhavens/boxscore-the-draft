@@ -5927,7 +5927,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .dr-auto .switch{ flex: 0 0 auto; }
 .dr-clock-name .dr-badge{ font-family: var(--font-ui); font-weight: 700; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
 /* A dot rather than a word: board columns are too narrow for a tag. */
-/* Before the draft: this drafter has the room open (draftStore.here). */
+/* This drafter has the room open (draftStore.here). */
 .dr-here-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--presence); margin-left: 5px; vertical-align: middle; }
 .dr-auto-dot{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: middle; }
 .dr-cell.editable:hover{ border-color: var(--hairline-strong); }

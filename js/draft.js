@@ -17,7 +17,8 @@
      counts down to the start the commissioner scheduled (live room
      only, js/draft-schedule.js) and says where you pick once the order
      is drawn; the lottery reveal fills the board's column heads. A green
-     dot after a name there shows who has the room open (draftStore.here). Setup
+     dot after a name there (before and during the draft) shows who has
+     the room open (draftStore.here). Setup
      (lottery, Set order, team pool, clock, Start) is the commissioner
      bar. A mock lobby copies the live room's order once it's drawn
      (else draws its own on arrival); its bot switches are under Bots &
@@ -1106,10 +1107,10 @@ function drafterNaturalOwner(d, slot){
   return d.s.order[round % 2 === 0 ? pos : d.n - 1 - pos];
 }
 
-// Before the draft, a green dot after the name of anyone with the room
-// open and on screen (draftStore.here).
+// A green dot after the name of anyone with the room open and on screen
+// (draftStore.here), before and during the draft. Not on a finished board.
 function hereDotHtml(d, id){
-  return d.s.phase === 'lobby' && draftStore.here.includes(id) ? '<span class="dr-here-dot" role="img" aria-label="In the room" title="In the room"></span>' : '';
+  return d.s.phase !== 'done' && draftStore.here.includes(id) ? '<span class="dr-here-dot" role="img" aria-label="In the room" title="In the room"></span>' : '';
 }
 
 // Before the order is drawn (or while the lottery reveal is filling it
@@ -1587,7 +1588,7 @@ function phoneBoardHtml(d){
       ? `${tileHtml(team, 'sm')}<span class="dm-b-name">${esc(team.name)}</span><span class="dm-b-lg" style="color:${leagueUi(team.league).color}">${leagueUi(team.league).label}</span>`
       : (cur ? '<span class="dm-b-clock">On the clock</span>' : '<span class="dr-dim">—</span>');
     const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
-    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}" data-slot="${slot}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}</span><span class="dm-b-team">${body}</span></div>`);
+    rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}" data-slot="${slot}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}${hereDotHtml(d, owner)}</span><span class="dm-b-team">${body}</span></div>`);
   }
   return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
 }
