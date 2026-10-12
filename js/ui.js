@@ -354,9 +354,9 @@ export function pickLandingHtml({ color, badgeHtml, title, sub, next = '' }){
   return `${teamOrbHtml({ color, cls: 'pick-landing-orb' })}<div class="pick-landing"><span class="pick-landing-badge">${badgeHtml}</span><div class="pick-landing-title">${escapeHtml(title)}</div><div class="pick-landing-sub">${escapeHtml(sub)}</div>${next ? `<div class="pick-landing-next">${escapeHtml(next)}</div>` : ''}</div>`;
 }
 
-// SnakeRail: the pick order as a row of slots (pick number, drafter). A
-// done slot carries a chip in its team's color; the slot on the clock is
-// gold. slots: [{ label, name, state: 'done' | 'now' | '', chip }].
+// SnakeRail: the pick order as a row of slots (pick number, drafter) that
+// scrolls sideways. A done slot carries a chip in its team's color; the
+// slot on the clock is gold. slots: [{ label, name, state: 'done' | 'now' | '', chip }].
 export function snakeRailHtml({ slots }){
   return `<div class="snake-rail"><div class="snake-rail-track">${slots.map(s => `<div class="snake-slot${s.state ? ` ${s.state}` : ''}"><span class="snake-slot-pk">${escapeHtml(s.label)}</span><span class="snake-slot-nm">${escapeHtml(s.name)}</span>${s.chip ? `<span class="snake-slot-chip" style="background:${escapeHtml(s.chip)}"></span>` : ''}</div>`).join('')}</div></div>`;
 }
