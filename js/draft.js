@@ -156,6 +156,8 @@ function errorText(result){
 // ---- Local (per-device) UI state ----
 
 const ui = {
+  railAt: null,           // clock slot the phone's pick rail was last scrolled to (null: not shown yet)
+  railTouched: 0,         // when someone last touched or scrolled the rail
   filter: 'all',
   conf: null,             // conference within the filtered league, or null
   div: null,              // division within the filtered league (always inside `conf`), or null
@@ -1086,23 +1088,45 @@ function scrollToClock(){
 }
 window.draftToClock = () => { scrollToClock(); };
 
-// The phone's pick order: three picks back, the one on the clock, and what's
-// coming, each done pick with its team's color. A pick slides it along.
-const RAIL_BEFORE = 3, RAIL_SLOTS = 12, RAIL_STEP = 64;   // slot 58 + gap 6
-function railStart(d){
-  const cur = d.clockInfo ? d.clockInfo.slot : d.total - 1;
-  return Math.max(0, Math.min(cur - RAIL_BEFORE, d.total - RAIL_SLOTS));
-}
+// The phone's pick order: every pick of the draft, each done pick with its
+// team's color, kept with the one on the clock three slots in. It scrolls
+// sideways, so a swipe looks back or ahead; a pick glides it back to the
+// clock unless it was touched in the last RAIL_IDLE_MS (no yanking it out
+// from under someone reading ahead). Patched in place (patchRegion), so
+// the scroll position survives every render.
+const RAIL_BEFORE = 3, RAIL_IDLE_MS = 6000;
 function railHtml(d){
   if(d.s.phase !== 'draft' || !d.clockInfo) return '';
-  const start = railStart(d), cur = d.clockInfo.slot, slots = [];
-  for(let slot = start; slot < Math.min(d.total, start + RAIL_SLOTS); slot++){
+  const cur = d.clockInfo.slot, slots = [];
+  for(let slot = 0; slot < d.total; slot++){
     const owner = ownerOf(slot, d.s.order, d.s.overrides);
     const pick = d.s.picks[slot];
     const team = pick && teamById(d.s.pool, pick.team);
     slots.push({ label: pickLabel(slot, d.n), name: owner === d.me ? 'You' : drafterName(owner), state: pick ? 'done' : (slot === cur ? 'now' : ''), chip: team ? team.color : '' });
   }
   return snakeRailHtml({ slots });
+}
+
+// Brings the slot on the clock back to three in (smoothly once the rail is
+// on screen and motion is on), unless someone's been swiping it.
+function railFollow(d){
+  const rail = document.querySelector('#dm-rail .snake-rail');
+  if(!rail || !d.clockInfo) return;
+  const cur = d.clockInfo.slot;
+  if(ui.railAt === cur) return;
+  const first = ui.railAt === null;
+  if(!first && Date.now() - ui.railTouched < RAIL_IDLE_MS) return;
+  const slot = rail.querySelector('.snake-rail-track').children[Math.max(0, cur - RAIL_BEFORE)];
+  if(!slot) return;
+  ui.railAt = cur;
+  const left = slot.offsetLeft - rail.firstElementChild.offsetLeft;
+  rail.scrollTo({ left, behavior: !first && fxOn() ? 'smooth' : 'auto' });
+}
+
+// A touch, wheel or drag on the rail: hold off following the clock. A
+// pick made meanwhile is caught up with on the first render once it's idle.
+function railTouched(){
+  ui.railTouched = Date.now();
 }
 
 function drafterNaturalOwner(d, slot){
@@ -1622,13 +1646,17 @@ function renderPhone(d){
     root().innerHTML = phoneShellHtml();
     ui.shell = 'phone';
     regionHtml.clear();
+    ui.railAt = null;
+    const rail = document.getElementById('dm-rail');
+    ['touchstart', 'wheel', 'pointerdown'].forEach(t => rail.addEventListener(t, railTouched, { passive: true }));
   }
   const shell = root().querySelector('.dm');
   shell.dataset.tab = ui.mobileTab;
   shell.querySelectorAll('.dm-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.mobileTab));
   renderPool(d);
   setClockRegions(d);
-  setRegion('dm-rail', railHtml(d));
+  patchRegion('dm-rail', railHtml(d));
+  railFollow(d);
   setRegion('dm-mini', miniHtml(d));
   pinPhoneTop();
   setRegion('dr-autodraft', autoDraftHtml(d));
@@ -1817,9 +1845,7 @@ const fx = {
   prev: null,          // snapshot from the last render, null until the next one is a first look
   stale: undefined,    // the state seen while disconnected; the first newer one is a first look
   sent: null,          // { team, slot, rect, ghost, row, at }: my pick in flight, measured before the re-render
-  nudged: null,        // clock slot the time's-up nudge already played for
-  railStart: null,     // first slot the phone's pick rail showed last render
-  railShift: 0         // how many slots it moved along this render
+  nudged: null         // clock slot the time's-up nudge already played for
 };
 
 function fxSnapshot(d){
@@ -1888,9 +1914,6 @@ function noteLanding(d, events){
     clearTimeout(ui.landTimer);
     ui.landTimer = setTimeout(scheduleRender, hold + 30);
   }
-  const start = d.clockInfo ? railStart(d) : null;
-  fx.railShift = start !== null && fx.railStart !== null ? start - fx.railStart : 0;
-  fx.railStart = start;
 }
 
 // A short id for this draft (room + drawn order), for once-per-device keys.
@@ -2136,14 +2159,12 @@ function fxClockSwap(snap){
   }, Math.max(SWAP.fade, SWAP.resize) + 20);
 }
 
-// The phone's pick rail: the slot just picked gets its team chip, then the
-// rail slides along to keep the pick on the clock in place.
+// The phone's pick rail: the slot just picked gets its team chip (the rail
+// glides along to the new clock itself, railFollow).
 function fxRail(slot, delay = 0){
   const track = document.querySelector('#dm-rail .snake-rail-track');
-  if(!track || fx.railStart === null) return;
-  const done = track.children[slot - fx.railStart];
+  const done = track && track.children[slot];
   pop(done && done.querySelector('.snake-slot-chip'), { from: 0, delay, duration: 500 });
-  if(fx.railShift) play(track, [{ transform: `translateX(${fx.railShift * RAIL_STEP}px)` }, { transform: 'none' }], { duration: 600, delay: delay + 300 });
 }
 
 // The phone board, newest first: each pick puts a new on-the-clock row on
@@ -2686,7 +2707,7 @@ export function setDraftActive(on){
     clearInterval(clockTimer);
     clockTimer = setInterval(updateClock, 250);
     ui.lastOrderKey = undefined;
-    fx.prev = null; fx.stale = undefined; fx.sent = null; fx.railStart = null;
+    fx.prev = null; fx.stale = undefined; fx.sent = null; ui.railAt = null;
     ui.landed = null;
     scheduleRender();
   } else {

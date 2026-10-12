@@ -396,7 +396,9 @@ socket's attachment; the room broadcasts `{ type: 'presence', here }` when it ch
 old worker ignores the frame, so no dots show until the worker is deployed.
 On a phone during the draft, the clock card says when you pick next ("You pick at 2.06 · 8 picks away",
 `nextPickText`) and the Board tab leads with **Up next** (`phoneUpNextHtml`): the picks after the one on the clock
-through your next one (at least 5, at most two rounds), yours in gold, above the last three rounds.
+through your next one (at least 5, at most two rounds), yours in gold, above the last three rounds. The pick rail
+under the phone's clock card (`railHtml`, `snakeRailHtml`) holds every pick and swipes sideways to look back or ahead;
+a pick glides it back to the clock (`railFollow`) unless it was touched in the last 6 seconds (`RAIL_IDLE_MS`).
 The lobby setup (Start, lottery, Set order, team pool, clock/bots) is the commissioner bar.
 A mock lobby drafts in the live room's order once the live lottery is drawn (until that draft is done): the
 Durable Object reads `main`'s order (internal `GET .../order`) on connect and on the automatic first draw and hands it
