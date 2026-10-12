@@ -109,7 +109,7 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
    Teams it generated from ESPN (not in last year's class) are listed for a glance.
 3. Write it: `node tools/export-draft.mjs`. This creates `js/seasons/<year>.js` and registers it in
    `js/seasons/the-draft.js` and `sw.js`. For another group add `--group seasonticket`: it writes
-   `js/seasons/seasonticket-<year>.js` and registers it in `js/seasons/seasonticket.js`, `js/seasons/index.js` and `sw.js`. Review `git diff`; entries marked `// generated from ESPN` deserve a
+   `js/seasons/seasonticket-<year>.js` and registers it in `js/seasons/seasonticket.js`, `js/seasons/index.js` and `sw.js`. If the group has an invite code (an HTTP 401 says so), add `--code <invite-code>` too; the code is only sent with the request, never written into the file. Review `git diff`; entries marked `// generated from ESPN` deserve a
    look (name, colors, crest).
 4. Commit, open the PR, merge. Cloudflare Pages deploys the site.
 

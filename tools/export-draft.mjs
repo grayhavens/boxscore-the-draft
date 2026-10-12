@@ -4,6 +4,7 @@
 
      node tools/export-draft.mjs                       # real room ("main"), next year, from the newest season
      node tools/export-draft.mjs --group seasonticket  # another group's room, writes js/seasons/seasonticket-<year>.js
+     node tools/export-draft.mjs --group seasonticket --code <invite-code>   # a group with an invite code
      node tools/export-draft.mjs --result http://localhost:8787/draft/result?room=mock-1 --dry-run
      node tools/export-draft.mjs --result saved-result.json --year 2027 --overrides overrides.json
 
@@ -13,6 +14,9 @@
      --result <url|file>   the DraftRoom's /draft/result JSON (default: the deployed worker, room "main")
      --year <yyyy>         the new class's year (default: newest season + 1)
      --prev <yyyy>         season to copy team entries and scoring from (default: newest season)
+     --code <code>         the group's invite code, for a group that has one (its result
+                           answers 401 without it). Sent with the request only; never
+                           printed or written into the season file
      --overrides <file>    JSON { "league:Team Name": "<espnTeamId>" } for teams ESPN can't place unaided
      --out <file>          write the season module here instead of js/seasons/<year>.js
                            (registry and service worker are left alone when --out is used)
@@ -32,7 +36,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { LEGACY_GROUP_ID, GROUPS, isKnownGroup, drafterIdsFor, groupCaps } from '../js/groups.js';
-import { buildSeason, fetchEspnTeams, renderSeasonModule, updateRegistry, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles } from './draft-export-lib.mjs';
+import { buildSeason, fetchEspnTeams, renderSeasonModule, updateRegistry, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from './draft-export-lib.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WORKER = 'https://team-dashboard-rundown-proxy.boxscore.workers.dev';
@@ -52,6 +56,7 @@ function parseArgs(argv){
 async function loadResult(source){
   if(/^https?:\/\//.test(source)){
     const res = await fetch(source, { headers: { Origin: 'https://boxscorethedraft.pages.dev' } });
+    if(res.status === 401) throw new Error('fetching the draft result: HTTP 401. This group has an invite code; pass it with --code <code>');
     if(!res.ok) throw new Error(`fetching the draft result: HTTP ${res.status}`);
     return res.json();
   }
@@ -83,8 +88,8 @@ if(existingYears.includes(year) && !args.out) throw new Error(`js/seasons/${seas
 
 const prev = await import(pathToFileURL(path.join(root, `js/seasons/${prevFile}`)).href);
 const { DRAFT_TEAMS } = await import(pathToFileURL(path.join(root, 'js/data.js')).href);
-const source = args.result || DEFAULT_RESULT;
-const result = await loadResult(source);
+const source = withoutAccessCode(args.result || DEFAULT_RESULT);
+const result = await loadResult(withAccessCode(args.result || DEFAULT_RESULT, args.code));
 const overrides = args.overrides ? JSON.parse(fs.readFileSync(args.overrides, 'utf8')) : {};
 
 const built = await buildSeason({
