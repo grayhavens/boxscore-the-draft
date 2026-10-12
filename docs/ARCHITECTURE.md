@@ -380,9 +380,11 @@ a `?note=` saying what changed (`withNote` in `js/utils.js`), and the worker add
 Settings' Draft tile offers Mock Draft or Live Draft (`main`); the Home draft card has both too. Mock Draft opens the drafter's
 own room, `mock-<id>` (`personalMockRoom`), which nobody else is sent to and which starts with everyone else as a bot;
 the group's shared rehearsal room, `mock-1` (`GROUP_MOCK_ROOM`), is opened from Commissioner → Draft. Mock rooms (`isMockRoom`:
-`mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and are the only
-rooms that auto-pick: a Durable Object alarm drafts for bots after `config.botSeconds` and for anyone
-whose clock runs out (`autoPickTeam`). The real room's clock stays soft.
+`mock`, `mock-*`) are self-serve — the worker signs every socket in as commissioner — and a Durable Object alarm
+drafts for their bots after `config.botSeconds`. In every room, the real one included, the alarm drafts for anyone
+whose clock runs out (`autoPickTeam`: their queue, else the best team that fits) and turns their auto-draft on
+(`isClockTimeout`, the pick's `timeout`), so they're picked for at once from then on until they switch it off; the real
+room also pushes them "Your clock ran out". Undoing a timeout pick turns that auto-draft back off.
 **Before the draft** (phase `lobby`) there's no separate lobby page: everyone gets the same room, so they can look over
 the board and star a queue early. Available shows the pool Load team pool would send (`previewPool`, the same ids)
 until the commissioner loads it; the hero counts down to the live room's scheduled start (`startAt`, from

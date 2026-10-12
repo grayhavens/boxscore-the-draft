@@ -19,15 +19,17 @@
    everyone else as a bot; mock-1 is the group's shared rehearsal room.
    - Self-serve: every socket is treated as commissioner (sent an
      `authed` ok on connect), so anyone can set it up and run it.
-   - Auto-picks: a Durable Object alarm is kept set for whoever is on
-     the clock — a bot (config.bots) after config.botSeconds, anyone
-     else once config.clockSeconds runs out — and picks from their queue,
-     else the best-ranked team that fits (autoPickTeam).
-   Auto-draft (state.autoDraft, the setAutoDraft action) works in every
-   room, the real one included: a drafter who turns it on is picked for
-   the same way, as soon as they go on the clock (AUTO_DRAFT_SECONDS), and gets no
-   "You're on the clock" alert. autoPickLimitMs (js/draft-rules.js)
-   decides the delay for both kinds of room.
+   - Bots: a drafter in config.bots is picked for after config.botSeconds.
+   Auto-picks, in every room: a Durable Object alarm is kept set for
+   whoever is on the clock and picks from their queue, else the
+   best-ranked team that fits (autoPickTeam). It fires once
+   config.clockSeconds runs out, and that pick also turns auto-draft on
+   for them (the pick's `timeout`; a real room alerts them). A drafter on
+   auto-draft (state.autoDraft, the setAutoDraft action: switched on by
+   them, the commissioner, or a timeout, and off only by them or the
+   commissioner) is picked for as soon as they go on the clock
+   (AUTO_DRAFT_SECONDS), and gets no "You're on the clock" alert.
+   autoPickLimitMs (js/draft-rules.js) decides the delay.
    The room learns its own name and group (js/groups.js) from the
    WebSocket URL on first connect (kv 'room' / 'group'); a Durable Object
    isn't told the name it was created by. The group picks the default
@@ -111,7 +113,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps, isOrderOf } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs } from '../js/draft-rules.js';
+import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs, isClockTimeout } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
@@ -631,8 +633,7 @@ export class DraftRoom extends DurableObject {
   // ---- Auto-pick (auto-draft, and mock rooms' bots and timeouts) ----
 
   // When the pick on the clock is due to be made for its owner, or null
-  // when nothing should auto-pick (the real room for anyone not on
-  // auto-draft, paused, lobby, done).
+  // when nothing should auto-pick (paused, lobby, done).
   autoPickDue(){
     const { state } = this;
     const clock = onTheClock(state);
@@ -658,11 +659,27 @@ export class DraftRoom extends DurableObject {
     const row = this.sql.exec('SELECT teams FROM queues WHERE drafter = ?', clock.owner).toArray()[0];
     const team = autoPickTeam(this.state, clock.owner, row ? JSON.parse(row.teams) : [], randomUnit);
     if(!team) return;
-    const action = { type: 'pick', slot: clock.slot, team, auto: true };
+    const timeout = isClockTimeout(this.state, clock.owner, isMockRoom(this.room));
+    const action = { type: 'pick', slot: clock.slot, team, auto: true, ...(timeout ? { timeout: true } : {}) };
     const before = this.state;
     const result = reduce(before, action, { now: Date.now(), actor: null, isCommissioner: true, rand: randomUnit });
     if(!result.state) return;
     await this.commit(before, result.state, 'auto', true, action);
+    if(timeout) await this.pushTimedOut(clock.owner, team);
+  }
+
+  // Their clock ran out: say what was picked for them and that auto-draft
+  // is now on, so it doesn't keep picking for them unnoticed.
+  async pushTimedOut(owner, teamId){
+    if(isMockRoom(this.room)) return;
+    const team = teamById(this.state.pool, teamId);
+    await pushToDrafters(this.env, this.group || LEGACY_GROUP_ID, [owner], 'draft', {
+      kind: 'draft',
+      title: 'Your clock ran out',
+      body: `We picked ${team ? team.name : 'a team'} for you and turned on auto-draft. Turn it off in the draft room to pick yourself.`,
+      url: this.room === 'main' ? './?view=draft' : `./?view=draft&room=${this.room}`,
+      tag: 'draft-clock'
+    }, { ttl: 10 * 60, urgency: 'high', topic: 'draft-clock' });
   }
 
   validQueueOwner(from){
