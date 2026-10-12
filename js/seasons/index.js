@@ -15,10 +15,13 @@ import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
 import { groupCaps, groupShown } from '../groups.js';
 import { THE_DRAFT_SEASONS, THE_DRAFT_LATEST } from './the-draft.js';
 import { preDraftClass, withScoresOnly } from './pre-draft.js';
+import { GROUP_SEASONS as SEASONTICKET_SEASONS } from './seasonticket.js';
 
 // Every other group's classes, by group id. A group with none yet gets
 // its pre-draft class (js/seasons/pre-draft.js).
-const OTHER_GROUP_SEASONS = {};
+const OTHER_GROUP_SEASONS = {
+  seasonticket: SEASONTICKET_SEASONS
+};
 
 const DRAFTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
 
