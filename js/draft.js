@@ -795,12 +795,15 @@ function clockCardParts(d){
     return [clockHeroHtml({ clockHtml: draftClockHtml({ secondsLeft: total, total }), title: 'You’re on the clock', sub, cornerHtml: minBtn }), banners];
   }
   if(phone){
+    // When you're up next, since the phone's rail only reaches a pick or two ahead.
+    const myNext = d.s.config.drafters.includes(d.me) ? nextPickText(d, info.slot, false) : '';
     return [`
     <div class="dr-clock-card">
       <div class="dr-clock-main">
         <div class="dr-eyebrow">${eyebrow}</div>
         <div class="dr-clock-name"><span class="dr-clock-who">${esc(drafterName(info.owner))}</span>${autoBadge}</div>
         ${via ? `<div class="dr-clock-sub">via ${esc(drafterName(via))}</div>` : ''}
+        ${myNext ? `<div class="dr-clock-sub dr-clock-next">${esc(myNext)}</div>` : ''}
       </div>
       <div class="dr-timer-box">
         <div class="dr-clock-pick">Round ${round} · Pick ${info.slot + 1} of ${d.total}</div>
@@ -1579,6 +1582,7 @@ function phoneBoardHtml(d){
   const last = d.clockInfo ? d.clockInfo.slot : d.total - 1;
   const first = Math.max(0, (Math.floor(last / d.n) - 2) * d.n);
   const rows = [];
+  const upNext = phoneUpNextHtml(d);
   for(let slot = last; slot >= first; slot--){
     const owner = ownerOf(slot, d.s.order, d.s.overrides);
     const pick = d.s.picks[slot];
@@ -1590,7 +1594,27 @@ function phoneBoardHtml(d){
     const open = team ? ` onclick="draftOpenTeam('${team.id}', ${slot})" role="button" tabindex="0"` : '';
     rows.push(`<div class="dm-brow${cur ? ' cur' : ''}${owner === d.me ? ' mine' : ''}${open ? ' editable' : ''}" data-slot="${slot}"${open}><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${owner === d.me ? 'You' : esc(drafterName(owner))}${hereDotHtml(d, owner)}</span><span class="dm-b-team">${body}</span></div>`);
   }
-  return `<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
+  return `${upNext}<div class="dr-col-head"><h2>Board</h2><span class="dr-dim">Last 3 rounds</span></div>${rows.join('')}`;
+}
+
+// The picks after the one on the clock, through your next one (at least
+// UP_NEXT_MIN, at most two rounds), so a phone can see when it's their turn.
+const UP_NEXT_MIN = 5;
+function phoneUpNextHtml(d){
+  if(d.s.phase !== 'draft' || !d.clockInfo) return '';
+  const cur = d.clockInfo.slot;
+  const mine = myNextSlot(d, cur);
+  const end = Math.min(d.total - 1, cur + 2 * d.n, Math.max(cur + UP_NEXT_MIN, mine));
+  const rows = [];
+  for(let slot = cur + 1; slot <= end; slot++){
+    if(d.s.picks[slot]) continue;   // filled out of order (a make-up pick is on the clock)
+    const owner = ownerOf(slot, d.s.order, d.s.overrides);
+    const me = owner === d.me;
+    rows.push(`<div class="dm-brow${me ? ' mine' : ''}" data-slot="${slot}"><span class="dm-b-label">${pickLabel(slot, d.n)}</span><span class="dm-b-owner">${me ? 'You' : esc(drafterName(owner))}${hereDotHtml(d, owner)}</span><span class="dm-b-team"><span class="dr-dim">${slot - cur} away</span></span></div>`);
+  }
+  if(!rows.length) return '';
+  const sub = mine < 0 ? '' : `You’re up in ${mine - cur}`;
+  return `<div class="dr-col-head"><h2>Up next</h2>${sub ? `<span class="dr-dim">${esc(sub)}</span>` : ''}</div>${rows.join('')}`;
 }
 
 function renderPhone(d){

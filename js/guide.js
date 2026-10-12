@@ -77,7 +77,7 @@ const SECTIONS = [
     tourLead: 'A snake draft like any fantasy draft, except every pick is a whole real team, across every league.',
     points: [
       `Everyone takes the same mix: ${CAPS_LINE}.`,
-      'The room opens before the draft: look over the board, star a queue and see who’s in the room while it counts down.',
+      'The room opens before the draft: look over the board, star a queue and see who’s in the room while it counts down. On a phone, Board shows the picks coming up and how many until yours.',
       'Practice in Mock Draft any time, in the live draft’s order once it’s drawn. Can’t make the real one? Auto-draft picks for you, and it turns on by itself if your clock runs out.'
     ],
     shot: 'board',
