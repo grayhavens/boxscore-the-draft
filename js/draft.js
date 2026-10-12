@@ -1323,7 +1323,7 @@ function modalBody(d){
     if(!draftStore.commissioner) return null;
     const mock = isMockRoom(draftStore.room);
     return `<h3>${mock ? 'Bots &amp; clock' : 'Clock &amp; auto-draft'}</h3>
-      <p>${mock ? `${d.s.phase === 'draft' ? 'Takes effect from the pick on the clock now. ' : ''}Bots pick on their own; anyone else is auto-picked when the clock runs out.` : `The clock is soft: it counts up in red when time runs out. Only drafters on auto-draft are picked for, as soon as they go on the clock. Switch it on for anyone who can't make it.`}</p>
+      <p>${mock ? `${d.s.phase === 'draft' ? 'Takes effect from the pick on the clock now. ' : ''}Bots pick on their own; anyone else is auto-picked when the clock runs out.` : `When someone's clock runs out, the room picks for them and turns on their auto-draft until they turn it off. Drafters on auto-draft are picked for as soon as they go on the clock. Switch it on for anyone who can't make it.`}</p>
       <div class="dr-actions dr-actions-sub">${clockSelectHtml(d)}</div>
       <div class="dr-card dr-modal-card">${mock ? botControlsHtml(d) : autoDraftRowsHtml(d)}</div>
       <div class="dr-modal-btns"><button class="dr-btn" onclick="draftCloseModal()">Done</button></div>`;
@@ -2187,8 +2187,8 @@ function fxDone(d, key){
 
 // ---- Clock ----
 
-// The ring on your own clock. The real room's clock is soft, so at zero it
-// holds 0:00 in red; a mock room picks for you there. In the last 8
+// The ring on your own clock. At zero the room picks for you (and turns
+// on your auto-draft); it holds 0:00 in red until that lands. In the last 8
 // seconds it's red and beats once a second, and at zero the card nudges.
 function updateHeroClock(d, ring, limit, left){
   const sec = Math.max(0, Math.ceil(left / 1000));
@@ -2208,8 +2208,8 @@ function fmt(ms){
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-// Counts down to whenever the room will pick for them (a mock room's
-// bot or timeout), else the soft clock. Auto-draft is left out: it picks
+// Counts down to whenever the room will pick for them (the clock, or a
+// mock room's bot). Auto-draft is left out: it picks
 // within a second, and a timer racing to zero would only flash red.
 function clockLimitMs(d){
   const owner = d.clockInfo && d.clockInfo.owner;

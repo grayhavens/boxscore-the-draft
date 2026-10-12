@@ -48,19 +48,24 @@ export function mockRoomOwner(room, drafters){
 export const AUTO_DRAFT_SECONDS = 0.75;
 
 // How long after `owner` goes on the clock the room drafts for them, in
-// ms, or null when nobody will: the soonest of auto-draft (any room), a
-// mock room's bot delay, and a mock room's expired clock. The real
-// room's clock is soft, so only auto-draft ever picks there.
+// ms: the soonest of auto-draft, a mock room's bot delay, and the clock
+// running out (every room). A pick made because the clock ran out also
+// turns auto-draft on for them (the pick reducer's `timeout`).
 export function autoPickLimitMs(state, owner, mock){
   const { config } = state;
-  const limits = [];
+  const limits = [config.clockSeconds];
   if((state.autoDraft || []).includes(owner)) limits.push(AUTO_DRAFT_SECONDS);
-  if(mock){
-    // A room saved before bots existed has no botSeconds.
-    if((config.bots || []).includes(owner)) limits.push(config.botSeconds || DEFAULT_BOT_SECONDS);
-    limits.push(config.clockSeconds);
-  }
-  return limits.length ? Math.min(...limits) * 1000 : null;
+  // A room saved before bots existed has no botSeconds.
+  if(mock && (config.bots || []).includes(owner)) limits.push(config.botSeconds || DEFAULT_BOT_SECONDS);
+  return Math.min(...limits) * 1000;
+}
+
+// Is the room's auto-pick for `owner` happening because their clock ran
+// out (rather than auto-draft or a mock room's bot)? Then it turns
+// auto-draft on for them too.
+export function isClockTimeout(state, owner, mock){
+  if((state.autoDraft || []).includes(owner)) return false;
+  return !(mock && (state.config.bots || []).includes(owner));
 }
 
 // Leagues whose pool is only pre-loaded with the top schools; any other
