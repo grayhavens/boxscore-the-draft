@@ -173,7 +173,7 @@ chat room, draft rooms, the commissioner password (`ADMIN_PASSWORD_<GROUP>` secr
 original un-namespaced keys. `node tools/export-draft.mjs --group <id>` exports another group's finished draft to
 `js/seasons/<group>-<year>.js`, registered in `js/seasons/<group>.js` (made on the first export), `js/seasons/index.js`
 (`OTHER_GROUP_SEASONS`) and `sw.js`; a group's first class copies teams and scoring from The Draft's newest class and takes its
-year, and adds PGA Tour scoring when the group drafted golfers. localStorage isn't namespaced by group because each subdomain is its own
+year, and adds PGA Tour scoring when the group drafted golfers. A group with an invite code needs `--code <code>`; it's sent as `gc` and kept out of the file. localStorage isn't namespaced by group because each subdomain is its own
 origin. A group with no draft class yet gets a pre-draft class (`js/seasons/pre-draft.js`): The Draft's teams with the owners
 stripped and every team `favoriteOnly`, so Scores, Standings and team pages work, while `PRE_DRAFT` (`js/data.js`)
 hides everything drafter-shaped (owner labels, the Standings "Drafted" toggle, the Scores "Drafted" scope). A group's

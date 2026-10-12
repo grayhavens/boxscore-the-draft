@@ -409,3 +409,22 @@ export function addShellFiles(source, files, anchor){
   if(!source.includes(at)) return source;
   return source.replace(at, at + missing.map(line).join(''));
 }
+
+// A group with an invite code (worker/access-code.js) answers /draft/result
+// with 401 unless the code rides along as ?gc=. withAccessCode adds it to
+// the URL that is fetched; withoutAccessCode strips it from the label that
+// is printed and written into the season file's header, so the code never
+// lands in the repo. Files (not URLs) pass through untouched.
+export function withAccessCode(source, code){
+  if(!code || !/^https?:\/\//.test(source)) return source;
+  const url = new URL(source);
+  url.searchParams.set('gc', code);
+  return url.toString();
+}
+
+export function withoutAccessCode(source){
+  if(!/^https?:\/\//.test(source)) return source;
+  const url = new URL(source);
+  url.searchParams.delete('gc');
+  return url.toString();
+}

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles } from '../tools/draft-export-lib.mjs';
+import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from '../tools/draft-export-lib.mjs';
 import { buildDraftPool } from '../js/draft-pool.js';
 
 const DRAFTERS = ['a', 'b'];
@@ -299,4 +299,14 @@ test('shell files are added after the anchor, once', () => {
   const out = addShellFiles(sw, ['st.js', 'st-2026.js'], 'pre-draft.js');
   assert.equal(out, "  './js/seasons/pre-draft.js',\n  './js/seasons/st.js',\n  './js/seasons/st-2026.js',\n  './js/seasons/2026.js',\n");
   assert.equal(addShellFiles(out, ['st.js', 'st-2026.js'], 'pre-draft.js'), out);
+});
+
+test('the invite code rides on the fetched URL only, never the label', () => {
+  const base = 'https://worker.example/draft/result?room=main&group=seasonticket';
+  assert.equal(withAccessCode(base, 'maple-river-42'), base + '&gc=maple-river-42');
+  assert.equal(withAccessCode(base + '&gc=old', 'maple-river-42'), base + '&gc=maple-river-42');
+  assert.equal(withAccessCode(base, undefined), base);
+  assert.equal(withAccessCode('saved-result.json', 'maple-river-42'), 'saved-result.json');
+  assert.equal(withoutAccessCode(base + '&gc=maple-river-42'), base);
+  assert.equal(withoutAccessCode('saved-result.json'), 'saved-result.json');
 });
