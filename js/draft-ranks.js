@@ -10,6 +10,11 @@
    before each draft (promotion/relegation, expansion) and re-check the
    order — it is a starting point, not gospel.
    ============================================================ */
+// When the lists were last checked against the real field. Update it
+// whenever you check, even with no changes: the system admin page's
+// "Before the next draft" card flags it from August (js/draft-prep.js).
+export const DRAFT_RANKS_CHECKED = '2026-10-04';
+
 // Short names the ranking uses where TEAM_META has the full one, keyed by
 // both names squashed to lowercase letters and digits (js/draft-pool.js
 // and the landing page's badge rows match a ranked team to TEAM_META

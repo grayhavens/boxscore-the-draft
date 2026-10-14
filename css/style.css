@@ -8526,3 +8526,13 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .season-entry, .season-entry.leaving{ animation: none; }
   .se-crest .badge, .se-bar i, .se-cta{ transition: none; }
 }
+
+/* Group settings' "Before the next draft" checklist (js/admin.js,
+   js/draft-prep.js): the Needs attention card's rows, flush in a card. */
+.admin-desk-prep{ padding: 0; overflow: hidden; }
+.admin-desk-prep .admin-desk-poll-row{ padding: 14px 18px; }
+/* Phone column: each step's button goes under its text, in line with it. */
+#view-admin:not(.admin-desk-on) .admin-desk-prep .admin-desk-poll-row{ flex-wrap: wrap; align-items: flex-start; row-gap: var(--space-4); }
+#view-admin:not(.admin-desk-on) .admin-desk-prep .admin-desk-dot{ margin-top: 6px; }
+#view-admin:not(.admin-desk-on) .admin-desk-prep .admin-desk-poll-text{ flex-basis: calc(100% - 22px); }
+#view-admin:not(.admin-desk-on) .admin-desk-prep .admin-desk-btn{ margin-left: 22px; }

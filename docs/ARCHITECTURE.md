@@ -389,7 +389,12 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
 room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
-league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Draft screen leads with
+league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Group settings screen
+(screen key `draft`; "Group" on the phone switch) has a "Before the <next> draft" checklist (`js/draft-prep.js`'s
+`commissionerChecklist`): sports and picks, last season's board still in the room (reset stays in the room's bar), the
+draft time, the group rehearsal (the `mock-1` room's status), finished leagues still to lock, and a room check run from
+the page (status answers, a socket connects, the saved password is accepted; nothing changes in the room). Each row has
+its state and the button that goes where it's done. It also leads with
 a "Needs attention" list (a paused draft, a passed or near draft time with the lobby unready, a poll everyone answered,
 a locked league with postseason rules nobody is marked for), flagged in the sidebar too. Under 900px it keeps the phone
 column with a Draft/Scoring switch and league chips. Its writes (marks, adjustments, locks, the draft time and poll) carry
@@ -472,7 +477,10 @@ group's first draft, `when` hides a row from groups it doesn't apply to). Keep t
 
 **System admin** (`admin.html`, `js/system-admin.js`, `worker/system-admin.js`): the platform owner's page at
 `boxscore.space/admin`. It shows each group's draft, chat, activity, alert devices and secrets (present or missing, never
-values), sends test alerts and group announcements, and opens any group as commissioner. **Cloudflare Access** does the
+values), sends test alerts and group announcements, and opens any group as commissioner. Its Platform view has a "Before the next
+draft" card (`js/draft-prep.js`'s `ownerChecklist`): the app owner's file-changing steps (saved ESPN team lists, draft
+rankings via `DRAFT_RANKS_CHECKED`, season outlooks, golfer pool), each with when it was last done and its command; one
+that's due (August through October, not done since July) also goes in Needs attention. **Cloudflare Access** does the
 login. It guards `boxscore.space/admin*` and `boxscore.space/api/admin/*`, and the worker answers the latter as a zone
 route (`wrangler.toml`; `workers_dev = true` keeps the app's workers.dev address alive). The worker still checks the
 Access JWT itself (`worker/access-auth.js`), because the same routes are public on workers.dev. "Open as commissioner"

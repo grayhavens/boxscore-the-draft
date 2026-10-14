@@ -21,8 +21,16 @@
    owning them. A sport the current class drafted keeps showing until
    the next draft, since it still scores.
 
-   Draft section: status, read from the worker's GET /draft/status
-   (no socket), a way into the room, and the live draft's start time
+   Group settings (the screen key is still 'draft'): first a "Before the
+   next draft" checklist (js/draft-prep.js) of the commissioner's steps,
+   each with its state and the button that does it or goes where it's
+   done: Sports, the draft room (resetting last season's board, pool and
+   lottery stay there), the draft time below, the group rehearsal, the
+   leagues still to lock, and a room check run right here (the room
+   answers, its socket connects, the saved password is accepted). The
+   app owner's steps (ESPN lists, rankings, outlooks, golfers) are on the
+   system admin page instead. Then the draft itself: status, read from
+   the worker's GET /draft/status (no socket), a way into the room, and the live draft's start time
    (PUT /draft/schedule), which every drafter's Home counts down to. Before that, a draft time poll
    (js/draft-poll.js, PUT /draft/poll): two or three candidate times that Home asks every drafter
    about, with who can make each one listed here. Setting up the pool and clock,
@@ -57,6 +65,7 @@ import { isLeagueLocked, lockedAtFor, forceLockLeague, unlockLeague } from './se
 import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
+import { commissionerChecklist } from './draft-prep.js';
 
 import { backLinkHtml, buttonHtml, filterTabHtml } from './ui.js';
 import { GROUP_MOCK_ROOM } from './draft-rules.js';
@@ -160,7 +169,12 @@ async function loadDraftStatus(){
   if(draftStatusLoading) return;
   draftStatusLoading = true;
   // fetchJSON resolves null on any failure (offline, timeout, non-2xx).
-  const data = await fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`));
+  // The rehearsal room's status is only for the checklist; null is fine.
+  const [data, rehearsal] = await Promise.all([
+    fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`)),
+    fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${GROUP_MOCK_ROOM}`))
+  ]);
+  rehearsalStatus = rehearsal;
   if(data){
     draftStatus = data;
     setKnownDraftStatus(data);
@@ -171,6 +185,9 @@ async function loadDraftStatus(){
 }
 window.loadAdminDraftStatus = loadDraftStatus;
 
+let rehearsalStatus = null;
+let roomCheck = null;      // { ok, at, detail } from the last check
+let roomChecking = false;
 let scheduleSaving = false;
 let scheduleError = '';
 let pollSaving = false;
@@ -264,6 +281,83 @@ window.saveAdminDraftSchedule = function(){
 window.clearAdminDraftSchedule = function(){
   saveDraftSchedule(null, 'Draft time cleared.');
 };
+
+// ---- Before the next draft ----
+
+// The draft-day check, from here: the room answers, a socket connects,
+// and the saved password signs in. Nothing is changed in the room.
+const ROOM_CHECK_TIMEOUT_MS = 8000;
+function checkRoomSocket(){
+  return new Promise(resolve => {
+    let ws;
+    const done = result => { clearTimeout(timer); try { ws.close(); } catch (e){} resolve(result); };
+    const timer = setTimeout(() => done('The room didn’t answer in time.'), ROOM_CHECK_TIMEOUT_MS);
+    try {
+      ws = new WebSocket(withGroupQuery(`${chatWorkerBase().replace(/^http/, 'ws')}/draft/ws?room=${LIVE_DRAFT_ROOM}`));
+    } catch (e){ done('Couldn’t open a connection to the room.'); return; }
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'auth', password: loadAdminPassword() })));
+    ws.addEventListener('message', e => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch (err){ return; }
+      if(msg.type === 'authed') done(msg.ok ? '' : 'The room didn’t accept your password.');
+    });
+    ws.addEventListener('error', () => done('Couldn’t connect to the room.'));
+  });
+}
+
+window.runAdminRoomCheck = async function(){
+  if(roomChecking) return;
+  roomChecking = true;
+  renderAdminPage();
+  const status = await fetchJSON(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${LIVE_DRAFT_ROOM}`));
+  const problem = !status ? 'The room didn’t answer.' : await checkRoomSocket();
+  const at = Date.now();
+  const time = new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  roomCheck = { ok: !problem, at, detail: problem ? `Checked ${time}: ${problem}` : `Checked ${time}: the room answers, connects and accepts your password.` };
+  roomChecking = false;
+  renderAdminPage();
+  toast(problem ? 'The room check found a problem.' : 'The draft room is ready.', !!problem);
+};
+
+function prepRows(){
+  const shown = shownKeys(sportsSaved).length;
+  return commissionerChecklist({
+    status: draftStatus,
+    rehearsal: rehearsalStatus,
+    sports: { drafted: SPORT_KEYS.filter(k => sportsSaved[k] > 0).length, scoresOnly: shown },
+    // Leagues still showing last season (PRIOR_SEASON_DISPLAY_LEAGUES) don't score, so they never lock.
+    leagues: SCORING_LEAGUES.filter(l => hasAutoRules(l) && draftedTeams(l).length && !PRIOR_SEASON_DISPLAY_LEAGUES.includes(l.key))
+      .map(l => ({ key: l.key, label: leagueChip(l), locked: isLeagueLocked(l.key) })),
+    check: roomCheck,
+    nextLabel: NEXT_DRAFT_LABEL
+  });
+}
+
+function prepActionHtml(action, small){
+  if(!action) return '';
+  const cls = `admin-desk-btn${small ? ' sm' : ''}`;
+  if(action.kind === 'check'){
+    return `<button type="button" class="${cls}" onclick="runAdminRoomCheck()"${roomChecking ? ' disabled' : ''}>${roomChecking ? 'Checking…' : action.label}</button>`;
+  }
+  const onclick = action.kind === 'sports' ? "selectAdmin('sports')"
+    : action.kind === 'room' ? `goToDraftRoom('${LIVE_DRAFT_ROOM}')`
+    : action.kind === 'rehearsal' ? `goToDraftRoom('${GROUP_MOCK_ROOM}')`
+    : action.kind.startsWith('league:') ? `selectAdmin('${action.kind.slice(7)}')`
+    : '';
+  return onclick ? `<button type="button" class="${cls}" onclick="${onclick}">${escapeHtml(action.label)}</button>` : '';
+}
+
+// The checklist rows, the same on the phone column and the desktop screen.
+function prepListHtml(rows, small){
+  return `<div class="admin-desk-card admin-desk-prep">${rows.map(row => `
+    <div class="admin-desk-poll-row">
+      <span class="admin-desk-dot"${row.state === 'mute' ? '' : ` data-state="${row.state}"`}></span>
+      <span class="admin-desk-poll-text"><span class="admin-desk-poll-name">${escapeHtml(row.title)}</span><span class="admin-desk-poll-who">${escapeHtml(row.detail)}</span></span>
+      ${prepActionHtml(row.action, small)}
+    </div>`).join('')}</div>`;
+}
+
+const prepDone = rows => `${rows.filter(r => r.state === 'ok').length} of ${rows.length} done`;
 
 function isActive(){
   const view = document.getElementById('view-admin');
@@ -406,14 +500,21 @@ function draftStatusRowHtml(label, value, state){
 }
 
 function draftSectionHtml(){
-  const title = `The ${NEXT_DRAFT_LABEL} Draft`;
+  const title = 'Draft room';
+  const rows = prepRows();
+  const prep = `
+    <div class="admin-league">
+      <h3 class="admin-league-title">Before the ${NEXT_DRAFT_LABEL} draft</h3>
+      <div class="admin-status-note">${prepDone(rows)}</div>
+      ${prepListHtml(rows, true)}
+    </div>`;
   const st = draftStatus;
   if(!st){
     const body = draftStatusError
       ? `<div class="admin-status-note">Couldn't reach the draft room.</div>
          <button class="admin-adj-save" onclick="loadAdminDraftStatus()">Try again</button>`
       : '<div class="admin-status-note">Checking the draft room…</div>';
-    return `<div class="admin-league"><h3 class="admin-league-title">${title}</h3>${body}</div>`;
+    return `${prep}<div class="admin-league"><h3 class="admin-league-title">${title}</h3>${body}</div>`;
   }
 
   let phase, phaseState;
@@ -422,7 +523,7 @@ function draftSectionHtml(){
     phase = `${st.running ? 'Live' : 'Paused'}${where}`;
     phaseState = st.running ? 'live' : 'warn';
   } else if(st.phase === 'done'){
-    phase = 'Complete';
+    phase = 'Complete · last draft’s board';
     phaseState = 'ok';
   } else {
     phase = 'In the lobby';
@@ -430,17 +531,17 @@ function draftSectionHtml(){
 
   // ordered/poolSize are newer than the route itself: an older worker
   // leaves them out, and those rows just don't show.
-  const rows = [draftStatusRowHtml('Status', phase, phaseState)];
+  const statusRows = [draftStatusRowHtml('Status', phase, phaseState)];
   if(typeof st.poolSize === 'number'){
-    rows.push(draftStatusRowHtml('Team pool', st.poolSize ? `${st.poolSize} teams loaded` : 'Not loaded', st.poolSize ? 'ok' : 'warn'));
+    statusRows.push(draftStatusRowHtml('Team pool', st.poolSize ? `${st.poolSize} teams loaded` : 'Not loaded', st.poolSize ? 'ok' : 'warn'));
   }
   if(typeof st.ordered === 'boolean'){
-    rows.push(draftStatusRowHtml('Lottery', st.ordered ? 'Order locked' : 'Not run', st.ordered ? 'ok' : 'warn'));
+    statusRows.push(draftStatusRowHtml('Lottery', st.ordered ? 'Order locked' : 'Not run', st.ordered ? 'ok' : 'warn'));
   }
-  rows.push(draftStatusRowHtml('Drafters', `${st.drafters} · ${st.total} picks`));
+  statusRows.push(draftStatusRowHtml('Drafters', `${st.drafters} · ${st.total} picks`));
   // An older worker has no scheduledAt at all; leave the row out.
   if('scheduledAt' in st){
-    rows.push(draftStatusRowHtml('Scheduled', st.scheduledAt
+    statusRows.push(draftStatusRowHtml('Scheduled', st.scheduledAt
       ? `${scheduleDateLabel(st.scheduledAt)} · ${scheduleTimeLabel(st.scheduledAt)}`
       : 'Not set', st.scheduledAt ? 'ok' : 'warn'));
   }
@@ -448,9 +549,10 @@ function draftSectionHtml(){
   const { cta, note } = draftRoomLink(st);
 
   return `
+    ${prep}
     <div class="admin-league">
       <h3 class="admin-league-title">${title}</h3>
-      <div class="admin-status">${rows.join('')}</div>
+      <div class="admin-status">${statusRows.join('')}</div>
       <button class="admin-gate-btn admin-draft-cta" onclick="goToDraftRoom('${LIVE_DRAFT_ROOM}')">${cta}</button>
       <div class="admin-status-note">${note}</div>
       ${'poll' in st && st.phase !== 'draft' ? pollEditorHtml(st.poll, st.scheduledAt) : ''}
@@ -916,7 +1018,7 @@ function unlockedHtml(){
       ${backLinkHtml({ label: 'Settings', onclick: 'backToSettings()' })}
       <button class="admin-logout" onclick="logoutAdmin()">Log out</button>
     </div>
-    ${segmentedControlHtml([{ key: 'draft', label: 'Draft' }, { key: 'sports', label: 'Sports' }, { key: 'scoring', label: 'Scoring' }].concat(historyOpen() ? [{ key: 'history', label: 'History' }] : []), section, 'setAdminSection')}
+    ${segmentedControlHtml([{ key: 'draft', label: 'Group' }, { key: 'sports', label: 'Sports' }, { key: 'scoring', label: 'Scoring' }].concat(historyOpen() ? [{ key: 'history', label: 'History' }] : []), section, 'setAdminSection')}
     ${body}
   `;
 }
@@ -1195,7 +1297,7 @@ function deskSideHtml(){
         <button type="button" class="admin-desk-item${selected === 'draft' ? ' on' : ''}" onclick="selectAdmin('draft')">
           <span class="admin-desk-dot"${draft.dot ? ` data-state="${draft.dot}"` : ''}></span>
           <span class="admin-desk-item-text">
-            <span class="admin-desk-item-title">Draft</span>
+            <span class="admin-desk-item-title">Group settings</span>
             <span class="admin-desk-item-sub">${draft.sub}</span>
           </span>
         </button>
@@ -1241,8 +1343,19 @@ function deskLabelRow(label, aside){
 
 // ---- Draft screen ----
 
+// The checklist section, on both the loading and loaded screens.
+function deskPrepHtml(){
+  const rows = prepRows();
+  return `
+    <section class="admin-desk-section">
+      ${deskLabelRow(`Before the ${NEXT_DRAFT_LABEL} draft`, prepDone(rows))}
+      ${prepListHtml(rows, true)}
+    </section>`;
+}
+
 function deskDraftHtml(){
-  const title = `The ${NEXT_DRAFT_LABEL} Draft`;
+  const title = escapeHtml(ACTIVE_GROUP.name);
+  const lede = `Everything to do before the ${NEXT_DRAFT_LABEL} draft, and the draft room itself.`;
   const st = draftStatus;
   if(!st){
     const body = draftStatusError
@@ -1252,8 +1365,9 @@ function deskDraftHtml(){
          </div>`
       : '<div class="admin-desk-card"><span class="admin-desk-card-text">Checking the draft room…</span></div>';
     return `
-      <div class="admin-desk-head"><div class="admin-desk-titles"><div class="admin-desk-eyebrow">Draft</div><h1>${title}</h1></div></div>
+      <div class="admin-desk-head"><div class="admin-desk-titles"><div class="admin-desk-eyebrow">Group settings</div><h1>${title}</h1><div class="admin-desk-lede">${lede}</div></div></div>
       ${deskAttentionHtml()}
+      ${deskPrepHtml()}
       ${body}`;
   }
 
@@ -1264,7 +1378,7 @@ function deskDraftHtml(){
     const where = st.slot === null ? 'Waiting on the first pick' : `Round ${Math.floor(st.slot / st.drafters) + 1}, pick ${st.slot + 1} of ${st.total}`;
     cells.push(['Status', st.running ? 'Live' : 'Paused', st.running ? 'live' : 'warn', where]);
   } else if(st.phase === 'done'){
-    cells.push(['Status', 'Complete', 'ok', 'Every pick is in']);
+    cells.push(['Status', 'Complete', 'ok', 'Last draft’s board']);
   } else {
     cells.push(['Status', 'In the lobby', '', 'Nobody drafting yet']);
   }
@@ -1297,9 +1411,9 @@ function deskDraftHtml(){
   return `
     <div class="admin-desk-head">
       <div class="admin-desk-titles">
-        <div class="admin-desk-eyebrow">Draft</div>
+        <div class="admin-desk-eyebrow">Group settings</div>
         <h1>${title}</h1>
-        <div class="admin-desk-lede">${note}</div>
+        <div class="admin-desk-lede">${lede}</div>
       </div>
       <div class="admin-desk-head-actions">
         <button type="button" class="admin-desk-btn outline lg" onclick="goToDraftRoom('${GROUP_MOCK_ROOM}')" title="${REHEARSAL_NOTE}">Group rehearsal</button>
@@ -1307,7 +1421,11 @@ function deskDraftHtml(){
       </div>
     </div>
     ${deskAttentionHtml()}
-    <div class="admin-desk-strip">${strip}</div>
+    ${deskPrepHtml()}
+    <section class="admin-desk-section">
+      ${deskLabelRow('Draft room', note)}
+      <div class="admin-desk-strip">${strip}</div>
+    </section>
     ${editors}`;
 }
 
