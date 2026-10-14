@@ -111,6 +111,16 @@ export function currentSlot(picks, total){
   return null;
 }
 
+// When a finished draft finished: the latest pick's time (ms), or null
+// while it isn't done. Its year is the draft class's year (a class is
+// named for the fall it was drafted in), which is how the app knows
+// which class a finished room's board belongs to (js/live-class.js).
+export function finishedAt(state){
+  if(state.phase !== 'done') return null;
+  const times = Object.values(state.picks).map(p => p.at).filter(Number.isFinite);
+  return times.length ? Math.max(...times) : null;
+}
+
 export function teamById(pool, teamId){
   return pool.find(t => t.id === teamId) || null;
 }

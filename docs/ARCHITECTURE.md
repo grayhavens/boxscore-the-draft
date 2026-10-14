@@ -364,7 +364,20 @@ in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (
 `worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
 
 **Draft room** (`js/draft.js`, `js/draft-client.js`, `js/draft-pool.js`, `worker/draft-room.js`): a live
-snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`. The rules and state
+snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`.
+**New teams show the moment the draft ends** (`js/live-class.js`): when the `main` room reports `done` (the
+`/draft/status` poll in `js/draft-live.js`, or the room's own socket), each device fetches `/draft/result`, builds the class
+with `js/draft-class.js` (the same builder `tools/export-draft.mjs` uses, so keys match), stores it in localStorage
+(`js/live-class-store.js`) and reloads once; `js/seasons/index.js` then boots with it as the newest class. The class's
+year is the year of its last pick (`finishedAt` on status and result); a room whose year already has a committed class
+(or a later one) is ignored, and a change in `seq` (a pick edited afterwards) rebuilds it. The room also archives every
+finished board by year in its own storage (`archiveBoard`, listed as `boards` on the status, read with
+`/draft/result?year=`), so after it's reset for the next draft a new device still builds last year's class; devices keep
+one class per year (`liveDraftClasses`), each built on the one before it (`liveClassChain`). Teams no earlier class had
+come from ESPN's team lists through the worker's `GET /espn/teams?league=` (ESPN's `/teams` has no CORS; cached a day);
+a team ESPN can't place gets a plain entry from its pool record, and an ESPN outage just retries on a later poll.
+Exporting is now optional: it pins a reviewed copy as a committed file, which then takes over. **Deploy the worker first**
+(an old one sends no `finishedAt`, so nothing is built). The rules and state
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only

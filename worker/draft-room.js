@@ -85,8 +85,16 @@
    drafters with the room open, which the lobby shows next to each name.
    Same no-auth tier as `from` on an action.
 
-   GET .../result returns the finished board as JSON — what
-   tools/export-draft.mjs turns into the next season's data file.
+   GET .../result returns the finished board as JSON: what the app
+   builds the new draft class from the moment the draft ends
+   (js/live-class.js), and what tools/export-draft.mjs can still turn
+   into a committed season file. Both it and .../status carry
+   `finishedAt` (the last pick's time, once the draft is done; its year
+   is the class's year) and `seq` (bumps on every accepted action, so an
+   edit after the draft is noticed). The live room also keeps every
+   finished board by year (archiveBoard), listed as `boards` on the
+   status and read with .../result?year=<yyyy>, so a class can still be
+   built after the room is reset for the next draft.
    GET .../status is a few bytes of "is it live, whose pick" for the
    in-progress banner on the app's other pages (js/draft-live.js), plus
    the scheduled start the commissioner set (PUT .../schedule, already
@@ -113,7 +121,7 @@
    ============================================================ */
 import { DurableObject } from 'cloudflare:workers';
 import { reduce, createState, publicState, onTheClock, syncCaps, isOrderOf } from '../js/draft-engine.js';
-import { totalPicks, teamById, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs, isClockTimeout } from '../js/draft-rules.js';
+import { totalPicks, teamById, finishedAt, isMockRoom, mockRoomOwner, clockElapsedMs, autoPickTeam, autoPickLimitMs, isClockTimeout } from '../js/draft-rules.js';
 import { parsePollOptions, parsePollVote, replacePollOptions } from '../js/draft-poll.js';
 
 import { LEGACY_GROUP_ID, isKnownGroup, drafterIdsFor, adminSecretName, groupCaps } from '../js/groups.js';
@@ -217,6 +225,14 @@ export class DraftRoom extends DurableObject {
       return new Response(null, { status: 101, webSocket: client });
     }
     if(new URL(request.url).pathname.endsWith('/result')){
+      // ?year= reads an archived board (archiveBoard); a room that finished
+      // before archiving existed is archived the first time it's read.
+      this.archiveBoard(this.state);
+      const year = new URL(request.url).searchParams.get('year');
+      if(year !== null){
+        const row = /^\d{4}$/.test(year) && this.sql.exec('SELECT v FROM kv WHERE k = ?', `board:${year}`).toArray()[0];
+        return row ? new Response(row.v, { headers: { 'Content-Type': 'application/json' } }) : new Response('No board', { status: 404 });
+      }
       return new Response(JSON.stringify(this.result()), { headers: { 'Content-Type': 'application/json' } });
     }
     if(new URL(request.url).pathname.endsWith('/schedule') && request.method === 'PUT'){
@@ -258,6 +274,9 @@ export class DraftRoom extends DurableObject {
       total: totalPicks(state.config),
       ordered: !!state.order,
       poolSize: state.pool.length,
+      finishedAt: finishedAt(state),
+      seq: state.seq,
+      boards: this.room === 'main' ? this.boardYears() : [],
       scheduledAt: this.scheduledAt,
       poll: this.poll
     };
@@ -331,10 +350,28 @@ export class DraftRoom extends DurableObject {
     return this.savePoll({ ...this.poll, votes });
   }
 
+  // The live room keeps each finished board by year (kv 'board:<year>',
+  // the year of its last pick), so the class built from it (js/live-class.js)
+  // can still be built on a new device after the room is reset for the
+  // next draft. Rewritten on every change while it's done (an edited
+  // pick), and once more from the state an action leaves, so a reset
+  // can't lose it.
+  archiveBoard(state){
+    if(this.room !== 'main' || state.phase !== 'done') return;
+    const at = finishedAt(state);
+    if(at === null) return;
+    this.sql.exec('INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)', `board:${new Date(at).getUTCFullYear()}`, JSON.stringify(this.result(state)));
+  }
+
+  // Years with an archived board, oldest first.
+  boardYears(){
+    return this.sql.exec("SELECT k FROM kv WHERE k LIKE 'board:%'").toArray()
+      .map(r => Number(r.k.slice(6))).filter(Number.isFinite).sort((a, b) => a - b);
+  }
+
   // The board in the order it was drafted, each pick carrying the full
   // team record — everything an export needs without the pool.
-  result(){
-    const { state } = this;
+  result(state = this.state){
     const n = state.config.drafters.length;
     const picks = Object.keys(state.picks).map(Number).sort((a, b) => a - b).map(slot => {
       const p = state.picks[slot];
@@ -352,6 +389,8 @@ export class DraftRoom extends DurableObject {
     return {
       phase: state.phase,
       complete: state.phase === 'done',
+      finishedAt: finishedAt(state),
+      seq: state.seq,
       totalPicks: state.order ? totalPicks(state.config) : null,
       config: state.config,
       order: state.order,
@@ -589,6 +628,8 @@ export class DraftRoom extends DurableObject {
   async commit(before, state, actor, commissioner, action){
     this.state = state;
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('state', ?)", JSON.stringify(this.state));
+    this.archiveBoard(before);
+    this.archiveBoard(this.state);
     const { id: eventId } = this.sql.exec(
       'INSERT INTO events (ts, actor, commissioner, action) VALUES (?, ?, ?, ?) RETURNING id',
       Date.now(), actor, commissioner ? 1 : 0, JSON.stringify(action)
