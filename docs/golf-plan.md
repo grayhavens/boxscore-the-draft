@@ -45,7 +45,7 @@ Parsing is `js/golf.js` (pure, shared with the worker); browser fetches are `js/
 The worker keeps each finished event condensed in KV (`golf:<year>`), and fills at most 4 per request since a
 leaderboard is ~300KB to parse. Checked against live ESPN on 2026-09-29: the whole 2026 season built in 9
 requests, and it's 98KB (18KB gzipped). Summed FedEx points match the official ones to within a point (rounding),
-once a team event's winners are credited in full (ESPN's team row carries half of their 400); the golfer sheet
+once a team event's winners are credited in full (ESPN's team row carries half of their 400); the golfer page
 still shows the official total from the per-golfer record. ESPN's league-wide FedEx standings are
 5.7MB and never fetched. Not available at all: world rankings (`/rankings` 500s) and per-golfer event logs (404).
 
@@ -69,7 +69,8 @@ Still to verify: a live leaderboard mid-round (`today`, `thru`). Capture a fixtu
    now takes `--group seasonticket` (writes `js/seasons/seasonticket-<year>.js`, adds `pga: PGA_SCORING` to its scoring).
 4. **UI:** stat strip, golfer page, FedEx standings (`js/standings-pga.js`), Scores tournament card, live state.
    Built before this audit (2026-10-03), despite the old note: the golfer sheet, tournament sheet, FedEx Cup and
-   Drafted standings, Home row status and the Scores tournament card, all in `js/golf-view.js`.
+   Drafted standings, Home row status and the Scores tournament card, all in `js/golf-view.js`. The golfer sheet
+   became a full golfer page on the team page's shell (2026-10-14; `docs/ARCHITECTURE.md` **Golfer page**).
 5. **Scoring:** done 2026-10-03. `golfAuto` rules are read by `getLeagueRuleTeams` (`js/league-facts.js`): a golfer's
    key appears once per time they hit a rule (counts from `golferAwardCounts`, `js/golf.js`), so the Points tab
    itemizes each win and `teamPointsSplit` multiplies. Always Locked (finished events are final). Nothing counts

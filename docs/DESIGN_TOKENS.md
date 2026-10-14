@@ -113,7 +113,7 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 | `activityRowHtml({tileHtml, kindHtml, title, bodyHtml, rightHtml, onclick, lock, compact})` | Activity |
 | `lockStampHtml`, `scoreBumpHtml`, `floatPillHtml` | motion overlays |
 | `teamOrbHtml({color, cls, soft})`, `compactBarHtml`, `pageDotsHtml`, `sectionCardHtml` | team page |
-| `pathToPointsHtml({now, max, rules, toggle, open})`, `formStripHtml`, `nextGameHtml` | team page |
+| `pathToPointsHtml({now, max, rules, toggle, open})`, `formStripHtml` (a game's `res` replaces W/L/D: a golfer's finish), `nextGameHtml` (`title`, `live`, `rightHtml`, no `home`: a golfer's week) | team page |
 | `mentionHtml`, `mentionListHtml` | chat mentions |
 | `draftClockHtml` / `setDraftClock`, `clockHeroHtml`, `pickLandingHtml`, `snakeRailHtml`, `clockMiniHtml` | draft room |
 | `updateCardHtml`, `updateStatsHtml`, `updateStackHtml`, `updatesPillHtml` | Since last time |

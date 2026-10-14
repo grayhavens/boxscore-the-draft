@@ -1,8 +1,8 @@
 /* ============================================================
    Everything golfer-shaped on screen, for a group with PGA Tour in its
    league list (js/seasons/pga.js):
-   - the golfer sheet (openGolfer): FedEx rank and points, this week's
-     tournament, and every event of the season;
+   - the golfer page (openGolfer): a golfer's team page, its shell from
+     js/team-page.js and every golf piece on it from here;
    - the tournament sheet (openGolfEvent): a full leaderboard;
    - the Standings block: the FedEx Cup table, and each drafter's
      combined FedEx points (the league bonus);
@@ -22,11 +22,13 @@ import {
   teamBadgeHtml, escapeHtml as esc, skeletonLinesHtml, skeletonRowsHtml, lockBodyScroll, openSheetOverlay,
   isSheetOpen, standingsOwnerHtml, standingsToggleHtml, draftOwnerName, localYyyymmdd, retryPending
 } from './utils.js';
-import { fetchGolfSeason, fetchCurrentGolfEvent, fetchGolfLeaderboard, fetchGolferRecord, fetchGolfEventsOn, fetchGolfCalendar } from './golf-api.js';
+import { fetchGolfSeason, fetchCurrentGolfEvent, fetchGolfLeaderboard, fetchGolferRecord, fetchGolfEventsOn, fetchGolfCalendar, fetchGolfNews } from './golf-api.js';
 import {
   golferResults, fedexTable, finishPosition, isMissedCut, golferHeadshotUrl,
-  activeMajor, majorGolfers, majorLeaders, majorFromBoard, isOut
+  activeMajor, majorGolfers, majorLeaders, majorFromBoard, isOut, golferNews, finishForm, FORM_FINISH_CAP
 } from './golf.js';
+import { nextGameHtml, sectionCardHtml, formStripHtml, gameByGameHtml } from './ui.js';
+import { barHeight, GAME_BY_GAME_MAX } from './team-wide-math.js';
 import { PGA_ACCENT, PGA_SCORING, majorOf } from './seasons/pga.js';
 import { previewParam } from './postseason.js';
 import { favoriteStarHtml, favoriteMarkHtml, isFavorite } from './favorites.js';
@@ -169,11 +171,7 @@ function golfChanged(){
   standingsDataChanged();
   listeners.forEach(fn => fn());
   renderAllPgaCardRecords();
-  const content = document.getElementById('modal-content');
-  const active = content && content.dataset.activeTeam;
-  if(active && active.startsWith('golfer:') && isSheetOpen(document.getElementById('modal-overlay'))){
-    renderGolferSheet(active.slice('golfer:'.length));
-  }
+  refreshPage();
 }
 
 // ---- Season numbers ----
@@ -397,94 +395,229 @@ async function replayMajorCurrent(){
   return { replay: true, replayMine: [...new Set(mine)], event: { id: b.id, name: b.name, start: b.start, end: b.end }, board: b };
 }
 
-// ---- Golfer sheet ----
+// ---- Golfer page ----
 
-export function openGolfer(athleteId){
+/* A golfer's page is the team page (js/team-page.js): its shell (the hero,
+   the compact bar, a row growing into it, swiping through your own teams,
+   the tabs, the wide layout) is shared, and every piece of golf on it
+   comes from here: the stat strip, the week's tournament in the game
+   card's place, Recent form as finishes, the Stats and Results tabs, and
+   news off the tour's feed. A golfer the group lists is known by their
+   TEAM_META key; anyone else (a leaderboard's field) by `golfer:<id>`. */
+
+const PSEUDO_KEY = /^golfer:(\d+)$/;
+
+// The page's key for a golfer: their TEAM_META key when listed.
+export function golferPageKey(athleteId){
+  return teamKeyFor(athleteId) || `golfer:${athleteId}`;
+}
+
+// A `golfer:<id>` key's meta, shaped like a TEAM_META entry; null for
+// anything else, or in a group without golf.
+export function golferPageMeta(key){
+  const m = PSEUDO_KEY.exec(String(key || ''));
+  if(!m || !hasGolf()) return null;
+  const listed = teamKeyFor(m[1]);
+  return listed ? TEAM_META[listed] : { ...golferBadgeMeta(m[1]), leagueKey: 'pga', accent: PGA_ACCENT, espnAthleteId: m[1] };
+}
+
+// Opens a golfer's page from anywhere: a row (it grows into the page, as a
+// team's does), a Scores card, or a leaderboard sheet (closed first; the
+// page then returns to the view under it).
+export function openGolfer(athleteId, originView, rowEl){
   const id = String(athleteId);
-  openSheetOverlay(document.getElementById('modal-overlay'));
-  lockBodyScroll();
-  const content = document.getElementById('modal-content');
-  content.dataset.activeTeam = 'golfer:' + id;
-  renderGolferSheet(id);
-  loadGolf();
-  const season = golfStore.season;
-  if(season && !records[`${season}:${id}`]){
-    fetchGolferRecord(id, season).then(r => {
-      if(!r) return;
-      records[`${season}:${id}`] = r;
-      if(content.dataset.activeTeam === 'golfer:' + id) renderGolferSheet(id);
-    });
-  }
+  if(isSheetOpen(document.getElementById('modal-overlay'))) window.closeModalSheet();
+  window.openTeamPage(golferPageKey(id), originView, rowEl);
 }
 window.openGolfer = openGolfer;
 
-function priorSeasonNoteHtml(){
+// The page repaints when anything it shows lands (js/team-page.js).
+let pageRefresher = null;
+export function setGolferPageRefresher(fn){ pageRefresher = fn; }
+const refreshPage = () => { if(pageRefresher) pageRefresher(); };
+
+// The season, this week, and the golfer's official totals once the
+// season is known.
+export function ensureGolferPage(athleteId){
+  const id = String(athleteId);
+  Promise.resolve(loadGolf()).then(() => {
+    const season = golfStore.season;
+    if(!season || records[`${season}:${id}`]) return;
+    fetchGolferRecord(id, season).then(r => {
+      if(!r) return;
+      records[`${season}:${id}`] = r;
+      refreshPage();
+    });
+  });
+}
+
+// The golfer's stories (js/golf.js golferNews), or null when the feed
+// didn't load.
+export function fetchGolferNews(athleteId){
+  return fetchGolfNews().then(feed => (feed ? golferNews(feed, athleteId) : null));
+}
+
+export function golferNationHtml(athleteId){
+  const key = teamKeyFor(athleteId);
+  const flag = (key && TEAM_META[key].flag) || (golfStore.names[athleteId] || [])[1] || '';
+  return flag ? `<img class="golf-flag" src="https://a.espncdn.com/i/teamlogos/countries/500/${esc(flag)}.png" alt="">` : '';
+}
+
+export function priorSeasonNoteHtml(){
   if(!PRIOR_SEASON_DISPLAY_LEAGUES.includes('pga') || !golfStore.season) return '';
   const yy = y => String(y).slice(-2);
   return `<div class="prior-season-note golf-note">Showing the '${yy(golfStore.season)} FedEx Cup season &mdash; points count from the '${yy(Number(golfStore.season) + 1)} season.</div>`;
 }
 
-function renderGolferSheet(id){
-  const content = document.getElementById('modal-content');
-  const teamKey = teamKeyFor(id);
-  const meta = golferBadgeMeta(id);
-  const owner = teamKey && !PRE_DRAFT ? draftOwnerName(teamKey) : '';
-  const flag = (meta.flag || (golfStore.names[id] || [])[1]) || '';
-  const country = teamKey ? TEAM_META[teamKey].sub : '';
-  const ready = !!golfStore.events;
-  const line = ready ? seasonLine(id) : null;
-  const cell = (num, lbl) => `<div class="stat-cell"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
-
-  content.innerHTML = `
-    <div class="modal-accent" style="background:${PGA_ACCENT};"></div>
-    <div class="modal-head">
-      ${teamBadgeHtml(meta)}
-      <div>
-        <h2>${esc(meta.name)}</h2>
-        <div class="modal-sub golf-sub">${flag ? `<img class="golf-flag" src="https://a.espncdn.com/i/teamlogos/countries/500/${esc(flag)}.png" alt="">` : ''}${esc(country || 'PGA Tour')}${owner ? ` &middot; Drafted by ${esc(owner)}` : ''}</div>
-      </div>
-      <div class="modal-actions">
-        ${teamKey ? favoriteStarHtml(teamKey) : ''}
-        <button class="modal-close" onclick="closeModalSheet()">&times;</button>
-      </div>
-    </div>
-    <div class="stat-strip">
-      ${line
-        ? cell(line.rank ? '#' + line.rank : '—', 'FedEx') + cell(fmtPts(line.points), 'Points') + cell(line.wins, 'Wins') + cell(line.topTens, 'Top 10s')
-        : `<div class="stat-cell"><div class="lbl">Loading…</div></div>`}
-    </div>
-    <div class="modal-body">
-      ${priorSeasonNoteHtml()}
-      <div class="modal-section-title">This week</div>
-      <div class="golf-week">${thisWeekHtml(id)}</div>
-      <div class="modal-section-title">${golfStore.season ? `${golfStore.season} season` : 'Season'}${line ? ` <span class="golf-title-note">${line.cutsMade} of ${line.starts} cuts made</span>` : ''}</div>
-      <div class="golf-results">${ready ? seasonResultsHtml(line) : skeletonLinesHtml(4)}</div>
-    </div>
-  `;
+// The stat strip: FedEx rank and points, then what the golfer is worth
+// to their owner (`path`, js/lines.js teamPathToPoints), or their wins.
+// FedEx points go without a thousands comma so they roll up as one number.
+export function golferStatStripHtml(athleteId, path){
+  if(!golfStore.events) return `<div class="stat-cell"><div class="lbl">${golfStore.error ? 'No data available' : 'Loading…'}</div></div>`;
+  const line = seasonLine(athleteId);
+  const cell = (num, lbl, cls = '') => `<div class="stat-cell${cls ? ` ${cls}` : ''}"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+  return cell(line.rank ? '#' + line.rank : '—', 'FedEx Cup')
+    + cell(Math.round(line.points || 0), 'FedEx pts')
+    + (path ? cell(path.now < 0 ? '&minus;' + Math.abs(path.now) : path.now, 'Points', 'pts') : cell(line.wins, 'Wins'));
 }
 
-function thisWeekHtml(id){
+// The week's tournament, in the team page's next-game card: where the
+// golfer stands (red while they're on the course), their tee time, or why
+// they aren't in it. { html, live, eventId }; a tap opens the leaderboard.
+export function golferWeekCard(athleteId){
+  const id = String(athleteId);
+  const title = 'This week';
+  if(!golfStore.events && golfStore.loading) return { html: nextGameHtml({ title, when: '', oppName: 'Loading…' }), live: false, eventId: null };
   const cur = golfStore.current;
-  if(!golfStore.events && golfStore.loading) return skeletonLinesHtml(2);
-  if(!cur) return '<div class="golf-muted">No PGA Tour event this week.</div>';
+  if(!cur) return { html: nextGameHtml({ title, when: '', oppName: 'No PGA Tour event this week' }), live: false, eventId: null };
   const { event, board } = cur;
-  const when = `${shortDate(event.start)} – ${shortDate(event.end)}`;
-  const head = `<button type="button" class="golf-event-link" onclick="openGolfEvent('${esc(event.id)}')"><span>${esc(shortName(event.name))}</span><span class="golf-muted">${board && board.status === 'in' ? `Round ${board.round}` : board && board.status === 'post' ? 'Final' : when}</span></button>`;
-  if(!board) return head + '<div class="golf-muted">The field isn’t out yet.</div>';
+  const name = shortName(event.name);
+  const dates = `${shortDate(event.start)} – ${shortDate(event.end)}`;
+  const card = (opts, live = false) => ({ html: nextGameHtml({ title, oppName: name, ...opts }), live, eventId: event.id });
+  if(!board) return card({ when: dates, subHtml: 'The field isn’t out yet.' });
   const p = board.players.find(x => x.id === id);
-  if(!p) return head + '<div class="golf-muted">Not in the field this week.</div>';
+  const round = board.status === 'in' ? `Round ${board.round}` : board.status === 'post' ? 'Final' : dates;
+  if(!p) return card({ when: round, subHtml: board.status === 'post' ? 'Didn’t play this week.' : 'Not in the field this week.' });
   if(board.status === 'pre' || p.state === 'pre'){
-    return head + `<div class="golf-muted">${p.teeTime ? `Tees off ${new Date(p.teeTime).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : 'In the field'}</div>`;
+    const tee = p.teeTime ? new Date(p.teeTime).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+    return card({ when: tee ? `Tees off ${tee}` : round, subHtml: board.status === 'in' ? `In the field &middot; ${esc(roundLabel(board, p))}` : 'In the field' });
   }
   const live = board.status === 'in' && p.state === 'in';
-  return head + `
-    <div class="golf-week-line${live ? ' live' : ''}">
-      <div class="golf-week-pos">${esc(p.finish || '—')}</div>
-      <div class="golf-week-score">
-        <div class="golf-week-topar">${esc(p.toPar || 'E')}</div>
-        <div class="golf-muted">${live ? '<span class="dot pulse"></span>' : ''}${esc(roundLabel(board, p))}${p.today && board.status !== 'post' ? ` &middot; Today ${esc(p.today)}` : ''}</div>
-      </div>
-    </div>`;
+  const right = `<span class="ng-pos">${esc(p.finish || '—')}</span><span class="ng-topar">${esc(p.toPar || 'E')}</span>`;
+  const sub = board.status === 'post'
+    ? esc(p.rounds.filter(v => v).join(' · '))
+    : [esc(roundLabel(board, p)), p.today && !isOut(p.finish) ? `Today ${esc(p.today)}` : ''].filter(Boolean).join(' &middot; ');
+  return card({ title: live ? 'Live' : title, live, when: round, rightHtml: right, subHtml: sub }, live);
+}
+
+// A short name for an event under a form bar: the major's own short name,
+// else the first word that isn't "The" ("RBC", "Memorial", "Players").
+function eventShort(name){
+  const major = majorOf(name);
+  if(major) return { masters: 'Masters', pga: 'PGA', usopen: 'U.S. Open', open: 'The Open' }[major.key] || major.name;
+  const word = shortName(name).split(/\s+/).find(w => !/^the$/i.test(w)) || '';
+  return word.length > 9 ? word.slice(0, 8) + '…' : word;
+}
+
+// Recent form: the last five finishes as bars (js/golf.js finishForm),
+// then a way to every result. formStripHtml draws margin / per * 48 plus a
+// 6 floor, capped at 48: this `per` makes a win exactly the full height,
+// so a T4 still stands a little shorter than a win.
+const FORM_PER = FORM_FINISH_CAP * 48 / 42;
+export function golferFormHtml(athleteId){
+  if(!golfStore.events) return golfStore.error ? '<div class="no-live-note">No data available.</div>' : '<div class="loading-note">Loading results…</div>';
+  const played = seasonLine(athleteId).played;
+  const link = `<div class="more-link-row"><span class="boxscore-link center" onclick="setTeamPageTab('results')">All results <span class="chev">›</span></span></div>`;
+  if(!played.length) return `<div class="loading-note">No starts this season yet.</div>`;
+  const games = played.slice(-5).map(r => ({
+    ...finishForm(r.finish),
+    res: r.finish || '—',
+    score: eventShort(r.name),
+    opp: shortDate(r.end),
+    onclick: `openGolfEvent('${esc(r.id)}')`
+  }));
+  return sectionCardHtml({ title: 'Recent form', subHtml: `Last ${games.length}`, html: formStripHtml({ games, per: FORM_PER }), cls: 'form-card' }) + link;
+}
+
+const bestFinish = played => {
+  const best = played.map(r => ({ r, pos: finishPosition(r.finish) })).filter(x => x.pos !== null).sort((a, b) => a.pos - b.pos)[0];
+  return best ? best.r.finish : '—';
+};
+
+// The Stats tab: the season's numbers as tiles, then the majors.
+export function golferStatsTabHtml(athleteId){
+  if(!golfStore.events) return golfStore.error ? '<div class="no-live-note">No data available.</div>' : '<div class="loading-note">Loading season stats…</div>';
+  const line = seasonLine(athleteId);
+  const official = records[`${golfStore.season}:${athleteId}`];
+  const tiles = [
+    { num: line.rank ? '#' + line.rank : '—', lbl: 'FedEx Cup' },
+    { num: fmtPts(line.points), lbl: 'FedEx Points' },
+    { num: line.starts, lbl: 'Starts' },
+    { num: line.wins, lbl: 'Wins' },
+    { num: line.topTens, lbl: 'Top 10s' },
+    { num: line.starts ? `${line.cutsMade}/${line.starts}` : '—', lbl: 'Cuts Made' },
+    { num: bestFinish(line.played), lbl: 'Best Finish' },
+    { num: official && official.scoringAverage ? official.scoringAverage.toFixed(2) : '—', lbl: 'Scoring Avg' }
+  ];
+  const majors = line.played.filter(r => r.major);
+  return `
+    ${priorSeasonNoteHtml()}
+    <div class="stat-grid">${tiles.map(t => `<div class="stat-tile"><div class="num">${esc(String(t.num))}</div><div class="lbl">${t.lbl}</div></div>`).join('')}</div>
+    <div class="modal-section-title spaced">Majors</div>
+    <div class="golf-results">${majors.length ? resultRowsHtml(majors) : '<div class="golf-muted">No majors played this season.</div>'}</div>`;
+}
+
+// The Results tab: every event of the season, newest first.
+export function golferResultsTabHtml(athleteId){
+  if(!golfStore.events) return golfStore.error ? '<div class="no-live-note">No data available.</div>' : skeletonLinesHtml(4);
+  const line = seasonLine(athleteId);
+  return `
+    ${priorSeasonNoteHtml()}
+    <div class="modal-section-title">${golfStore.season ? `${golfStore.season} season` : 'Season'}${line.starts ? ` <span class="golf-title-note">${line.cutsMade} of ${line.starts} cuts made</span>` : ''}</div>
+    <div class="golf-results">${line.played.length ? resultRowsHtml(line.played.slice().reverse()) : '<div class="golf-muted">No starts this season.</div>'}</div>`;
+}
+
+// ---- Golfer page, wide ----
+
+// The tag row over the name: FedEx rank, then the tour.
+export function golferWideTagHtml(athleteId){
+  const line = golfStore.events ? seasonLine(athleteId) : null;
+  return (line && line.rank ? `<span class="tw-standing">#${line.rank}</span><span>FedEx Cup</span><i class="tw-dot"></i>` : '')
+    + `<span>PGA Tour</span>${golferNationHtml(athleteId)}`;
+}
+
+export function golferWideSeasonHtml(athleteId){
+  if(!golfStore.events) return '';
+  const line = seasonLine(athleteId);
+  const official = records[`${golfStore.season}:${athleteId}`];
+  const cells = [[line.rank ? '#' + line.rank : '—', 'FedEx Cup'], [fmtPts(line.points), 'FedEx points'], [line.wins, 'Wins'], [line.topTens, 'Top 10s']];
+  const splits = [[line.starts, 'Starts'], [line.starts ? `${line.cutsMade}/${line.starts}` : '—', 'Cuts made'], [bestFinish(line.played), 'Best finish'], [official && official.scoringAverage ? official.scoringAverage.toFixed(2) : '—', 'Scoring avg']];
+  const note = PRIOR_SEASON_DISPLAY_LEAGUES.includes('pga') ? '<span class="wide-panel-sub">Doesn’t count yet</span>' : '';
+  return `<section class="wide-panel tw-season"><div class="wide-panel-head"><span class="wide-panel-label">${golfStore.season ? `${golfStore.season} season` : 'Season'}</span>${note}</div>`
+    + `<div class="tw-stats">${cells.map(([n, l]) => `<div class="tw-stat"><span class="tw-stat-num">${esc(String(n))}</span><span class="tw-stat-lbl">${l}</span></div>`).join('')}</div>`
+    + `<div class="tw-splits">${splits.map(([n, l]) => `<div><span class="tw-split-num">${esc(String(n))}</span><span class="tw-split-lbl">${l}</span></div>`).join('')}</div></section>`;
+}
+
+// Every start as a bar, oldest left (the team page's Game by game).
+export function golferEventByEventHtml(athleteId){
+  if(!golfStore.events) return '';
+  const line = seasonLine(athleteId);
+  const played = line.played.slice(-GAME_BY_GAME_MAX);
+  if(!played.length) return '';
+  const games = played.map(r => {
+    const f = finishForm(r.finish);
+    return { result: f.result, height: f.result === 'd' ? 0 : barHeight(f.margin, FORM_FINISH_CAP), tip: `${shortDate(r.end)} · ${shortName(r.name)} · ${r.finish || '—'}` };
+  });
+  const sub = `${plural(line.wins, 'win', 'wins')} · ${line.cutsMade} of ${line.starts} cuts`;
+  return gameByGameHtml({ games, sub, firstLabel: shortDate(played[0].end), title: 'Event by event' });
+}
+
+export function golferWideResultsHtml(athleteId){
+  if(!golfStore.events) return '<div class="loading-note">Loading results…</div>';
+  const played = seasonLine(athleteId).played;
+  if(!played.length) return '';
+  return `<section class="wide-card"><div class="wide-panel-head"><h3 class="wide-panel-title">Results</h3><span class="wide-panel-sub">${plural(played.length, 'start', 'starts')}</span></div>`
+    + `<div class="golf-results">${resultRowsHtml(played.slice().reverse())}</div></section>`;
 }
 
 function finishClass(finish){
@@ -495,9 +628,8 @@ function finishClass(finish){
   return '';
 }
 
-function seasonResultsHtml(line){
-  if(!line.played.length) return '<div class="golf-muted">No starts this season.</div>';
-  return line.played.slice().reverse().map(r => `
+function resultRowsHtml(results){
+  return results.map(r => `
     <button type="button" class="golf-result" onclick="openGolfEvent('${esc(r.id)}')">
       <span class="golf-finish ${finishClass(r.finish)}">${esc(r.finish || '—')}</span>
       <span class="golf-result-main">
@@ -622,7 +754,7 @@ function renderPgaStandingsRow(r){
   const meta = golferBadgeMeta(r.id);
   const wins = golferResults(golfStore.events.filter(e => e.results), r.id).filter(x => x.finish === '1').length;
   return `
-    <div class="standings-row clickable" onclick="openGolfer('${esc(r.id)}')">
+    <div class="standings-row clickable" onclick="openGolfer('${esc(r.id)}', 'standings', this)">
       <div class="standings-rank">${r.rank}</div>
       ${teamBadgeHtml(meta)}
       <div class="team-main">
@@ -737,7 +869,7 @@ function golfCardRowHtml(board, r){
     : board.status === 'post' ? 'Final' : `${roundLabel(board, p)}${p.today ? ' · ' + p.today : ''}`;
   return `
     <div class="tg-side golf-side">
-      <button type="button" class="tg-badge-btn" onclick="event.stopPropagation(); openGolfer('${esc(p.id)}')" aria-label="${esc(p.name)}">${teamBadgeHtml(TEAM_META[r.teamKey])}</button>
+      <button type="button" class="tg-badge-btn" onclick="event.stopPropagation(); openGolfer('${esc(p.id)}', 'live-now', this)" aria-label="${esc(p.name)}">${teamBadgeHtml(TEAM_META[r.teamKey])}</button>
       <div class="tg-label">
         <span class="tg-name">${esc(p.shortName || p.name)}</span>
         <span class="tg-owner">${esc([r.owner, sub].filter(Boolean).join(' · '))}</span>

@@ -265,12 +265,13 @@ export function pathToPointsHtml({ now, max, rules, toggle = null, open = false 
 // right (fewer than five leave the oldest slots empty). A win's bar grows
 // up from the midline, a loss's down, a draw is a tick; height is the
 // margin over `per` (goals for EPL, points elsewhere). Each game:
-// { result: 'w' | 'l' | 'd', score, opp, margin, onclick? }.
+// { result: 'w' | 'l' | 'd', score, opp, margin, onclick?, res? }. `res`
+// replaces the W / L / D under the bar (a golfer's finish: "T4", "CUT").
 export function formStripHtml({ games, per, slots = 5 }){
   const empty = '<span class="fs-col empty" aria-hidden="true"><span class="fs-bar"></span></span>'.repeat(Math.max(0, slots - games.length));
   const cols = games.map(g => {
     const h = g.result === 'd' ? 4 : Math.min(48, Math.abs(g.margin) / per * 48 + 6);
-    const inner = `<span class="fs-bar"><i style="height:${h.toFixed(1)}%"></i></span><span class="fs-res">${g.result.toUpperCase()}</span><span class="fs-score">${escapeHtml(g.score)}</span><span class="fs-opp">${escapeHtml(g.opp)}</span>`;
+    const inner = `<span class="fs-bar"><i style="height:${h.toFixed(1)}%"></i></span><span class="fs-res">${escapeHtml(g.res || g.result.toUpperCase())}</span><span class="fs-score">${escapeHtml(g.score)}</span><span class="fs-opp">${escapeHtml(g.opp)}</span>`;
     return g.onclick
       ? `<button type="button" class="fs-col ${g.result}" onclick="${g.onclick}">${inner}</button>`
       : `<span class="fs-col ${g.result}">${inner}</span>`;
@@ -281,9 +282,14 @@ export function formStripHtml({ games, per, slots = 5 }){
 // NextGame: the card body for a team's next game: vs/at, the opponent's
 // badge and name, under a header with `when`. No badge for the team itself:
 // it only shows on that team's own page. The badge is trusted.
-export function nextGameHtml({ when, home, oppBadgeHtml, oppName, subHtml = '' }){
-  return `<div class="ng-head"><span class="ng-title">Next game</span><span class="ng-when">${escapeHtml(when)}</span></div>`
-    + `<div class="ng-row"><span class="ng-vs">${home ? 'vs' : 'at'}</span>${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span></div>`
+// A golfer's page uses it for the week's tournament: `title` ("This
+// week"), no `home` (no vs/at) and no badge, the event as `oppName`, and
+// `rightHtml` (trusted) for the place and score. `live` turns the title
+// red with a pulsing dot, like a game in progress.
+export function nextGameHtml({ when, home = null, oppBadgeHtml = '', oppName, subHtml = '', title = 'Next game', live = false, rightHtml = '' }){
+  const head = live ? `<span class="dot pulse"></span>${escapeHtml(title)}` : escapeHtml(title);
+  return `<div class="ng-head"><span class="ng-title${live ? ' live' : ''}">${head}</span><span class="ng-when">${escapeHtml(when)}</span></div>`
+    + `<div class="ng-row">${home === null ? '' : `<span class="ng-vs">${home ? 'vs' : 'at'}</span>`}${oppBadgeHtml}<span class="ng-opp">${escapeHtml(oppName)}</span>${rightHtml ? `<span class="ng-right">${rightHtml}</span>` : ''}</div>`
     + (subHtml ? `<div class="ng-sub">${subHtml}</div>` : '');
 }
 
@@ -481,14 +487,15 @@ export function onTheLineHtml({ now, max, rules, all = false, toggle = null }){
 // draw is a flat mark; a clamped bar gets a notch near its tip. Hover or
 // tap a bar for its date, opponent and score (js/team-page.js wires the
 // tooltip: each bar carries data-tip). `sub` is the header's record line;
-// `firstLabel` the first game's date under the chart.
-export function gameByGameHtml({ games, sub, firstLabel = '' }){
+// `firstLabel` the first game's date under the chart. A golfer's page
+// passes its own `title` ("Event by event") and each bar's `tip`.
+export function gameByGameHtml({ games, sub, firstLabel = '', title = 'Game by game' }){
   const bars = games.map((g, i) => {
-    const tip = `${g.dateLabel} · ${g.home ? 'vs' : '@'} ${g.opp} · ${g.score}`;
+    const tip = g.tip || `${g.dateLabel} · ${g.home ? 'vs' : '@'} ${g.opp} · ${g.score}`;
     const bar = g.result === 'd' ? '<i class="gbg-draw"></i>' : `<i class="gbg-bar" style="--h:${g.height}%"></i>`;
     return `<button type="button" class="gbg-col ${g.result}${g.clamped ? ' clamped' : ''}" style="--i:${i}" data-tip="${escapeHtml(tip)}" data-res="${g.result}" aria-label="${escapeHtml(tip)}">${bar}</button>`;
   }).join('');
-  return `<section class="wide-panel gbg"><div class="wide-panel-head"><h3 class="wide-panel-title">Game by game</h3>`
+  return `<section class="wide-panel gbg"><div class="wide-panel-head"><h3 class="wide-panel-title">${escapeHtml(title)}</h3>`
     + `<span class="wide-panel-sub">${escapeHtml(sub)}</span></div>`
     + `<div class="gbg-chart"><div class="gbg-tip" aria-hidden="true"></div><div class="gbg-bars">${bars}</div></div>`
     + `<div class="gbg-foot"><span>${escapeHtml(firstLabel)}</span><span>Newest</span></div></section>`;

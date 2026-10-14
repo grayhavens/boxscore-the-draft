@@ -1108,7 +1108,7 @@ body{
 
 @media (hover: hover), (max-width: 899px){ .modal-close:hover{ color: var(--text); background: var(--fill-soft); } }
 
-/* Sheet head (the golfer sheet, the draft room's team sheet): the
+/* Sheet head (the draft room's team sheet): the
    favorite star sits beside .modal-close — this wrapper takes over the
    absolute corner positioning so .modal-close can drop its own
    (still used standalone everywhere else the class appears, e.g. the
@@ -4206,6 +4206,12 @@ button.fs-col{ cursor: pointer; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word;
 }
 .ng-sub{ margin-top: 10px; font-size: var(--fs-11); font-weight: 500; color: var(--text-mute); }
+/* A golfer's week (golferWeekCard, js/golf-view.js): red while they're on
+   the course, their place and score on the right of the event's name. */
+.ng-title.live{ display: inline-flex; align-items: center; gap: 6px; color: var(--live); }
+.ng-right{ flex: none; display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ng-pos{ font-size: var(--fs-20); }
+.ng-topar{ font-size: var(--fs-15); color: var(--text-sub); }
 
 
 .news-card{
@@ -7416,22 +7422,9 @@ textarea.sysadmin-input{ padding: 12px 14px; resize: vertical; }
 .badge.badge-person img{ object-fit: cover; object-position: 50% 12%; padding: 0; filter: none; }
 
 .golf-muted{ color: var(--text-sub); font-size: var(--fs-12); font-weight: 500; }
-.golf-sub{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .golf-flag{ width: 16px; height: 16px; object-fit: contain; }
 .golf-title-note{ float: right; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-sub); }
 .golf-note{ margin: 0 0 16px; }
-
-.golf-week{ margin-bottom: 20px; }
-.golf-event-link{
-  all: unset; box-sizing: border-box; cursor: pointer; width: 100%;
-  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  font-weight: 700; font-size: var(--fs-15); padding: 2px 0 6px;
-}
-.golf-week-line{ display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
-.golf-week-line.live{ background: radial-gradient(120% 160% at 0% 0%, var(--live-soft), var(--surface-2) 70%); }
-.golf-week-pos{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-24); min-width: 48px; }
-.golf-week-topar{ font-family: var(--font-display); font-weight: 700; font-size: var(--fs-17); }
-.golf-week-score .golf-muted{ display: flex; align-items: center; gap: 6px; }
 
 .golf-result{
   all: unset; box-sizing: border-box; cursor: pointer; width: 100%;
@@ -7822,6 +7815,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .tw-owner.me{ color: var(--accent); }
   .tw-game{ flex: 1 1 360px; max-width: 520px; min-width: 0; }
   .tw-game .next-match{ padding: 16px 18px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); }
+  .tw-game .game-card{ margin: 0; padding: 16px 18px; }
   .tw-side{ flex: none; display: flex; align-items: stretch; gap: 10px; }
   .tw-star{ display: flex; }
   .tw-star > *{ width: 44px; border: 1px solid var(--hairline-strong); border-radius: 14px; display: flex; align-items: center; justify-content: center; }

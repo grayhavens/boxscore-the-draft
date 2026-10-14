@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import {
   parseCalendar, fedexSeasonEvents, condenseLeaderboard, parseLeaderboard, parseGolferRecord,
   finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone,
-  finishAwards, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, majorWindow, activeMajor, majorPoints, majorGolfers, majorLeaders, isOut
+  finishAwards, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, majorWindow, activeMajor, majorPoints, majorGolfers, majorLeaders, isOut,
+  golferNews, finishForm, FORM_FINISH_CAP, GOLF_NEWS_MAX_TAGS
 } from '../js/golf.js';
 import { PGA_SCORING } from '../js/seasons/pga.js';
 import { updateSeason } from '../worker/golf.js';
@@ -293,4 +294,30 @@ test('the PGA Tour logo, one per theme', () => {
   assert.match(logo.light, /leagues\/500\/pgatour\.png/);
   assert.match(logo.dark, /500-dark\/pgatour\.png/);
   assert.equal(parseLeagueLogo({ leagues: [{}] }), null);
+});
+
+test("a golfer's news is the tour feed's stories tagging them, roundups left out", () => {
+  const tag = id => ({ type: 'athlete', athleteId: id });
+  const feed = { articles: [
+    { id: 1, headline: 'Scheffler wins', published: '2026-10-01T00:00:00Z', links: { web: { href: 'https://espn.com/1' } }, categories: [tag(9478), { type: 'league' }] },
+    { id: 2, headline: 'Rory and Scottie paired', published: '2026-09-30T00:00:00Z', categories: [tag(9478), tag(3470)] },
+    { id: 3, headline: 'Leaderboard recap', categories: [9478, 1, 2, 3, 4].map(tag) },
+    { id: 4, headline: 'Someone else', categories: [tag(3470)] }
+  ] };
+  assert.ok(GOLF_NEWS_MAX_TAGS < 5);
+  const mine = golferNews(feed, '9478');
+  assert.deepEqual(mine.map(a => a.id), [1, 2]);
+  assert.deepEqual(mine[0], { id: 1, headline: 'Scheffler wins', description: '', published: '2026-10-01T00:00:00Z', link: 'https://espn.com/1' });
+  assert.equal(mine[1].link, null);
+  assert.deepEqual(golferNews(null, '9478'), []);
+  assert.equal(golferNews(feed, '9478', 1).length, 1);
+});
+
+test('a finish as a form bar: better places taller, a missed cut below the line', () => {
+  assert.deepEqual(finishForm('1'), { result: 'w', margin: FORM_FINISH_CAP });
+  assert.ok(finishForm('T4').margin > finishForm('T40').margin);
+  assert.equal(finishForm('T90').margin, 1, 'a made cut always shows');
+  assert.equal(finishForm('CUT').result, 'l');
+  assert.equal(finishForm('WD').result, 'd');
+  assert.equal(finishForm('DQ').margin, 0);
 });
