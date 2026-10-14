@@ -6,16 +6,14 @@ step-by-step for the commissioner.
 
 ## 0. What has to be true before anything else
 
-- [ ] The draft room UI and commissioner controls are **merged and deployed**. The commissioner bar
-      (Pause / Undo / Trade / Reset, "Pick for", click-a-pick-to-change) and the phone layout live in the
-      Phase E PR; without them you can run a draft but not fix one.
-- [ ] The **worker is deployed before the static site** (it carries the `DraftRoom` Durable Object
-      migration): `cd worker && npx wrangler deploy`. `DASHBOARD_WORKER_BASE` in `js/api.js` must point
-      at it.
-- [ ] `ADMIN_PASSWORD` is set as a worker secret (`npx wrangler secret put ADMIN_PASSWORD`). It is the
-      commissioner password, entered once on Settings → Commissioner (it covers the draft room and scoring).
-- [ ] Everyone's device has the latest site (the service worker refreshes on the next open; the tiny
-      build tag in the corner confirms it).
+- [ ] The season's checklist in `docs/draft-room-plan.md` (**Before draft day**) is done, starting with
+      `node tools/espn-teams.mjs` in mid-August.
+- [ ] The **worker is deployed before the static site** whenever both changed: `cd worker && npx wrangler deploy`.
+- [ ] The group's commissioner password is a worker secret: `ADMIN_PASSWORD` for The Draft,
+      `ADMIN_PASSWORD_SEASONTICKET` for Season Ticket (`npx wrangler secret put <name>`). It's entered once on
+      Settings → Commissioner and covers the draft room and scoring.
+- [ ] Everyone's device has the latest site (the service worker refreshes on the next open; the build tag at
+      the bottom of Settings confirms it).
 
 ## 1. Rehearse (do this at least twice, the last one in the final week)
 

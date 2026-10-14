@@ -219,37 +219,43 @@ notification channel.
 
 ## Before draft day
 
-A running checklist of things to do ahead of the real draft. None of these block the draft room from
-working; they are hygiene that makes the day smoother. Anyone asking "what do I need to do before the
-draft?" should start here.
+The checklist for each season's drafts, for both groups: **The Draft** (`thedraft`, no group param, commissioner
+password `ADMIN_PASSWORD`) and **Season Ticket** (`seasonticket`, `ADMIN_PASSWORD_SEASONTICKET`, invite code
+required: pass `--code <invite-code>` to the tools). Start it in **mid-August**; a reminder is scheduled. The
+step-by-step for the day itself is `docs/draft-day-runbook.md`.
 
-**Non-critical, noted at the end of Phase F (the owner plans to handle these)**
+**Mid-August: the app (once, covers both groups)**
 
-1. ~~**Pre-resolve ESPN ids and crests for pool teams the app doesn't already know.**~~ Done (September
-   2026): `DRAFT_RANK_ESPN` in `js/draft-ranks.js` gives every ranked team missing from the newest
-   `TEAM_META` its ESPN id and crest. A team added to the ranking later needs an entry there too, or it is a
-   color tile again until export.
-2. **Verify the ranked team lists against the real field.** `js/draft-ranks.js` comes from the design
-   handoff. Before the draft, check EPL promotion/relegation and any WNBA expansion team, and sanity-check
-   the ordering (it drives the Available list and the "Top fit" queue). Teams that are missing from the
-   list are simply appended unranked, and a team listed but no longer real would be draftable.
+1. **Refresh ESPN's team lists:** `node tools/espn-teams.mjs`. New teams in a draft class get their name,
+   nickname, colors and crest from this saved copy (`js/seasons/espn-teams.js`), so a stale one means a new
+   team shows as a plain tile. Read the report of teams added and removed since the last run, then commit.
+2. **Check the draft rankings against the real field** (`js/draft-ranks.js`): the EPL's three promoted and three
+   relegated clubs, any WNBA expansion team, and a sanity pass on the order (it drives Available and "Top fit").
+   A team added to the ranking that the newest class doesn't have needs an ESPN id and crest in
+   `DRAFT_RANK_ESPN`, or it's a color tile in the room.
+3. **PGA Tour, only if a group turns golfers on:** `node tools/golfer-pool.mjs`, then eyeball it (drop a retired
+   or injured golfer by hand).
+4. **Ship it:** deploy the worker first if it changed (`cd worker && npx wrangler deploy`), then merge the site.
 
-**Go-live items found while writing the runbook (these are not optional)**
+**Late August: each group, by its commissioner**
 
-- **Merge the Phase E PR** (commissioner controls, phone layout; it now also carries the Settings
-  Preferences/League split). Without it the room can run but the commissioner cannot pause, undo, trade,
-  change a pick or pick for someone.
-- ~~Season switcher~~ — built: Settings -> League -> Draft Class (only shown once a second class exists),
-  plus a banner while an older class is on screen. A saved choice expires when a newer class ships.
-- **Confirm every finished league is locked** on the Commissioner page's Scoring section before the new class ships, since
-  only leagues locked while their class was still the newest keep their saved final standings.
+5. **Sports and picks per league** on the Commissioner page, and the drafter count on the system admin page's
+   Roster card, while the room is still in the lobby; both lock once the draft starts.
+6. **Draft time:** run the poll or set the time on the Commissioner page (setting it alerts everyone).
+7. **Season outlooks** for the team sheets: `node tools/outlooks.mjs facts --missing [--group seasonticket]`, write
+   them, then `node tools/outlooks.mjs apply <file.json> [--group seasonticket]` and commit.
+8. **Rehearse twice**, the last one in the final week (`docs/draft-day-runbook.md` §1). Against the deployed
+   worker add `--base`, `--origin`, `--password` and, for Season Ticket, `--group seasonticket --code <invite-code>`.
 
-**Also needed (flagged in earlier phases)**
+**The week of the draft**
 
-- Deploy the worker **before** the static site (it carries the `DraftRoom` Durable Object migration), and
-  make sure `ADMIN_PASSWORD` is set as a worker secret.
-- Run a full rehearsal on a throwaway room (`?view=draft&room=mock-1`), including the export against it
-  (`node tools/export-draft.mjs --result <room url> --dry-run`).
+9. **Lock every league that has finished its season** (Commissioner page → Scoring shows "Locked"). The new class
+   goes live on every phone the moment the last pick is in, and only leagues locked before then keep showing the
+   old class's final results.
+10. **Draft morning:** `node tools/rehearse-draft.mjs --preflight ...` against the deployed worker, for each group.
+
+**After the draft:** nothing is required; everyone's new teams appear by themselves (`js/live-class.js`). Exporting
+(`node tools/export-draft.mjs [--group seasonticket --code <invite-code>]`) is optional and pins a reviewed copy.
 
 ## Open items
 

@@ -21,9 +21,11 @@
    rebuilt when the room's seq moves (a pick edited after the draft).
    Oldest first, each built on the class before it.
 
-   ESPN fills in teams no earlier class had (its team lists, through the
-   worker's /espn/teams). If a league's list doesn't load, nothing is
-   stored and a later status answer tries again; a team ESPN can't place
+   ESPN fills in teams no earlier class had, from its team lists as saved
+   in the app (js/seasons/espn-teams.js, refreshed before each season by
+   tools/espn-teams.mjs; ESPN's /teams can't be read from a browser or
+   from the worker). If that file doesn't load, nothing is stored and a
+   later status answer tries again; a team the lists can't place
    gets a plain entry from its pool record (fallbackToPool), so nothing
    is ever left off a roster. Every device builds the same class from
    the same board, so team keys (and the points and favorites saved
@@ -41,10 +43,10 @@
    ============================================================ */
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP, withGroupQuery } from './group.js';
 import { groupCaps } from './groups.js';
-import { chatWorkerBase, DASHBOARD_WORKER_BASE } from './worker-base.js';
+import { chatWorkerBase } from './worker-base.js';
 import { LATEST_COMMITTED_YEAR, LIVE_CLASS_BASE } from './seasons/index.js';
 import { PGA_SCORING } from './seasons/pga.js';
-import { buildSeason, fetchEspnTeams, liveClassesToBuild, liveClassChain } from './draft-class.js';
+import { buildSeason, espnTeamsFromSnapshot, liveClassesToBuild, liveClassChain } from './draft-class.js';
 import { readLiveClasses, saveLiveClass } from './live-class-store.js';
 import { currentProfileId } from './identity.js';
 
@@ -119,6 +121,9 @@ async function buildOne(year, current){
     total: result.picks.length,
     mine: result.picks.filter(p => p.drafter === currentProfileId && p.team).map(p => ({ slot: p.slot, entry: null }))
   });
+  // ESPN's team lists, as saved in the app (tools/espn-teams.mjs): ESPN's
+  // /teams can't be read from a browser or the worker. Loaded only now.
+  const { ESPN_TEAMS } = await import('./seasons/espn-teams.js');
   const built = await buildSeason({
     result,
     onProgress: (done, total, pick, entry) => {
@@ -130,9 +135,11 @@ async function buildOne(year, current){
     prev: baseFor(year),
     year,
     drafterIds: result.config.drafters,
-    // ESPN's team lists send no CORS headers, so they come through the
-    // worker (/espn/teams, cached a day).
-    espn: league => fetchEspnTeams(league, () => fetch(`${DASHBOARD_WORKER_BASE}/espn/teams?league=${encodeURIComponent(league)}`)),
+    espn: async league => {
+      const list = espnTeamsFromSnapshot(ESPN_TEAMS, league);
+      if(!list) throw new Error(`no saved ESPN list for ${league}`);
+      return list;
+    },
     onlyDrafted: !IS_LEGACY_GROUP && !!groupCaps(ACTIVE_GROUP_ID),
     fallbackToPool: true
   });

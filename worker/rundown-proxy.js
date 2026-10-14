@@ -102,14 +102,6 @@
       draft UI imports — that file lives in the static site's js/
       folder, and wrangler bundles it from here.
 
-   6c. ESPN TEAM LISTS — GET /espn/teams?league=<key> passes on ESPN's
-      whole team list for one league (js/draft-class.js's
-      ESPN_SPORT_PATH), cached a day. When a draft ends, the app builds
-      the new class itself (js/live-class.js) and needs these lists to
-      fill in teams no earlier class had; ESPN's /teams endpoint, unlike
-      its scoreboards, sends no CORS headers, so a browser can't read it
-      directly. No key involved.
-
    7. KLIPY APP KEY DELIVERY — the chat's GIF picker (js/gifs.js) calls
       KLIPY straight from the browser, which is KLIPY's own rule (see
       that file's header), so this is NOT a proxy: this route only hands
@@ -225,7 +217,6 @@ import { handleGolfSeason } from './golf.js';
 import { handleNews, refreshNews } from './news.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
 import { logAdminAction, commissionerNote } from './admin-log.js';
-import { ESPN_SPORT_PATH, ESPN_TEAMS_BASE } from '../js/draft-class.js';
 
 const RUNDOWN_BASE = 'https://api.therundown.io/api/v2';
 const SPORTSDB_V2_BASE = 'https://www.thesportsdb.com/api/v2/json';
@@ -344,8 +335,7 @@ const CACHE_TTL_SECONDS = {
   sportsdbSchedule: 60,        // last-result / next-fixture, refreshed on the same cadence as rundownEvents
   nflverseInjuries: 2 * 60 * 60,   // practice reports land a few times during a game week (Wed-Fri), not continuously
   nflverseDepthChart: 3 * 60 * 60, // teams post depth-chart moves less often than injury reports
-  nhlScore: 5 * 60,                // goal clips/recap land over the hour or so after each goal/final horn
-  espnTeams: 24 * 60 * 60          // a league's team list changes a few times a year
+  nhlScore: 5 * 60                 // goal clips/recap land over the hour or so after each goal/final horn
 };
 
 // Shared building block for every proxy below: check the edge cache
@@ -555,17 +545,6 @@ async function handleNflverseInjuries(request, env, headers, ctx){
   const latestWeek = rows.reduce((max, r) => Math.max(max, parseInt(r.week, 10) || 0), 0);
   const latest = rows.filter(r => (parseInt(r.week, 10) || 0) === latestWeek);
   return json(groupByTeam(latest), 200, headers);
-}
-
-// /espn/teams?league=<key> — see the header comment's ESPN TEAM LISTS
-// section. Passed on as ESPN sends it; js/draft-class.js's
-// fetchEspnTeams reads that shape, wherever it fetched it from.
-async function handleEspnTeams(request, url, headers, ctx){
-  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
-  const path = ESPN_SPORT_PATH[url.searchParams.get('league')];
-  if(!path) return new Response('Not found', { status: 404, headers });
-  const upstream = await cachedUpstreamFetch(`${ESPN_TEAMS_BASE}/${path}/teams?limit=1000`, CACHE_TTL_SECONDS.espnTeams, {}, ctx);
-  return new Response(await upstream.text(), { status: upstream.ok ? 200 : 502, headers: { ...headers, 'Content-Type': 'application/json' } });
 }
 
 // /nhl/score/<YYYY-MM-DD> — see the header comment's NHL GAME CLIPS PROXY
@@ -1278,8 +1257,6 @@ async function route(request, env, ctx){
   if(url.pathname === '/nflverse/depth-chart') return handleNflverseDepthChart(request, env, headers, ctx);
 
   if(url.pathname.startsWith('/nhl/score/')) return handleNhlScore(request, url, headers, ctx);
-
-  if(url.pathname === '/espn/teams') return handleEspnTeams(request, url, headers, ctx);
 
   // PGA Tour season results, condensed (worker/golf.js).
   if(url.pathname.startsWith('/golf/season/')) return handleGolfSeason(request, url, env, headers, ctx, { cachedUpstreamFetch, json });
