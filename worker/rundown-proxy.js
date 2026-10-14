@@ -1026,11 +1026,15 @@ async function handlePushTest(request, env, group, headers){
 // same change; here the second gets a 409 and simply re-reads. Same
 // no-auth trust tier as favorites (an Origin check only, no admin
 // password) — the worst a caller can do is add a bogus feed line.
-// One blob per group: The Draft's is the original key. A landed PUT can
+// One blob per group and season (?season=, like every season-scoped
+// route): The Draft's first season is the original key. Two seasons are
+// in play at once after a draft, until last season is recorded
+// (js/season-overlap.js), and each keeps its own feed. A landed PUT can
 // also carry the day's points sample for the Race chart
 // (worker/points-history.js).
-function activityKey(group){
-  return `${kvGroupPrefix('activity', group)}:state`;
+function activityKey(group, season = null){
+  const base = kvGroupPrefix('activity', group);
+  return season === null || season === LEGACY_SEASON ? `${base}:state` : `${base}:${season}:state`;
 }
 const ACTIVITY_MAX_EVENTS = 150;
 const ACTIVITY_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
@@ -1063,8 +1067,10 @@ function cleanActivityEvent(e, drafterIds){
   };
 }
 
-async function handleActivity(request, env, group, headers, waitUntil){
-  const key = activityKey(group);
+async function handleActivity(request, url, env, group, headers, waitUntil){
+  const season = url.searchParams.get('season');
+  if(season !== null && !/^\d{4}$/.test(season)) return new Response('Bad season', { status: 400, headers });
+  const key = activityKey(group, season);
   const drafterIds = drafterIdsFor(group);
   if(request.method === 'GET'){
     const stored = await env.LEAGUE_FACTS.get(key, 'json');
@@ -1106,7 +1112,9 @@ async function handleActivity(request, env, group, headers, waitUntil){
     // after the response: an alert failing must never fail the write.
     const added = incoming.filter(e => !seen.has(e.id));
     if(added.length && pushEnabled(env)){
-      waitUntil(Promise.all(pointsAlerts(added, drafterIds, Date.now(), stored.events).map(({ drafterId, payload }) =>
+      // An older season's (body.older, its id) alerts say which season.
+      const older = typeof body.older === 'string' && /^\d{4}$/.test(body.older) ? body.older : null;
+      waitUntil(Promise.all(pointsAlerts(added, drafterIds, Date.now(), stored.events, { season: older }).map(({ drafterId, payload }) =>
         pushToDrafters(env, group, [drafterId], 'points', payload, { ttl: 6 * 60 * 60, urgency: 'normal', topic: 'points' })
       )).catch(e => console.warn('[activity] points alerts failed', e)));
     }
@@ -1217,7 +1225,7 @@ async function route(request, env, ctx){
 
   if(url.pathname === '/push/test') return handlePushTest(request, env, group, headers);
 
-  if(url.pathname === '/activity') return handleActivity(request, env, group, headers, p => ctx.waitUntil(p));
+  if(url.pathname === '/activity') return handleActivity(request, url, env, group, headers, p => ctx.waitUntil(p));
 
   if(url.pathname === '/points/history') return handlePointsHistory(request, url, env, kvGroupPrefix('history', group), headers, { json });
 

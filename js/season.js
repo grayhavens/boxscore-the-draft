@@ -42,6 +42,13 @@ function resolveActiveSeasonId(){
 }
 
 export const ACTIVE_SEASON_ID = resolveActiveSeasonId();
+
+// True in the hidden copy of an older season that js/season-background.js
+// loads while that season is still in play: it boots only the scoring
+// work (locks, Activity, points alerts) and draws nothing anyone sees.
+export const IS_SEASON_BACKGROUND = (() => {
+  try { return window.parent !== window && new URLSearchParams(window.location.search).get('bg') === '1'; } catch (e){ return false; }
+})();
 export const ACTIVE_SEASON = SEASONS[ACTIVE_SEASON_ID];
 export const HAS_MULTIPLE_SEASONS = SEASON_IDS.length > 1;
 

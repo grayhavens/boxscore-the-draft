@@ -23,6 +23,7 @@
 import { DRAFT_TEAMS } from './data.js';
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
+import { IS_SEASON_BACKGROUND } from './season.js';
 import { currentProfileId } from './identity.js';
 import { getSettings } from './settings.js';
 import { loadGifKey, reportGifShare } from './gifs.js';
@@ -121,7 +122,8 @@ function composerCandidates(){
 // ---- Connection ----
 
 function connect(){
-  if(!DASHBOARD_WORKER_BASE) return;
+  // The hidden copy of an older season (js/season-background.js) never chats.
+  if(!DASHBOARD_WORKER_BASE || IS_SEASON_BACKGROUND) return;
   if(socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
   clearTimeout(reconnectTimer);
   setStatus('connecting');

@@ -23,7 +23,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 ## Commands (all verified 2026-10-03 unless noted)
 
 - **Install:** none. `npx` fetches wrangler on demand.
-- **Test:** `node --test tests/*.test.mjs` (36 files, 302 tests, all pass, ~4s).
+- **Test:** `node --test tests/*.test.mjs` (42 files, 382 tests, all pass, ~5s; 2026-10-14).
 - **Dev, site:** `python3 -m http.server 8934` from the repo root, open `/index.html` (never `file://`). Use port
   8934: it's the only localhost origin the worker's CORS allowlist accepts. The `team-dashboard` launch config
   serves a mirror at `$TMPDIR/boxscorethedraft-preview`; re-sync it first:
@@ -86,7 +86,11 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
 - The preview launch config serves a stale mirror unless you rsync it.
 - `?group=<id>` works only on localhost / Pages previews; The Draft sends no group param and uses legacy keys.
 - `localStorage` is not namespaced by group (each subdomain is its own origin).
-- MLB and WNBA (`PRIOR_SEASON_DISPLAY_LEAGUES`) show live but **non-scoring** prior-season data.
+- MLB and WNBA (`PRIOR_SEASON_DISPLAY_LEAGUES`) show live but **non-scoring** prior-season data until the class's
+  season begins (its regular-season start on ESPN's calendar); the switch is automatic (`js/season-overlap.js`).
+- After a draft, last season keeps scoring in a hidden copy of the app (`?bg=1`, `js/season-background.js`) until
+  it's recorded in History. Anything new in `js/board.js`'s boot that draws, connects or polls goes behind
+  `IS_SEASON_BACKGROUND`.
 - Scoring exists only in the browser; the worker stores what the browser computes.
 - `js/ui.js` must stay a leaf module (imports only `escape.js`, `icons.js`) or boot cycles.
 - `switchView` and team-page navigation apply DOM changes asynchronously inside a View Transition.

@@ -34,8 +34,31 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 // leagues      [{ key, label, locked }] scoring leagues that lock from standings
 // check        { ok, at, detail } from the last room check, or null
 // nextLabel    the coming draft ('2027/2028')
-export function commissionerChecklist({ status, rehearsal, sports, leagues, check, nextLabel, now = Date.now() }){
+// previous     last season while it's still in play after a draft
+//              (js/season-overlap.js): { id, label, open }, `open` the
+//              names of its leagues still being played, or null until the
+//              background run (js/season-background.js) has reported
+export function commissionerChecklist({ status, rehearsal, sports, leagues, check, nextLabel, previous = null, now = Date.now() }){
   const rows = [];
+
+  // 0. Last season, still finishing: it keeps scoring by itself, and is
+  // recorded from its own page once every league is done.
+  if(previous){
+    const done = Array.isArray(previous.open) && !previous.open.length;
+    rows.push(done ? {
+      key: 'previous',
+      state: 'warn',
+      title: `Record ${previous.label}’s final standings`,
+      detail: 'Every league is done. Record it so the champion shows in History.',
+      action: { kind: `record:${previous.id}`, label: 'Open History' }
+    } : {
+      key: 'previous',
+      state: 'mute',
+      title: `${previous.label} is still being played`,
+      detail: `${previous.open && previous.open.length ? `Still playing: ${previous.open.join(', ')}. ` : ''}Its points and alerts keep running. Record it once every league is done.`,
+      action: { kind: `season:${previous.id}`, label: `Open ${previous.label}` }
+    });
+  }
   const st = status;
   const soon = !!(st && st.scheduledAt && st.scheduledAt > now && st.scheduledAt - now < DRAFT_WEEK_DAYS * DAY);
 

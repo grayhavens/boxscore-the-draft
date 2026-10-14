@@ -75,9 +75,10 @@ import { isLeagueFrozen } from './frozen-cache.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
 import { initSeasonEntry } from './season-entry.js';
+import { startSeasonBackground, runSeasonBackground } from './season-background.js';
 import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, isDraftPollOpen, voteDraftPoll, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
 import { pollTally } from './draft-poll.js';
-import { ACTIVE_SEASON_ID, ACTIVE_SEASON } from './season.js';
+import { ACTIVE_SEASON_ID, ACTIVE_SEASON, IS_SEASON_BACKGROUND } from './season.js';
 import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
@@ -1212,27 +1213,35 @@ loadSeasonPhaseCache();
 loadTeamInfoCache();
 // Nothing is broken down by draft team until there's been a draft.
 if(PRE_DRAFT) document.getElementById('standings-sub').textContent = 'Real standings for every league';
-renderBoard();
-paintSeasonBanner();
-initSeasonEntry();
-initDraftLive();
-initDraftSchedule();
-paintIdentityChrome(currentDraftTeamId);
-initChat();
-initWide();
-// Crossing 900px swaps Standings, Scores and Points between their phone and wide layouts.
-onWideChange(() => {
-  if(isViewActive('standings')) renderStandings();
-  if(isViewActive('live-now')) renderLiveNow();
-  if(isViewActive('overall')) renderOverallStandings();
-});
-applyUrlState();
-enableNavMotion();
-(window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
-maybeShowWelcome();
-startActivity();
-startSince();
-startHistory();
+// The hidden copy of an older season (js/season-background.js) runs only
+// its scoring work, then reports back and is removed: nothing below that
+// draws, connects or polls.
+if(IS_SEASON_BACKGROUND){
+  runSeasonBackground(refreshStandingsData);
+} else {
+  renderBoard();
+  paintSeasonBanner();
+  initSeasonEntry();
+  initDraftLive();
+  initDraftSchedule();
+  paintIdentityChrome(currentDraftTeamId);
+  initChat();
+  initWide();
+  // Crossing 900px swaps Standings, Scores and Points between their phone and wide layouts.
+  onWideChange(() => {
+    if(isViewActive('standings')) renderStandings();
+    if(isViewActive('live-now')) renderLiveNow();
+    if(isViewActive('overall')) renderOverallStandings();
+  });
+  applyUrlState();
+  enableNavMotion();
+  (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
+  maybeShowWelcome();
+  startActivity();
+  startSince();
+  startHistory();
+  startSeasonBackground();
+}
 
 // Every standings/rankings/season-phase cache, kicked off regardless of
 // which tab is open. Each call is a no-op while its cache is fresh (or
@@ -1283,16 +1292,19 @@ function refreshStandingsData(){
   jobs.push(...SEASON_PHASE_LEAGUES.map(league => fetchSeasonPhaseCached(league)));
   return Promise.allSettled(jobs);
 }
-refreshStandingsData();
-setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsData(); }, STANDINGS_REFRESH_MS);
+if(!IS_SEASON_BACKGROUND){
+  refreshStandingsData();
+  setInterval(() => { if(document.visibilityState !== 'hidden') refreshStandingsData(); }, STANDINGS_REFRESH_MS);
+}
 
 // One-time-per-league check: has each league's regular season actually
 // ended, and if so, lock in its rankAuto rules (js/season-lock.js) —
 // already-locked leagues return immediately, so this is cheap on every
 // normal boot. Deliberately not awaited — nothing else in this boot
 // sequence depends on it finishing, and its own persistLock re-renders
-// whatever needs it once a lock actually happens.
-checkSeasonLocks();
+// whatever needs it once a lock actually happens. The background copy
+// runs its own, after its data is in.
+if(!IS_SEASON_BACKGROUND) checkSeasonLocks();
 
 // Both ticks below already patch Home's row-status pills and an open
 // team page in place (see js/live-data.js). Scores reads the scoreboards
@@ -1320,21 +1332,25 @@ function paintingLoop(tick, { paintsScores = true } = {}){
 // Scores reads the day's scoreboards, not team bundles, so a team's
 // refetch has nothing to repaint there.
 const backgroundRefreshAndPaint = paintingLoop(backgroundRefreshTick, { paintsScores: false });
-backgroundRefreshAndPaint();
-setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
+if(!IS_SEASON_BACKGROUND){
+  backgroundRefreshAndPaint();
+  setInterval(backgroundRefreshAndPaint, REFRESH_STEP_MS);
+}
 
 // Keeps live scores/final results current in between backgroundRefreshTick's
 // slower per-team rotation — see liveScoreboardSweepTick's own header
 // comment in js/live-data.js for why this is a separate, faster loop
 // instead of just shortening the rotation above.
 const liveSweepAndPaint = paintingLoop(() => Promise.all([liveScoreboardSweepTick(), refreshGolfLive()]));
-liveSweepAndPaint();
-setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState !== 'visible') return;
+if(!IS_SEASON_BACKGROUND){
   liveSweepAndPaint();
-  refreshStandingsData();
-});
+  setInterval(liveSweepAndPaint, LIVE_SWEEP_INTERVAL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState !== 'visible') return;
+    liveSweepAndPaint();
+    refreshStandingsData();
+  });
+}
 
 // Pull to refresh (js/pull-refresh.js) on the views that show live data,
 // never under an open sheet (lockBodyScroll pins the body). A pull makes
@@ -1347,8 +1363,8 @@ const PULL_VIEWS = new Set(['view-board', 'view-live-now', 'view-standings', 'vi
 const PULL_FETCH_GAP_MS = 10 * 1000;
 let lastPullFetch = 0;
 const activeView = () => document.querySelector('.board > .view.active');
-initBackButton();
-initPullToRefresh({
+if(!IS_SEASON_BACKGROUND) initBackButton();
+if(!IS_SEASON_BACKGROUND) initPullToRefresh({
   view: activeView,
   canPull: () => {
     const view = activeView();
@@ -1366,7 +1382,7 @@ initPullToRefresh({
   }
 });
 
-if('serviceWorker' in navigator){
+if('serviceWorker' in navigator && !IS_SEASON_BACKGROUND){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
     syncPushDevice(currentProfileId);
@@ -1380,6 +1396,9 @@ if('serviceWorker' in navigator){
     const view = target.searchParams.get('view');
     const room = target.searchParams.get('room');
     const currentRoom = new URLSearchParams(location.search).get('room');
+    // An older season's alert (js/season-background.js) opens that season.
+    const season = target.searchParams.get('season');
+    if(season && season !== ACTIVE_SEASON_ID){ location.href = target.href; return; }
     if(view === 'overall' && target.searchParams.get('seg')) obOpenSegment(target.searchParams.get('seg'));
     else if(view && (view !== 'draft' || room === currentRoom)) switchView(view);
     else location.href = target.href;

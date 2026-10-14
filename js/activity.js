@@ -41,7 +41,6 @@
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUE_SCORING, LEAGUES, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { chatWorkerBase } from './api.js';
-import { withGroupQuery } from './group.js';
 import { ordinal, fetchJSON, escapeHtml } from './utils.js';
 import { isLeagueLocked, leagueLocksSettled, getLockedRuleTeams } from './season-lock.js';
 import { leagueInputsSettled, leagueSeasonUnderway } from './league-facts.js';
@@ -49,7 +48,7 @@ import { fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES, wasSeasonUnderwayAt } fro
 import { currentDraftTeamId } from './board.js';
 import { obRankedRows, isObSimulated, obLeagueColor, obLeagueFullName, obOpenSheet, obSinceTs, obSinceLabel } from './overall.js';
 import { currentBonusHolders } from './compare.js';
-import { ACTIVE_SEASON_ID } from './season.js';
+import { ACTIVE_SEASON_ID, IS_SEASON_BACKGROUND, scopedKey, withScopeQuery } from './season.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import {
   espnNflStandingsCache, espnNflDivisionCache, fetchEspnNflStandingsCached, fetchEspnNflDivisionStandingsCached,
@@ -69,8 +68,11 @@ import { espnCfbRecordsCache, fetchEspnCfbRecordsCached } from './standings-cfb.
 import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-cbb.js';
 
 import { activityRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
-const FEED_KEY = 'teamDashboardActivityFeed';
-const SEEN_KEY = 'teamDashboardActivitySeen';
+// Each season has its own feed (the worker keys it by ?season=), so an
+// older one kept running in the background (js/season-background.js)
+// never mixes into the newest's.
+const FEED_KEY = scopedKey('teamDashboardActivityFeed');
+const SEEN_KEY = scopedKey('teamDashboardActivitySeen');
 const DETECT_COOLDOWN_MS = 5 * 60 * 1000;
 const INPUTS_WAIT_MS = 8000;
 // v2: totals/ranks are projected, plus per-league `locked` and `live`.
@@ -142,7 +144,7 @@ export function markActivitySeen(quiet){
 
 // The worker answers this GET with Cache-Control: no-store.
 function fetchState(){
-  return fetchJSON(withGroupQuery(`${chatWorkerBase()}/activity`));
+  return fetchJSON(withScopeQuery(`${chatWorkerBase()}/activity`));
 }
 
 // The feed's events after `ts` for Since last night (js/since.js), each
@@ -488,8 +490,9 @@ let running = false;
 // Called at boot, whenever the Points tab opens, and when the app comes
 // back to the foreground — it throttles itself.
 function canDetect(force){
-  // An older class's totals would rewind the shared feed and history.
-  if(running || isObSimulated() || PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return false;
+  // An older season is only kept up by its background copy, which runs
+  // one detection and closes (js/season-background.js).
+  if(running || isObSimulated() || PRE_DRAFT || (ACTIVE_SEASON_ID !== LATEST_SEASON_ID && !IS_SEASON_BACKGROUND)) return false;
   return !!force || Date.now() - lastRun >= DETECT_COOLDOWN_MS;
 }
 
@@ -526,10 +529,11 @@ export async function runActivityDetection(force){
     if(comparable && !snapshot.locked) snapshot.locked = prev.locked || null;
 
     const events = comparable ? diffSnapshots(prev, snapshot, Date.now()) : [];
-    const res = await fetch(withGroupQuery(`${chatWorkerBase()}/activity`), {
+    // `older`: an older season's id, so its points alerts name the season.
+    const res = await fetch(withScopeQuery(`${chatWorkerBase()}/activity`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base: prev ? prev.dataAt : null, snapshot, events, sample })
+      body: JSON.stringify({ base: prev ? prev.dataAt : null, snapshot, events, sample, older: ACTIVE_SEASON_ID !== LATEST_SEASON_ID ? ACTIVE_SEASON_ID : null })
     });
     // 409 = someone else wrote first; their state is in the body.
     const state = await res.json().catch(() => null);

@@ -30,11 +30,13 @@
    Storage shape: facts are { [ruleLabel]: [teamKey, ...] }; adjustments
    are { [teamKey]: { pts, note } } — one blob of each per league.
    ============================================================ */
-import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES } from './data.js';
+import { TEAM_META, LEAGUE_SCORING, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON, withNote, findCfbTeamKeyByLocation, draftOwnerName } from './utils.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
-import { scopedKey, withScopeQuery } from './season.js';
+import { scopedKey, withScopeQuery, ACTIVE_SEASON_ID } from './season.js';
+import { LATEST_SEASON_ID } from './seasons/index.js';
+import { classLeagueYear, liveTableYear } from './season-overlap.js';
 import { eplStandingsCache, findEplTeamKeyByEspnName } from './standings-epl.js';
 import { espnWnbaStandingsCache } from './standings-wnba.js';
 import { findFlatTeamKey } from './standings-flat.js';
@@ -65,7 +67,7 @@ import { postseasonRuleTeams } from './postseason.js';
 import { playoffRuleTeams } from './playoff-series.js';
 import { bowlRuleTeams } from './cfb-bowls.js';
 import { eplCupRuleTeams } from './epl-cups.js';
-import { isSeasonUnderway, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
+import { isSeasonUnderway, fetchSeasonPhaseCached, espnSeason, SEASON_PHASE_LEAGUES } from './season-phase.js';
 
 // Per-league config for rankAuto's 'conference'/'division' scopes —
 // NFL is kept separate (its own bespoke cache/lookup, not
@@ -426,19 +428,34 @@ export function computeLiveRankAutoTeams(leagueKey, rule){
 // while the phase data is still loading (callers treat that as "not
 // yet"; this kicks the fetch and repaints once it lands). Only gates
 // the LIVE table — a locked league reads its frozen snapshot regardless.
+//
+// An older class (one a draft has replaced, still scoring after it,
+// js/season-overlap.js) counts a league's live table only while it still
+// holds that class's season (liveTableYear); the EPL's has always moved
+// on by then. Without this an unlocked league would score from the next
+// season's table.
 const phasePrimed = {};
 export function leagueSeasonUnderway(leagueKey){
+  if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID){
+    if(!SEASON_PHASE_LEAGUES.includes(leagueKey)) return false;
+    const espn = espnSeason(leagueKey);
+    if(!espn){ primePhase(leagueKey); return null; }
+    return liveTableYear(espn) === classLeagueYear(leagueOf(leagueKey).season);
+  }
   if(leagueKey === 'epl'){
     const table = eplStandingsCache.table;
     return table ? table.some(row => (row.gamesPlayed || 0) > 0) : null;
   }
   if(!SEASON_PHASE_LEAGUES.includes(leagueKey)) return true;
   const underway = isSeasonUnderway(leagueKey);
-  if(underway === null && !phasePrimed[leagueKey]){
-    phasePrimed[leagueKey] = true;
-    fetchSeasonPhaseCached(leagueKey).then(standingsDataChanged);
-  }
+  if(underway === null) primePhase(leagueKey);
   return underway;
+}
+
+function primePhase(leagueKey){
+  if(phasePrimed[leagueKey]) return;
+  phasePrimed[leagueKey] = true;
+  fetchSeasonPhaseCached(leagueKey).then(standingsDataChanged);
 }
 
 // Teams currently satisfying a rule — a frozen snapshot for a rankAuto

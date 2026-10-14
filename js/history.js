@@ -17,7 +17,6 @@ import { chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
 import { fetchJSON, escapeHtml, ordinal } from './utils.js';
 import { ACTIVE_SEASON, ACTIVE_SEASON_ID } from './season.js';
-import { LATEST_SEASON_ID } from './seasons/index.js';
 import { rankStandings, placeLabel, championsOf, namesText, allTimeTable } from './champions.js';
 
 const STORE_KEY = 'bxHistory';
@@ -69,10 +68,11 @@ const ptsText = n => (n < 0 ? '&minus;' + Math.abs(n) : String(n));
 // ---- The season the app is playing, as the commissioner would record it ----
 
 // The class on screen, from the Points ranking (js/overall.js passes its
-// rows in, so this module doesn't import the ranking). null for an older
-// class or before the first draft.
+// rows in, so this module doesn't import the ranking). null before the
+// first draft. An older class counts too: last season is recorded from
+// its own page once it finishes after the next draft (js/season-overlap.js).
 export function seasonFromRows(rows){
-  if(PRE_DRAFT || ACTIVE_SEASON_ID !== LATEST_SEASON_ID || !/^\d{4}$/.test(ACTIVE_SEASON_ID)) return null;
+  if(PRE_DRAFT || !/^\d{4}$/.test(ACTIVE_SEASON_ID)) return null;
   return {
     id: ACTIVE_SEASON_ID,
     label: ACTIVE_SEASON.label,
@@ -248,6 +248,7 @@ export function renderChampionHome(){
 
 export function refreshHistoryUi(){
   renderChampionHome();
+  if(window.renderSeasonOverlapHome) window.renderSeasonOverlapHome();
   const view = document.getElementById('view-overall');
   if(view && view.classList.contains('active') && window.renderOverallStandings) window.renderOverallStandings();
 }

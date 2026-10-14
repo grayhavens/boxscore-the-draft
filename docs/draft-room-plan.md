@@ -255,12 +255,15 @@ Both halves are also on screen with their state: the app owner's steps on the sy
 **The week of the draft**
 
 9. **Lock every league that has finished its season** (Commissioner page → Scoring shows "Locked"). The new class
-   goes live on every phone the moment the last pick is in, and only leagues locked before then keep showing the
-   old class's final results.
+   goes live on every phone the moment the last pick is in. Leagues still being played (MLB, WNBA) keep scoring for
+   last season by themselves afterwards (`js/season-background.js`), but a finished league that isn't locked by then
+   can't be locked later: ESPN has moved on to its next season.
 10. **Draft morning:** **Check the draft room** on Group settings (the room answers, connects and takes the password).
     The fuller `node tools/rehearse-draft.mjs --preflight ...` against the deployed worker does the same from a terminal.
 
-**After the draft:** nothing is required; everyone's new teams appear by themselves (`js/live-class.js`). Exporting
+**After the draft:** nothing is required; everyone's new teams appear by themselves (`js/live-class.js`), and last
+season keeps scoring until it's done. When Group settings says every league of last season is done, record its
+final standings (Commissioner → History on that season). Exporting
 (`node tools/export-draft.mjs [--group seasonticket --code <invite-code>]`) is optional and pins a reviewed copy.
 
 ## Open items
