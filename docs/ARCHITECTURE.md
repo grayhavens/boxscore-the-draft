@@ -268,7 +268,8 @@ including across sessions.
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
   `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
   (`js/seasons/pga.js`) resolve in `getLeagueRuleTeams` from `golferAwardCounts` (`js/golf.js`), one entry per occurrence;
-  the +5 bonus is `golfBonus` in `js/compare.js`. Majors get a Home card (see **Golf majors on Home**).
+  the +5 bonus is `golfBonus` in `js/compare.js`. Majors get a Home card (see **Golf majors on Home**); each golfer
+  has a page (see **Golfer page**).
 - **TheSportsDB** is deprecated as a source: its only remaining caller is `fetchTeamBundle`'s
   fallback branch in `js/live-data.js`, reached when a team with a `sportsdbId` fails to resolve an
   ESPN row on a given refresh.
@@ -617,7 +618,7 @@ edge like every other page. Activity rows, Home's postseason cards, filter chips
 states (`(hover: hover)` only).
 
 **Team page** (`js/team-page.js`, `docs/delight-plan.md` Phase 2): where every team tap in the app goes (there's no team peek
-modal; a golfer opens the golfer sheet). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
+modal; a golfer gets the same page, see **Golfer page** below). Tapping a team's crest anywhere (a Home or Standings row, a team on a Scores
 card, a Compare team) grows what was tapped into the page, crest, name and owner flying into the hero (`teamSource`
 picks the parts), and Back shrinks it back; Points' rule and activity rows, which show no crest, push it in. Back says
 where it returns to. A 300px hero (status-bar strip included) with the team
@@ -629,6 +630,20 @@ game card shows the opponent with the date and time (no crest for the team itsel
 then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, live, in reach or off, with On the line's
 distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device
 remembers the choice (localStorage `bx-ptp-open`).
+
+**Golfer page** (`js/team-page.js` shell, every golf piece from `js/golf-view.js`): a golfer tap anywhere (`openGolfer`:
+a Home or Standings row grows into it, a Scores card's headshot, a leaderboard sheet's row, which closes the sheet) opens the
+team page with golf in the team's places. A golfer the group lists is their TEAM_META key; anyone else on a leaderboard is
+`golfer:<athleteId>` (`golferPageMeta`, no favorite star, works in `?tp=`). Hero: headshot badge, owner · PGA Tour · flag.
+Stat strip: FedEx rank, FedEx points, then Points (a drafted golfer) or Wins. The game card is the week's tournament
+(`golferWeekCard`: place and score, red while they're on the course; a tap opens the leaderboard). Tabs: Overview (the
+prior-season note, Recent form as the last five finishes, `finishForm` in `js/golf.js`: a made cut up, taller the better,
+a missed cut down; Path to points, where a rule hit more than once carries every hit, "2 this season"; News), Stats
+(season tiles, then the majors), Results (every event). News is the tour's ESPN feed filtered to stories tagging the
+golfer (`golferNews`; the feed ignores athlete filters, roundups tagging more than 4 golfers are left out). Wide: the
+band's tag row is the FedEx rank, then Season, Results, Event by event (`gameByGameHtml`) and On the line, news under.
+Golfers are in the swipe order and the wide rail with your teams. The page repaints when golf data lands
+(`setGolferPageRefresher`).
 
 **Since last time** (`js/since.js`, pure `js/since-math.js`, `docs/delight-plan.md` Phase 4): back after 8 hours or
 more, Home leads with a swipeable stack: a summary card (rank, points and locked points against `bx-last-seen`, the

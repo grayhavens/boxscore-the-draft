@@ -64,7 +64,7 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache, findCbbTeamKeyByEspnId
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
-import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData } from './golf-view.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData, golferPageMeta } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { startSince } from './since.js';
 import { startHistory } from './history.js';
@@ -135,7 +135,7 @@ function applyUrlState(){
   // didn't recognize a coincidentally-shaped `?team=` value.
   const explicitView = params.get('view');
   const tp = params.get('tp');
-  if(explicitView === 'team' && tp && TEAM_META[tp]){
+  if(explicitView === 'team' && tp && (TEAM_META[tp] || golferPageMeta(tp))){
     openTeamPage(tp, 'standings');
     return;
   }

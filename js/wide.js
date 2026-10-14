@@ -40,15 +40,15 @@ let shownSel = null;   // the selection the rail last scrolled to
 
 // ---- Rail ----
 
-// The drafter's teams, league by league in LEAGUES order. Golfers have no
-// team page, and favorites they didn't draft aren't theirs.
+// The drafter's teams (golfers too), league by league in LEAGUES order.
+// Favorites they didn't draft aren't theirs.
 function railTeams(){
   if(PRE_DRAFT || !drafterId) return [];
   return LEAGUES.map(league => ({
     league,
     teams: league.teams.filter(k => {
       const m = TEAM_META[k];
-      return m && m.draftTeamId === drafterId && !m.favoriteOnly && m.kind !== 'golfer';
+      return m && m.draftTeamId === drafterId && !m.favoriteOnly;
     })
   })).filter(g => g.teams.length);
 }

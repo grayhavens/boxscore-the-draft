@@ -7,6 +7,13 @@
    navigation, tab state, and the News/Roster/Stats fetches unique to
    this view.
 
+   A PGA Tour golfer gets the same page (the hero, the bar, the row
+   growing into it, swipes, the wide layout) with golf in the team's
+   places: FedEx rank and points in the stat strip, the week's tournament
+   for the next game, finishes as Recent form, and Overview / Stats /
+   Results tabs. Every golf piece is built in js/golf-view.js; a golfer
+   the group doesn't list rides as `golfer:<athleteId>` (golferPageMeta).
+
    Full tab treatment (Overview/Stats/Squad, +Injuries for NFL) ships
    for every league in FLAT_SCHEDULE_LEAGUES (EPL/NFL/MLB/NBA/NHL/WNBA/
    CFB/CBB). News used to be its own 4th tab but is now just a section
@@ -68,6 +75,11 @@ import {
 import { isWide, onWideChange } from './wide-query.js';
 import { gameByGame, gameByGameSub, glowColor } from './team-wide-math.js';
 import { LEAGUE_FULL_LABELS } from './league-labels.js';
+import {
+  golferPageMeta, golferPageKey, setGolferPageRefresher, ensureGolferPage, fetchGolferNews, golferNationHtml,
+  golferStatStripHtml, golferWeekCard, golferFormHtml, golferStatsTabHtml, golferResultsTabHtml, priorSeasonNoteHtml,
+  golferWideTagHtml, golferWideSeasonHtml, golferEventByEventHtml, golferWideResultsHtml
+} from './golf-view.js';
 // Every league with a verified roster/team-stats source (see this
 // file's header comment) — a FLAT_SCHEDULE_LEAGUES league missing from
 // here still gets a real page + Overview tab, just a placeholder
@@ -86,6 +98,8 @@ const TABS = {
 };
 // "Squad" is soccer vocabulary — every US league calls it a roster.
 ['nba', 'nhl', 'wnba', 'cfb', 'mcbb'].forEach(key => { TABS[key] = TABS.mlb; });
+// A golfer has no roster: their season's events are the third tab.
+TABS.pga = [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'results', label: 'Results' }];
 function tabsFor(leagueKey){
   return TABS[leagueKey] || [{ key: 'schedule', label: 'Overview' }, { key: 'stats', label: 'Stats' }, { key: 'squad', label: 'Squad' }];
 }
@@ -113,6 +127,11 @@ const newsCache = {};   // teamKey -> { status: 'idle'|'loading'|'ready'|'empty'
 const rosterCache = {}; // teamKey -> { status, items }
 const statsCache = {};  // teamKey -> { status, data } — `data` shape is league-specific, built in computeStatsTiles
 const playerStatsCache = {}; // teamKey -> { status, data } — `data` is fetchEspnTeamPlayerStats's shape (PLAYER_STATS_LEAGUES only)
+
+// The page's entry: a team's TEAM_META one, or a golfer's the group
+// doesn't list (js/golf-view.js).
+const metaOf = key => TEAM_META[key] || golferPageMeta(key);
+const isGolfer = meta => !!meta && meta.kind === 'golfer';
 
 function espnTeamRowFor(meta){
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
@@ -146,11 +165,21 @@ export function currentTeamPageKey(){
 // rowEl: what was tapped, when it shows the team's crest (a Home or
 // Standings row, a team on a Scores card, a Compare team) — the page then
 // grows out of it (expandFromRow below) instead of pushing in.
+// No originView: tapped in a sheet (a golfer on a leaderboard); the page
+// returns to the view under it, or, over the page itself, changes in place.
 export function openTeamPage(teamKey, originView, rowEl){
-  if(!TEAM_META[teamKey] || rowMotion) return;
-  // A golfer has no team page: the golfer sheet is the whole thing.
-  if(TEAM_META[teamKey].kind === 'golfer'){ window.openGolfer(TEAM_META[teamKey].espnAthleteId); return; }
-  const origin = originView || 'board';
+  let meta = metaOf(teamKey);
+  if(!meta || rowMotion) return;
+  if(isGolfer(meta)){
+    watchGolf();
+    teamKey = golferPageKey(meta.espnAthleteId);
+    meta = metaOf(teamKey);
+  }
+  if(!originView && currentTeamPageKey()){
+    if(teamKey !== state.teamKey) showInPlace(teamKey);
+    return;
+  }
+  const origin = originView || originOfTap();
   // Wide: no row growing into the page, just a crossfade.
   const src = rowEl && canAnimateLive() && !isWide() ? teamSource(rowEl) : null;
   if(src && rowOnScreen(src.el)){
@@ -168,6 +197,29 @@ window.openTeamPage = openTeamPage;
 // What Back says: the page it returns to.
 const BACK_LABELS = { board: 'Home', standings: 'Standings', 'live-now': 'Scores', overall: 'Points' };
 
+// The view a sheet was opened over, when Back can return to it.
+function originOfTap(){
+  const view = document.querySelector('.view.active');
+  const id = view ? view.id.replace(/^view-/, '') : '';
+  return BACK_LABELS[id] ? id : 'board';
+}
+
+// Another team on the page already showing, as a plain push: Back still
+// returns where the page came from.
+function showInPlace(teamKey){
+  state.teamKey = teamKey;
+  state.activeTab = 'schedule';
+  state.squadFilter = null;
+  state.swipeOrder = swipeOrderFor(teamKey);
+  state.teamIndex = state.swipeOrder.indexOf(teamKey);
+  updateUrlParam('tp', teamKey);
+  document.dispatchEvent(new CustomEvent('bx:viewshown'));
+  window.scrollTo(0, 0);
+  fxBeginOpen('push');
+  renderTeamPage();
+  ensurePageData(teamKey);
+}
+
 function setTeamPageState(teamKey, originView){
   postseasonTeamOpened(teamKey);
   state.teamKey = teamKey;
@@ -181,16 +233,16 @@ function setTeamPageState(teamKey, originView){
   updateUrlParam('tp', teamKey);
 }
 
-// Your own teams in Home's order, league by league (golfers have no team
-// page). Empty when the team isn't yours: swiping is off there, rather
-// than running through a whole league of teams nobody here owns.
+// Your own teams in Home's order, league by league, golfers included.
+// Empty when the team isn't yours: swiping is off there, rather than
+// running through a whole league of teams nobody here owns.
 function swipeOrderFor(teamKey){
   const me = currentProfileId;
   const meta = TEAM_META[teamKey];
   if(PRE_DRAFT || !me || !meta || meta.favoriteOnly || meta.draftTeamId !== me) return [];
   return LEAGUES.flatMap(l => l.teams).filter(k => {
     const m = TEAM_META[k];
-    return m && m.draftTeamId === me && !m.favoriteOnly && m.kind !== 'golfer';
+    return m && m.draftTeamId === me && !m.favoriteOnly;
   });
 }
 
@@ -199,7 +251,7 @@ function openTeamPageNow(teamKey, originView){
   setActiveView('view-team-page');
   window.scrollTo(0, 0);
   renderTeamPage();
-  ensureBundle(teamKey);
+  ensurePageData(teamKey);
 }
 
 export function backFromTeamPage(){
@@ -545,7 +597,7 @@ function expandFromRow(teamKey, origin, src){
     } });
     // A fresh fetch lands after the page has: its parse and render would
     // compete with the transition for the main thread.
-    whenSettled(() => { if(state.teamKey === teamKey) ensureBundle(teamKey); });
+    whenSettled(() => { if(state.teamKey === teamKey) ensurePageData(teamKey); });
   }catch(e){
     console.error(e);
     if(rowMotion) rowMotion.finish();
@@ -571,8 +623,10 @@ function collapseToRow(origin){
     updateUrlParam('tp', null);
     window.scrollTo(0, state.originScrollY);
     const key = state.teamKey;
+    const meta = metaOf(key);
+    const calls = [`openTeamPage('${key}'`].concat(isGolfer(meta) ? [`openGolfer('${meta.espnAthleteId}'`] : []);
     const src = [...under.querySelectorAll('[onclick]')]
-      .filter(r => (r.getAttribute('onclick') || '').includes(`openTeamPage('${key}'`))
+      .filter(r => calls.some(c => (r.getAttribute('onclick') || '').includes(c)))
       .map(teamSource).find(t => t && rowOnScreen(t.el));
     if(!src){
       // Nothing to land on: put the page back and let the caller pop.
@@ -637,6 +691,25 @@ export function backFromFullScreen(){
 }
 window.backFromFullScreen = backFromFullScreen;
 
+// What the page shows comes from the team's bundle, or a golfer's season
+// and week (js/golf-view.js), which repaint the page through watchGolf.
+function ensurePageData(teamKey){
+  const meta = metaOf(teamKey);
+  if(isGolfer(meta)) ensureGolferPage(meta.espnAthleteId);
+  else ensureBundle(teamKey);
+}
+
+let golfWatched = false;
+function watchGolf(){
+  if(golfWatched) return;
+  golfWatched = true;
+  setGolferPageRefresher(() => {
+    if(!isGolfer(metaOf(currentTeamPageKey()))) return;
+    if(rowMotion) pendingRender = true;
+    else renderTeamPage({ refresh: true });
+  });
+}
+
 // A cached bundle renders straight away, but it can be a localStorage
 // restore from before the team's latest game — refetch it once it's
 // stale instead of waiting on the background rotation.
@@ -654,7 +727,7 @@ function ensureBundle(teamKey){
 export function setTeamPageTab(tabKey){
   state.activeTab = tabKey;
   const tabsEl = document.getElementById('team-page-tabs');
-  const meta = TEAM_META[state.teamKey];
+  const meta = metaOf(state.teamKey);
   if(tabsEl && meta) tabsEl.innerHTML = segmentedControlHtml(tabsFor(meta.leagueKey), state.activeTab, 'setTeamPageTab');
   renderTabBody();
 }
@@ -682,6 +755,7 @@ function heroMetaHtml(teamKey, meta){
     ${PRE_DRAFT ? '' : `<span class="team-hero-owner${mine ? ' me' : ''}">${drafter ? drafter.name + (meta.favoriteOnly ? ' · Favorite' : '') : 'Undrafted'}</span>
     <span>&middot;</span>`}
     <span>${league ? league.label : ''}</span>
+    ${isGolfer(meta) ? golferNationHtml(meta.espnAthleteId) : ''}
     ${status ? `<span class="status-pill">${status.label}</span>` : ''}
   `;
 }
@@ -701,8 +775,8 @@ function heroHtml(teamKey, meta){
       <div class="team-hero-scrim"></div>
       <div class="team-hero-fold">
         <div class="team-hero-row">
-          ${meta.badgeUrl ? crestImgsHtml(meta, 'crest-bare', ' draggable="false"') : teamBadgeHtml(meta)}
-          <div class="team-hero-name">${meta.fullName || meta.name}</div>
+          ${meta.badgeUrl && !isGolfer(meta) ? crestImgsHtml(meta, 'crest-bare', ' draggable="false"') : teamBadgeHtml(meta)}
+          <div class="team-hero-name">${escapeHtml(meta.fullName || meta.name)}</div>
           <div class="team-hero-meta"></div>
         </div>
         ${dots}
@@ -742,9 +816,10 @@ function renderTeamPage({ refresh = false } = {}){
   const el = document.getElementById('team-page-content');
   if(!el) return;
   const teamKey = state.teamKey;
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   if(!meta) return;
-  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.team-hero'));
+  // A golfer off a leaderboard is "Unknown" until the season's names land.
+  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.dataset.teamName === meta.name && el.querySelector('.team-hero'));
   // A swipe or a pull is holding the hero; rebuilding it waits for the
   // release. A refresh leaves the hero alone, so it goes ahead.
   if(shell && gesture){ pendingRender = true; return; }
@@ -756,12 +831,13 @@ function renderTeamPage({ refresh = false } = {}){
 
   if(shell){
     el.dataset.activeTeam = teamKey;
+    el.dataset.teamName = meta.name;
     el.innerHTML = `
       ${compactBarHtml({
         backHtml: backLinkHtml({ label: backLabel, onclick: 'backFromTeamPage()' }),
         badgeHtml: teamBadgeHtml(meta),
         name: meta.name,
-        actionsHtml: favoriteStarHtml(teamKey),
+        actionsHtml: TEAM_META[teamKey] ? favoriteStarHtml(teamKey) : '',
         color: meta.accent || NO_ACCENT
       })}
       ${heroHtml(teamKey, meta)}
@@ -825,12 +901,13 @@ const playedGames = bundle => ((bundle && bundle.espnSchedule && bundle.espnSche
   .filter(e => e.seasonType !== 1 && Number.isFinite(e.ownScore) && Number.isFinite(e.oppScore));
 
 function wideShellHtml(teamKey, meta){
+  const golfer = isGolfer(meta);
   const drafter = DRAFT_TEAMS.find(d => d.id === meta.draftTeamId);
   const mine = !!drafter && drafter.id === currentProfileId;
   const owner = PRE_DRAFT ? '' : (mine ? 'Your team' : (drafter ? `${drafter.name}’s team` : 'Undrafted'));
   const secondary = (/color:\s*(#[0-9a-f]{6})/i.exec(meta.badgeStyle || '') || [])[1];
   const glow = glowColor(meta.accent || NO_ACCENT, secondary) || NO_ACCENT;
-  const crest = meta.badgeUrl ? crestImgsHtml(meta, 'tw-crest-img', ' draggable="false"') : teamBadgeHtml(meta);
+  const crest = meta.badgeUrl && !golfer ? crestImgsHtml(meta, 'tw-crest-img', ' draggable="false"') : teamBadgeHtml(meta);
   // Back, as on every pushed page (Settings, the guide). The header shows
   // no tab selected meanwhile (css/style.css "Pages, wide").
   const back = backLinkHtml({ label: BACK_LABELS[state.originView] || 'Home', onclick: 'backFromTeamPage()' });
@@ -844,17 +921,27 @@ function wideShellHtml(teamKey, meta){
           <div class="tw-id-text">
             <div class="tw-tagrow" id="tw-tagrow"></div>
             <h1 class="tw-name">${escapeHtml(meta.fullName || meta.name)}</h1>
-            ${owner ? `<div class="tw-owner${mine ? ' me' : ''}">${escapeHtml(owner)}${meta.favoriteOnly ? ' · Favorite' : ''}</div>` : ''}
+            ${owner ? `<div class="tw-owner${mine ? ' me' : ''}">${escapeHtml(golfer ? owner.replace(/team$/, 'golfer') : owner)}${meta.favoriteOnly ? ' · Favorite' : ''}</div>` : ''}
           </div>
         </div>
         <div class="tw-game" id="tw-game"></div>
-        <div class="tw-side"><div id="tw-points"></div><span class="tw-star">${favoriteStarHtml(teamKey)}</span></div>
+        <div class="tw-side"><div id="tw-points"></div>${TEAM_META[teamKey] ? `<span class="tw-star">${favoriteStarHtml(teamKey)}</span>` : ''}</div>
       </header>
       <div class="tw-body" id="tw-body"></div>
     </div>`;
 }
 
 function wideBodyHtml(reduced, meta){
+  // A golfer: the season and every result, then the events as bars and
+  // On the line; news under both.
+  if(isGolfer(meta)){
+    return `
+    <div class="tw-cols">
+      <div class="tw-col"><div id="tw-season"></div><div id="tw-results"></div></div>
+      <div class="tw-col"><div id="tw-gbg"></div><div id="tw-otl"></div></div>
+    </div>
+    <div class="tw-bottom"><div id="tw-news"></div></div>`;
+  }
   if(reduced){
     return `<div class="tw-reduced"><div class="wide-panel tw-reduced-card"><span class="wide-panel-label" id="tw-phase"></span>
       <p>Stats, form and the lines fill in once ${escapeHtml(meta.name)} have played a few games.</p></div>
@@ -871,14 +958,15 @@ function wideBodyHtml(reduced, meta){
 function renderWideTeamPage({ refresh = false } = {}){
   const el = document.getElementById('team-page-content');
   const teamKey = state.teamKey;
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   if(!el || !meta) return;
   const bundle = liveDataCache[teamKey];
-  const reduced = !!bundle && !playedGames(bundle).length;
+  const reduced = !isGolfer(meta) && !!bundle && !playedGames(bundle).length;
   const layout = `${teamKey}:${reduced ? 'reduced' : 'full'}`;
-  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.querySelector('.tw'));
+  const shell = !(refresh && el.dataset.activeTeam === teamKey && el.dataset.teamName === meta.name && el.querySelector('.tw'));
   if(shell){
     el.dataset.activeTeam = teamKey;
+    el.dataset.teamName = meta.name;
     el.innerHTML = wideShellHtml(teamKey, meta);
     delete el.dataset.wideLayout;
     bindWideTips(el);
@@ -898,8 +986,9 @@ function renderWideTeamPage({ refresh = false } = {}){
 
 // Every section, each rewritten only where its markup changed.
 function renderWideSections(teamKey){
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   if(!meta || teamKey !== state.teamKey || !isWide()) return;
+  if(isGolfer(meta)){ renderWideGolfer(teamKey, meta); return; }
   const bundle = liveDataCache[teamKey];
   const rs = teamRecordStanding(meta);
   const league = LEAGUES.find(l => l.key === meta.leagueKey);
@@ -920,6 +1009,23 @@ function renderWideSections(teamKey){
   writeHtml(document.getElementById('tw-sched'), wideScheduleHtml(teamKey, meta, bundle));
   writeHtml(document.getElementById('tw-players'), widePlayersHtml(teamKey, meta));
   writeHtml(document.getElementById('tw-results'), wideResultsHtml(teamKey, meta, bundle));
+  writeHtml(document.getElementById('tw-news'), wideNewsHtml(teamKey));
+}
+
+// A golfer's sections (js/golf-view.js), in the team ones' places; the
+// week's tournament is the phone page's card.
+function renderWideGolfer(teamKey, meta){
+  const id = meta.espnAthleteId;
+  writeHtml(document.getElementById('tw-tagrow'), golferWideTagHtml(id));
+  const week = golferWeekCard(id);
+  const tap = week.eventId ? ` onclick="openGolfEvent('${escapeHtml(week.eventId)}')"` : '';
+  writeHtml(document.getElementById('tw-game'), `<div class="game-card next-game${week.live ? ' live' : ''}${tap ? ' clickable' : ''}"${tap}>${week.html}</div>`);
+  writeHtml(document.getElementById('tw-points'), widePointsHtml(teamKey, meta));
+  const path = teamPathToPoints(teamKey);
+  writeHtml(document.getElementById('tw-otl'), path ? onTheLineHtml({ ...path, all: otlAll, toggle: 'toggleOnTheLine' }) : '');
+  writeHtml(document.getElementById('tw-season'), golferWideSeasonHtml(id));
+  if(writeHtml(document.getElementById('tw-gbg'), golferEventByEventHtml(id))) gbgFresh = true;
+  writeHtml(document.getElementById('tw-results'), golferWideResultsHtml(id));
   writeHtml(document.getElementById('tw-news'), wideNewsHtml(teamKey));
 }
 
@@ -1142,6 +1248,7 @@ window.toggleOnTheLine = () => {
 // Everything the phone page fetches per tab, at once.
 function ensureWideData(teamKey, meta){
   ensureNews(teamKey);
+  if(isGolfer(meta)) return;
   ensureMoreNews(teamKey);
   if(meta.leagueKey !== 'epl' && !PLAYER_STATS_LEAGUES[meta.leagueKey] && FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey) && !statsCache[teamKey]) ensureStats(teamKey, meta);
   if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
@@ -1229,8 +1336,9 @@ setTeamPageRefresher(teamKey => {
 // standings tables are in, the league's own strip from the bundle.
 function renderStatStrip(teamKey){
   const el = document.getElementById('team-page-stats');
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   if(!el || !meta) return;
+  if(isGolfer(meta)){ writeHtml(el, golferStatStripHtml(meta.espnAthleteId, teamPathToPoints(teamKey))); return; }
   const rs = teamRecordStanding(meta);
   const bundle = liveDataCache[teamKey];
   if(!rs){
@@ -1249,7 +1357,8 @@ function renderStatStrip(teamKey){
 // while a game is on (and for the few teams with no ESPN schedule).
 function renderNextGame(teamKey){
   const card = document.getElementById('team-page-game-card');
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
+  if(card && isGolfer(meta)){ renderGolferWeek(card, meta); return; }
   const bundle = liveDataCache[teamKey];
   if(!card || !meta || !bundle) return;
   const live = !!(bundle.espnLive && bundle.espnLive.isLive);
@@ -1278,6 +1387,18 @@ function renderNextGame(teamKey){
     oppName: opp,
     subHtml: [evt.venueName, evt.broadcast].filter(Boolean).join(' &middot; ')
   });
+}
+
+// A golfer's card is the week's tournament; a tap opens its leaderboard.
+function renderGolferWeek(card, meta){
+  const week = golferWeekCard(meta.espnAthleteId);
+  card.classList.toggle('live', week.live);
+  card.classList.toggle('upcoming', !week.live);
+  card.classList.add('next-game');
+  card.classList.toggle('clickable', !!week.eventId);
+  if(week.eventId) card.setAttribute('onclick', `openGolfEvent('${escapeHtml(week.eventId)}')`);
+  else card.removeAttribute('onclick');
+  writeHtml(card, week.html);
 }
 
 // "Today · 7:30 PM", "Sun, Oct 4 · 7:20 PM", "Sun, Oct 4 · Time TBD".
@@ -1459,12 +1580,13 @@ function swipeTo(index, dir){
   state.teamKey = teamKey;
   state.squadFilter = null;
   if(!tabsFor(TEAM_META[teamKey].leagueKey).some(t => t.key === state.activeTab)) state.activeTab = 'schedule';
+  if(isGolfer(TEAM_META[teamKey])) watchGolf();
   updateUrlParam('tp', teamKey);
   document.dispatchEvent(new CustomEvent('bx:viewshown'));
   window.scrollTo(0, 0);
   fxBeginOpen('swipe', dir);
   renderTeamPage();
-  ensureBundle(teamKey);
+  ensurePageData(teamKey);
 }
 window.teamPageJump = i => {
   if(i === state.teamIndex || gesture || rowMotion) return;
@@ -1475,7 +1597,7 @@ function renderTabBody(){
   const el = document.getElementById('team-page-tab-body');
   if(!el) return;
   const teamKey = state.teamKey;
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   if(!meta) return;
   const bundle = liveDataCache[teamKey];
   const fullFeature = FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey);
@@ -1495,7 +1617,11 @@ function renderTabBody(){
     playPathChanges(teamKey);
     playFormGrow();
     ensureNews(teamKey);
-    ensureMoreNews(teamKey);
+    if(!isGolfer(meta)) ensureMoreNews(teamKey);
+    return;
+  }
+  if(isGolfer(meta)){
+    el.innerHTML = state.activeTab === 'results' ? golferResultsTabHtml(meta.espnAthleteId) : golferStatsTabHtml(meta.espnAthleteId);
     return;
   }
   if(state.activeTab === 'stats'){
@@ -1631,7 +1757,8 @@ window.togglePathToPoints = () => {
 // The last five as a strip of bars; every result row, with its boxscore
 // link, is on the Full schedule screen.
 function recentFormHtml(teamKey, bundle){
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
+  if(isGolfer(meta)) return priorSeasonNoteHtml() + golferFormHtml(meta.espnAthleteId);
   const sched = bundle && bundle.espnSchedule;
   if(!bundle) return `<div class="loading-note">Loading schedule…</div>`;
   if(!sched) return `<div class="no-live-note">Schedule isn't available for this team yet.</div>`;
@@ -1663,6 +1790,7 @@ function scheduleTabHtml(teamKey){
 // Tables already loaded land before the page's first frame and draw with
 // it; ones that need a fetch wait out a row transition (whenSettled).
 function ensureTables(teamKey){
+  if(isGolfer(metaOf(teamKey))) return;
   let early = true;
   setTimeout(() => { early = false; });
   loadStandingsTables([TEAM_META[teamKey].leagueKey]).then(() => (early ? f => f() : whenSettled)(() => {
@@ -1818,20 +1946,23 @@ function newsSkeletonHtml(){
 }
 
 function newsEmptyHtml(teamKey, meta, isError){
+  const quiet = isGolfer(meta)
+    ? `ESPN hasn't published anything on ${escapeHtml(meta.name)} lately.`
+    : `ESPN hasn't published anything on ${meta.name} today. Match reports usually land within an hour of full time.`;
   return `
     <div class="empty-state">
       ${EMPTY_ICON_SVG}
       <div class="title">${isError ? 'Couldn’t load news' : 'No news yet'}</div>
       <div class="body">${isError
         ? 'Something went wrong reaching ESPN — try again in a moment.'
-        : `ESPN hasn't published anything on ${meta.name} today. Match reports usually land within an hour of full time.`}</div>
+        : quiet}</div>
       <span class="boxscore-link" onclick="retryTeamPageNews('${teamKey}')">Check again</span>
     </div>
   `;
 }
 
 function newsTabHtml(teamKey){
-  const meta = TEAM_META[teamKey];
+  const meta = metaOf(teamKey);
   const entry = newsCache[teamKey];
   if(!entry || entry.status === 'loading') return newsSkeletonHtml();
   if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true);
@@ -1841,7 +1972,7 @@ function newsTabHtml(teamKey){
       <div class="headline">${a.headline}</div>
       <div class="news-meta">ESPN <span class="news-dot">·</span> ${timeAgo(a.published)}</div>
     </div>
-  `).join('') + `<div class="news-footer-note">Headlines via ESPN team news</div>` + moreNewsHtml(teamKey);
+  `).join('') + `<div class="news-footer-note">Headlines via ESPN ${isGolfer(meta) ? 'golf' : 'team'} news</div>` + moreNewsHtml(teamKey);
 }
 
 // Stories from beyond ESPN, under the ESPN ones. Nothing at all when the
@@ -1876,14 +2007,16 @@ function ensureMoreNews(teamKey){
 // for anything missing — so a failed fetch waits out retryPending
 // (js/utils.js) instead of being retried by its own repaint in a loop.
 function ensureNews(teamKey){
-  const meta = TEAM_META[teamKey];
-  const row = espnTeamRowFor(meta);
+  const meta = metaOf(teamKey);
+  const golfer = isGolfer(meta);
+  const row = golfer ? null : espnTeamRowFor(meta);
   const flat = FLAT_SCHEDULE_LEAGUES[meta.leagueKey];
-  if(!row || !flat){ newsCache[teamKey] = { status: 'error', items: [] }; return; }
+  if(!golfer && (!row || !flat)){ newsCache[teamKey] = { status: 'error', items: [] }; return; }
   if(newsCache[teamKey] && (newsCache[teamKey].status !== 'error' || retryPending(newsCache[teamKey]))) return;
 
   newsCache[teamKey] = { status: 'loading', items: [] };
-  fetchEspnTeamNews(flat.sportPath, row.id).then(items => {
+  // A golfer's come off the tour's feed (js/golf-view.js fetchGolferNews).
+  (golfer ? fetchGolferNews(meta.espnAthleteId) : fetchEspnTeamNews(flat.sportPath, row.id)).then(items => {
     newsCache[teamKey] = items ? { status: items.length ? 'ready' : 'empty', items } : { status: 'error', items: [], failedAt: Date.now() };
     // Just the news, so the sections above it keep their entrance.
     if(state.teamKey !== teamKey) return;

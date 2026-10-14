@@ -5,20 +5,22 @@
      worker/golf.js), one small request instead of ~35 leaderboards;
    - the event being played: ESPN's leaderboard, straight from the
      browser (open CORS), since it changes by the minute;
-   - a golfer's official season totals: ESPN's per-golfer record.
+   - a golfer's official season totals: ESPN's per-golfer record;
+   - the tour's news feed, one read shared by every golfer's page.
    Each is held in memory for its TTL, and a failed fetch returns null
    without being cached. See docs/golf-plan.md.
    ============================================================ */
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './worker-base.js';
 import { fetchJSON } from './utils.js';
 import {
-  golfScoreboardUrl, golfLeaderboardUrl, golferRecordUrl,
+  golfScoreboardUrl, golfLeaderboardUrl, golferRecordUrl, GOLF_NEWS_URL,
   parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar
 } from './golf.js';
 
 const SEASON_TTL_MS = 10 * 60 * 1000;      // matches the worker's edge cache
 const LEADERBOARD_TTL_MS = 60 * 1000;      // live scoring
 const RECORD_TTL_MS = 30 * 60 * 1000;      // FedEx points move once an event ends
+const NEWS_TTL_MS = 15 * 60 * 1000;
 
 const memo = new Map(); // key -> { at, promise }
 
@@ -86,6 +88,12 @@ export function fetchGolferRecord(athleteId, season){
     const data = await fetchJSON(golferRecordUrl(athleteId, season));
     return data ? parseGolferRecord(data) : null;
   });
+}
+
+// The tour's newest stories, raw: golferNews (js/golf.js) picks one
+// golfer's out of them.
+export function fetchGolfNews(){
+  return cached('news', NEWS_TTL_MS, () => fetchJSON(GOLF_NEWS_URL));
 }
 
 // The events on ESPN's scoreboard for one day (YYYYMMDD): whichever

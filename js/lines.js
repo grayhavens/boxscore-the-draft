@@ -167,13 +167,17 @@ export function teamPathToPoints(teamKey){
   // same table (EPL's 3rd, 2nd and 1st) count once: the best still open.
   const placements = new Map();
   const rules = scoring.rules.map(rule => {
-    const won = (getLeagueRuleTeams(leagueKey, rule) || []).includes(teamKey);
+    // A golfer can hit a rule more than once (a win each time): the rule
+    // carries every hit's points (js/league-facts.js golfRuleTeams).
+    const hits = (getLeagueRuleTeams(leagueKey, rule) || []).filter(k => k === teamKey).length;
+    const won = hits > 0;
+    const times = rule.golfAuto && hits > 1 ? hits : 1;
     const line = lines.get(rule.label);
     let state = 'off';
     if(won) state = isRuleProvisional(rule, leagueKey) ? 'live' : 'locked';
     else if(rule.pts > 0 && line && line.status === 'chasing') state = 'reach';
     const gone = !won && ((line && line.status === 'out') || (rule.rankAuto && locked));
-    const best = state === 'locked' ? rule.pts : (rule.pts > 0 && !gone ? rule.pts : 0);
+    const best = state === 'locked' ? rule.pts * times : (rule.pts > 0 && !gone ? rule.pts : 0);
     const spec = rule.rankAuto;
     if(spec && spec.rank && rule.pts > 0){
       const scope = spec.scope || 'league';
@@ -186,7 +190,11 @@ export function teamPathToPoints(teamKey){
       else if(!underway) noteHtml = 'Once the season starts';
       else if(won) noteHtml = 'From today’s table';
     }
-    return { label: rule.label, pts: rule.pts, state, noteHtml };
+    if(!noteHtml && rule.golfAuto){
+      if(prior) noteHtml = 'Counts from next season';
+      else if(times > 1) noteHtml = `${times} this season`;
+    }
+    return { label: rule.label, pts: rule.pts * times, state, noteHtml };
   });
   placements.forEach(pts => { max += pts; });
   const adj = prior ? null : getTeamAdjustment(teamKey);

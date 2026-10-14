@@ -13,6 +13,10 @@
                  one golfer's official season totals (FedEx points, wins, …),
                  ~10KB. 404 until the golfer has played that season. The
                  league-wide standings are 5.7MB, so they're never fetched.
+   - News        site.web.api.espn.com/apis/site/v2/sports/golf/pga/news?limit=50
+                 the tour's newest 50 stories; ?athletes= and ?player= are
+                 ignored (checked 2026-10-13), but each story tags its
+                 golfers, so a golfer's page filters them (golferNews).
 
    Quirks worth knowing:
    - Use the site.web.api host: site.api.espn.com answers 403 to a
@@ -43,6 +47,8 @@ export function golfLeaderboardUrl(eventId){
 export function golferRecordUrl(athleteId, season){
   return `${GOLF_CORE_BASE}/seasons/${season}/types/2/athletes/${encodeURIComponent(athleteId)}/records/0`;
 }
+
+export const GOLF_NEWS_URL = 'https://site.web.api.espn.com/apis/site/v2/sports/golf/pga/news?limit=50';
 
 export function golferHeadshotUrl(athleteId){
   return `https://a.espncdn.com/i/headshots/golf/players/full/${athleteId}.png`;
@@ -252,6 +258,43 @@ export function golferResults(events, athleteId){
   return events
     .filter(e => e.results && e.results[id])
     .map(e => ({ id: e.id, name: e.name, end: e.end, major: e.major, tourChampionship: e.tourChampionship, finish: e.results[id][0], cupPoints: e.results[id][1] }));
+}
+
+// A golfer's stories off the tour's news feed (GOLF_NEWS_URL), newest
+// first, in the shape the team page's news cards take. A story tagging
+// more than GOLF_NEWS_MAX_TAGS golfers is a roundup (a leaderboard
+// recap, a Ryder Cup team) and is left out, like a team's league roundups.
+export const GOLF_NEWS_MAX_TAGS = 4;
+export function golferNews(feed, athleteId, limit = 8){
+  const id = String(athleteId);
+  const articles = feed && Array.isArray(feed.articles) ? feed.articles : [];
+  return articles
+    .filter(a => {
+      const ids = new Set((a.categories || []).filter(c => c && c.type === 'athlete' && c.athleteId != null).map(c => String(c.athleteId)));
+      return ids.size <= GOLF_NEWS_MAX_TAGS && ids.has(id);
+    })
+    .slice(0, limit)
+    .map(a => ({
+      id: a.id,
+      headline: a.headline,
+      description: a.description || '',
+      published: a.published,
+      link: a.links && a.links.web ? a.links.web.href : null
+    }));
+}
+
+// One finish as a form bar (the golfer page's Recent form and Event by
+// event): a made cut grows up, taller the better the place (a win is the
+// full height, FORM_FINISH_CAP and worse the floor); a missed cut drops
+// below the line; a withdrawal or DQ is a flat mark. `margin` is on the
+// team form strip's scale, so the same bars draw it.
+export const FORM_FINISH_CAP = 70;
+const FORM_MISSED_CUT = 25;
+export function finishForm(finish){
+  const pos = finishPosition(finish);
+  if(pos !== null) return { result: 'w', margin: Math.max(1, FORM_FINISH_CAP + 1 - pos) };
+  if(isMissedCut(finish)) return { result: 'l', margin: FORM_MISSED_CUT };
+  return { result: 'd', margin: 0 };
 }
 
 // FedEx points summed from the condensed events, highest first, as
