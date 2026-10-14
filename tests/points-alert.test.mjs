@@ -59,3 +59,10 @@ test('a rank move alerts a drafter at most once a day', () => {
   const rl = rule('Lions take the NFC North lead', [{ id: 'sam', pts: 2, prov: true }]);
   assert.equal(pointsAlerts([into1st('r1', NOW), rl], ids, NOW, earlier)[0].payload.title, 'Lions take the NFC North lead');
 });
+
+test('an older season still being played says which season, and opens it', () => {
+  const [alert] = pointsAlerts([rule('Dodgers win the World Series', [{ id: 'josh', pts: 15, prov: false }])], ids, NOW, [], { season: '2026' });
+  assert.equal(alert.payload.title, '2026/27 · Dodgers win the World Series');
+  assert.equal(alert.payload.url, './?season=2026&view=overall&seg=activity');
+  assert.equal(alert.payload.tag, 'points-2026');
+});

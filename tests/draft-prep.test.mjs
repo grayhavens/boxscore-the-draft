@@ -110,3 +110,18 @@ test('commissioner: a finished room\'s old draft time doesn\'t count as set', ()
   assert.equal(byKey(commissionerChecklist({ ...base, status: { ...done, scheduledAt: NOW + 30 * DAY } })).time.state, 'ok');
   assert.equal(byKey(commissionerChecklist({ ...base, status: { ...done, poll: { options: [1, 2] } } })).time.state, 'warn');
 });
+
+test('commissioner: last season still being played comes first, then asks to be recorded', () => {
+  const playing = commissionerChecklist({ ...base, previous: { id: '2026', label: '2026/27', open: ['MLB', 'WNBA'] } });
+  assert.equal(playing[0].key, 'previous');
+  assert.equal(playing[0].state, 'mute');
+  assert.match(playing[0].detail, /Still playing: MLB, WNBA/);
+  assert.deepEqual(playing[0].action, { kind: 'season:2026', label: 'Open 2026/27' });
+  const unknown = commissionerChecklist({ ...base, previous: { id: '2026', label: '2026/27', open: null } });
+  assert.equal(unknown[0].state, 'mute');
+  const done = commissionerChecklist({ ...base, previous: { id: '2026', label: '2026/27', open: [] } });
+  assert.equal(done[0].state, 'warn');
+  assert.equal(done[0].title, 'Record 2026/27’s final standings');
+  assert.deepEqual(done[0].action, { kind: 'record:2026', label: 'Open History' });
+  assert.equal(commissionerChecklist(base)[0].key, 'sports');
+});

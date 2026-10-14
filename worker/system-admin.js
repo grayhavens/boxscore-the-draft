@@ -138,12 +138,25 @@ async function historyStatus(env, prefix){
   }
 }
 
+// The group's newest season's activity blob (each season has its own,
+// worker/rundown-proxy.js activityKey), for when scores were last saved.
+async function latestActivity(env, id, deps){
+  try {
+    const base = deps.activityKey(id).slice(0, -':state'.length);
+    const { keys } = await env.LEAGUE_FACTS.list({ prefix: `${base}:` });
+    const season = keys.map(k => (k.name.match(/:(\d{4}):state$/) || [])[1]).filter(Boolean).sort().pop() || null;
+    return await env.LEAGUE_FACTS.get(deps.activityKey(id, season), 'json');
+  } catch (e){
+    return null;
+  }
+}
+
 async function groupStatus(env, id, deps){
   const group = GROUPS[id];
   const [draft, chat, activity, claims, assigned, roster, welcomed, emails, access, history] = await Promise.all([
     stubJson(deps.draftRoomStub(new URL('https://room/?room=main'), env, id), '/status'),
     stubJson(deps.chatRoomStub(env, id), '/summary'),
-    env.LEAGUE_FACTS.get(deps.activityKey(id), 'json'),
+    latestActivity(env, id, deps),
     deps.loadClaims(env, id),
     deps.loadAssigned(env, id),
     deps.effectiveDrafters(env, id),

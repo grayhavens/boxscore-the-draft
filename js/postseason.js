@@ -165,9 +165,11 @@ function shownYear(key){
 const STORE_KEY = 'bxPostseason';
 const caches = {};
 
-function cacheFor(key){
-  const year = postseasonYear(key);
-  if(caches[key] && caches[key].year === year) return caches[key];
+// One cache per league and season: the current one for the ladder, and
+// for an older class its own (postseasonRuleTeams).
+function cacheFor(key, year = postseasonYear(key)){
+  const id = `${key}:${year}`;
+  if(caches[id]) return caches[id];
   const c = { year, data: null, bracket: null, fetchedAt: 0, failedAt: 0, loading: false };
   try {
     const saved = JSON.parse(localStorage.getItem(`${STORE_KEY}:${key}:${year}`));
@@ -178,13 +180,16 @@ function cacheFor(key){
       c.bracket = buildBracket(key, saved.data.events, saved.data.seeds);
     }
   } catch (e){}
-  caches[key] = c;
+  caches[id] = c;
   return c;
 }
 
-// Quicker while games are on; slow once it's over or before the field is set.
-function ttlMs(c){
+// Quicker while games are on; slow once it's over or before the field is
+// set. A past season's (an older class's) is settled: a week.
+const PAST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+function ttlMs(c, key){
   const b = c.bracket;
+  if(b && c.year < postseasonYear(key)) return PAST_TTL_MS;
   if(!b) return 60 * 60 * 1000;
   if(latestStage(b) === finalRound(b.league)) return 6 * 60 * 60 * 1000;
   return b.games.some(g => g.live) ? 2 * 60 * 1000 : 10 * 60 * 1000;
@@ -193,13 +198,15 @@ function ttlMs(c){
 const listeners = [];
 export function onPostseasonData(fn){ listeners.push(fn); }
 
-export function ensurePostseason(key, scoring = false){
-  if(!POSTSEASON_LEAGUES[key] || !(inWindow(key) || scoring)) return;
-  const c = cacheFor(key);
+// `year`: a past season to load for scoring (an older class's); the
+// current one otherwise. Resolves once the fetch it started settles.
+export function ensurePostseason(key, scoring = false, year = postseasonYear(key)){
+  if(!POSTSEASON_LEAGUES[key] || !(inWindow(key) || scoring)) return Promise.resolve();
+  const c = cacheFor(key, year);
   const now = Date.now();
-  if(c.loading || now - c.fetchedAt < ttlMs(c) || now - c.failedAt < 5 * 60 * 1000) return;
-  c.loading = true;
-  fetchEspnPostseason(key, c.year).then(data => {
+  if(c.loading) return c.loading;
+  if(now - c.fetchedAt < ttlMs(c, key) || now - c.failedAt < 5 * 60 * 1000) return Promise.resolve();
+  c.loading = fetchEspnPostseason(key, c.year).then(data => {
     c.loading = false;
     if(!data){ c.failedAt = Date.now(); return; }
     c.data = data;
@@ -209,6 +216,29 @@ export function ensurePostseason(key, scoring = false){
     standingsDataChanged();
     listeners.forEach(fn => fn(key));
   }, () => { c.loading = false; c.failedAt = Date.now(); });
+  return c.loading;
+}
+
+// Loads every postseason this class scores from (its own season's, for
+// an older class a past one), resolving once each fetch settles. The
+// background copy of an older season (js/season-background.js) waits on
+// it so its totals don't miss playoff points still loading.
+export function loadScoringPostseasons(){
+  return Promise.allSettled(Object.keys(POSTSEASON_LEAGUES)
+    .filter(key => LEAGUE_SCORING[key] && !PRE_DRAFT && postseasonScores(key) && seasonLabelYear(key) <= postseasonYear(key))
+    .map(key => ensurePostseason(key, true, seasonLabelYear(key))));
+}
+
+// Whether this class's postseason in a league is being played right now
+// (its window is open and the final isn't done), so the league still
+// has points to come after its regular season locked. The overlap card
+// and checklist (js/season-background.js) list it as still playing.
+export function postseasonStillPlaying(key){
+  if(!POSTSEASON_LEAGUES[key] || PRE_DRAFT || !postseasonScores(key)) return false;
+  const year = seasonLabelYear(key);
+  if(year !== postseasonYear(key) || !inWindow(key)) return false;
+  const bracket = cacheFor(key, year).bracket;
+  return !(bracket && latestStage(bracket) === finalRound(key));
 }
 
 // The year the reveal and Home card label the playoffs with: the draft
@@ -301,9 +331,13 @@ export function bracketFor(key){
 // team of the league that isn't in the field, from the moment it's set.
 export function postseasonRuleTeams(key, rule){
   if(!POSTSEASON_LEAGUES[key] || PRE_DRAFT || !postseasonScores(key)) return null;
-  if(seasonLabelYear(key) !== postseasonYear(key)) return null;
-  if(isLeagueLocked(key)) ensurePostseason(key, true);
-  const bracket = cacheFor(key).bracket;
+  // The class's own postseason: the current one, or for an older class
+  // a past one, loaded by year. One that hasn't come yet counts nothing.
+  const year = seasonLabelYear(key);
+  const current = postseasonYear(key);
+  if(year > current) return null;
+  if(year < current || isLeagueLocked(key)) ensurePostseason(key, true, year);
+  const bracket = cacheFor(key, year).bracket;
   if(!bracket) return null;
   const s = snapshot(bracket, latestStage(bracket), { rules: LEAGUE_SCORING[key].rules, ownerOf: ownerOf(key) });
   if(isMissRule(key, rule)){

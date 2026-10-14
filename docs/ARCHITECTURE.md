@@ -57,7 +57,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 | `GET /admin/verify` | check commissioner password/token | password header |
 | `GET/PUT /facts/<lg>`, `/adjustments/<lg>`, `/lock/<lg>` | League Facts store | PUT: `X-Admin-Password` |
 | `GET/PUT /favorites/<drafter>` | favorites per drafter | open (Origin-checked) |
-| `GET/PUT /activity` | activity feed + points sample (triggers points alerts) | group code |
+| `GET/PUT /activity` | activity feed + points sample (triggers points alerts), one per season (`?season=`) | group code |
 | `GET /points/history` | daily points samples | group code |
 | `/chat/ws` | ChatRoom WebSocket | Origin check + group code |
 | `/draft/ws`, `GET /draft/result`, `GET /draft/status` | DraftRoom socket, final board, phase (edge-cached 5s) | commissioner frames need `auth` |
@@ -656,13 +656,28 @@ cold launch, the cards go up without them and are rebuilt (as the pill) once the
 
 **League history** (`js/history.js`, `js/champions.js`, `worker/champions.js`): Points → History shows the newest
 champion, every recorded season's final standings and an all-time table (titles, then top-3 finishes, then average
-finish). It's hidden until the first season is recorded. The commissioner records the class being played, from today's
-Points ranking, on Commissioner → History, which only appears once every league is locked (or a season is already
+finish). It's hidden until the first season is recorded. The commissioner records the class on screen (the newest, or
+last season from its own page once it finishes after a draft), from today's Points ranking, on Commissioner → History, which only appears once every league is locked (or a season is already
 recorded). There's no form for seasons before the app (neither group wanted one); the worker and `js/champions.js`
 still accept `source: 'manual'` if that comes back. `champions[@<group>]:seasons` in KV, `GET`/`PUT`/`DELETE /champions` (writes need the
 commissioner password). Recording the app's season the first time alerts the whole group (every device with alerts
 on), Home shows the champion for 21 days, and champions get a title tag on their Points sheet and breakdown.
 **Deploy the worker first.**
+
+**Two seasons at once** (`js/season-overlap.js` pure, tested in `tests/season-overlap.test.mjs`; `js/season-background.js`):
+a season runs into the next fall, so after a draft last season's MLB and WNBA are still being played. Last season stays
+**in play** until it's recorded in History (or January 1 after the newest draft). Meanwhile the app shows the new season,
+and every device on it loads a hidden copy of the app on last season (`index.html?season=<id>&bg=1`,
+`IS_SEASON_BACKGROUND` in `js/season.js`) 20s after launch and on return to the foreground, at most every 30 minutes,
+cut off after 3 minutes. `js/board.js` boots that copy with only the scoring work: fresh standings, the season's own
+postseasons, the lock check, one Activity run, then it posts a summary back (`bxSeasonBgSummary`: standings and the
+leagues still playing) and is removed. Each season has its own Activity feed (the worker keys it by `?season=`; The
+Draft's first season keeps the original key) and Race history; an older season's points alerts lead with its name
+("2026/27 · …") and open it. An older season can lock a league only while ESPN still shows its season of that league
+(`canLockFor` in `js/season-lock.js`); playoff results score from the class's own postseason year, loaded from ESPN by year
+once the current one has moved on (`postseasonRuleTeams`). Home shows one row while it's in play ("2026/27 is still being
+played", your place and what's left, tap to open it); the Commissioner's Group settings checklist starts with it, then
+asks to record it once every league is done, opening History on that season, where it's recorded like any other.
 
 **Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs` and
 `tests/postseason-cbb.test.mjs` / `tests/postseason-mlb.test.mjs`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP, NCAA men's
@@ -783,7 +798,10 @@ actually being played right now. Until that next season starts, their Standings 
 show real, live, but non-scoring results — flagged with a shared `prior-season-note` (bold/accent
 styling — this is easy to misread as counting if skimmed) rather than hiding the data. Their team
 pages also suppress the season-phase pill (`In-Season`/`Pre-Season`/etc.) entirely, since showing
-it would read as if the current season counts.
+it would read as if the current season counts. The class lists them; each drops off by itself once the class season's regular season has begun,
+by ESPN's calendar as `js/season-phase.js` last saved it (`priorSeasonLeagues` in `js/season-overlap.js`, applied in
+`js/data.js` at boot), so nobody edits a class file in the spring. ESPN's season year alone isn't enough: it rolls over
+the week after the World Series.
 
 **Motion** (`js/motion.js`, `js/launch-splash.js`): tab switches slide toward the tapped tab and the team
 page pushes in and pops back out, both on same-document View Transitions (`navigate(kind, update)`; `html[data-nav]` picks the keyframes in css/style.css). `switchView` and the

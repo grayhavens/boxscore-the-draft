@@ -66,6 +66,8 @@ import { NEXT_DRAFT_LABEL } from './seasons/index.js';
 import { setKnownDraftStatus, scheduleDateLabel, scheduleTimeLabel, toLocalInputValue } from './draft-schedule.js';
 import { POLL_MAX_OPTIONS, parsePollOptions, pollTally } from './draft-poll.js';
 import { commissionerChecklist } from './draft-prep.js';
+import { inPlaySummary } from './season-background.js';
+import { seasonLabel } from './season-overlap.js';
 
 import { backLinkHtml, buttonHtml, filterTabHtml } from './ui.js';
 import { GROUP_MOCK_ROOM } from './draft-rules.js';
@@ -329,9 +331,30 @@ function prepRows(){
     leagues: SCORING_LEAGUES.filter(l => hasAutoRules(l) && draftedTeams(l).length && !PRIOR_SEASON_DISPLAY_LEAGUES.includes(l.key))
       .map(l => ({ key: l.key, label: leagueChip(l), locked: isLeagueLocked(l.key) })),
     check: roomCheck,
-    nextLabel: NEXT_DRAFT_LABEL
+    nextLabel: NEXT_DRAFT_LABEL,
+    previous: previousSeasonRow()
   });
 }
+
+// Last season while it's still in play (js/season-background.js).
+function previousSeasonRow(){
+  const summary = inPlaySummary();
+  if(!summary) return null;
+  return {
+    id: summary.id,
+    label: seasonLabel(summary.id),
+    open: summary.open ? summary.open.map(key => FILTER_CHIP_LABELS[key] || key.toUpperCase()) : null
+  };
+}
+
+// Opens the Commissioner page on another season (and screen).
+window.adminOpenSeason = function(id, screen){
+  const url = new URL(window.location.href);
+  url.searchParams.set('season', id);
+  url.searchParams.set('view', 'admin');
+  if(screen) url.searchParams.set('screen', screen); else url.searchParams.delete('screen');
+  window.location.href = url.toString();
+};
 
 function prepActionHtml(action, small){
   if(!action) return '';
@@ -343,6 +366,8 @@ function prepActionHtml(action, small){
     : action.kind === 'room' ? `goToDraftRoom('${LIVE_DRAFT_ROOM}')`
     : action.kind === 'rehearsal' ? `goToDraftRoom('${GROUP_MOCK_ROOM}')`
     : action.kind.startsWith('league:') ? `selectAdmin('${action.kind.slice(7)}')`
+    : action.kind.startsWith('season:') ? `adminOpenSeason('${action.kind.slice(7)}')`
+    : action.kind.startsWith('record:') ? `adminOpenSeason('${action.kind.slice(7)}', 'history')`
     : '';
   return onclick ? `<button type="button" class="${cls}" onclick="${onclick}">${escapeHtml(action.label)}</button>` : '';
 }

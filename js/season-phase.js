@@ -34,6 +34,7 @@
 import { fetchEspnSeasonTypes } from './espn.js';
 
 import { isFreshAt } from './cache-fresh.js';
+import { SEASON_PHASE_CACHE_KEY } from './season-overlap.js';
 // ESPN's own site-API sport slug, and the (differently-shaped) core-API
 // league slug fetchEspnSeasonTypes also needs — the first half of each
 // pair matches FLAT_SCHEDULE_LEAGUES's sportPath (js/live-data.js) but
@@ -60,7 +61,6 @@ const SEASON_TYPE_LABEL = {
   5: { label: 'In-Season', cls: 'in' } // NBA's Play-In Season — reads as still in-season, not a 5th badge state
 };
 
-const SEASON_PHASE_CACHE_KEY = 'teamDashboardSeasonPhaseCache';
 // Season phase moves in weeks, not minutes — much longer than any
 // standings TTL in this app, deliberately, since this is 7 extra
 // requests (one full types list per league) for something that barely
@@ -165,6 +165,16 @@ export function isRegularSeasonOver(leagueKey){
   const regular = cache.data.types.find(t => t.type === 2);
   if(!regular || !regular.endDate) return null;
   return new Date() > new Date(regular.endDate);
+}
+
+// The ESPN season this league's phase data is for, as { year,
+// regularStart }, or null while it hasn't loaded. Which season its live
+// table holds follows from it (liveTableYear in js/season-overlap.js).
+export function espnSeason(leagueKey){
+  const cache = phaseCacheFor(leagueKey);
+  if(!cache.data) return null;
+  const regular = cache.data.types.find(t => t.type === 2);
+  return { year: cache.data.year, regularStart: regular ? regular.startDate : null };
 }
 
 // When this league's Regular Season ends (a Date), or null while the data

@@ -21,6 +21,7 @@ export const POINTS_ALERT_URL = './?view=overall&seg=activity';
 export const POINTS_ALERT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 import { historyDay } from '../js/race-math.js';
+import { seasonLabel } from '../js/season-overlap.js';
 
 const signed = n => (n > 0 ? '+' : '−') + Math.abs(n);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -45,8 +46,11 @@ function singleBody(part){
 }
 
 // [{ drafterId, payload }] for a batch of new events. `earlier` is the
-// feed as it stood before them, for the once-a-day rank rule.
-export function pointsAlerts(events, drafterIds, now = Date.now(), earlier = []){
+// feed as it stood before them, for the once-a-day rank rule. `season`:
+// set for an older season still being played after a draft
+// (js/season-overlap.js), whose alerts lead with its name ("2026/27 ·")
+// and open that season.
+export function pointsAlerts(events, drafterIds, now = Date.now(), earlier = [], { season = null } = {}){
   const fresh = events.filter(e => e && typeof e.ts === 'number' && now - e.ts <= POINTS_ALERT_MAX_AGE_MS);
   const rankDays = drafterId => new Set(earlier.filter(e => e && e.type === 'rank' && typeof e.ts === 'number' && partFor(e, drafterId))
     .map(e => historyDay(e.ts)));
@@ -72,7 +76,9 @@ export function pointsAlerts(events, drafterIds, now = Date.now(), earlier = [])
       title = `${plural(parts.length, 'change')} to your points`;
       body = `${net ? net + '. ' : ''}${parts[0].e.title}, and ${parts.length - 1} more.`;
     }
-    out.push({ drafterId, payload: { kind: 'points', title, body, url: POINTS_ALERT_URL, tag: 'points' } });
+    if(season) title = `${seasonLabel(season)} · ${title}`;
+    const url = season ? `./?season=${season}&view=overall&seg=activity` : POINTS_ALERT_URL;
+    out.push({ drafterId, payload: { kind: 'points', title, body, url, tag: season ? `points-${season}` : 'points' } });
   });
   return out;
 }

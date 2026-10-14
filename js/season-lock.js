@@ -44,15 +44,21 @@
    and the bonus race for a finished class then keep showing that
    class's real final numbers. The newest class never reads it and keeps
    using live data exactly as before.
+
+   An older class can still lock a league while ESPN is still showing its
+   season of it (canLockFor): after a draft, last season's MLB and WNBA
+   are still being played, and the hidden copy of that season
+   (js/season-background.js) runs this lock check for them.
    ============================================================ */
-import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
+import { LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT, leagueOf } from './data.js';
 import { fetchJSON, loadAdminPassword, putAuthedJSON, withNote } from './utils.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { DASHBOARD_WORKER_BASE } from './api.js';
 import { scopedKey, withScopeQuery, ACTIVE_SEASON_ID } from './season.js';
 import { LATEST_SEASON_ID } from './seasons/index.js';
 import { snapshotLeagueCaches, freezeLeagueCaches } from './frozen-cache.js';
-import { fetchSeasonPhaseCached, isRegularSeasonOver, SEASON_PHASE_LEAGUES } from './season-phase.js';
+import { fetchSeasonPhaseCached, isRegularSeasonOver, espnSeason, SEASON_PHASE_LEAGUES } from './season-phase.js';
+import { classLeagueYear, liveTableYear, rolledPastClassSeason } from './season-overlap.js';
 import { eplStandingsCache } from './standings-epl.js';
 import { computeLiveRankAutoTeams } from './league-facts.js';
 import { liveBonusHolder, loadBonusInputs } from './compare.js';
@@ -194,6 +200,21 @@ function persistLock(leagueKey, lock, note){
   renderAdminPage();
 }
 
+// The ESPN season a league of this class is (its card's "'27 Season").
+const classYearOf = leagueKey => classLeagueYear(leagueOf(leagueKey).season);
+
+// Whether this class can lock (or snapshot) a league now: always for
+// the newest; for an older class only while ESPN's live table still
+// holds that class's season of the league. That's the two-seasons-at-once
+// stretch after a draft (js/season-overlap.js), when last season's MLB
+// and WNBA are still being played; once the table has moved on, locking
+// would freeze the wrong season. The EPL has no ESPN calendar here, so an
+// older class never locks it.
+function canLockFor(leagueKey){
+  if(ACTIVE_SEASON_ID === LATEST_SEASON_ID) return true;
+  return liveTableYear(espnSeason(leagueKey)) === classYearOf(leagueKey);
+}
+
 // Computes every rankAuto rule's current answer one last time and
 // freezes it — called once, either by checkSeasonLocks below once ESPN
 // confirms the regular season is over, or directly by an admin's
@@ -206,9 +227,9 @@ function persistLock(leagueKey, lock, note){
 function lockLeague(leagueKey, note){
   const scoring = LEAGUE_SCORING[leagueKey];
   if(!scoring || PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) return;
-  // A class that isn't the newest has no live table for its own season
-  // anymore (ESPN moved on) — locking would freeze the wrong season.
-  if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
+  // An older class whose season of this league ESPN has moved on from
+  // would freeze the wrong season (canLockFor).
+  if(!canLockFor(leagueKey)) return;
   const rules = {};
   scoring.rules.filter(r => r.rankAuto).forEach(r => {
     rules[r.label] = computeLiveRankAutoTeams(leagueKey, r);
@@ -230,7 +251,7 @@ function lockLeague(leagueKey, note){
 // keeps reading live data.
 function backfillLockSnapshot(leagueKey){
   const lock = currentLock(leagueKey);
-  if(!lock || !lock.lockedAt || ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return;
+  if(!lock || !lock.lockedAt || !canLockFor(leagueKey)) return;
   const patch = {};
   if(!lock.standings){
     const standings = snapshotLeagueCaches(leagueKey);
@@ -298,7 +319,6 @@ function isEplRegularSeasonOver(){
 // immediately. Safe to call again later (e.g. a future scheduled
 // re-check) since it's a no-op for anything already locked.
 export async function checkSeasonLocks(){
-  if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID) return; // see lockLeague
   // Before the first draft nothing scores, and the teams' keys change
   // when the draft is exported, so there's nothing worth freezing.
   if(PRE_DRAFT) return;
@@ -310,6 +330,12 @@ export async function checkSeasonLocks(){
     // lists them, the same gate getLeagueRuleTeams already applies.
     if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(leagueKey)) continue;
     await ensureLockLoaded(leagueKey);
+    // An older class: only the leagues ESPN still shows its season of.
+    if(ACTIVE_SEASON_ID !== LATEST_SEASON_ID){
+      if(leagueKey === 'epl') continue;
+      await fetchSeasonPhaseCached(leagueKey);
+      if(!canLockFor(leagueKey)) continue;
+    }
     if(isLeagueLocked(leagueKey)){
       await loadBonusInputs();
       backfillLockSnapshot(leagueKey);
@@ -320,7 +346,10 @@ export async function checkSeasonLocks(){
       over = isEplRegularSeasonOver();
     } else {
       await fetchSeasonPhaseCached(leagueKey);
-      over = isRegularSeasonOver(leagueKey);
+      // ESPN moves its calendar to the next season early (MLB's says 2027
+      // during the 2026 postseason); its table still holds the class's
+      // season then, and that season's regular season is over.
+      over = isRegularSeasonOver(leagueKey) || rolledPastClassSeason(espnSeason(leagueKey), classYearOf(leagueKey));
     }
     // The bonus holder is frozen into the lock, so its tables must be in.
     if(over){ await loadBonusInputs(); lockLeague(leagueKey, `${leagueShort(leagueKey)}: regular season locked automatically (ESPN has it over)`); }
