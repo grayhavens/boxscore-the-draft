@@ -13,6 +13,13 @@
    action. A sheet that refuses to close (the welcome's name step) just
    gets its entry pushed again by the next sync.
 
+   The URL rides along: views keep their state in the query through
+   replaceState (updateUrlParam), which only rewrites the current entry.
+   Closing the team page by its own Back writes the origin view's URL onto
+   our pushed entry, then history.go lands on the entry beneath, which
+   still says ?view=team&tp=… (the page wrote that when it opened). So the
+   URL showing when we walk back is put onto the entry we land on.
+
    Android only, for now: iPhone has no Back button and its edge swipe has
    never been tested against this. A leaf module (no imports). */
 
@@ -22,6 +29,7 @@ const PAGE_BACK = '.board > .view.active .ob-back';
 let pushed = 0;     // history entries this module added and hasn't popped
 let ignore = 0;     // popstates caused by our own history.go()
 let queued = false;
+let restoreUrl = null;  // the URL to keep once our own history.go() lands
 
 const isAndroid = () => /Android/.test(navigator.userAgent || '');
 
@@ -44,6 +52,7 @@ function sync(){
     for(; pushed < want; pushed++) history.pushState(null, '', location.href);
   } else if(want < pushed){
     ignore++;
+    restoreUrl = location.href;
     history.go(want - pushed);
     pushed = want;
   }
@@ -56,7 +65,12 @@ function schedule(){
 }
 
 function onPop(){
-  if(ignore > 0){ ignore--; return; }
+  if(ignore > 0){
+    ignore--;
+    if(restoreUrl && restoreUrl !== location.href) history.replaceState(null, '', restoreUrl);
+    if(ignore === 0) restoreUrl = null;
+    return;
+  }
   if(pushed === 0) return;
   pushed--;
   const sheet = topSheet();
