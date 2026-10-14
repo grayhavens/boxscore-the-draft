@@ -367,8 +367,12 @@ in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (
 snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`.
 **New teams show the moment the draft ends** (`js/live-class.js`): when the `main` room reports `done` (the
 `/draft/status` poll in `js/draft-live.js`, or the room's own socket), each device fetches `/draft/result`, builds the class
-with `js/draft-class.js` (the same builder `tools/export-draft.mjs` uses, so keys match), stores it in localStorage
-(`js/live-class-store.js`) and reloads once; `js/seasons/index.js` then boots with it as the newest class. The class's
+with `js/draft-class.js` (the same builder `tools/export-draft.mjs` uses, so keys match) and stores it in localStorage
+(`js/live-class-store.js`); `js/seasons/index.js` boots with it as the newest class. The move into it is a full-screen
+"building your season" moment (`js/season-entry.js`, `seasonEntryHtml`): your teams' badges drop into wells as a gold bar
+follows the real build (at least 2.6s with motion on), then **Enter Boxscore** reloads onto your Home with the launch
+splash replayed, or **Not now** closes it (the next launch opens on the class anyway). It opens by itself anywhere except
+the draft room, where the Draft Complete card's "Enter the <year> season" button opens it. The class's
 year is the year of its last pick (`finishedAt` on status and result); a room whose year already has a committed class
 (or a later one) is ignored, and a change in `seq` (a pick edited afterwards) rebuilds it. The room also archives every
 finished board by year in its own storage (`archiveBoard`, listed as `boards` on the status, read with

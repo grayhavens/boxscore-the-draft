@@ -509,3 +509,20 @@ export function matchCardHtml({ live = false, head = 'Next game', when = '', lef
     + (footLeft || footRightHtml ? `<span class="mc-foot"><span>${escapeHtml(footLeft)}</span>${footRightHtml}</span>` : '')
     + `</${tag}>`;
 }
+
+// SeasonEntry: the full-screen "building your season" moment after a draft
+// (js/season-entry.js). `crestsHtml` is the drafter's teams as badges, each
+// in a .se-crest slot that shows once it's .placed; the gold bar fills to
+// `pct`; `ctaHtml` (Enter, Not now) appears with .ready on the root.
+// Trusted HTML in, the caller escapes. Not in the design system yet.
+export function seasonEntryHtml({ eyebrow, title, step = '', crestsHtml = '', pct = 0, ctaHtml = '' }){
+  return `<div class="season-entry" id="season-entry" role="dialog" aria-modal="true" aria-labelledby="se-title">`
+    + `<div class="se-stage">`
+    + `<div class="se-eyebrow">${escapeHtml(eyebrow)}</div>`
+    + `<h2 class="se-title" id="se-title">${escapeHtml(title)}</h2>`
+    + `<div class="se-crests">${crestsHtml}</div>`
+    + `<div class="se-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><i style="width:${pct}%"></i></div>`
+    + `<div class="se-step" aria-live="polite">${escapeHtml(step)}</div>`
+    + `<div class="se-cta">${ctaHtml}</div>`
+    + `</div></div>`;
+}

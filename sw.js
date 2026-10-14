@@ -42,6 +42,7 @@ const SHELL_FILES = [
   './js/draft-groups.js',
   './js/draft-live.js',
   './js/live-class.js',
+  './js/season-entry.js',
   './js/live-class-store.js',
   './js/draft-class.js',
   './js/seasons/team-entry.js',

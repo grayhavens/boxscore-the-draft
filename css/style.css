@@ -6018,6 +6018,8 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .clock-mini-time.hurry{ color: var(--live); }
 @media (prefers-reduced-motion: reduce){ .dm-mini, .clock-mini{ transition: none; } }
 .dm-top .dr-clock-card{ padding: 10px 14px; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
+/* The finished card wraps: its title, then Enter and Download board under it. */
+.dm-top .dr-clock-card.done{ flex-wrap: wrap; align-items: center; }
 .dm-top .dr-clock-name{ font-size: var(--fs-20); }
 .dm-top .dr-clock-sub{ font-size: var(--fs-11); }
 .dm-top .dr-timer{ font-size: var(--fs-24); }
@@ -6165,6 +6167,12 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .dr-clock-card.strip.mine{ background: var(--accent-soft); border-color: var(--accent-border); }
 .dr-strip-expand{ flex: none; }
 .dr-download-btn{ flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
+.dr-enter-btn{ flex: 0 0 auto; white-space: nowrap; }
+/* Phone card: the title spans the card, Enter goes full width under it,
+   Download board stays on its own line at the end. */
+.dr-clock-card.done:not(.strip) > div:first-child{ flex: 1 1 100%; }
+.dr-clock-card.done:not(.strip) .dr-enter-btn{ flex: 1 1 100%; order: 1; }
+.dr-clock-card.done:not(.strip) .dr-download-btn{ order: 2; margin-left: 0; }
 .dr-strip-timer .dr-timer{ font-size: 26px; }
 .dr-strip-timer .dr-bar{ width: 90px; margin: 0; }
 
@@ -8474,4 +8482,47 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     .filter-chip:not(.active):hover{ color: var(--text-sub); }
     .seg-btn:not(.active):hover{ color: var(--text); }
   }
+}
+
+/* ---- Season entry ----
+   The full-screen "building your season" moment after a draft
+   (seasonEntryHtml in js/ui.js, driven by js/season-entry.js). Built from
+   existing parts so it reads as the same app: the Welcome card's eyebrow,
+   the page title role, standard 44px team badges (.badge, the same ones
+   Home shows), the split-bar's track and the .modal-cta buttons. Each
+   badge waits as an empty well and drops in (.placed) as the bar passes
+   its pick. The bar is a gold shape (--accent-fill): gold is "you".
+   Enter fades the layer out and the launch splash (above it) takes over
+   on the reload. */
+.season-entry{
+  position: fixed; inset: 0; z-index: 9000;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(env(safe-area-inset-top) + var(--space-11)) var(--page-pad) calc(env(safe-area-inset-bottom) + var(--space-11));
+  background: var(--surface-page);
+  color: var(--text);
+  animation: se-in var(--dur-move) var(--ease-out) both;
+}
+.se-stage{ width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.se-eyebrow{ font-size: var(--fs-11); font-weight: 700; letter-spacing: var(--track-label); text-transform: uppercase; color: var(--accent); }
+.se-title{ margin: var(--space-1) 0 0; font: var(--type-page-title); letter-spacing: -0.5px; }
+/* Six badges to a row: 6 x 44 + 5 gaps. */
+.se-crests{ display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); max-width: 304px; margin-top: var(--space-11); }
+.se-crests:empty{ display: none; }
+.se-crest{ flex: 0 0 44px; width: 44px; height: 44px; border-radius: var(--r-badge); background: var(--fill-soft); }
+.se-crest .badge{ opacity: 0; transform: scale(0.6); transition: opacity var(--dur-ui) var(--ease-out), transform var(--dur-move) var(--ease-spring); }
+.se-crest.placed{ background: none; }
+.se-crest.placed .badge{ opacity: 1; transform: none; }
+.se-bar{ display: flex; width: 100%; height: 8px; margin-top: var(--space-11); border-radius: var(--r-pill); background: var(--fill-soft); overflow: hidden; }
+.se-bar i{ display: block; height: 100%; background: var(--accent-fill); transition: width var(--dur-move) var(--ease-out); }
+.se-step{ min-height: 1.4em; margin-top: var(--space-5); font: var(--type-sub); color: var(--text-sub); font-variant-numeric: tabular-nums; }
+.se-cta{ width: 100%; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity var(--dur-move) var(--ease-out), transform var(--dur-move) var(--ease-out), visibility 0s var(--dur-move); }
+.season-entry.ready .se-cta{ opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.se-cta .modal-cta + .modal-cta{ margin-top: var(--space-4); }
+.se-cta .modal-cta[hidden]{ display: none; }
+.season-entry.leaving{ animation: se-out var(--dur-move) var(--ease-in) both; }
+@keyframes se-in{ from{ opacity: 0; } }
+@keyframes se-out{ to{ opacity: 0; } }
+@media (prefers-reduced-motion: reduce){
+  .season-entry, .season-entry.leaving{ animation: none; }
+  .se-crest .badge, .se-bar i, .se-cta{ transition: none; }
 }

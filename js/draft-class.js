@@ -146,10 +146,13 @@ export function seasonLabel(league, year){
 // fallbackToPool: a team ESPN can't place gets entryFromPool instead of
 // blocking (the app's live class). A league whose ESPN list didn't load is
 // still unresolved, and listed in `espnFailed`, so the app can try again.
+// onProgress: (done, total, pick, entry) after each pick, with the
+// TEAM_META entry it got (null if it couldn't be placed), for the app's
+// "building your season" screen (js/season-entry.js).
 // onlyDrafted: keep only the leagues the draft's caps include (a group that
 // doesn't draft every sport; its undrafted sports come back as scores-only
 // tabs from the Commissioner page, js/seasons/index.js).
-export async function buildSeason({ result, prev, year, drafterIds, espn, overrides = {}, allowPartial = false, onlyDrafted = false, fallbackToPool = false }){
+export async function buildSeason({ result, prev, year, drafterIds, espn, overrides = {}, allowPartial = false, onlyDrafted = false, fallbackToPool = false, onProgress = null }){
   const problems = [];
   const notes = [];
   const picks = (result.picks || []).slice().sort((a, b) => a.slot - b.slot);
@@ -199,49 +202,55 @@ export async function buildSeason({ result, prev, year, drafterIds, espn, overri
   const unresolved = [];
   const espnFailed = [];
 
-  for(const p of picks){
-    if(!p.team) continue;
-    const { league, name } = p.team;
-    const template = (p.team.espnTeamId && templatesByEspn.get(`${league}:${p.team.espnTeamId}`)) || templates.get(`${league}:${normalize(name)}`);
-    let entry;
-    if(league === 'pga' && p.team.espnAthleteId){
-      entry = entryFromGolfer(p.drafter, p.team);
-    } else if(template){
-      entry = fromTemplate(template, p.drafter);
-    } else {
-      let hit = null;
-      const forced = overrides[`${league}:${name}`] || p.team.espnTeamId;
-      let list;
-      try { list = await listFor(league); } catch (e){
-        list = null;
-        if(!espnFailed.includes(league)){ espnFailed.push(league); notes.push(`ESPN ${league} lookup failed: ${e.message}`); }
-      }
-      if(list){
-        if(forced) hit = list.find(t => t.id === String(forced)) || null;
-        if(!hit){
-          const found = findEspnTeam(list, league, name);
-          if(found.team) hit = found.team;
-          else if(fallbackToPool) entry = entryFromPool(league, p.drafter, p.team);
-          else unresolved.push({ pick: p.slot + 1, league, name, drafter: p.drafter, candidates: (found.ambiguous || found.suggestions || []).map(t => `${t.displayName} (${t.id})`) });
-        }
+  for(const [index, p] of picks.entries()){
+    let placed = null;
+    try {
+      if(!p.team) continue;
+      const { league, name } = p.team;
+      const template = (p.team.espnTeamId && templatesByEspn.get(`${league}:${p.team.espnTeamId}`)) || templates.get(`${league}:${normalize(name)}`);
+      let entry;
+      if(league === 'pga' && p.team.espnAthleteId){
+        entry = entryFromGolfer(p.drafter, p.team);
+      } else if(template){
+        entry = fromTemplate(template, p.drafter);
       } else {
-        unresolved.push({ pick: p.slot + 1, league, name, drafter: p.drafter, candidates: [] });
+        let hit = null;
+        const forced = overrides[`${league}:${name}`] || p.team.espnTeamId;
+        let list;
+        try { list = await listFor(league); } catch (e){
+          list = null;
+          if(!espnFailed.includes(league)){ espnFailed.push(league); notes.push(`ESPN ${league} lookup failed: ${e.message}`); }
+        }
+        if(list){
+          if(forced) hit = list.find(t => t.id === String(forced)) || null;
+          if(!hit){
+            const found = findEspnTeam(list, league, name);
+            if(found.team) hit = found.team;
+            else if(fallbackToPool) entry = entryFromPool(league, p.drafter, p.team);
+            else unresolved.push({ pick: p.slot + 1, league, name, drafter: p.drafter, candidates: (found.ambiguous || found.suggestions || []).map(t => `${t.displayName} (${t.id})`) });
+          }
+        } else {
+          unresolved.push({ pick: p.slot + 1, league, name, drafter: p.drafter, candidates: [] });
+        }
+        if(!hit && !entry) continue;
+        if(hit) entry = entryFromEspn(league, p.drafter, hit);
+        generated.push({ pick: p.slot + 1, league, drafter: p.drafter, drafted: name, name: entry.name, espnTeamId: hit ? hit.id : (entry.espnTeamId || null) });
+        entry.__generated = true;
       }
-      if(!hit && !entry) continue;
-      if(hit) entry = entryFromEspn(league, p.drafter, hit);
-      generated.push({ pick: p.slot + 1, league, drafter: p.drafter, drafted: name, name: entry.name, espnTeamId: hit ? hit.id : (entry.espnTeamId || null) });
-      entry.__generated = true;
-    }
 
-    // `<owner>_<slug>`; the same school in two leagues for one owner gets a
-    // league suffix on the second (the existing convention: donny_louisville_cbb).
-    let key = `${p.drafter}_${slugify(entry.name)}`;
-    if(usedKeys.has(key)) key += league === 'mcbb' ? '_cbb' : `_${league}`;
-    const base = key;
-    for(let n = 2; usedKeys.has(key); n++) key = `${base}_${n}`;
-    usedKeys.add(key);
-    meta[key] = entry;
-    (keysByLeague[league] || (keysByLeague[league] = [])).push(key);
+      // `<owner>_<slug>`; the same school in two leagues for one owner gets a
+      // league suffix on the second (the existing convention: donny_louisville_cbb).
+      let key = `${p.drafter}_${slugify(entry.name)}`;
+      if(usedKeys.has(key)) key += league === 'mcbb' ? '_cbb' : `_${league}`;
+      const base = key;
+      for(let n = 2; usedKeys.has(key); n++) key = `${base}_${n}`;
+      usedKeys.add(key);
+      meta[key] = entry;
+      placed = entry;
+      (keysByLeague[league] || (keysByLeague[league] = [])).push(key);
+    } finally {
+      if(onProgress) onProgress(index + 1, picks.length, p, placed);
+    }
   }
 
   if(unresolved.length){

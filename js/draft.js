@@ -52,6 +52,7 @@ import { currentProfileId } from './identity.js';
 import { buildDraftPool } from './draft-pool.js';
 import { teamGroup, teamGroupLabel, leagueConfs, leagueDivs } from './draft-groups.js';
 import { onTheClock } from './draft-engine.js';
+import { liveClassState, subscribeLiveClass } from './live-class.js';
 import { draftXlsx } from './draft-sheets.js';
 import { XLSX_MIME } from './xlsx.js';
 import { openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, teamBadgeHtml, skeletonLinesHtml } from './utils.js';
@@ -750,7 +751,8 @@ function clockCardParts(d){
   if(landed && s.phase !== 'draft') return [landedHeroHtml(d, landed), ''];
   if(s.phase === 'lobby') return lobbyHeroParts(d, phone, wide);
   if(s.phase === 'done'){
-    const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`;
+    const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`
+      + enterSeasonBtn();
     return [phone
       ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow win">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`
       : `<div class="dr-clock-card done strip"><span class="dr-eyebrow win">DRAFT COMPLETE</span><span class="dr-clock-sub">${d.total} picks. Rosters are set.</span>${dl}</div>`, ''];
@@ -2215,6 +2217,23 @@ function fxSlot(d, e){
   }
 }
 
+// The Draft Complete card's way into the new season (js/season-entry.js),
+// once this device has started building it (js/live-class.js). Nothing
+// for a mock room, or a board whose class is already in the app.
+function enterSeasonBtn(){
+  const s = liveClassState();
+  if(draftStore.room !== 'main' || s.phase === 'idle') return '';
+  return `<button class="dr-btn dr-btn-primary dr-enter-btn" onclick="openSeasonEntry()">Enter the ${esc(String(s.year))} season</button>`;
+}
+
+// Only a change of phase repaints (the build reports every pick).
+let livePhase = liveClassState().phase;
+subscribeLiveClass(s => {
+  if(s.phase === livePhase) return;
+  livePhase = s.phase;
+  if(active) scheduleRender();
+});
+
 // The last pick is in: the board ripples corner to corner, dims for a
 // moment, and the "Draft complete" card rises in. Once per device.
 function fxDone(d, key){
@@ -2227,7 +2246,7 @@ function fxDone(d, key){
   const end = rows.length ? (rows.length + d.n) * 30 + 520 : phoneRows.length * 30 + 520;
   play(document.querySelector('.dr-grid'), [{ opacity: 1 }, { opacity: 0.5, offset: 0.3 }, { opacity: 0.5, offset: 0.7 }, { opacity: 1 }], { duration: 1400, delay: end - 400 });
   const card = document.querySelector('#dr-clock .dr-clock-card.done');
-  if(card) stagger(card.querySelectorAll('.dr-eyebrow, .dr-done-title, .dr-clock-sub, .dr-download-btn'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { step: 130, delay: end - 300, duration: 500 });
+  if(card) stagger(card.querySelectorAll('.dr-eyebrow, .dr-done-title, .dr-clock-sub, .dr-download-btn, .dr-enter-btn'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }], { step: 130, delay: end - 300, duration: 500 });
 }
 
 // ---- Clock ----

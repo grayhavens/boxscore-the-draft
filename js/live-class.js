@@ -5,8 +5,11 @@
    state — comes through checkLiveClass. When it says a board is
    finished, this fetches it (/draft/result), builds the class on this
    device with the same builder tools/export-draft.mjs uses
-   (js/draft-class.js), stores it (js/live-class-store.js) and reloads,
-   so js/seasons/index.js boots with it as the newest class.
+   (js/draft-class.js) and stores it (js/live-class-store.js), so
+   js/seasons/index.js boots with it as the newest class. Moving into it
+   is js/season-entry.js's job: its "building your season" screen follows
+   the progress reported here (subscribeLiveClass) and reloads into Home
+   when the drafter taps Enter.
 
    Which classes (liveClassesToBuild): the board the room is showing once
    it's done, named for the year of its last pick (finishedAt), since a
@@ -26,9 +29,15 @@
    the same board, so team keys (and the points and favorites saved
    against them) agree.
 
-   A reload is the only way a new class reaches modules that read
-   SEASONS at boot. It happens once per build: a sessionStorage marker
-   stops a loop if the record somehow doesn't take.
+   State (liveClassState): { phase, year, done, total, mine, teams }
+     phase   'idle' | 'building' | 'ready' | 'failed' ('failed' retries on
+             a later status answer, and goes back to 'building')
+     year    the class being built (the newest, when there are several)
+     done / total   picks placed so far, of the board's
+     mine    the signed-in drafter's picks on that board, in draft order:
+             { slot, entry }, entry being the TEAM_META entry the build
+             gave it (null until it's placed)
+     teams   how many teams the finished class has
    ============================================================ */
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP, withGroupQuery } from './group.js';
 import { groupCaps } from './groups.js';
@@ -37,14 +46,29 @@ import { LATEST_COMMITTED_YEAR, LIVE_CLASS_BASE } from './seasons/index.js';
 import { PGA_SCORING } from './seasons/pga.js';
 import { buildSeason, fetchEspnTeams, liveClassesToBuild, liveClassChain } from './draft-class.js';
 import { readLiveClasses, saveLiveClass } from './live-class-store.js';
+import { currentProfileId } from './identity.js';
 
 const LIVE_ROOM = 'main';
-const RELOAD_MARK = 'liveDraftClassReload';
 // After a failed build, the same status isn't tried again for this long.
 const RETRY_MS = 60 * 1000;
 
 let building = null;
 let lastFailure = { key: null, at: 0 };
+let state = { phase: 'idle', year: null, done: 0, total: 0, mine: [], teams: 0 };
+const listeners = new Set();
+
+export function liveClassState(){ return state; }
+
+// fn(state) on every change; returns an unsubscribe.
+export function subscribeLiveClass(fn){
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function setState(patch){
+  state = { ...state, ...patch };
+  listeners.forEach(fn => { try { fn(state); } catch (e){ console.warn('[live-class]', e); } });
+}
 
 // `status`: the live room's { phase, finishedAt, seq, boards }. Safe to
 // call on every status answer; it does nothing almost every time.
@@ -54,28 +78,24 @@ export function checkLiveClass(status){
   if(!todo.length) return;
   const key = `${status.seq}:${todo.map(t => t.year).join(',')}`;
   if(lastFailure.key === key && Date.now() - lastFailure.at < RETRY_MS) return;
+  setState({ phase: 'building', year: todo[todo.length - 1].year, done: 0, total: 0 });
   building = buildAll(todo)
-    .then(() => reloadOnce(`${ACTIVE_GROUP_ID}:${key}`))
+    .then(teams => setState({ phase: 'ready', teams }))
     .catch(e => {
       lastFailure = { key, at: Date.now() };
       console.warn('[live-class]', e.message);
+      setState({ phase: 'failed' });
     })
     .finally(() => { building = null; });
 }
 
-// Builds each class in turn. A failure stops there (a later class needs
-// the one before it); anything already stored shows after a reload.
+// Builds each class in turn, oldest first; a failure stops there (a
+// later class needs the one before it). Resolves to the newest class's
+// team count.
 async function buildAll(todo){
-  let stored = 0;
-  try {
-    for(const { year, current } of todo){
-      await buildOne(year, current);
-      stored += 1;
-    }
-  } catch (e){
-    if(stored) reloadOnce(`${ACTIVE_GROUP_ID}:partial:${todo.slice(0, stored).map(t => t.year).join(',')}`);
-    throw e;
-  }
+  let teams = 0;
+  for(const { year, current } of todo) teams = await buildOne(year, current);
+  return teams;
 }
 
 // The class a new one for `year` builds on: the newest live class before
@@ -93,8 +113,20 @@ async function buildOne(year, current){
   if(!result.complete || !Number.isFinite(result.finishedAt) || new Date(result.finishedAt).getUTCFullYear() !== year){
     throw new Error(`draft result ${year} changed while loading`);
   }
+  setState({
+    year,
+    done: 0,
+    total: result.picks.length,
+    mine: result.picks.filter(p => p.drafter === currentProfileId && p.team).map(p => ({ slot: p.slot, entry: null }))
+  });
   const built = await buildSeason({
     result,
+    onProgress: (done, total, pick, entry) => {
+      const mine = entry && pick.drafter === currentProfileId
+        ? state.mine.map(m => (m.slot === pick.slot ? { slot: m.slot, entry } : m))
+        : state.mine;
+      setState({ done, mine });
+    },
     prev: baseFor(year),
     year,
     drafterIds: result.config.drafters,
@@ -119,12 +151,5 @@ async function buildOne(year, current){
     builtAt: Date.now()
   });
   if(!saved) throw new Error('could not store the class');
-}
-
-function reloadOnce(mark){
-  let seen = null;
-  try { seen = sessionStorage.getItem(RELOAD_MARK); } catch (e){}
-  if(seen === mark) return;
-  try { sessionStorage.setItem(RELOAD_MARK, mark); } catch (e){}
-  location.reload();
+  return Object.keys(meta).length;
 }

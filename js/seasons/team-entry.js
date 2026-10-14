@@ -10,6 +10,10 @@
 
 export const COLLEGE = new Set(['cfb', 'mcbb']);
 
+// A crest URL that's safe to put in an attribute as is: entries built in
+// the app (a live class) come from the draft board, not a reviewed file.
+const safeUrl = url => (/^https:\/\/[^\s"'<>`]+$/.test(String(url || '')) ? String(url) : null);
+
 function textOn(hex){
   const n = parseInt(hex.replace('#', ''), 16);
   const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
@@ -33,7 +37,7 @@ export function entryFromEspn(league, drafter, espn){
   };
   if(league === 'cfb') entry.recentLabel = 'Results So Far';
   entry.espnTeamId = espn.id;
-  if(espn.logo) entry.badgeUrl = espn.logo;
+  if(safeUrl(espn.logo)) entry.badgeUrl = safeUrl(espn.logo);
   return entry;
 }
 
@@ -55,7 +59,7 @@ export function entryFromGolfer(drafter, team){
     sportsdbId: null,
     espnAthleteId: String(team.espnAthleteId)
   };
-  if(team.badgeUrl) entry.badgeUrl = team.badgeUrl;
+  if(safeUrl(team.badgeUrl)) entry.badgeUrl = safeUrl(team.badgeUrl);
   return entry;
 }
 
@@ -78,6 +82,6 @@ export function entryFromPool(league, drafter, team){
   };
   if(league === 'cfb') entry.recentLabel = 'Results So Far';
   if(team.espnTeamId) entry.espnTeamId = String(team.espnTeamId);
-  if(team.badgeUrl && String(team.badgeUrl).startsWith('https://')) entry.badgeUrl = team.badgeUrl;
+  if(safeUrl(team.badgeUrl)) entry.badgeUrl = safeUrl(team.badgeUrl);
   return entry;
 }

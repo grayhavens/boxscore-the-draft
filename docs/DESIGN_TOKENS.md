@@ -74,6 +74,9 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
   grayscale in light, where 0.4 vanishes on white).
 - Landing helpers in `js/ui.js` not in the design system yet: `tourStepsHtml` (scroll-tour progress segments), `spotsMeterHtml`
   (a group's roster as bars) and `sportPicksHtml` (sports as chips with picks per drafter).
+- `seasonEntryHtml` (`js/ui.js`, not in the design system yet): the full-screen "building your season" moment after a draft
+  (`js/season-entry.js`). Composed from existing parts: Welcome-card eyebrow, page title role, 44px `.badge`s in
+  `--fill-soft` wells, a split-bar-shaped track filled with `--accent-fill`, and `.modal-cta` buttons.
 - Blur only on the tab bar and sheet overlay.
 
 ## Motion
