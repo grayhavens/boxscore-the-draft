@@ -16,6 +16,14 @@
      welcomed, no invite code or one still soft, a Race chart that stopped
      recording); every group in a table; and the admin log
      (worker/admin-log.js), what this page has done lately.
+   - Before the next draft: the app owner's steps for each season's
+     drafts (js/draft-prep.js's ownerChecklist), which change files in
+     the code and so can't be buttons: refresh the saved ESPN team lists,
+     check the draft rankings, write season outlooks, rebuild the golfer
+     pool. Each shows when it was last done and the command that does it,
+     and one that's due (August through October, not done since July)
+     also goes in "Needs attention". Each group's own steps are on its
+     Commissioner page (Group settings).
    - Interested in Boxscore: people who left their name on the landing
      page without a group to join (worker/interest.js): name, email, start
      a group or join one, and their note, newest first, each with Dismiss
@@ -63,7 +71,10 @@
    admin-worker config in .claude/launch.json); on any other host it
    sends you to boxscore.space/admin.
    ============================================================ */
-import { GROUPS, GROUP_DOMAIN, groupAppUrl, isPlatformHost, adminSecretName } from './groups.js';
+import { GROUPS, GROUP_DOMAIN, groupAppUrl, isPlatformHost, adminSecretName, groupCaps } from './groups.js';
+import { ownerChecklist, outlookSummary } from './draft-prep.js';
+import { DRAFT_RANKS_CHECKED } from './draft-ranks.js';
+import { GOLFER_POOL_SEASON } from './golfers.js';
 import { welcomeHtml } from './welcome-template.js';
 import { pollTally } from './draft-poll.js';
 
@@ -200,8 +211,48 @@ async function load(auto = false){
   render();
 }
 
+// The owner checklist's dates. The ESPN lists (135 KB) and outlooks
+// (80 KB) load once, on demand, rather than with the page.
+let ownerPrep = null;
+async function loadOwnerPrep(){
+  try {
+    const [{ ESPN_TEAMS_FETCHED }, { DRAFT_OUTLOOKS }] = await Promise.all([import('./seasons/espn-teams.js'), import('./draft-outlooks.js')]);
+    ownerPrep = { espnFetched: ESPN_TEAMS_FETCHED, outlooks: outlookSummary(DRAFT_OUTLOOKS) };
+  } catch (e){ ownerPrep = { espnFetched: null, outlooks: {} }; }
+  if(quiet()) render();
+}
+
+function ownerRows(){
+  if(!ownerPrep) return null;
+  return ownerChecklist({
+    ...ownerPrep,
+    ranksChanged: DRAFT_RANKS_CHECKED,
+    golferSeason: GOLFER_POOL_SEASON,
+    golfers: Object.keys(GROUPS).some(id => (groupCaps(id) || {}).pga > 0)
+  });
+}
+
+function ownerPrepHtml(){
+  const rows = ownerRows();
+  if(!rows) return '';
+  const dot = st => st === 'ok' ? '' : ` ${st}`;
+  return block('Before the next draft', `
+    <div class="sysadmin-card flush">
+      ${rows.map(r => `
+        <div class="sysadmin-list-row">
+          <span class="sysadmin-dot${dot(r.state)}"></span>
+          <span class="sysadmin-row-text">
+            <span class="sysadmin-row-title">${esc(r.title)}</span>
+            <span class="sysadmin-row-sub">${esc(r.detail)}</span>
+          </span>
+          <code>${esc(r.command)}</code>
+        </div>`).join('')}
+    </div>`, 'Your steps for every group, from August. Each group’s own are on its Commissioner page.');
+}
+
 async function loadPlatformChecks(){
   checksAt = Date.now();
+  if(!ownerPrep) loadOwnerPrep();
   try {
     const src = await (await fetch('js/version.js', { cache: 'no-store' })).text();
     const m = src.match(/APP_VERSION = '([^']+)'/);
@@ -270,6 +321,7 @@ function platformItems(){
   else if(v === 'site') items.push({ dot: 'mute', title: 'The site is behind the worker', detail: `Site ${esc(siteVersion)} · worker ${esc(worker)}. Pages may still be deploying` });
   const down = espnDown();
   if(down.length) items.push({ dot: 'bad', title: `ESPN isn’t answering for ${down.map(l => l.label).join(', ')}`, detail: 'Those leagues’ scores and standings won’t load' });
+  (ownerRows() || []).filter(r => r.state === 'warn').forEach(r => items.push({ dot: 'warn', title: `Before the next draft: ${esc(r.title)}`, detail: `<code>${esc(r.command)}</code>` }));
   const interest = interestList();
   if(interest.length) items.push({ dot: 'warn', title: `${plural(interest.length, 'person', 'people')} interested in Boxscore`, detail: interest.map(e => esc(e.name)).join(', ') });
   return items.map(i => ({ ...i, group: null, rank: ATTENTION_RANK[i.dot] }));
@@ -465,6 +517,7 @@ function platformHtml(){
       </header>
       ${tiles}
       ${attentionHtml}
+      ${ownerPrepHtml()}
       ${interestHtml()}
       ${block('Groups', `
         <div class="sysadmin-card scroll">

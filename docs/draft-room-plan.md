@@ -224,6 +224,10 @@ password `ADMIN_PASSWORD`) and **Season Ticket** (`seasonticket`, `ADMIN_PASSWOR
 required: pass `--code <invite-code>` to the tools). Start it in **mid-August**; a reminder is scheduled. The
 step-by-step for the day itself is `docs/draft-day-runbook.md`.
 
+Both halves are also on screen with their state: the app owner's steps on the system admin page (Platform →
+**Before the next draft**, with each command), and each group's on its Commissioner page (**Group settings** →
+**Before the next draft**, with a button for each).
+
 **Mid-August: the app (once, covers both groups)**
 
 1. **Refresh ESPN's team lists:** `node tools/espn-teams.mjs`. New teams in a draft class get their name,
@@ -233,17 +237,18 @@ step-by-step for the day itself is `docs/draft-day-runbook.md`.
    relegated clubs, any WNBA expansion team, and a sanity pass on the order (it drives Available and "Top fit").
    A team added to the ranking that the newest class doesn't have needs an ESPN id and crest in
    `DRAFT_RANK_ESPN`, or it's a color tile in the room.
+   Then set `DRAFT_RANKS_CHECKED` in that file to today, even with no changes: the system admin card reads it.
 3. **PGA Tour, only if a group turns golfers on:** `node tools/golfer-pool.mjs`, then eyeball it (drop a retired
    or injured golfer by hand).
-4. **Ship it:** deploy the worker first if it changed (`cd worker && npx wrangler deploy`), then merge the site.
-
-**Late August: each group, by its commissioner**
-
-5. **Sports and picks per league** on the Commissioner page, and the drafter count on the system admin page's
-   Roster card, while the room is still in the lobby; both lock once the draft starts.
-6. **Draft time:** run the poll or set the time on the Commissioner page (setting it alerts everyone).
-7. **Season outlooks** for the team sheets: `node tools/outlooks.mjs facts --missing [--group seasonticket]`, write
+4. **Season outlooks** for the team sheets: `node tools/outlooks.mjs facts --missing [--group seasonticket]`, write
    them, then `node tools/outlooks.mjs apply <file.json> [--group seasonticket]` and commit.
+5. **Ship it:** deploy the worker first if it changed (`cd worker && npx wrangler deploy`), then merge the site.
+
+**Late August: each group, by its commissioner** (Commissioner page → Group settings)
+
+6. **Sports and picks per league** on the Commissioner page, and the drafter count on the system admin page's
+   Roster card, while the room is still in the lobby; both lock once the draft starts.
+7. **Draft time:** run the poll or set the time on the Commissioner page (setting it alerts everyone).
 8. **Rehearse twice**, the last one in the final week (`docs/draft-day-runbook.md` §1). Against the deployed
    worker add `--base`, `--origin`, `--password` and, for Season Ticket, `--group seasonticket --code <invite-code>`.
 
@@ -252,7 +257,8 @@ step-by-step for the day itself is `docs/draft-day-runbook.md`.
 9. **Lock every league that has finished its season** (Commissioner page → Scoring shows "Locked"). The new class
    goes live on every phone the moment the last pick is in, and only leagues locked before then keep showing the
    old class's final results.
-10. **Draft morning:** `node tools/rehearse-draft.mjs --preflight ...` against the deployed worker, for each group.
+10. **Draft morning:** **Check the draft room** on Group settings (the room answers, connects and takes the password).
+    The fuller `node tools/rehearse-draft.mjs --preflight ...` against the deployed worker does the same from a terminal.
 
 **After the draft:** nothing is required; everyone's new teams appear by themselves (`js/live-class.js`). Exporting
 (`node tools/export-draft.mjs [--group seasonticket --code <invite-code>]`) is optional and pins a reviewed copy.
