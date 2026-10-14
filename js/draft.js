@@ -751,7 +751,8 @@ function clockCardParts(d){
   if(landed && s.phase !== 'draft') return [landedHeroHtml(d, landed), ''];
   if(s.phase === 'lobby') return lobbyHeroParts(d, phone, wide);
   if(s.phase === 'done'){
-    const dl = `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>`
+    // The .xlsx backup is the commissioner's (it's also in their bar).
+    const dl = (draftStore.commissioner ? `<button class="dr-btn dr-download-btn" onclick="draftDownload()">${ICON.download}Download board</button>` : '')
       + enterSeasonBtn();
     return [phone
       ? `<div class="dr-clock-card done"><div><div class="dr-eyebrow win">DRAFT COMPLETE</div><div class="dr-done-title">${d.total} picks. Rosters are set.</div></div>${dl}</div>`

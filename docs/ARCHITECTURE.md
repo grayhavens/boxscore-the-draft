@@ -448,8 +448,8 @@ phone's own time zone.
 The card goes away once the draft goes live (the banner takes over) or is done,
 and a pre-draft group's card goes away when its draft is exported into a real class. **Deploy the worker first.**
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
-written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft
-is done; the commissioner bar has it any time as a mid-draft backup. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
+written by the dependency-free `js/xlsx.js` in the browser — no worker call. Only the commissioner gets it: in
+their bar any time (a mid-draft backup) and on the Draft Complete card once it's done. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
 into the room (`js/draft-live.js`: top of `.board` and under the Chat header). Off the draft view it
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.

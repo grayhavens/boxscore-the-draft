@@ -103,8 +103,9 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
 
 1. Header pill says "Draft complete". **Nothing else to do: everyone's new teams show up on their own.**
    Each device notices the finished room within a minute or so (right away for anyone in the room), builds
-   the new class from the board and reloads once (`js/live-class.js`). Everyone sees **Download board** on
-   the Draft Complete card (an .xlsx with Picks, Board and Rosters sheets).
+   the new class from the board (`js/live-class.js`) and offers **Enter Boxscore** to step into it
+   (`js/season-entry.js`; in the draft room, the card's *Enter the <year> season* button). The commissioner also gets **Download board**
+   on the Draft Complete card (an .xlsx with Picks, Board and Rosters sheets); nobody else sees it.
 2. Glance at the teams no earlier class had (crest, name, colors): they're filled in from ESPN, and a team
    ESPN can't place (a typo'd write-in) gets a plain tile with the name as drafted. A pick fixed afterwards
    with *Change this pick* reaches everyone the same way.
