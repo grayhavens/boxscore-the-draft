@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from '../tools/draft-export-lib.mjs';
+import { liveClassesToBuild, liveClassChain } from '../js/draft-class.js';
+import { finishedAt } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
 const DRAFTERS = ['a', 'b'];
@@ -309,4 +311,67 @@ test('the invite code rides on the fetched URL only, never the label', () => {
   assert.equal(withAccessCode('saved-result.json', 'maple-river-42'), 'saved-result.json');
   assert.equal(withoutAccessCode(base + '&gc=maple-river-42'), base);
   assert.equal(withoutAccessCode('saved-result.json'), 'saved-result.json');
+});
+
+test('the live class falls back to the pool record for a team ESPN cannot place', async () => {
+  const r = goodResult();
+  r.picks[3] = pick(3, 'a', T('cfb_wi_kent_sate', 'cfb', 'Kent Sate', { custom: true, espnTeamId: '777' }));
+  const built = await build(r, { fallbackToPool: true });
+  assert.equal(built.ok, true, built.problems.join('; '));
+  const entry = built.meta.a_kentsate;
+  assert.equal(entry.name, 'Kent Sate');
+  assert.equal(entry.draftTeamId, 'a');
+  assert.equal(entry.espnTeamId, '777');
+  assert.equal(entry.accent, '#112233');
+  assert.ok(built.leagues.find(l => l.key === 'cfb').teams.includes('a_kentsate'));
+});
+
+test('the live class keys match the export, so points carry over', async () => {
+  const exported = await build(goodResult());
+  const live = await build(goodResult(), { fallbackToPool: true });
+  assert.deepEqual(Object.keys(live.meta), Object.keys(exported.meta));
+});
+
+test('an ESPN outage is still unresolved with the pool fallback, so the app retries', async () => {
+  const built = await build(goodResult(), { espn: async () => { throw new Error('boom'); }, fallbackToPool: true });
+  assert.deepEqual(built.espnFailed.sort(), ['cfb', 'mcbb', 'nfl']);
+  assert.ok(built.unresolved.length >= 1);
+});
+
+test('finishedAt is the last pick time once the draft is done', () => {
+  const picks = { 0: { at: 100 }, 1: { at: 300 }, 2: { at: 200 } };
+  assert.equal(finishedAt({ phase: 'done', picks }), 300);
+  assert.equal(finishedAt({ phase: 'draft', picks }), null);
+  assert.equal(finishedAt({ phase: 'done', picks: {} }), null);
+});
+
+test('liveClassesToBuild: finished boards newer than every committed class, oldest first', () => {
+  const oct = y => Date.UTC(y, 9, 5);
+  const done = { phase: 'done', finishedAt: oct(2027), seq: 40, boards: [2027] };
+  const years = list => list.map(t => t.year);
+  assert.deepEqual(liveClassesToBuild(done, 2026, []), [{ year: 2027, current: true }]);
+  assert.deepEqual(years(liveClassesToBuild(done, null, [])), [2027]);                      // a group's first class
+  assert.deepEqual(liveClassesToBuild(done, 2027, []), []);                                 // already committed
+  assert.deepEqual(liveClassesToBuild({ ...done, phase: 'draft', boards: [] }, 2026, []), []);
+  assert.deepEqual(liveClassesToBuild({ phase: 'done', finishedAt: null, seq: 3 }, 2026, []), []);   // an old worker
+  assert.deepEqual(liveClassesToBuild(done, 2026, [{ year: 2027, seq: 40 }]), []);           // built already
+  assert.deepEqual(years(liveClassesToBuild(done, 2026, [{ year: 2027, seq: 39 }])), [2027]); // a pick was edited since
+  // Reset for 2028's draft: 2027 is only archived now, built once on a device that lacks it.
+  const lobby = { phase: 'lobby', finishedAt: null, seq: 2, boards: [2026, 2027] };
+  assert.deepEqual(liveClassesToBuild(lobby, 2026, []), [{ year: 2027, current: false }]);
+  assert.deepEqual(liveClassesToBuild(lobby, 2026, [{ year: 2027, seq: 99 }]), []);
+  // 2028 finished on a phone that never saw 2027: both, oldest first.
+  const next = { phase: 'done', finishedAt: oct(2028), seq: 220, boards: [2027, 2028] };
+  assert.deepEqual(liveClassesToBuild(next, 2026, []), [{ year: 2027, current: false }, { year: 2028, current: true }]);
+});
+
+test('liveClassChain: each live class copies scoring from the one before it', () => {
+  const base = { LEAGUE_SCORING: { nfl: { win: 1 } } };
+  const rec = (year, leagues) => ({ year, seq: 1, meta: {}, leagues: leagues.map(key => ({ key, teams: [] })), priorSeasonLeagues: [] });
+  const chain = liveClassChain([rec(2028, ['nfl', 'pga']), rec(2027, ['nfl']), rec(2026, ['nfl'])], base, 2026, { golf: 1 });
+  assert.deepEqual(chain.map(c => c.id), ['2027', '2028']);
+  assert.equal(chain[0].label, '2027 Draft');
+  assert.ok(chain.every(c => c.live));
+  assert.deepEqual(chain[0].LEAGUE_SCORING, { nfl: { win: 1 } });
+  assert.deepEqual(chain[1].LEAGUE_SCORING, { nfl: { win: 1 }, pga: { golf: 1 } });
 });

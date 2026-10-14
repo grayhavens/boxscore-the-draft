@@ -60,21 +60,24 @@ to the lobby; or just use a new room name.
 ## 2. Draft-day setup (about 15 minutes before)
 
 1. Run the preflight above.
-2. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the
+2. **Lock every league that has finished its season** (Commissioner page → Scoring shows "Locked"). The new
+   class goes live for everyone the moment the last pick is in, and only leagues locked before then keep
+   showing the old class's final results.
+3. Open `?view=draft` (the real room, "main"). Sign in as commissioner first: Settings → Commissioner (the
    draft room has no sign-in button of its own), then "Open draft room". The Draft section there shows
    whether the pool is loaded and the lottery has run.
    Before the start the room is the full draft room (board, Available, queues) with a countdown in the
    hero; every setup button below is in the commissioner bar across the top.
-3. **Load team pool.** It should say 258 teams. (Start draft also loads it if it's missing or short, but load and
+4. **Load team pool.** It should say 258 teams. (Start draft also loads it if it's missing or short, but load and
    check the count here first.) If EPL promotion/relegation or WNBA expansion changed the
    field, `js/draft-ranks.js` must already reflect it (see the plan's *Before draft day*).
-4. Set the clock length (90s default). When someone's clock runs out the room picks for them (their queue,
+5. Set the clock length (90s default). When someone's clock runs out the room picks for them (their queue,
    else the best team that fits) and turns on their auto-draft until they turn it off. Anyone who can't make it: switch on their auto-draft in **Clock &
    auto-draft**, ideally after they've starred a queue.
-5. **Run lottery.** Everyone in the room sees the order fill the board's column heads from pick 10 up to pick 1. Re-run
+6. **Run lottery.** Everyone in the room sees the order fill the board's column heads from pick 10 up to pick 1. Re-run
    is available until you start. To use an order you already have instead, tap **Set order**, move each
    name with the arrows (pick 1 at the top) and **Save order**; this also works after a lottery.
-6. **Start draft** when everyone is in. The header pill reads "Live · Round 1 · Pick 1 of 210".
+7. **Start draft** when everyone is in. The header pill reads "Live · Round 1 · Pick 1 of 210".
 
 ## 3. Running it
 
@@ -98,20 +101,25 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
 
 ## 4. After the draft
 
-1. Header pill says "Draft complete". Everyone now sees **Download board** on the Draft Complete card
-   (an .xlsx with Picks, Board and Rosters sheets). Open `https://<worker>/draft/result?room=main` and confirm 210 picks.
-2. Dry-run the export and read the report:
+1. Header pill says "Draft complete". **Nothing else to do: everyone's new teams show up on their own.**
+   Each device notices the finished room within a minute or so (right away for anyone in the room), builds
+   the new class from the board (`js/live-class.js`) and offers **Enter Boxscore** to step into it
+   (`js/season-entry.js`; in the draft room, the card's *Enter the <year> season* button). The commissioner also gets **Download board**
+   on the Draft Complete card (an .xlsx with Picks, Board and Rosters sheets); nobody else sees it.
+2. Glance at the teams no earlier class had (crest, name, colors): they're filled in from ESPN, and a team
+   ESPN can't place (a typo'd write-in) gets a plain tile with the name as drafted. A pick fixed afterwards
+   with *Change this pick* reaches everyone the same way.
+3. Optional: pin a reviewed copy as a committed file. It replaces the live class (same team keys, so points
+   carry over) and is what fixes a team's name or colors for good:
    ```bash
    node tools/export-draft.mjs --dry-run
    ```
    It refuses to write if any roster is off its caps, a team is drafted twice, or a team can't be placed
    on ESPN (it suggests near matches; `--overrides file.json` fixes one: `{"cfb:Kent Sate": "2306"}`).
-   Teams it generated from ESPN (not in last year's class) are listed for a glance.
-3. Write it: `node tools/export-draft.mjs`. This creates `js/seasons/<year>.js` and registers it in
+   Then `node tools/export-draft.mjs` creates `js/seasons/<year>.js` and registers it in
    `js/seasons/the-draft.js` and `sw.js`. For another group add `--group seasonticket`: it writes
    `js/seasons/seasonticket-<year>.js` and registers it in `js/seasons/seasonticket.js`, `js/seasons/index.js` and `sw.js`. If the group has an invite code (an HTTP 401 says so), add `--code <invite-code>` too; the code is only sent with the request, never written into the file. Review `git diff`; entries marked `// generated from ESPN` deserve a
-   look (name, colors, crest).
-4. Commit, open the PR, merge. Cloudflare Pages deploys the site.
+   look (name, colors, crest). Commit, open the PR, merge.
 
 ### What flips when the new class ships
 
@@ -122,7 +130,8 @@ rail, remembered per device. Handy on a laptop while watching the whole board.
 - A device's choice is remembered only while that class is still the newest one it was made under, so when
   the next class ships everyone lands on it and can switch back if they want.
 - The old class's finished leagues render from their saved end-of-season snapshot (the season lock), but
-  only for leagues that were **locked while that class was still the newest**. Check on the Commissioner page's Scoring
+  only for leagues that were **locked while that class was still the newest**. The new class goes live the
+  moment the last pick is in, so **lock every finished league before the draft ends**. Check on the Commissioner page's Scoring
   page that every league that has finished its season shows "Locked" before the new class goes live;
   anything not yet locked will start showing the next season's numbers for the old class.
 - Points, facts, adjustments, favorites and locks are stored per class, so nothing from the old class is

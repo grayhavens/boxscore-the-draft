@@ -12,6 +12,9 @@
    its state is fresher, so that wins — and it seeds the banner the
    moment you leave the room.
 
+   The same answers also tell js/live-class.js when the live room has
+   finished, so the group's new teams appear without an export.
+
    Two slots: the top of .board (every in-page view, team pages
    included) and under the Chat header, since Chat is a fixed-position
    screen outside .board.
@@ -21,9 +24,10 @@ import { chatWorkerBase } from './api.js';
 import { withGroupQuery } from './group.js';
 import { currentProfileId } from './identity.js';
 import { onTheClock } from './draft-engine.js';
-import { totalPicks } from './draft-rules.js';
+import { totalPicks, finishedAt } from './draft-rules.js';
 import { draftStore, subscribeDraft } from './draft-client.js';
 import { fetchLiveRoomStatus } from './draft-schedule.js';
+import { checkLiveClass } from './live-class.js';
 import { escapeHtml as esc } from './utils.js';
 
 const POLL_LIVE_MS = 20000;
@@ -49,7 +53,9 @@ function statusFromStore(){
     slot: clock ? clock.slot : null,
     owner: clock ? clock.owner : null,
     drafters: s.config.drafters.length,
-    total: totalPicks(s.config)
+    total: totalPicks(s.config),
+    finishedAt: finishedAt(s),
+    seq: s.seq
   };
 }
 
@@ -95,8 +101,10 @@ async function poll(){
     // A worker without this route (404) means there's no live draft to
     // show; offline keeps the last answer for the next tick.
     let answer = { ok: false, status: 0, data: null };
-    if(draftStore.room === LIVE_ROOM) answer = await fetchLiveRoomStatus(POLL_GAP_MS);
-    else {
+    if(draftStore.room === LIVE_ROOM){
+      answer = await fetchLiveRoomStatus(POLL_GAP_MS);
+      if(answer.ok) checkLiveClass(answer.data);
+    } else {
       try {
         const res = await fetch(withGroupQuery(`${chatWorkerBase()}/draft/status?room=${encodeURIComponent(draftStore.room)}`), { cache: 'no-store' });
         answer = { ok: res.ok, status: res.status, data: res.ok ? await res.json() : null };
@@ -124,7 +132,10 @@ export function initDraftLive(){
 
   subscribeDraft(() => {
     const fromStore = statusFromStore();
-    if(fromStore && (draftStore.status === 'open' || draftStore.status === 'idle')) status = fromStore;
+    if(fromStore && (draftStore.status === 'open' || draftStore.status === 'idle')){
+      status = fromStore;
+      if(draftStore.room === LIVE_ROOM) checkLiveClass(fromStore);
+    }
     // No poll here on leaving the room: the socket's state is fresher than an
     // edge-cached /draft/status, and the poll loop never stopped.
     paint();

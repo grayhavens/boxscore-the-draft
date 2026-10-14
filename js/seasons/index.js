@@ -10,12 +10,23 @@
    (js/seasons/pre-draft.js). The exports below are the ACTIVE group's
    classes, so every importer keeps reading SEASONS / LATEST_SEASON_ID
    without knowing which group it is.
+
+   A class can also be live: built on this device from the group's
+   finished draft board the moment the draft ends (js/live-class.js,
+   stored by js/live-class-store.js), so nobody has to export and deploy
+   before the teams show. Live classes count only while they're newer
+   than every committed file; tools/export-draft.mjs writes
+   that file from the same builder, with the same keys, so exporting it
+   later only pins a reviewed copy.
    ============================================================ */
 import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
 import { groupCaps, groupShown } from '../groups.js';
 import { THE_DRAFT_SEASONS, THE_DRAFT_LATEST } from './the-draft.js';
 import { preDraftClass, withScoresOnly } from './pre-draft.js';
 import { GROUP_SEASONS as SEASONTICKET_SEASONS } from './seasonticket.js';
+import { PGA_SCORING } from './pga.js';
+import { readLiveClasses } from '../live-class-store.js';
+import { liveClassChain } from '../draft-class.js';
 
 // Every other group's classes, by group id. A group with none yet gets
 // its pre-draft class (js/seasons/pre-draft.js).
@@ -23,7 +34,26 @@ const OTHER_GROUP_SEASONS = {
   seasonticket: SEASONTICKET_SEASONS
 };
 
-const DRAFTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
+const COMMITTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
+const COMMITTED_IDS = COMMITTED ? Object.keys(COMMITTED) : [];
+
+// The newest committed class's year, or null for a group with none.
+// A finished draft for this year or earlier is already in a file.
+export const LATEST_COMMITTED_YEAR = COMMITTED_IDS.length ? Number(COMMITTED_IDS[COMMITTED_IDS.length - 1]) : null;
+
+// What the first live class is built against (js/live-class.js), the
+// same as the export: the group's newest committed class, or The Draft's
+// newest for a group's first draft. Its entries are the templates and
+// its scoring rules are copied; each later live class builds on the one
+// before it.
+export const LIVE_CLASS_BASE = COMMITTED ? COMMITTED[COMMITTED_IDS[COMMITTED_IDS.length - 1]] : THE_DRAFT_LATEST;
+
+// This device's live classes newer than every committed one, by id.
+const LIVE = {};
+liveClassChain(readLiveClasses(ACTIVE_GROUP_ID), LIVE_CLASS_BASE, LATEST_COMMITTED_YEAR, PGA_SCORING)
+  .forEach(cls => { LIVE[cls.id] = cls; });
+
+const DRAFTED = Object.keys(LIVE).length ? { ...(COMMITTED || {}), ...LIVE } : COMMITTED;
 
 // The newest drafted class also shows the sports the group follows
 // without drafting them (js/sports.js, set on the Commissioner page).

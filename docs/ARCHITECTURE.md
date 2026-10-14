@@ -364,7 +364,24 @@ in KLIPY's Partner Panel. A GIF message stores `{slug, url, w, h}`; the worker (
 `worker/chat-room.js`) only accepts https URLs on KLIPY's `static*.klipy.com` hosts.
 
 **Draft room** (`js/draft.js`, `js/draft-client.js`, `js/draft-pool.js`, `worker/draft-room.js`): a live
-snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`. The rules and state
+snake draft for the next season, reached from Settings or `?view=draft[&room=<name>]`.
+**New teams show the moment the draft ends** (`js/live-class.js`): when the `main` room reports `done` (the
+`/draft/status` poll in `js/draft-live.js`, or the room's own socket), each device fetches `/draft/result`, builds the class
+with `js/draft-class.js` (the same builder `tools/export-draft.mjs` uses, so keys match) and stores it in localStorage
+(`js/live-class-store.js`); `js/seasons/index.js` boots with it as the newest class. The move into it is a full-screen
+"building your season" moment (`js/season-entry.js`, `seasonEntryHtml`): your teams' badges drop into wells as a gold bar
+follows the real build (at least 2.6s with motion on), then **Enter Boxscore** reloads onto your Home with the launch
+splash replayed, or **Not now** closes it (the next launch opens on the class anyway). It opens by itself anywhere except
+the draft room, where the Draft Complete card's "Enter the <year> season" button opens it. The class's
+year is the year of its last pick (`finishedAt` on status and result); a room whose year already has a committed class
+(or a later one) is ignored, and a change in `seq` (a pick edited afterwards) rebuilds it. The room also archives every
+finished board by year in its own storage (`archiveBoard`, listed as `boards` on the status, read with
+`/draft/result?year=`), so after it's reset for the next draft a new device still builds last year's class; devices keep
+one class per year (`liveDraftClasses`), each built on the one before it (`liveClassChain`). Teams no earlier class had
+come from ESPN's team lists through the worker's `GET /espn/teams?league=` (ESPN's `/teams` has no CORS; cached a day);
+a team ESPN can't place gets a plain entry from its pool record, and an ESPN outage just retries on a later poll.
+Exporting is now optional: it pins a reviewed copy as a committed file, which then takes over. **Deploy the worker first**
+(an old one sends no `finishedAt`, so nothing is built). The rules and state
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
@@ -431,8 +448,8 @@ phone's own time zone.
 The card goes away once the draft goes live (the banner takes over) or is done,
 and a pre-draft group's card goes away when its draft is exported into a real class. **Deploy the worker first.**
 **Download board** exports the board as an .xlsx (Picks / Board / Rosters sheets, `js/draft-sheets.js`),
-written by the dependency-free `js/xlsx.js` in the browser — no worker call. Everyone gets it once the draft
-is done; the commissioner bar has it any time as a mid-draft backup. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
+written by the dependency-free `js/xlsx.js` in the browser — no worker call. Only the commissioner gets it: in
+their bar any time (a mid-draft backup) and on the Draft Complete card once it's done. While a draft is live (phase `draft`), every other page shows a tappable "Draft is live" banner back
 into the room (`js/draft-live.js`: top of `.board` and under the Chat header). Off the draft view it
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.

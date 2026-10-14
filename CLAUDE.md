@@ -94,6 +94,8 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
 - nflverse depth chart relies on "newest snapshot first" ordering; if it flips, it silently returns old data.
 - Launch splash must stay the first thing in `<body>`.
 - Draft day can't be redone: rehearse per `docs/draft-day-runbook.md`.
+- A finished `main` room goes live as the newest class on every device by itself (`js/live-class.js`, needs the
+  worker's `finishedAt`); the export only pins a reviewed copy. Lock finished leagues before a draft ends.
 
 ## Design system (summary; full detail in `docs/DESIGN_TOKENS.md`)
 
