@@ -36,7 +36,8 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
   morning). Not run in this audit.
 - **Tools:** `node tools/export-draft.mjs --dry-run [--group <id>] [--code <invite-code>]` (finished draft → `js/seasons/<year>.js`, or `<group>-<year>.js`; refuses an unfinished
   draft), `node tools/outlooks.mjs facts --league nfl` / `apply <file.json>`, `node tools/golfer-pool.mjs`,
-  `node tools/vapid-keys.mjs`.
+  `node tools/vapid-keys.mjs`, `node tools/espn-teams.mjs` (saves ESPN's team lists to `js/seasons/espn-teams.js`;
+  run before each season's drafts).
 - **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check.
 - **Deploy:** site = push to `main` (Pages project `boxscorethedraft`, no build command; every branch/PR gets a
   preview at `<branch>.boxscorethedraft.pages.dev`). Worker = `cd worker && npx wrangler deploy`.

@@ -378,8 +378,10 @@ year is the year of its last pick (`finishedAt` on status and result); a room wh
 finished board by year in its own storage (`archiveBoard`, listed as `boards` on the status, read with
 `/draft/result?year=`), so after it's reset for the next draft a new device still builds last year's class; devices keep
 one class per year (`liveDraftClasses`), each built on the one before it (`liveClassChain`). Teams no earlier class had
-come from ESPN's team lists through the worker's `GET /espn/teams?league=` (ESPN's `/teams` has no CORS; cached a day);
-a team ESPN can't place gets a plain entry from its pool record, and an ESPN outage just retries on a later poll.
+come from ESPN's team lists as saved in the app (`js/seasons/espn-teams.js`, written by `node tools/espn-teams.mjs` before
+each season, loaded only during a build): ESPN's `/teams` can't be read from a browser (no CORS) or from the worker (ESPN
+answers Cloudflare 403). The export reads the same copy, so keys match. A team the lists can't place gets a plain entry
+from its pool record.
 Exporting is now optional: it pins a reviewed copy as a committed file, which then takes over. **Deploy the worker first**
 (an old one sends no `finishedAt`, so nothing is built). The rules and state
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,

@@ -36,9 +36,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { LEGACY_GROUP_ID, GROUPS, isKnownGroup, drafterIdsFor, groupCaps } from '../js/groups.js';
-import { buildSeason, fetchEspnTeams, renderSeasonModule, updateRegistry, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from './draft-export-lib.mjs';
+import { buildSeason, fetchEspnTeams, espnTeamsFromSnapshot, renderSeasonModule, updateRegistry, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from './draft-export-lib.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { ESPN_TEAMS } = await import(pathToFileURL(path.join(root, 'js/seasons/espn-teams.js')).href);
 const WORKER = 'https://team-dashboard-rundown-proxy.boxscore.workers.dev';
 
 function parseArgs(argv){
@@ -95,7 +96,11 @@ const overrides = args.overrides ? JSON.parse(fs.readFileSync(args.overrides, 'u
 const built = await buildSeason({
   result, prev, year,
   drafterIds: legacy ? DRAFT_TEAMS.map(d => d.id) : drafterIdsFor(group),
-  espn: args.flags.has('offline') ? async () => { throw new Error('offline'); } : league => fetchEspnTeams(league),
+  // The saved lists the app builds from (js/seasons/espn-teams.js), so the
+  // export's team keys match the live class's; ESPN itself only for a
+  // league the saved copy lacks.
+  espn: args.flags.has('offline') ? async () => { throw new Error('offline'); }
+    : async league => espnTeamsFromSnapshot(ESPN_TEAMS, league) || fetchEspnTeams(league),
   overrides,
   allowPartial: args.flags.has('allow-partial'),
   onlyDrafted: !legacy && !!groupCaps(group)

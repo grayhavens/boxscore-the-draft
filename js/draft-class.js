@@ -50,7 +50,7 @@ export const ESPN_SPORT_PATH = {
 // Tab labels for a league no earlier class had.
 const NEW_LEAGUE_LABELS = { pga: 'PGA Tour' };
 
-export const ESPN_TEAMS_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports';
+const ESPN_TEAMS_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports';
 
 export const normalize = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
   .replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
@@ -63,9 +63,9 @@ export function slugify(name){
 // ---- ESPN ----
 
 // One league's whole team list, normalized to the few fields we use.
-// `fetchImpl` is injectable: tests stub it, and the app sends it through
-// the worker's /espn/teams (the same JSON), since ESPN's /teams sends no
-// CORS headers.
+// `fetchImpl` is injectable for tests. Node only in practice: ESPN's
+// /teams can't be read from a browser (no CORS) or the worker (403), so
+// the app reads the saved copy (espnTeamsFromSnapshot).
 export async function fetchEspnTeams(league, fetchImpl = fetch){
   const path = ESPN_SPORT_PATH[league];
   if(!path) throw new Error(`no ESPN path for league ${league}`);
@@ -84,6 +84,27 @@ export async function fetchEspnTeams(league, fetchImpl = fetch){
     color: /^[0-9a-f]{6}$/i.test(t.color || '') ? t.color.toLowerCase() : null,
     logo: (t.logos && t.logos[0] && t.logos[0].href) || null
   }));
+}
+
+// ---- The saved copy (js/seasons/espn-teams.js, tools/espn-teams.mjs) ----
+
+// Most crests live here; the saved copy keeps only the rest of the path.
+export const ESPN_LOGO_PREFIX = 'https://a.espncdn.com/i/teamlogos/';
+// One saved row: [id, name, location, displayName, shortDisplayName, abbr, color, logo].
+export const ESPN_ROW_FIELDS = ['id', 'name', 'location', 'displayName', 'shortDisplayName', 'abbr', 'color', 'logo'];
+
+// One league's teams from the saved copy, in fetchEspnTeams's shape, or
+// null when the copy doesn't have that league.
+export function espnTeamsFromSnapshot(snapshot, league){
+  const rows = snapshot && snapshot[league];
+  if(!Array.isArray(rows)) return null;
+  return rows.map(row => {
+    const t = {};
+    ESPN_ROW_FIELDS.forEach((field, i) => { t[field] = row[i] ?? (field === 'color' || field === 'logo' ? null : ''); });
+    t.id = String(t.id);
+    if(t.logo && !/^https:\/\//.test(t.logo)) t.logo = ESPN_LOGO_PREFIX + t.logo;
+    return t;
+  });
 }
 
 // Finds one team by the name the draft used. Returns { team } on a single

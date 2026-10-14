@@ -6,7 +6,9 @@
    unit-tested in tests/draft-export.test.mjs. The building functions are
    re-exported here so the tool and the tests keep one import.
    ============================================================ */
-export { ESPN_SPORT_PATH, normalize, slugify, fetchEspnTeams, findEspnTeam, entryFromEspn, entryFromGolfer, entryFromPool, buildSeason, seasonLabel } from '../js/draft-class.js';
+export { ESPN_SPORT_PATH, normalize, slugify, fetchEspnTeams, findEspnTeam, entryFromEspn, entryFromGolfer, entryFromPool, buildSeason, seasonLabel, espnTeamsFromSnapshot } from '../js/draft-class.js';
+import { ESPN_LOGO_PREFIX, ESPN_ROW_FIELDS } from '../js/draft-class.js';
+export const LOGO_PREFIX = ESPN_LOGO_PREFIX;
 
 // ---- Serialization (matches the hand-written style of js/data.js) ----
 
@@ -139,4 +141,32 @@ export function withoutAccessCode(source){
   const url = new URL(source);
   url.searchParams.delete('gc');
   return url.toString();
+}
+
+// ---- The saved ESPN team lists (tools/espn-teams.mjs) ----
+
+// js/seasons/espn-teams.js: one compact row per team (ESPN_ROW_FIELDS),
+// crests shortened to the part after ESPN_LOGO_PREFIX.
+export function renderEspnTeamsModule({ lists, fetchedOn }){
+  const row = t => JSON.stringify(ESPN_ROW_FIELDS.map(f => {
+    if(f === 'logo') return t.logo && t.logo.startsWith(ESPN_LOGO_PREFIX) ? t.logo.slice(ESPN_LOGO_PREFIX.length) : (t.logo || null);
+    return t[f] ?? null;
+  }));
+  const leagues = Object.keys(lists).map(league => `  ${league}: [\n${lists[league].map(t => '    ' + row(t)).join(',\n')}\n  ]`).join(',\n');
+  return `/* ============================================================
+   ESPN's team lists, saved by tools/espn-teams.mjs on ${fetchedOn}. Don't
+   edit by hand: run the tool again before each season's drafts.
+
+   What a draft class is built from for any team no earlier class had
+   (js/draft-class.js: the app's live class and tools/export-draft.mjs
+   both read this, so their team keys agree). Loaded only while a class
+   is being built. Rows: [${ESPN_ROW_FIELDS.join(', ')}]; a crest is
+   the part after ${ESPN_LOGO_PREFIX} when it starts with that.
+   ============================================================ */
+export const ESPN_TEAMS_FETCHED = '${fetchedOn}';
+
+export const ESPN_TEAMS = {
+${leagues}
+};
+`;
 }

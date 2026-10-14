@@ -6,7 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildSeason, findEspnTeam, renderSeasonModule, updateRegistry, fetchEspnTeams, entryFromEspn, seasonFileFor, renderGroupRegistry, updateIndexRegistry, addShellFiles, withAccessCode, withoutAccessCode } from '../tools/draft-export-lib.mjs';
-import { liveClassesToBuild, liveClassChain } from '../js/draft-class.js';
+import { liveClassesToBuild, liveClassChain, espnTeamsFromSnapshot } from '../js/draft-class.js';
+import { renderEspnTeamsModule } from '../tools/draft-export-lib.mjs';
+import { ESPN_TEAMS } from '../js/seasons/espn-teams.js';
 import { finishedAt } from '../js/draft-rules.js';
 import { buildDraftPool } from '../js/draft-pool.js';
 
@@ -374,4 +376,27 @@ test('liveClassChain: each live class copies scoring from the one before it', ()
   assert.ok(chain.every(c => c.live));
   assert.deepEqual(chain[0].LEAGUE_SCORING, { nfl: { win: 1 } });
   assert.deepEqual(chain[1].LEAGUE_SCORING, { nfl: { win: 1 }, pga: { golf: 1 } });
+});
+
+test('the saved ESPN lists round-trip to fetchEspnTeams\'s shape', async () => {
+  const lists = { cfb: ESPN.cfb, nfl: ESPN.nfl };
+  const src = renderEspnTeamsModule({ lists, fetchedOn: '2026-10-13' });
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'espn-')), 'espn-teams.mjs');
+  fs.writeFileSync(file, src);
+  const mod = await import(pathToFileURL(file).href);
+  assert.equal(mod.ESPN_TEAMS_FETCHED, '2026-10-13');
+  assert.deepEqual(espnTeamsFromSnapshot(mod.ESPN_TEAMS, 'cfb'), ESPN.cfb);
+  assert.deepEqual(espnTeamsFromSnapshot(mod.ESPN_TEAMS, 'nfl'), ESPN.nfl);
+  assert.equal(espnTeamsFromSnapshot(mod.ESPN_TEAMS, 'nba'), null);
+  // Crests under ESPN's teamlogos path are stored short.
+  const withLogo = renderEspnTeamsModule({ lists: { nfl: [{ ...ESPN.nfl[0], logo: 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png' }] }, fetchedOn: 'x' });
+  assert.match(withLogo, /"nfl\/500\/ari\.png"/);
+});
+
+test('the committed ESPN lists cover every league a draft can place', () => {
+  for(const league of ['epl', 'nfl', 'nba', 'nhl', 'mlb', 'wnba', 'cfb', 'mcbb']){
+    const list = espnTeamsFromSnapshot(ESPN_TEAMS, league);
+    assert.ok(list && list.length >= 15, `${league}: ${list ? list.length : 'missing'}`);
+    assert.ok(list.every(t => t.id && t.displayName), league);
+  }
 });

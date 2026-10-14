@@ -18,6 +18,7 @@
      --origin <url>     Origin header to send; must be one the worker allows (default http://localhost:8934)
      --password <pw>    the group's commissioner password: ADMIN_PASSWORD, or ADMIN_PASSWORD_<GROUP> for another group (default: $ADMIN_PASSWORD, or "testpw" against localhost)
      --group <id>       rehearse another group (e.g. seasonticket): its drafters, sports, caps and pool (default: The Draft)
+     --code <code>      the group's invite code, if it has one (its rooms answer 401 without it)
      --room <name>      throwaway room to use (default rehearsal-<timestamp>); never use "main"
      --chaos 0|1|2      how much to go wrong (default 1)
      --human <drafter>  leave that drafter's picks to a human at the printed URL
@@ -58,7 +59,9 @@ const HUMAN = opt.human || null;
 const GROUP = opt.group || LEGACY_GROUP_ID;
 if(!isKnownGroup(GROUP)){ console.error(`Unknown group "${GROUP}" (see js/groups.js).`); process.exit(2); }
 // The Draft sends no group param (legacy room names); every other group names itself.
-const GROUP_QS = GROUP === LEGACY_GROUP_ID ? '' : `&group=${GROUP}`;
+// A group with an invite code (worker/access-code.js) needs it on every
+// call, sockets included: --code <code>.
+const GROUP_QS = (GROUP === LEGACY_GROUP_ID ? '' : `&group=${GROUP}`) + (opt.code ? `&gc=${encodeURIComponent(opt.code)}` : '');
 const DELAY = Number(opt.delay ?? 10);
 if(!PASSWORD){ console.error('An admin password is required for a non-local worker (--password or $ADMIN_PASSWORD).'); process.exit(2); }
 if(ROOM === 'main'){ console.error('Refusing to rehearse in the real room "main".'); process.exit(2); }
