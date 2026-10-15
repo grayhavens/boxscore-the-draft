@@ -78,6 +78,13 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
   (`js/season-entry.js`). Composed from existing parts: Welcome-card eyebrow, page title role, 44px `.badge`s in
   `--fill-soft` wells, a split-bar-shaped track filled with `--accent-fill`, and `.modal-cta` buttons.
 - Blur only on the tab bar and sheet overlay.
+- Tip (`tipHtml`): `--tip-bg` (→ `--sheet`) and `--tip-ink` (→ `--text`), aliases so they follow the theme; floats, so it
+  takes `--shadow-tip`.
+
+## Z-order
+
+- `--z-tip` 250: the one-time tip, over the tab bar (200) and under sheets and modals (300 and up). The first z-order
+  token; other layers are still literals in `css/style.css` (tab bar 200, sheets 300, toasts 400, draft modals 500).
 
 ## Motion
 
@@ -118,6 +125,7 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 | `mentionHtml`, `mentionListHtml` | chat mentions |
 | `draftClockHtml` / `setDraftClock`, `clockHeroHtml`, `pickLandingHtml`, `snakeRailHtml`, `clockMiniHtml` | draft room |
 | `updateCardHtml`, `updateStatsHtml`, `updateStackHtml`, `updatesPillHtml` | Since last time |
+| `tipHtml({text, onclose})` | one-time gesture hint pill (`.tip`), shown by `js/tips.js` |
 
 Not yet in the design system (per `docs/design-system-plan.md`): folded PathToPoints. Screens not covered by the spec:
 draft room, team page, race chart (per the plan). Components in the spec without a `ui.js` helper yet (e.g. Banner,

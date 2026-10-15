@@ -367,6 +367,16 @@
   }
 }
 
+/* Tip (tipHtml in js/ui.js, js/tips.js): the one-time gesture hint, a
+   floating pill. Aliases, so they follow the theme with no light values of
+   their own. --z-tip is the first z-order token: over the tab bar (200),
+   under sheets and modals (300 and up). */
+:root{
+  --tip-bg: var(--sheet);
+  --tip-ink: var(--text);
+  --z-tip: 250;
+}
+
 /* A crest in a badge (.badge img): a drop shadow so a thin, dark crest
    doesn't wash into the dark page. On white it only needs a hint; the dark
    theme's heavy shadow reads as a gray smudge there. */

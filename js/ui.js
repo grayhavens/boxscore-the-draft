@@ -76,6 +76,12 @@ export function settingsRowHtml({ title, sub = '', onclick = null, chevron = fal
   return `<${tag}${attrs}><span class="set-row-text"><span class="set-row-title">${escapeHtml(title)}</span>${sub ? `<span class="set-row-sub">${escapeHtml(sub)}</span>` : ''}</span>${right}</${tag}>`;
 }
 
+// Tip: a one-time hint for a gesture (js/tips.js), a pill floating at the
+// top of the screen. The whole pill dismisses it; the × says so.
+export function tipHtml({ text, onclose }){
+  return `<div class="tip" role="status" onclick="${onclose}"><span class="tip-text">${escapeHtml(text)}</span><button type="button" class="tip-close" aria-label="Dismiss">${iconHtml('close')}</button></div>`;
+}
+
 // FilterTab: one underline tab of a filter row (leagues, roster groups,
 // schedule, Activity), inside `<div class="filter-chips" role="tablist">`.
 export function filterTabHtml({ label, active = false, onclick }){

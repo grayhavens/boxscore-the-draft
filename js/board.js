@@ -98,7 +98,7 @@ import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
 import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml } from './ui.js';
-import { initPullToRefresh } from './pull-refresh.js';
+import { initPullToRefresh, tipPullToRefresh } from './pull-refresh.js';
 import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
 // The scoring sheet shows this group's rules. Set before anything can open
@@ -1231,6 +1231,9 @@ if(IS_SEASON_BACKGROUND){
   enableNavMotion();
   (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
   maybeShowWelcome();
+  // Once the first paint has settled (and not under the welcome sheet,
+  // which js/tips.js checks): the one-time "Pull down to refresh" tip.
+  setTimeout(tipPullToRefresh, 2500);
   startActivity();
   startSince();
   startHistory();

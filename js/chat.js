@@ -34,7 +34,8 @@ import { mentionHtml, mentionListHtml } from './ui.js';
 import { clearAlerts } from './push.js';
 import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
 import { fxOn, play, pop, burst } from './motion-fx.js';
-import { EASE_SPRING } from './utils.js';
+import { EASE_SPRING, LONG_PRESS_MS } from './utils.js';
+import { showTip, tipDone } from './tips.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
 const SEEN_KEY = 'teamDashboardChatSeenId';
@@ -46,7 +47,6 @@ const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> s
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
 const GAME_LINE_TICK_MS = 20000;      // how often open chat checks its shared games (each game is still looked up at most once a minute)
-const LONG_PRESS_MS = 450;
 
 // Mirrors REACTION_EMOJI in worker/chat-room.js (which rejects anything
 // else). Also the order the picker and a message's pills are shown in.
@@ -604,12 +604,15 @@ function onListClick(event){
 
 // Reactions are a press and hold on any message (bubble, GIF, shared game),
 // or a right-click with a mouse. While the finger is down the message eases
-// in a little (.pressing); moving it (a scroll) cancels.
+// in a little (.pressing); moving it (a scroll) cancels. The hold is the
+// app's shared LONG_PRESS_MS (js/utils.js, as js/gestures.js uses), and a
+// one-time tip (js/tips.js) teaches it the first time chat has messages.
 let longPressed = false;
 function openPickerFor(msg){
   const id = Number(msg.dataset.msg);
   if(pickerId === id) return;
   pickerId = id;
+  tipDone('chat-react');
   renderList('follow');
   if(navigator.vibrate) navigator.vibrate(10);
   play(msg, [{ transform: 'scale(0.97)' }, { transform: 'scale(1)' }], { duration: 260, easing: EASE_SPRING });
@@ -781,6 +784,7 @@ export function setChatActive(active, { beside = false } = {}){
     markSeen();
     paintBadges();
     renderList('instant');
+    if(messages.length) showTip('chat-react', 'Hold a message to react');
     syncViewport();
     if(!socket || socket.readyState !== WebSocket.OPEN) reconnectNow();
     if(!gifsReady) setUpGifs();

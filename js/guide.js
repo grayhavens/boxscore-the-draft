@@ -294,6 +294,23 @@ const setupForShots = () => shotSetup || (shotSetup = { caps: CAPS, shown: [], c
 
 const goHtml = go => `<button type="button" class="guide-go" onclick="${go[1]}">${go[0]} <span aria-hidden="true">&rsaquo;</span></button>`;
 
+// One-time moments that have already played here, to see again: each
+// league's playoffs reveal (js/postseason.js).
+function replayHtml(){
+  const keys = window.playoffRevealsSeen ? window.playoffRevealsSeen() : [];
+  if(!keys.length) return '';
+  return `
+    <section class="guide-entry guide-app" id="guide-replay">
+      <h2 class="guide-entry-title">Replay</h2>
+      <div class="guide-rows">${keys.map(key => `
+        <button type="button" class="guide-row" onclick="replayPlayoffsReveal('${key}')">
+          <span class="guide-entry-icon">${ICONS.standings}</span>
+          <span class="guide-row-text"><b>${leagueLabel(key)} playoffs</b><span>The reveal, from the top</span></span>
+          <span class="guide-row-go" aria-hidden="true">&rsaquo;</span>
+        </button>`).join('')}</div>
+    </section>`;
+}
+
 // `backLabel`: where the back link returns (closeGuide in js/board.js):
 // Settings, or Home before the draft.
 export function renderGuidePage({ backLabel = 'Settings' } = {}){
@@ -327,6 +344,7 @@ export function renderGuidePage({ backLabel = 'Settings' } = {}){
           <span class="guide-row-go" aria-hidden="true">&rsaquo;</span>
         </button>`).join('')}</div>
     </section>
+    ${replayHtml()}
   `;
   el.querySelectorAll('.guide-shot').forEach(node => paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at)));
 }
