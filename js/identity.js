@@ -34,6 +34,8 @@ import './season-switcher.js';
 import { APP_VERSION } from './version.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
 import { startTour, endTour } from './guide.js';
+import { accessCode } from './access.js';
+import { escapeHtml } from './escape.js';
 
 import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
 const PROFILE_KEY = 'teamDashboardProfileId';
@@ -440,6 +442,9 @@ function showTour(){
 // row). It comes before the name pick because the iPhone Home Screen app
 // keeps its own storage and would ask for the name again; "Continue in
 // browser" means they're staying, so the names (and then the tour) follow.
+// For the same reason the iPhone steps end with the group's invite code
+// (js/access.js), big and copyable: the Home Screen app asks for it once.
+// Android's installed app shares Chrome's storage, so it needs neither.
 let namesAfterInstall = false;
 
 export function skipInstall(){
@@ -476,10 +481,44 @@ function renderWelcomeNames(){
   el.scrollTop = 0;
 }
 
+// The iPhone's last step: open the Home Screen app and enter this code.
+function installCodeStepHtml(){
+  const code = accessCode();
+  if(!code) return '';
+  return `Open Boxscore from your Home Screen. You&rsquo;ll enter this code once more:
+    <span class="welcome-code">
+      <span class="welcome-code-value">${escapeHtml(code)}</span>
+      ${buttonHtml({ label: 'Copy', variant: 'secondary', onclick: 'copyInviteCode(this)', cls: 'welcome-code-copy' })}
+    </span>`;
+}
+
+window.copyInviteCode = btn => {
+  const code = accessCode();
+  if(!code) return;
+  const done = () => { if(btn) btn.textContent = 'Copied'; };
+  // Same fallback as chat's Copy (js/chat.js) for when the async
+  // clipboard is missing or refused.
+  const fallback = () => {
+    const area = document.createElement('textarea');
+    area.value = code;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e){}
+    area.remove();
+    if(ok) done();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fallback);
+  else fallback();
+};
+
 function renderWelcomeInstall(platform, firstRun){
   const el = welcomeEl();
   el.dataset.step = 'install';
-  const steps = INSTALL_STEPS[platform].map((html, i) => `
+  const codeStep = platform === 'ios' ? installCodeStepHtml() : '';
+  const steps = INSTALL_STEPS[platform].concat(codeStep ? [codeStep] : []).map((html, i) => `
     <li><span class="welcome-step-num">${i + 1}</span><span class="welcome-step-text">${html}</span></li>
   `).join('');
   const installBtn = platform === 'android' && deferredInstallPrompt

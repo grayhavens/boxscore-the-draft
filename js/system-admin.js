@@ -819,9 +819,9 @@ function welcomeDefaults(g){
     body: [
       'Hi {name},',
       'You’re in! Welcome to {group}, our draft league on Boxscore.',
-      'Tap the button below to open it. On iPhone, open it in Safari, then tap Share and Add to Home Screen. Boxscore works best from your Home Screen, and it’s the only place alerts work on iPhone.',
-      ...(g.access ? [`If the app asks for an invite code, it’s ${g.access.code}.`] : []),
-      'Once it’s open, pick your name and turn on alerts in Settings so you know when you’re on the clock.',
+      'Tap the button below to open it. On iPhone, open it in Safari, tap Share, then Add to Home Screen, and open Boxscore from your Home Screen. It works best there, and it’s the only place alerts work on iPhone.',
+      ...(g.access ? [`The Home Screen app asks for your invite code once: ${g.access.code}`] : []),
+      'Once it’s open, pick your name (on iPhone, in the Home Screen app) and turn on alerts in Settings so you know when you’re on the clock.',
       ...(when ? [`The draft starts ${when}.`] : []),
       'See you at the draft!'
     ].join('\n\n')

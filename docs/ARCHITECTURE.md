@@ -475,8 +475,10 @@ live vs gold locked points), each with a still picture of the app, then "Around 
 setting. The pictures are the landing page's tour scenes drawn finished (`paintSceneStill` in
 `js/landing-explainer.js`) for the group's own picks per league (`groupCaps`, else `DEFAULT_CAPS`), with made-up
 rivals' names, so they follow the real components and never show a real drafter. In a phone browser the welcome opens
-on the two Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
-Screen app runs the welcome again on its first open. Tour cards are the entries marked `tour`, with their `tourLead`.
+on the Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
+Screen app runs the welcome again on its first open. On iPhone, whose Home Screen app also has its own storage, a third
+step shows the group's invite code (`accessCode()`, big, with Copy) and says it's asked for once more; Android's
+installed app shares Chrome's storage, so it gets neither. The admin page's default welcome email says the same. Tour cards are the entries marked `tour`, with their `tourLead`.
 **When a feature ships or changes, update its `APP_ROWS` line** (one sentence; `pre` is the text shown before a
 group's first draft, `when` hides a row from groups it doesn't apply to). Keep the page short.
 
