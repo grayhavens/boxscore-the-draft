@@ -12,7 +12,7 @@ import {
   golfCalendarUrl, parseGoogleNewsRss, validGolferName, golferNewsSearchUrl
 } from '../js/golf.js';
 import { PGA_SCORING } from '../js/seasons/pga.js';
-import { updateSeason } from '../worker/golf.js';
+import { updateSeason } from '../js/golf.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/golf/${name}.json`, import.meta.url)));
 const OPEN = fixture('leaderboard-open');

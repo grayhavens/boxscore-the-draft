@@ -292,6 +292,46 @@ export function golferNews(feed, athleteId, limit = 8){
     }));
 }
 
+// ---- Season build (shared by the browser and worker/golf.js) ----
+
+export const MAX_FETCH_PER_REQUEST = 4;
+export const isDone = e => e && (e.status === 'post' || e.status === 'canceled');
+
+// One pass over the season: condense whichever events have reached
+// their end date but aren't stored yet (oldest first, at most maxFetch),
+// keeping those now final. Pure apart from fetchLeaderboard, so tests
+// drive it with fixtures.
+export async function updateSeason({ calendar, stored, now, fetchLeaderboard, maxFetch = MAX_FETCH_PER_REQUEST }){
+  const events = fedexSeasonEvents(calendar);
+  const next = { ...stored };
+  const live = {};
+  const due = events.filter(e => !isDone(next[e.id]) && e.start && Date.parse(e.start) <= now);
+  let changed = false;
+  for(const e of due.slice(0, maxFetch)){
+    const condensed = await fetchLeaderboard(e.id).then(condenseLeaderboard).catch(() => null);
+    if(!condensed) continue;
+    if(isDone(condensed)){
+      next[e.id] = condensed;
+      changed = true;
+    } else {
+      live[e.id] = condensed;
+    }
+  }
+  // Still to fill: a past event (its calendar end has gone by) that
+  // isn't stored. An event in progress doesn't count.
+  const complete = !events.some(e => !isDone(next[e.id]) && e.end && Date.parse(e.end) < now && !live[e.id]);
+  // Names go out once for the season rather than with every event.
+  const golfers = {};
+  const out = events.map(e => {
+    const c = next[e.id] || live[e.id];
+    if(!c) return { id: e.id, name: e.name, start: e.start, end: e.end, status: 'pre' };
+    const { golfers: names, ...rest } = c;
+    Object.assign(golfers, names);
+    return rest;
+  });
+  return { stored: next, changed, complete, events: out, golfers };
+}
+
 // ---- Per-golfer news (Google News RSS, via the worker) ----
 
 const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };

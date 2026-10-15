@@ -1,8 +1,8 @@
 /* ============================================================
    PGA Tour fetches for the browser. Parsing is js/golf.js (shared with
    the worker); this only decides where each piece comes from:
-   - finished events: the worker's condensed season (/golf/season/<year>,
-     worker/golf.js), one small request instead of ~35 leaderboards;
+   - finished events: condensed here once and kept on the device (the
+     worker's /golf/season route can't read ESPN: it 403s Workers);
    - the event being played: ESPN's leaderboard, straight from the
      browser (open CORS), since it changes by the minute;
    - a golfer's official season totals: ESPN's per-golfer record;
@@ -14,7 +14,8 @@ import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './worker-base.js';
 import { fetchJSON } from './utils.js';
 import {
   golfScoreboardUrl, golfCalendarUrl, golfLeaderboardUrl, golferRecordUrl, GOLF_NEWS_URL,
-  parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar
+  parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar,
+  fedexSeasonEvents, updateSeason, isDone
 } from './golf.js';
 
 const SEASON_TTL_MS = 10 * 60 * 1000;      // matches the worker's edge cache
@@ -35,12 +36,49 @@ function cached(key, ttl, load){
   return promise;
 }
 
-// { season, events, complete }: see worker/golf.js.
+// { season, events, golfers, complete }: the FedEx Cup season, built here.
+// ESPN answers 403 to Cloudflare Workers (checked 2026-10-15), so the
+// worker's /golf/season/<year> can't do this. The calendar is one ~12KB
+// read, finished events are condensed once (updateSeason, js/golf.js) and
+// kept in localStorage for good since a finished event never changes, and
+// only the event in progress is read again. The first run on a device
+// reads every finished leaderboard (~300KB each, six at a time).
+const SEASON_STORE_KEY = year => `boxscore-golf-season-${year}`;
+const SEASON_FETCH_POOL = 6;
+
+function readStoredSeason(year){
+  try { return JSON.parse(localStorage.getItem(SEASON_STORE_KEY(year))) || {}; } catch(e){ return {}; }
+}
+function writeStoredSeason(year, stored){
+  try { localStorage.setItem(SEASON_STORE_KEY(year), JSON.stringify(stored)); } catch(e){ /* full or blocked: rebuilt next time */ }
+}
+
+async function buildGolfSeason(season){
+  const calendarData = await fetchJSON(golfCalendarUrl(season));
+  if(!calendarData) return null;
+  const calendar = parseCalendar(calendarData);
+  if(!calendar.length) return null;
+  const stored = readStoredSeason(season);
+  const now = Date.now();
+  // Read what's missing a few at a time; updateSeason then condenses from
+  // this map instead of one leaderboard after another.
+  const todo = fedexSeasonEvents(calendar).filter(e => !isDone(stored[e.id]) && e.start && Date.parse(e.start) <= now);
+  const boards = {};
+  for(let i = 0; i < todo.length; i += SEASON_FETCH_POOL){
+    await Promise.all(todo.slice(i, i + SEASON_FETCH_POOL).map(e =>
+      fetchJSON(golfLeaderboardUrl(e.id)).then(d => { boards[e.id] = d; }).catch(() => {})));
+  }
+  const result = await updateSeason({
+    calendar, stored, now,
+    fetchLeaderboard: id => boards[id] ? Promise.resolve(boards[id]) : Promise.reject(new Error('missing')),
+    maxFetch: todo.length
+  });
+  if(result.changed) writeStoredSeason(season, result.stored);
+  return { season, events: result.events, golfers: result.golfers, complete: result.complete };
+}
+
 export function fetchGolfSeason(season){
-  if(!DASHBOARD_WORKER_BASE) return Promise.resolve(null);
-  // chatWorkerBase: wrangler dev on localhost, so a local change to
-  // worker/golf.js is what the local app reads.
-  return cached(`season:${season}`, SEASON_TTL_MS, () => fetchJSON(`${chatWorkerBase()}/golf/season/${season}`));
+  return cached(`season:${season}`, SEASON_TTL_MS, () => buildGolfSeason(season));
 }
 
 // Whether each event looked at is a major, and the week's main event:
