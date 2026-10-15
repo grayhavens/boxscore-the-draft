@@ -1,0 +1,7 @@
+export interface TipProps {
+  /** One short sentence naming the gesture. Sentence case, no emoji. */
+  text: string;
+  /** Dismiss: the × and a tap anywhere on the pill. */
+  onClose?: () => void;
+}
+export function Tip(props: TipProps): JSX.Element;

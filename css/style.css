@@ -5597,6 +5597,26 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .draft-body{ flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .dr-connecting{ padding: 60px 24px; text-align: center; color: var(--text-sub); font-size: var(--fs-15); }
 .dr-dim{ color: var(--text-mute); }
+/* Tip (tipHtml, js/tips.js): a one-time gesture hint at the top of the screen. */
+.tip{
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 12px); z-index: var(--z-tip);
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px;
+  max-width: min(90vw, 360px); padding: 6px 6px 6px 16px;
+  background: var(--tip-bg); color: var(--tip-ink);
+  border: 1px solid var(--hairline-strong); border-radius: var(--r-pill); box-shadow: var(--shadow-tip);
+  font-size: var(--fs-13); font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+.tip-text{ overflow: hidden; text-overflow: ellipsis; }
+.tip-close{
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 28px; height: 28px; padding: 0; border: none; border-radius: var(--r-pill);
+  background: var(--fill-soft); color: var(--text-sub); cursor: pointer;
+}
+.tip-close svg{ width: 14px; height: 14px; }
+.tip.tip-in{ animation: tip-in var(--dur-ui) var(--ease-out); }
+@keyframes tip-in{ from{ opacity: 0; transform: translate(-50%, -8px); } }
+
 .draft-toast{
   position: fixed; left: 50%; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 18px);
   transform: translate(-50%, 12px); opacity: 0; pointer-events: none;

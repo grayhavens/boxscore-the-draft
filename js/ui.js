@@ -56,6 +56,12 @@ export function switchHtml({ on = false, label = '', onclick = null } = {}){
   return `<button type="button" class="switch${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${escapeHtml(label)}" onclick="${onclick}"></button>`;
 }
 
+// Tip: a one-time hint for a gesture (js/tips.js), a pill floating at the
+// top of the screen. The whole pill dismisses it; the × says so.
+export function tipHtml({ text, onclose }){
+  return `<div class="tip" role="status" onclick="${onclose}"><span class="tip-text">${escapeHtml(text)}</span><button type="button" class="tip-close" aria-label="Dismiss">${iconHtml('close')}</button></div>`;
+}
+
 // FilterTab: one underline tab of a filter row (leagues, roster groups,
 // schedule, Activity), inside `<div class="filter-chips" role="tablist">`.
 export function filterTabHtml({ label, active = false, onclick }){

@@ -300,7 +300,7 @@ worker, so local testing can't post into the real room. The first deploy after a
 `[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
 Chat tab ships pointing at a room that doesn't exist yet.
 
-**Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (or right-clicking it), like iOS Messages, opens a
+**Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (`LONG_PRESS_MS` from `js/utils.js`, the same hold as `js/gestures.js`) or right-clicking it, like iOS Messages, opens a
 row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and
 `worker/chat-room.js`, and the worker rejects anything not in its copy); a tap elsewhere closes it. A bubble's text isn't
 selectable (the long press is the picker's), so a tap on a text bubble copies it; tapping a pill under a
@@ -461,6 +461,14 @@ their bar any time (a mid-draft backup) and on the Draft Complete card once it's
 into the room (`js/draft-live.js`: top of `.board` and under the Chat header). Off the draft view it
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.
+
+**One-time tips** (`js/tips.js`, `tipHtml` in `js/ui.js`): a pill at the top of the screen, once per device
+(`bx-tip:<id>`), for the gestures nothing on screen shows: "Hold a message to react" (Chat, once it has messages),
+"Swipe to see your other teams" (a team page with more than one of your teams), "Pull down to refresh" (a pull view,
+a moment after boot). Touch phones only; never under an open sheet; gone on a tap, on doing the gesture (`tipDone`) or
+after 8 s. The guide page also ends with **Replay** rows for each league whose playoffs reveal has played on this
+device (`window.playoffRevealsSeen` / `replayPlayoffsReveal` in `js/postseason.js`), which forget it was seen and open
+the league as the Home card does.
 
 **Feature guide** (`js/guide.js`): two lists, `SECTIONS` and `APP_ROWS`, feed both the first-run tour (cards in
 the welcome sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How
@@ -625,7 +633,7 @@ where it returns to. A 300px hero (status-bar strip included) with the team
 orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
 cover is off on this page). Swiping sideways anywhere on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
-top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
+top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that; the first time a page with more than one of your teams opens, a one-time tip says to swipe). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
 game card shows the opponent with the date and time (no crest for the team itself), Overview leads with the last five games as bars (every result row is on Full schedule),
 then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, live, in reach or off, with On the line's
 distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device

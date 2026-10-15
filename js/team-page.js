@@ -57,6 +57,7 @@ import { fetchGolferMoreNews } from './golf-api.js';
 import { escapeHtml } from './escape.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
+import { showTip, tipDone } from './tips.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
 import { postseasonTeamHtml, postseasonTeamOpened, onPostseasonData } from './postseason.js';
 import { currentProfileId } from './identity.js';
@@ -863,6 +864,7 @@ function renderTeamPage({ refresh = false } = {}){
   playHeroOpen();
   playSwipeIn();
   playStatsRoll();
+  if(shell && state.swipeOrder.length > 1) showTip('team-swipe', 'Swipe to see your other teams');
 }
 
 /* ---- Wide layout (900px and up) ----
@@ -1574,6 +1576,7 @@ function springBack(el, props, reset, orb){
 function swipeTo(index, dir){
   const order = state.swipeOrder;
   if(order.length < 2) return;
+  tipDone('team-swipe');
   const i = ((index % order.length) + order.length) % order.length;
   const teamKey = order[i];
   state.teamIndex = i;

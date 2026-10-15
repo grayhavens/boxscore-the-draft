@@ -16,6 +16,7 @@
 
 import { fxOn, flashTint } from './motion-fx.js';
 import { EASE_OUT, EASE_SPRING, EASE_IN_OUT } from './utils.js';
+import { showTip, tipDone } from './tips.js';
 
 const THRESHOLD = 64;      // pull that refreshes on release, and where the page rests meanwhile
 const MAX = 96;            // the page never moves further than this
@@ -41,6 +42,12 @@ let view = null, startX = 0, startY = 0, dist = 0, build = [];
 export function initPullToRefresh(options){
   opts = options;
   document.addEventListener('touchstart', onStart, { passive: true });
+}
+
+// The one-time "Pull down to refresh" tip (js/tips.js), for a view that
+// allows a pull. Called once the app has settled after boot.
+export function tipPullToRefresh(){
+  if(opts && opts.canPull()) showTip('pull-refresh', 'Pull down to refresh');
 }
 
 function indicator(){
@@ -151,6 +158,7 @@ function release(){
 
 async function runRefresh(){
   state = 'refreshing';
+  tipDone('pull-refresh');
   // Rest at the threshold, finish building the mark, and turn it until the
   // refresh lands.
   const from = dist;
