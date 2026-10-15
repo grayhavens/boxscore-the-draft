@@ -183,6 +183,30 @@ export function groupAppUrl(groupId, hostname){
   return `https://${groupId}.${GROUP_DOMAIN}/`;
 }
 
+// The last group this browser opened, so the bare boxscore.space can lead
+// with it (js/landing.js). A group's app writes it at boot (js/group.js):
+// a cookie, since the landing page and each group are different origins,
+// on the parent domain so they all share it. Just the group id, nothing
+// personal. Dev and preview hosts share one origin with the landing page,
+// so there it's a plain host cookie. Anywhere else: no cookie (null).
+export const LAST_GROUP_COOKIE = 'bx-group';
+const LAST_GROUP_MAX_AGE = 400 * 24 * 60 * 60; // browsers cap cookies at 400 days
+
+export function lastGroupCookie(groupId, hostname){
+  if(!isKnownGroup(groupId)) return null;
+  const base = `${LAST_GROUP_COOKIE}=${groupId}; Path=/; Max-Age=${LAST_GROUP_MAX_AGE}; SameSite=Lax`;
+  if(groupIdFromHost(hostname)) return `${base}; Domain=${GROUP_DOMAIN}; Secure`;
+  if(allowsGroupOverride(hostname)) return base;
+  return null;
+}
+
+// document.cookie -> the remembered group id, or null when there's none
+// or it names no known group.
+export function groupFromCookie(cookie){
+  const m = typeof cookie === 'string' ? cookie.match(new RegExp(`(?:^|;\\s*)${LAST_GROUP_COOKIE}=([^;]*)`)) : null;
+  return m && isKnownGroup(m[1]) ? m[1] : null;
+}
+
 // Pure so it can be unit-tested (tests/groups.test.mjs).
 export function chooseGroupId({ hostname, fromUrl }){
   const fromHost = groupIdFromHost(hostname);

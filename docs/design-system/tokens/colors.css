@@ -111,6 +111,9 @@
   --status-live: var(--live);
   --status-provisional: var(--provisional);
   --status-locked: var(--accent);
+  /* Tip (tipHtml): the one-time gesture hint. */
+  --tip-bg: var(--sheet);
+  --tip-ink: var(--text);
 }
 :root[data-theme="light"]{
   color-scheme: light;

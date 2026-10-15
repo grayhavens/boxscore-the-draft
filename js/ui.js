@@ -56,6 +56,32 @@ export function switchHtml({ on = false, label = '', onclick = null } = {}){
   return `<button type="button" class="switch${on ? ' on' : ''}" role="switch" aria-checked="${!!on}" aria-label="${escapeHtml(label)}" onclick="${onclick}"></button>`;
 }
 
+// SettingsRow: a surface tile with a title, an optional sub and a trailing
+// control (Settings, the pre-draft Home card, the tour's alert rows).
+// With `onclick` it's a button, else a plain row; `chevron` adds the ›.
+// `switchOn` (true/false) makes it a switch row: role="switch", the
+// decorative Switch on the right, and `switchKey` as data-switch so a
+// screen can repaint it in place. `rightHtml` is any other trailing part.
+export function settingsRowHtml({ title, sub = '', onclick = null, chevron = false, rightHtml = '', switchOn = null, switchKey = null, cls = '' }){
+  const isSwitch = switchOn !== null;
+  const tag = onclick ? 'button' : 'div';
+  const attrs = [
+    onclick ? ' type="button"' : '',
+    ` class="set-row${cls ? ` ${cls}` : ''}"`,
+    switchKey ? ` data-switch="${switchKey}"` : '',
+    isSwitch ? ` role="switch" aria-checked="${!!switchOn}"` : '',
+    onclick ? ` onclick="${onclick}"` : ''
+  ].join('');
+  const right = (isSwitch ? switchHtml({ on: switchOn }) : '') + rightHtml + (chevron ? '<span class="set-chev">&rsaquo;</span>' : '');
+  return `<${tag}${attrs}><span class="set-row-text"><span class="set-row-title">${escapeHtml(title)}</span>${sub ? `<span class="set-row-sub">${escapeHtml(sub)}</span>` : ''}</span>${right}</${tag}>`;
+}
+
+// Tip: a one-time hint for a gesture (js/tips.js), a pill floating at the
+// top of the screen. The whole pill dismisses it; the × says so.
+export function tipHtml({ text, onclose }){
+  return `<div class="tip" role="status" onclick="${onclose}"><span class="tip-text">${escapeHtml(text)}</span><button type="button" class="tip-close" aria-label="Dismiss">${iconHtml('close')}</button></div>`;
+}
+
 // FilterTab: one underline tab of a filter row (leagues, roster groups,
 // schedule, Activity), inside `<div class="filter-chips" role="tablist">`.
 export function filterTabHtml({ label, active = false, onclick }){

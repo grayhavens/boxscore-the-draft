@@ -152,6 +152,11 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 (`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
+Members get a way home: each group's app writes a `bx-group=<id>` cookie on `.boxscore.space` at boot
+(`lastGroupCookie` in `js/groups.js`, from `js/group.js`, not from the hidden `?bg=1` copy; a plain host cookie on
+dev / preview hosts; only the group id). The landing reads it (`groupFromCookie`) and shows that group's card, "Your
+group", over "Find your group"; with no cookie, a quiet "Already in a group?" row links every group in `js/groups.js`.
+Both open with the same splash handoff as the group cards.
 A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (a spots meter, the draft date from `GET /draft/status`, and "Claim a spot ›" opening a claim form inside the card with name and email, both required; no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
 stores the request in KV, rate-limited per IP, with no push alert; instead it emails the platform admin (worker secret
 `CLAIM_ALERT_EMAIL`, sent through Resend) who claimed and a link to `boxscore.space/admin?group=<id>`, which opens on that group. The admin page lists claims at the top: **Confirm**
@@ -219,6 +224,9 @@ so a change takes up to that long, and already-open chat/draft sockets stay conn
 imports every per-league standings module plus `live-data.js` and `overall.js`, and is the last
 script loaded so every other module's `window.*` exports (used by inline `onclick=` handlers in
 generated HTML) are already registered when it runs.
+Points (`#view-overall`) has its own Leaderboard | Activity | Race | History switch (`?seg=`); the Leaderboard
+segment keeps the key `standings` so older links work, and is labelled Leaderboard so it isn't confused with the
+Standings tab (the real tables).
 
 **Per-league standings modules** (`js/standings-{epl,cfb,nfl,nba,nhl,mlb,wnba}.js`) each own one
 league's Standings-tab rendering (league table + "by drafter" rollup) and a `Person`/`League`
@@ -300,7 +308,7 @@ worker, so local testing can't post into the real room. The first deploy after a
 `[[migrations]]` entry in `wrangler.toml` — **deploy the worker before the static site**, or the
 Chat tab ships pointing at a room that doesn't exist yet.
 
-**Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (or right-clicking it), like iOS Messages, opens a
+**Chat reactions** (Slack-style: several per person, one of each emoji): pressing and holding a message (`LONG_PRESS_MS` from `js/utils.js`, the same hold as `js/gestures.js`) or right-clicking it, like iOS Messages, opens a
 row of the seven `REACTION_EMOJI` (👍 👎 😂 😮 😢 🔥 😎 — duplicated in `js/chat.js` and
 `worker/chat-room.js`, and the worker rejects anything not in its copy); a tap elsewhere closes it. A bubble's text isn't
 selectable (the long press is the picker's), so a tap on a text bubble copies it; tapping a pill under a
@@ -388,7 +396,8 @@ Exporting is now optional: it pins a reviewed copy as a committed file, which th
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
-entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
+entered on Settings → Commissioner (`js/admin.js`, `?view=admin`; a device that hasn't signed in sees only a quiet "Commissioner sign-in"
+link at the bottom of Settings, and the Commissioner row once it has) — one gate for the draft and scoring; the
 room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
 league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Group settings screen
 (screen key `draft`; "Group" on the phone switch) has a "Before the <next> draft" checklist (`js/draft-prep.js`'s
@@ -462,6 +471,14 @@ into the room (`js/draft-live.js`: top of `.board` and under the Chat header). O
 polls the worker's `GET /draft/status` (edge-cached 5s; 20s polls while live, 90s otherwise); an old
 worker without that route just means no banner.
 
+**One-time tips** (`js/tips.js`, `tipHtml` in `js/ui.js`): a pill at the top of the screen, once per device
+(`bx-tip:<id>`), for the gestures nothing on screen shows: "Hold a message to react" (Chat, once it has messages),
+"Swipe to see your other teams" (a team page with more than one of your teams), "Pull down to refresh" (a pull view,
+a moment after boot). Touch phones only; never under an open sheet; gone on a tap, on doing the gesture (`tipDone`) or
+after 8 s. The guide page also ends with **Replay** rows for each league whose playoffs reveal has played on this
+device (`window.playoffRevealsSeen` / `replayPlayoffsReveal` in `js/postseason.js`), which forget it was seen and open
+the league as the Home card does.
+
 **Feature guide** (`js/guide.js`): two lists, `SECTIONS` and `APP_ROWS`, feed both the first-run tour (cards in
 the welcome sheet right after a new device picks its name; its last card turns on push alerts) and Settings → How
 Boxscore works (`#view-guide`, `?view=guide`). Before a group's first draft, Home's Draft section links to it too
@@ -471,8 +488,10 @@ live vs gold locked points), each with a still picture of the app, then "Around 
 setting. The pictures are the landing page's tour scenes drawn finished (`paintSceneStill` in
 `js/landing-explainer.js`) for the group's own picks per league (`groupCaps`, else `DEFAULT_CAPS`), with made-up
 rivals' names, so they follow the real components and never show a real drafter. In a phone browser the welcome opens
-on the two Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
-Screen app runs the welcome again on its first open. Tour cards are the entries marked `tour`, with their `tourLead`.
+on the Add to Home Screen steps, and the name pick and tour only follow "Continue in browser", since the Home
+Screen app runs the welcome again on its first open. On iPhone, whose Home Screen app also has its own storage, a third
+step shows the group's invite code (`accessCode()`, big, with Copy) and says it's asked for once more; Android's
+installed app shares Chrome's storage, so it gets neither. The admin page's default welcome email says the same. Tour cards are the entries marked `tour`, with their `tourLead`.
 **When a feature ships or changes, update its `APP_ROWS` line** (one sentence; `pre` is the text shown before a
 group's first draft, `when` hides a row from groups it doesn't apply to). Keep the page short.
 
@@ -607,7 +626,8 @@ a sticky column on the right; a row tap opens that drafter's breakdown in the co
 1000px of content the column drops under the table. Rows that moved glide as on the phone. Crossing 900px re-renders
 Points. Team color
 appears only in crests and the hero's orb and glow; the glow falls back to the second color only for near-black teams
-(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`): two columns instead of one
+(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`; rows are `settingsRowHtml` from `js/ui.js`; Preview with fake data sits in its
+own Preview section, shown to a signed-in commissioner, to a device that has it on, and with `?dev=1` on dev / preview hosts): two columns instead of one
 narrow one, the identity card (bigger, with a Switch button) and the device note and version in a sticky column on the
 left, the sections on the right with each section's rows joined into one list; rows and choices get hover states. The
 two wrappers (`.set-side`, `.set-main`) are `display: contents` under 900px, so the phone page is unchanged. The draft
@@ -625,7 +645,7 @@ where it returns to. A 300px hero (status-bar strip included) with the team
 orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
 cover is off on this page). Swiping sideways anywhere on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
-top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
+top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that; the first time a page with more than one of your teams opens, a one-time tip says to swipe). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
 game card shows the opponent with the date and time (no crest for the team itself), Overview leads with the last five games as bars (every result row is on Full schedule),
 then Path to points (`teamPathToPoints` in `js/lines.js`: every rule as locked, live, in reach or off, with On the line's
 distance as its note). Path to points is folded to a row of state dots and a count until tapped open; the device

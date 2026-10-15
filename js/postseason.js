@@ -48,7 +48,7 @@
    keepPostseason/restorePostseason carry the live node across one when
    the bracket hasn't changed.
    ============================================================ */
-import { TEAM_META, DRAFT_TEAMS, LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
+import { TEAM_META, DRAFT_TEAMS, LEAGUES, LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
 import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE } from './utils.js';
 import { teamBadgeHtml as uiBadgeHtml, tagHtml } from './ui.js';
 import { escapeHtml } from './escape.js';
@@ -409,6 +409,16 @@ export function markRevealSeen(key){
 export function replayReveals(){
   if(REVEAL_REPLAY) replaySeen.clear();
 }
+
+// The guide's Replay rows (js/guide.js, on window to keep the guide out of
+// this module's import graph): this class's leagues whose reveal has played
+// on this device this season, and playing one again, which forgets it was
+// seen and opens the league as the Home card does.
+window.playoffRevealsSeen = () => REVEAL_REPLAY ? [] : LEAGUES.map(l => l.key).filter(key => bracketFor(key) && revealSeen(key));
+window.replayPlayoffsReveal = key => {
+  try { localStorage.removeItem(revealKey(key)); } catch (e){}
+  window.openPlayoffs(key);
+};
 
 // The playoff field is set (ESPN has a bracket): the card header makes
 // room for the toggle.

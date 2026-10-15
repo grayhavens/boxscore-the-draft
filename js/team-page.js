@@ -57,6 +57,7 @@ import { fetchGolferMoreNews } from './golf-api.js';
 import { escapeHtml } from './escape.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
+import { showTip, tipDone } from './tips.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
 import { postseasonTeamHtml, postseasonTeamOpened, onPostseasonData } from './postseason.js';
 import { currentProfileId } from './identity.js';
@@ -863,6 +864,7 @@ function renderTeamPage({ refresh = false } = {}){
   playHeroOpen();
   playSwipeIn();
   playStatsRoll();
+  if(shell && state.swipeOrder.length > 1) showTip('team-swipe', 'Swipe to see your other teams');
 }
 
 /* ---- Wide layout (900px and up) ----
@@ -1249,8 +1251,8 @@ window.toggleOnTheLine = () => {
 // Everything the phone page fetches per tab, at once.
 function ensureWideData(teamKey, meta){
   ensureNews(teamKey);
-  if(isGolfer(meta)) return;
   ensureMoreNews(teamKey);
+  if(isGolfer(meta)) return;
   if(meta.leagueKey !== 'epl' && !PLAYER_STATS_LEAGUES[meta.leagueKey] && FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey) && !statsCache[teamKey]) ensureStats(teamKey, meta);
   if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
 }
@@ -1574,6 +1576,7 @@ function springBack(el, props, reset, orb){
 function swipeTo(index, dir){
   const order = state.swipeOrder;
   if(order.length < 2) return;
+  tipDone('team-swipe');
   const i = ((index % order.length) + order.length) % order.length;
   const teamKey = order[i];
   state.teamIndex = i;
@@ -1966,7 +1969,7 @@ function newsTabHtml(teamKey){
   const meta = metaOf(teamKey);
   const entry = newsCache[teamKey];
   if(!entry || entry.status === 'loading') return newsSkeletonHtml();
-  if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true);
+  if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true) + moreNewsHtml(teamKey);
   if(entry.status === 'empty' || !entry.items.length) return newsEmptyHtml(teamKey, meta, false) + moreNewsHtml(teamKey);
   return entry.items.slice(0, 4).map(a => `
     <div class="news-card" onclick="window.open('${(a.link || '').replace(/'/g, '&#39;')}', '_blank')">
@@ -1992,7 +1995,9 @@ function moreNewsHtml(teamKey){
 // One shared read per league (js/news-more.js); repaints just the news
 // section when it lands, and only if something new arrived for this team.
 function ensureMoreNews(teamKey){
-  const meta = TEAM_META[teamKey];
+  // metaOf, not TEAM_META: a golfer opened off a leaderboard has only a
+  // `golfer:<id>` page key.
+  const meta = metaOf(teamKey);
   if(!meta) return;
   // A golfer's come from the worker's tour RSS feeds (worker/golf.js);
   // a team's from the Perigon batch.

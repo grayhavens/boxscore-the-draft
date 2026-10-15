@@ -30,7 +30,7 @@ import { paintSceneStill } from './landing-explainer.js';
 import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
 
-import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
+import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
 const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 // The first five match the tab bar's icons (index.html).
@@ -132,7 +132,7 @@ const APP_ROWS = [
   },
   {
     id: 'overall', icon: 'points', title: 'Points',
-    lead: 'The leaderboard, the season race, and each drafter’s breakdown.',
+    lead: 'The Leaderboard, Activity, the season Race, and each drafter’s breakdown.',
     pre: { lead: 'The leaderboard, once the draft is done.' },
     go: ['Go to Points', "switchView('overall')"]
   },
@@ -153,7 +153,7 @@ const APP_ROWS = [
   },
   {
     id: 'settings', icon: 'gear', title: 'Settings',
-    lead: 'The gear up top: who you are, light or dark, the tab the app opens to.',
+    lead: 'The gear up top: who you are, light or dark, the tab the app opens to. Commissioner sign-in is at the bottom.',
     go: ['Back to Settings', 'backToSettings()']
   }
 ];
@@ -197,10 +197,7 @@ function tourCardBody(card){
       <div class="welcome-title">Turn on alerts</div>
       <div class="welcome-sub">Know when you’re on the clock${ACTIVE_SEASON.preDraft ? '' : ', your points move,'} or someone posts. Change these, and find more help, in <b>Settings</b>.</div>
       <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title]) => `
-        <button type="button" class="set-row" role="switch" aria-checked="${prefs[kind]}" onclick="guideTogglePush('${kind}')">
-          <span class="set-row-text"><span class="set-row-title">${title}</span></span>
-          ${switchHtml({ on: prefs[kind] })}
-        </button>`).join('')}</div>
+        ${settingsRowHtml({ title, onclick: `guideTogglePush('${kind}')`, switchOn: prefs[kind] })}`).join('')}</div>
       ${tour.note ? `<div class="welcome-note">${tour.note}</div>` : ''}`;
   }
   return `
@@ -297,6 +294,23 @@ const setupForShots = () => shotSetup || (shotSetup = { caps: CAPS, shown: [], c
 
 const goHtml = go => `<button type="button" class="guide-go" onclick="${go[1]}">${go[0]} <span aria-hidden="true">&rsaquo;</span></button>`;
 
+// One-time moments that have already played here, to see again: each
+// league's playoffs reveal (js/postseason.js).
+function replayHtml(){
+  const keys = window.playoffRevealsSeen ? window.playoffRevealsSeen() : [];
+  if(!keys.length) return '';
+  return `
+    <section class="guide-entry guide-app" id="guide-replay">
+      <h2 class="guide-entry-title">Replay</h2>
+      <div class="guide-rows">${keys.map(key => `
+        <button type="button" class="guide-row" onclick="replayPlayoffsReveal('${key}')">
+          <span class="guide-entry-icon">${ICONS.standings}</span>
+          <span class="guide-row-text"><b>${leagueLabel(key)} playoffs</b><span>The reveal, from the top</span></span>
+          <span class="guide-row-go" aria-hidden="true">&rsaquo;</span>
+        </button>`).join('')}</div>
+    </section>`;
+}
+
 // `backLabel`: where the back link returns (closeGuide in js/board.js):
 // Settings, or Home before the draft.
 export function renderGuidePage({ backLabel = 'Settings' } = {}){
@@ -330,6 +344,7 @@ export function renderGuidePage({ backLabel = 'Settings' } = {}){
           <span class="guide-row-go" aria-hidden="true">&rsaquo;</span>
         </button>`).join('')}</div>
     </section>
+    ${replayHtml()}
   `;
   el.querySelectorAll('.guide-shot').forEach(node => paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at)));
 }
