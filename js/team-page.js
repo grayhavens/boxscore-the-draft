@@ -1249,8 +1249,8 @@ window.toggleOnTheLine = () => {
 // Everything the phone page fetches per tab, at once.
 function ensureWideData(teamKey, meta){
   ensureNews(teamKey);
-  if(isGolfer(meta)) return;
   ensureMoreNews(teamKey);
+  if(isGolfer(meta)) return;
   if(meta.leagueKey !== 'epl' && !PLAYER_STATS_LEAGUES[meta.leagueKey] && FULL_STATS_SQUAD_LEAGUES.includes(meta.leagueKey) && !statsCache[teamKey]) ensureStats(teamKey, meta);
   if(PLAYER_STATS_LEAGUES[meta.leagueKey]) ensurePlayerStats(teamKey, meta);
 }
@@ -1966,7 +1966,7 @@ function newsTabHtml(teamKey){
   const meta = metaOf(teamKey);
   const entry = newsCache[teamKey];
   if(!entry || entry.status === 'loading') return newsSkeletonHtml();
-  if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true);
+  if(entry.status === 'error') return newsEmptyHtml(teamKey, meta, true) + moreNewsHtml(teamKey);
   if(entry.status === 'empty' || !entry.items.length) return newsEmptyHtml(teamKey, meta, false) + moreNewsHtml(teamKey);
   return entry.items.slice(0, 4).map(a => `
     <div class="news-card" onclick="window.open('${(a.link || '').replace(/'/g, '&#39;')}', '_blank')">
@@ -1992,7 +1992,9 @@ function moreNewsHtml(teamKey){
 // One shared read per league (js/news-more.js); repaints just the news
 // section when it lands, and only if something new arrived for this team.
 function ensureMoreNews(teamKey){
-  const meta = TEAM_META[teamKey];
+  // metaOf, not TEAM_META: a golfer opened off a leaderboard has only a
+  // `golfer:<id>` page key.
+  const meta = metaOf(teamKey);
   if(!meta) return;
   // A golfer's come from the worker's Google News search (worker/golf.js);
   // a team's from the Perigon batch.
