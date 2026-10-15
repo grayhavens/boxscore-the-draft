@@ -3,6 +3,10 @@ export interface SettingsRowProps {
   sub?: React.ReactNode;
   /** Trailing control: Switch, chevron, value. */
   right?: React.ReactNode;
+  /** Adds the › chevron after `right`. */
+  chevron?: boolean;
+  /** Makes it a switch row: role="switch" and a decorative Switch on the right. */
+  switchOn?: boolean;
   onClick?: () => void;
 }
 export function SettingsRow(props: SettingsRowProps): JSX.Element;
