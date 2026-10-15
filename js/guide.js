@@ -132,7 +132,7 @@ const APP_ROWS = [
   },
   {
     id: 'overall', icon: 'points', title: 'Points',
-    lead: 'The leaderboard, the season race, and each drafter’s breakdown.',
+    lead: 'The Leaderboard, Activity, the season Race, and each drafter’s breakdown.',
     pre: { lead: 'The leaderboard, once the draft is done.' },
     go: ['Go to Points', "switchView('overall')"]
   },

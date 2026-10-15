@@ -219,6 +219,9 @@ so a change takes up to that long, and already-open chat/draft sockets stay conn
 imports every per-league standings module plus `live-data.js` and `overall.js`, and is the last
 script loaded so every other module's `window.*` exports (used by inline `onclick=` handlers in
 generated HTML) are already registered when it runs.
+Points (`#view-overall`) has its own Leaderboard | Activity | Race | History switch (`?seg=`); the Leaderboard
+segment keeps the key `standings` so older links work, and is labelled Leaderboard so it isn't confused with the
+Standings tab (the real tables).
 
 **Per-league standings modules** (`js/standings-{epl,cfb,nfl,nba,nhl,mlb,wnba}.js`) each own one
 league's Standings-tab rendering (league table + "by drafter" rollup) and a `Person`/`League`

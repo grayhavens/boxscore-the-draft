@@ -14,8 +14,9 @@
    until the league locks.
 
    The page: a "You" hero (projected rank, the locked/live split and a
-   ladder of the drafters around you), then a Standings | Activity | Race
-   switch. Race (js/race.js, docs/points-race-plan.md) charts the season.
+   ladder of the drafters around you), then a Leaderboard | Activity |
+   Race switch (the Leaderboard segment keeps the key 'standings' so old
+   ?seg= links still work; "Standings" is the real tables' tab). Race (js/race.js, docs/points-race-plan.md) charts the season.
    Any drafter opens a quick sheet; its Full breakdown pushes the
    per-drafter detail (one accordion card per scoring league). The
    Activity half is rendered by js/activity.js. See docs/points-ux-plan.md.
@@ -80,9 +81,9 @@ export function obLeagueFullName(leagueKey){
 }
 
 // Within-session view state, same as standingsFilterKey in js/board.js.
-// obSegment is the Standings | Activity | Race switch ('standings' |
+// obSegment is the Leaderboard | Activity | Race switch ('standings' |
 // 'activity' | 'race'; Race is js/race.js, hidden before a group's draft):
-// every visit opens on Standings unless it was asked for Activity (the
+// every visit opens on Leaderboard unless it was asked for Activity (the
 // Home link, or ?seg=activity). obSegmentNext carries that request
 // across switchView, which is what starts the visit. The
 // drafter being looked at in the quick sheet, the pushed breakdown, and —
@@ -555,7 +556,7 @@ export function obTableHtml(rows, opts = {}){
 }
 
 function obSegments(badge){
-  return [{ key: 'standings', label: 'Standings' }, { key: 'activity', label: 'Activity', badge }]
+  return [{ key: 'standings', label: 'Leaderboard' }, { key: 'activity', label: 'Activity', badge }]
     .concat(PRE_DRAFT ? [] : [{ key: 'race', label: 'Race' }])
     .concat(hasHistory() ? [{ key: 'history', label: 'History' }] : []);
 }
@@ -1014,7 +1015,7 @@ function obDetailHtml(row, { backLabel = 'Points' } = {}){
 // ---- Entry points ----
 
 // Called by switchView (js/board.js) every time the Points tab opens.
-// Standings first, unless this visit was asked for Activity (see
+// Leaderboard first, unless this visit was asked for Activity (see
 // obSegmentNext) or the URL says so (a reload, a shared link). Also
 // starts a new visit for the "since" rank baseline.
 export function obEnterView(){
