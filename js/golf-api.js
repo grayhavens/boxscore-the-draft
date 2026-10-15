@@ -13,7 +13,7 @@
 import { DASHBOARD_WORKER_BASE, chatWorkerBase } from './worker-base.js';
 import { fetchJSON } from './utils.js';
 import {
-  golfScoreboardUrl, golfLeaderboardUrl, golferRecordUrl, GOLF_NEWS_URL,
+  golfScoreboardUrl, golfCalendarUrl, golfLeaderboardUrl, golferRecordUrl, GOLF_NEWS_URL,
   parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar
 } from './golf.js';
 
@@ -70,7 +70,7 @@ export function fetchCurrentGolfEvent(){
 // js/golf-view.js).
 export function fetchGolfCalendar(season){
   return cached(`calendar:${season}`, SEASON_TTL_MS, async () => {
-    const data = await fetchJSON(golfScoreboardUrl(season));
+    const data = await fetchJSON(golfCalendarUrl(season));
     return data ? parseCalendar(data) : null;
   });
 }
@@ -110,5 +110,15 @@ export function fetchGolfEventsOn(yyyymmdd){
       end: e.endDate || null,
       status: e.status && e.status.type && e.status.type.name === 'STATUS_CANCELED' ? 'canceled' : (e.status && e.status.type && e.status.type.state) || 'pre'
     }));
+  });
+}
+
+// More stories about one golfer, from the worker's Google News search
+// ([{ title, url, source, at }] or null); see worker/golf.js.
+export function fetchGolferMoreNews(athleteId, name){
+  if(!DASHBOARD_WORKER_BASE || !name) return Promise.resolve(null);
+  return cached(`more-news:${athleteId}`, NEWS_TTL_MS, async () => {
+    const data = await fetchJSON(`${chatWorkerBase()}/golf/news/${encodeURIComponent(athleteId)}?name=${encodeURIComponent(name)}`);
+    return data && Array.isArray(data.articles) ? data.articles : null;
   });
 }

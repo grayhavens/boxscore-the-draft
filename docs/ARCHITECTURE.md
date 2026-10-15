@@ -71,7 +71,8 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 | `GET /news/<league>`, `POST /news/refresh` | Perigon "More news" per league (KV), run one batch now | GET: public; POST: password |
 | `/nflverse/injuries`, `/nflverse/depth-chart` | nflverse CSV → JSON (CORS proxy) | none |
 | `/nhl/score/<date>` | NHL clip ids (CORS proxy) | none |
-| `/golf/season/<year>` | condensed FedEx Cup events, stored in KV | none |
+| `/golf/season/<year>` | condensed FedEx Cup events, stored in KV (calendar read from `?dates=<year>0101`, ~12KB; the plain `?dates=<year>` is 27MB+) | none |
+| `/golf/news/<athleteId>?name=` | a golfer's last 14 days of Google News RSS, cached 6h, as `{ articles: [{title,url,source,at}] }` | none |
 | `/api/admin/*` | system admin (`worker/system-admin.js`) | Cloudflare Access JWT |
 
 Group routes are gated by the invite code (`?gc=`) except `/access/check`, `/claim`, `/roster`, `/sports`,
@@ -264,7 +265,7 @@ including across sessions.
   the source for NHL scores/boxscores.
 - **PGA Tour golf** (`docs/golf-plan.md`; off for every group for now, a commissioner turns it on from the Sports screen): ESPN too. `js/golf.js` parses (shared with the worker),
   `js/golf-api.js` fetches. The worker's `/golf/season/<year>` (`worker/golf.js`) condenses finished FedEx Cup
-  events into KV (`golf:<year>`) so phones never pull whole leaderboards; the live one comes straight from ESPN. Use
+  events into KV (`golf:<year>`) so phones never pull whole leaderboards; the live one comes straight from ESPN. A golfer's page news is ESPN's tour feed filtered by tag (ESPN ignores any per-golfer param) plus "More news" from the worker's `/golf/news` Google News search (unofficial feed, personal-use terms; hidden if it fails). Use
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
   `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
   (`js/seasons/pga.js`) resolve in `getLeagueRuleTeams` from `golferAwardCounts` (`js/golf.js`), one entry per occurrence;

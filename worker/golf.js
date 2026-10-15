@@ -21,15 +21,27 @@
        scratch mid-season takes a few requests; from January it's one
        event a week.
 
+   The calendar comes from ?dates=<year>0101 (golfCalendarUrl): the
+   plain ?dates=<year> scoreboard is 27-34MB and made this route 502.
+
+     GET /golf/news/<athleteId>?name=<golfer>  public: { articles }
+       Google News RSS for "<name>" golf, last 14 days, as
+       [{ title, url, source, at }]. ESPN's golf news feed ignores any
+       per-golfer filter (checked 2026-10-15), and Perigon's free tier
+       can't cover 100+ golfers. Cached NEWS_TTL_SECONDS per golfer;
+       `name` is limited to letters so the route can't search arbitrary
+       text. Google's feed terms say personal, non-commercial use.
+
    Response edge-cached SEASON_TTL_SECONDS (a short time while
    incomplete, so the next request carries on filling).
    ============================================================ */
-import { golfScoreboardUrl, golfLeaderboardUrl, parseCalendar, fedexSeasonEvents, condenseLeaderboard } from '../js/golf.js';
+import { golfCalendarUrl, golfLeaderboardUrl, parseCalendar, parseGoogleNewsRss, validGolferName, golferNewsSearchUrl, fedexSeasonEvents, condenseLeaderboard } from '../js/golf.js';
 
 export const MAX_FETCH_PER_REQUEST = 4;
 const SEASON_TTL_SECONDS = 10 * 60;
 const INCOMPLETE_TTL_SECONDS = 15;
 const CALENDAR_TTL_SECONDS = 6 * 60 * 60;   // the schedule changes a few times a year
+const NEWS_TTL_SECONDS = 6 * 60 * 60;
 const LEADERBOARD_TTL_SECONDS = 2 * 60;     // only read for events due or in progress
 
 export function golfSeasonKey(season){
@@ -91,7 +103,7 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
   };
   let calendar;
   try {
-    calendar = parseCalendar(await fetchJson(golfScoreboardUrl(season), CALENDAR_TTL_SECONDS));
+    calendar = parseCalendar(await fetchJson(golfCalendarUrl(season), CALENDAR_TTL_SECONDS));
   } catch (e){
     return json({ error: 'upstream' }, 502, headers);
   }
@@ -110,4 +122,18 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
     headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${ttl}` }
   })));
   return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+
+export async function handleGolfNews(request, url, headers, ctx, { cachedUpstreamFetch, json }){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  if(!/^\/golf\/news\/\d{1,12}$/.test(url.pathname)) return new Response('Not found', { status: 404, headers });
+  const name = (url.searchParams.get('name') || '').trim();
+  if(!validGolferName(name)) return json({ error: 'name' }, 400, headers);
+  try {
+    const res = await cachedUpstreamFetch(golferNewsSearchUrl(name), NEWS_TTL_SECONDS, { headers: { 'User-Agent': 'Mozilla/5.0' } }, ctx);
+    if(!res.ok) throw new Error(`upstream ${res.status}`);
+    return json({ articles: parseGoogleNewsRss(await res.text()) }, 200, headers);
+  } catch (e){
+    return json({ error: 'upstream' }, 502, headers);
+  }
 }
