@@ -1269,7 +1269,7 @@ async function route(request, env, ctx){
   // PGA Tour season results, condensed (worker/golf.js).
   if(url.pathname.startsWith('/golf/season/')) return handleGolfSeason(request, url, env, headers, ctx, { cachedUpstreamFetch, json });
 
-  if(url.pathname.startsWith('/golf/news/')) return handleGolfNews(request, url, headers, ctx, { cachedUpstreamFetch, json });
+  if(url.pathname === '/golf/news') return handleGolfNews(request, url, headers, ctx, { cachedUpstreamFetch, json });
 
   // Perigon news, filled by the daily cron (scheduled() in the default export).
   if(url.pathname.startsWith('/news/')) return handleNews(request, url, env, ctx, headers, { json, isAuthorized, cachedUpstreamFetch, group });

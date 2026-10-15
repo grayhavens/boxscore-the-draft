@@ -9,7 +9,7 @@ import {
   finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone,
   finishAwards, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, majorWindow, activeMajor, majorPoints, majorGolfers, majorLeaders, isOut,
   golferNews, finishForm, FORM_FINISH_CAP, GOLF_NEWS_MAX_TAGS,
-  golfCalendarUrl, parseGoogleNewsRss, validGolferName, golferNewsSearchUrl
+  golfCalendarUrl, parseRssFeed, mergeNewsFeeds, golferStories
 } from '../js/golf.js';
 import { PGA_SCORING } from '../js/seasons/pga.js';
 import { updateSeason } from '../js/golf.js';
@@ -329,30 +329,38 @@ test('the season calendar is read from a day before the first event, not the 27M
   assert.equal(golfCalendarUrl(2026), 'https://site.web.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=20260101');
 });
 
-const NEWS_RSS = `<?xml version="1.0"?><rss><channel><title>x</title><item>
-<title>Scheffler &amp; co. win big - Golf Monthly</title><link>https://news.google.com/rss/articles/AAA?oc=5</link>
-<pubDate>Wed, 14 Oct 2026 05:04:40 GMT</pubDate><source url="https://www.golfmonthly.com">Golf Monthly</source></item>
-<item><title>Older story - ESPN</title><link>https://news.google.com/rss/articles/BBB</link>
-<pubDate>Fri, 02 Oct 2026 07:00:00 GMT</pubDate><source url="https://espn.com">ESPN</source></item>
+const RSS = `<?xml version="1.0"?><rss><channel><title>x</title><item>
+<title>Scheffler &amp; co. win big</title><link>https://a.test/1</link>
+<pubDate>Wed, 14 Oct 2026 05:04:40 GMT</pubDate><description><![CDATA[<p>Scottie Scheffler won.</p>]]></description></item>
+<item><title>Older story</title><link>https://a.test/2</link><pubDate>Fri, 02 Oct 2026 07:00:00 GMT</pubDate></item>
 <item><title>Bad link</title><link>javascript:alert(1)</link><pubDate>Fri, 02 Oct 2026 07:00:00 GMT</pubDate></item>
 <item><title>No date</title><link>https://x.test/a</link></item></channel></rss>`;
 
-test('Google News results become the worker news shape, newest first, bad rows dropped', () => {
-  const out = parseGoogleNewsRss(NEWS_RSS);
+test('an RSS feed becomes stories: bad links and undated rows dropped, tags stripped from the summary', () => {
+  const out = parseRssFeed(RSS, 'Test');
   assert.deepEqual(out.map(s => s.title), ['Scheffler & co. win big', 'Older story']);
-  assert.equal(out[0].source, 'Golf Monthly');
+  assert.equal(out[0].source, 'Test');
   assert.equal(out[0].at, '2026-10-14T05:04:40.000Z');
-  assert.equal(parseGoogleNewsRss(NEWS_RSS, 1).length, 1);
-  assert.deepEqual(parseGoogleNewsRss(''), []);
+  assert.equal(out[0].text, 'Scottie Scheffler won.');
+  assert.deepEqual(parseRssFeed(''), []);
 });
 
-test('only a golfer-looking name may be searched', () => {
-  assert.ok(validGolferName('Scottie Scheffler'));
-  assert.ok(validGolferName('Ludvig Åberg'));
-  assert.ok(validGolferName("Ben An-Smith Jr."));
-  assert.ok(!validGolferName(''));
-  assert.ok(!validGolferName('a&b=c'));
-  assert.ok(!validGolferName('x'.repeat(41)));
-  assert.ok(!validGolferName(null));
-  assert.match(golferNewsSearchUrl('Ludvig Åberg'), /q=%22Ludvig%20%C3%85berg%22%20golf%20when%3A14d/);
+test('merged feeds drop repeated headlines and sort newest first', () => {
+  const a = [{ title: 'Same Story!', url: 'u1', source: 'A', at: '2026-10-14T00:00:00.000Z' }];
+  const b = [{ title: 'same story', url: 'u2', source: 'B', at: '2026-10-15T00:00:00.000Z' }, { title: 'Other', url: 'u3', source: 'B', at: '2026-10-16T00:00:00.000Z' }];
+  assert.deepEqual(mergeNewsFeeds([a, b]).map(s => s.url), ['u3', 'u2']);
+});
+
+test('a golfer gets the stories that name them: full name, or a long last name', () => {
+  const stories = [
+    { title: 'Scheffler leads', text: '', url: 'u1', source: 'A', at: 'x' },
+    { title: 'Rory in Dubai', text: 'Rory McIlroy said', url: 'u2', source: 'A', at: 'x' },
+    { title: 'Ludvig Åberg wins', text: '', url: 'u3', source: 'A', at: 'x' },
+    { title: 'Young players rise', text: 'Kim and Young', url: 'u4', source: 'A', at: 'x' }
+  ];
+  assert.deepEqual(golferStories(stories, 'Scottie Scheffler').map(s => s.url), ['u1']);
+  assert.deepEqual(golferStories(stories, 'Rory McIlroy').map(s => s.url), ['u2']);
+  assert.deepEqual(golferStories(stories, 'Ludvig Åberg').map(s => s.url), ['u3']);
+  assert.deepEqual(golferStories(stories, 'Cameron Young'), [], 'a short last name alone is not a match');
+  assert.deepEqual(golferStories(null, 'Anyone'), []);
 });

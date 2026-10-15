@@ -15,7 +15,7 @@ import { fetchJSON } from './utils.js';
 import {
   golfScoreboardUrl, golfCalendarUrl, golfLeaderboardUrl, golferRecordUrl, GOLF_NEWS_URL,
   parseLeaderboard, parseGolferRecord, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, parseCalendar,
-  fedexSeasonEvents, updateSeason, isDone
+  fedexSeasonEvents, updateSeason, isDone, golferStories
 } from './golf.js';
 
 const SEASON_TTL_MS = 10 * 60 * 1000;      // matches the worker's edge cache
@@ -151,12 +151,17 @@ export function fetchGolfEventsOn(yyyymmdd){
   });
 }
 
-// More stories about one golfer, from the worker's Google News search
-// ([{ title, url, source, at }] or null); see worker/golf.js.
-export function fetchGolferMoreNews(athleteId, name){
-  if(!DASHBOARD_WORKER_BASE || !name) return Promise.resolve(null);
-  return cached(`more-news:${athleteId}`, NEWS_TTL_MS, async () => {
-    const data = await fetchJSON(`${chatWorkerBase()}/golf/news/${encodeURIComponent(athleteId)}?name=${encodeURIComponent(name)}`);
+// The tour-wide RSS stories the worker merges (worker/golf.js), shared by
+// every golfer's page; null when it didn't load.
+export function fetchGolfTourNews(){
+  if(!DASHBOARD_WORKER_BASE) return Promise.resolve(null);
+  return cached('tour-news', NEWS_TTL_MS, async () => {
+    const data = await fetchJSON(`${chatWorkerBase()}/golf/news`);
     return data && Array.isArray(data.articles) ? data.articles : null;
   });
+}
+
+// More stories about one golfer ([{ title, url, source, at }] or null).
+export function fetchGolferMoreNews(athleteId, name){
+  return fetchGolfTourNews().then(stories => (stories ? golferStories(stories, name) : null));
 }

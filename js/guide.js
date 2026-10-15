@@ -138,7 +138,7 @@ const APP_ROWS = [
   },
   {
     id: 'golf', icon: 'standings', title: 'PGA Tour', when: () => HAS_GOLF,
-    lead: 'Golfers score from where they finish and each has a page like a team’s, with the week’s tournament, every finish and their news (tour stories plus a Google News search); majors are worth the most and get a card on Home that week.',
+    lead: 'Golfers score from where they finish and each has a page like a team’s, with the week’s tournament, every finish and their news (tour stories plus golf RSS feeds); majors are worth the most and get a card on Home that week.',
     go: ['Go to Standings', "switchView('standings')"]
   },
   {
