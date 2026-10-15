@@ -53,6 +53,7 @@ import { findEspnNflRow } from './standings-nfl.js';
 import { findEspnMlbRow } from './standings-mlb.js';
 import { favoriteStarHtml } from './favorites.js';
 import { fetchMoreNewsCached, safeStoryUrl } from './news-more.js';
+import { fetchGolferMoreNews } from './golf-api.js';
 import { escapeHtml } from './escape.js';
 import { navigate, canAnimateLive } from './motion.js';
 import { fxOn, play, pop, rollNumbers, stagger } from './motion-fx.js';
@@ -1617,7 +1618,7 @@ function renderTabBody(){
     playPathChanges(teamKey);
     playFormGrow();
     ensureNews(teamKey);
-    if(!isGolfer(meta)) ensureMoreNews(teamKey);
+    ensureMoreNews(teamKey);
     return;
   }
   if(isGolfer(meta)){
@@ -1985,7 +1986,7 @@ function moreNewsHtml(teamKey){
       <div class="headline">${escapeHtml(a.title)}</div>
       <div class="news-meta">${escapeHtml(a.source || 'News')} <span class="news-dot">·</span> ${timeAgo(a.at)}</div>
     </a>
-  `).join('') + `<div class="news-footer-note">More headlines via Perigon</div>`;
+  `).join('') + `<div class="news-footer-note">More headlines via ${isGolfer(metaOf(teamKey)) ? 'Google News' : 'Perigon'}</div>`;
 }
 
 // One shared read per league (js/news-more.js); repaints just the news
@@ -1993,8 +1994,9 @@ function moreNewsHtml(teamKey){
 function ensureMoreNews(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return;
-  fetchMoreNewsCached(meta.leagueKey).then(teams => {
-    const stories = teams && teams[teamKey];
+  // A golfer's come from the worker's Google News search (worker/golf.js);
+  // a team's from the Perigon batch.
+  (isGolfer(meta) ? fetchGolferMoreNews(meta.espnAthleteId, meta.name) : fetchMoreNewsCached(meta.leagueKey).then(teams => teams && teams[teamKey])).then(stories => {
     if(!stories || !stories.length || stories === moreNewsCache[teamKey]) return;
     moreNewsCache[teamKey] = stories;
     if(state.teamKey !== teamKey) return;

@@ -8,10 +8,11 @@ import {
   parseCalendar, fedexSeasonEvents, condenseLeaderboard, parseLeaderboard, parseGolferRecord,
   finishPosition, isMissedCut, golferResults, fedexTable, isTourChampionship, golferAwardCounts, fedexSeasonDone,
   finishAwards, parseLeagueLogo, pickWeekEvent, weekEventsToCheck, majorWindow, activeMajor, majorPoints, majorGolfers, majorLeaders, isOut,
-  golferNews, finishForm, FORM_FINISH_CAP, GOLF_NEWS_MAX_TAGS
+  golferNews, finishForm, FORM_FINISH_CAP, GOLF_NEWS_MAX_TAGS,
+  golfCalendarUrl, parseGoogleNewsRss, validGolferName, golferNewsSearchUrl
 } from '../js/golf.js';
 import { PGA_SCORING } from '../js/seasons/pga.js';
-import { updateSeason } from '../worker/golf.js';
+import { updateSeason } from '../js/golf.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./fixtures/golf/${name}.json`, import.meta.url)));
 const OPEN = fixture('leaderboard-open');
@@ -320,4 +321,38 @@ test('a finish as a form bar: better places taller, a missed cut below the line'
   assert.equal(finishForm('CUT').result, 'l');
   assert.equal(finishForm('WD').result, 'd');
   assert.equal(finishForm('DQ').margin, 0);
+});
+
+// ---- calendar URL and per-golfer news ----
+
+test('the season calendar is read from a day before the first event, not the 27MB season scoreboard', () => {
+  assert.equal(golfCalendarUrl(2026), 'https://site.web.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=20260101');
+});
+
+const NEWS_RSS = `<?xml version="1.0"?><rss><channel><title>x</title><item>
+<title>Scheffler &amp; co. win big - Golf Monthly</title><link>https://news.google.com/rss/articles/AAA?oc=5</link>
+<pubDate>Wed, 14 Oct 2026 05:04:40 GMT</pubDate><source url="https://www.golfmonthly.com">Golf Monthly</source></item>
+<item><title>Older story - ESPN</title><link>https://news.google.com/rss/articles/BBB</link>
+<pubDate>Fri, 02 Oct 2026 07:00:00 GMT</pubDate><source url="https://espn.com">ESPN</source></item>
+<item><title>Bad link</title><link>javascript:alert(1)</link><pubDate>Fri, 02 Oct 2026 07:00:00 GMT</pubDate></item>
+<item><title>No date</title><link>https://x.test/a</link></item></channel></rss>`;
+
+test('Google News results become the worker news shape, newest first, bad rows dropped', () => {
+  const out = parseGoogleNewsRss(NEWS_RSS);
+  assert.deepEqual(out.map(s => s.title), ['Scheffler & co. win big', 'Older story']);
+  assert.equal(out[0].source, 'Golf Monthly');
+  assert.equal(out[0].at, '2026-10-14T05:04:40.000Z');
+  assert.equal(parseGoogleNewsRss(NEWS_RSS, 1).length, 1);
+  assert.deepEqual(parseGoogleNewsRss(''), []);
+});
+
+test('only a golfer-looking name may be searched', () => {
+  assert.ok(validGolferName('Scottie Scheffler'));
+  assert.ok(validGolferName('Ludvig Åberg'));
+  assert.ok(validGolferName("Ben An-Smith Jr."));
+  assert.ok(!validGolferName(''));
+  assert.ok(!validGolferName('a&b=c'));
+  assert.ok(!validGolferName('x'.repeat(41)));
+  assert.ok(!validGolferName(null));
+  assert.match(golferNewsSearchUrl('Ludvig Åberg'), /q=%22Ludvig%20%C3%85berg%22%20golf%20when%3A14d/);
 });

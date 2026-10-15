@@ -21,56 +21,35 @@
        scratch mid-season takes a few requests; from January it's one
        event a week.
 
+   NOTE 2026-10-15: ESPN answers 403 to Workers (every URL, any User-Agent),
+   so this route 502s and the browser builds the season instead
+   (js/golf-api.js buildGolfSeason). updateSeason lives in js/golf.js.
+
+   The calendar comes from ?dates=<year>0101 (golfCalendarUrl): the
+   plain ?dates=<year> scoreboard is 27-34MB and made this route 502.
+
+     GET /golf/news/<athleteId>?name=<golfer>  public: { articles }
+       Google News RSS for "<name>" golf, last 14 days, as
+       [{ title, url, source, at }]. ESPN's golf news feed ignores any
+       per-golfer filter (checked 2026-10-15), and Perigon's free tier
+       can't cover 100+ golfers. Cached NEWS_TTL_SECONDS per golfer;
+       `name` is limited to letters so the route can't search arbitrary
+       text. Google's feed terms say personal, non-commercial use.
+
    Response edge-cached SEASON_TTL_SECONDS (a short time while
    incomplete, so the next request carries on filling).
    ============================================================ */
-import { golfScoreboardUrl, golfLeaderboardUrl, parseCalendar, fedexSeasonEvents, condenseLeaderboard } from '../js/golf.js';
+import { golfCalendarUrl, golfLeaderboardUrl, parseCalendar, parseGoogleNewsRss, validGolferName, golferNewsSearchUrl, MAX_FETCH_PER_REQUEST, updateSeason } from '../js/golf.js';
 
-export const MAX_FETCH_PER_REQUEST = 4;
+export { MAX_FETCH_PER_REQUEST, updateSeason };
 const SEASON_TTL_SECONDS = 10 * 60;
 const INCOMPLETE_TTL_SECONDS = 15;
 const CALENDAR_TTL_SECONDS = 6 * 60 * 60;   // the schedule changes a few times a year
+const NEWS_TTL_SECONDS = 6 * 60 * 60;
 const LEADERBOARD_TTL_SECONDS = 2 * 60;     // only read for events due or in progress
 
 export function golfSeasonKey(season){
   return `golf:${season}`;
-}
-
-const isDone = e => e && (e.status === 'post' || e.status === 'canceled');
-
-// One pass over the season: condense whichever events have reached
-// their end date but aren't stored yet (oldest first, at most maxFetch),
-// keeping those now final. Pure apart from fetchLeaderboard, so tests
-// drive it with fixtures.
-export async function updateSeason({ calendar, stored, now, fetchLeaderboard, maxFetch = MAX_FETCH_PER_REQUEST }){
-  const events = fedexSeasonEvents(calendar);
-  const next = { ...stored };
-  const live = {};
-  const due = events.filter(e => !isDone(next[e.id]) && e.start && Date.parse(e.start) <= now);
-  let changed = false;
-  for(const e of due.slice(0, maxFetch)){
-    const condensed = await fetchLeaderboard(e.id).then(condenseLeaderboard).catch(() => null);
-    if(!condensed) continue;
-    if(isDone(condensed)){
-      next[e.id] = condensed;
-      changed = true;
-    } else {
-      live[e.id] = condensed;
-    }
-  }
-  // Still to fill: a past event (its calendar end has gone by) that
-  // isn't stored. An event in progress doesn't count.
-  const complete = !events.some(e => !isDone(next[e.id]) && e.end && Date.parse(e.end) < now && !live[e.id]);
-  // Names go out once for the season rather than with every event.
-  const golfers = {};
-  const out = events.map(e => {
-    const c = next[e.id] || live[e.id];
-    if(!c) return { id: e.id, name: e.name, start: e.start, end: e.end, status: 'pre' };
-    const { golfers: names, ...rest } = c;
-    Object.assign(golfers, names);
-    return rest;
-  });
-  return { stored: next, changed, complete, events: out, golfers };
 }
 
 export async function handleGolfSeason(request, url, env, headers, ctx, { cachedUpstreamFetch, json }){
@@ -85,14 +64,15 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
   if(cached) return new Response(await cached.text(), { headers: { ...headers, 'Content-Type': 'application/json' } });
 
   const fetchJson = async (u, ttl) => {
-    const res = await cachedUpstreamFetch(u, ttl, {}, ctx);
+    const res = await cachedUpstreamFetch(u, ttl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, ctx);
     if(!res.ok) throw new Error(`upstream ${res.status}`);
     return res.json();
   };
   let calendar;
   try {
-    calendar = parseCalendar(await fetchJson(golfScoreboardUrl(season), CALENDAR_TTL_SECONDS));
+    calendar = parseCalendar(await fetchJson(golfCalendarUrl(season), CALENDAR_TTL_SECONDS));
   } catch (e){
+    console.error('[golf] calendar failed', season, e && e.message);
     return json({ error: 'upstream' }, 502, headers);
   }
   const stored = (await env.LEAGUE_FACTS.get(golfSeasonKey(season), 'json')) || {};
@@ -110,4 +90,18 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
     headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${ttl}` }
   })));
   return new Response(body, { headers: { ...headers, 'Content-Type': 'application/json' } });
+}
+
+export async function handleGolfNews(request, url, headers, ctx, { cachedUpstreamFetch, json }){
+  if(request.method !== 'GET') return new Response('Method not allowed', { status: 405, headers });
+  if(!/^\/golf\/news\/\d{1,12}$/.test(url.pathname)) return new Response('Not found', { status: 404, headers });
+  const name = (url.searchParams.get('name') || '').trim();
+  if(!validGolferName(name)) return json({ error: 'name' }, 400, headers);
+  try {
+    const res = await cachedUpstreamFetch(golferNewsSearchUrl(name), NEWS_TTL_SECONDS, { headers: { 'User-Agent': 'Mozilla/5.0' } }, ctx);
+    if(!res.ok) throw new Error(`upstream ${res.status}`);
+    return json({ articles: parseGoogleNewsRss(await res.text()) }, 200, headers);
+  } catch (e){
+    return json({ error: 'upstream' }, 502, headers);
+  }
 }

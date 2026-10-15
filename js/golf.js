@@ -16,7 +16,9 @@
    - News        site.web.api.espn.com/apis/site/v2/sports/golf/pga/news?limit=50
                  the tour's newest 50 stories; ?athletes= and ?player= are
                  ignored (checked 2026-10-13), but each story tags its
-                 golfers, so a golfer's page filters them (golferNews).
+                 golfers, so a golfer's page filters them (golferNews). The 50-story
+                 window is thin, so "More news" adds a per-golfer Google News
+                 search through the worker (parseGoogleNewsRss).
 
    Quirks worth knowing:
    - Use the site.web.api host: site.api.espn.com answers 403 to a
@@ -38,6 +40,13 @@ const GOLF_CORE_BASE = 'https://sports.core.api.espn.com/v2/sports/golf/leagues/
 
 export function golfScoreboardUrl(season){
   return season ? `${GOLF_SCOREBOARD_URL}?dates=${season}` : GOLF_SCOREBOARD_URL;
+}
+
+// A season's calendar without its events. ?dates=<year> returns every
+// event's full field (27MB for 2026, which the worker can't hold); a
+// day before the first tee shot returns the same `calendar` in ~12KB.
+export function golfCalendarUrl(season){
+  return `${GOLF_SCOREBOARD_URL}?dates=${encodeURIComponent(season)}0101`;
 }
 
 export function golfLeaderboardUrl(eventId){
@@ -281,6 +290,93 @@ export function golferNews(feed, athleteId, limit = 8){
       published: a.published,
       link: a.links && a.links.web ? a.links.web.href : null
     }));
+}
+
+// ---- Season build (shared by the browser and worker/golf.js) ----
+
+export const MAX_FETCH_PER_REQUEST = 4;
+export const isDone = e => e && (e.status === 'post' || e.status === 'canceled');
+
+// One pass over the season: condense whichever events have reached
+// their end date but aren't stored yet (oldest first, at most maxFetch),
+// keeping those now final. Pure apart from fetchLeaderboard, so tests
+// drive it with fixtures.
+export async function updateSeason({ calendar, stored, now, fetchLeaderboard, maxFetch = MAX_FETCH_PER_REQUEST }){
+  const events = fedexSeasonEvents(calendar);
+  const next = { ...stored };
+  const live = {};
+  const due = events.filter(e => !isDone(next[e.id]) && e.start && Date.parse(e.start) <= now);
+  let changed = false;
+  for(const e of due.slice(0, maxFetch)){
+    const condensed = await fetchLeaderboard(e.id).then(condenseLeaderboard).catch(() => null);
+    if(!condensed) continue;
+    if(isDone(condensed)){
+      next[e.id] = condensed;
+      changed = true;
+    } else {
+      live[e.id] = condensed;
+    }
+  }
+  // Still to fill: a past event (its calendar end has gone by) that
+  // isn't stored. An event in progress doesn't count.
+  const complete = !events.some(e => !isDone(next[e.id]) && e.end && Date.parse(e.end) < now && !live[e.id]);
+  // Names go out once for the season rather than with every event.
+  const golfers = {};
+  const out = events.map(e => {
+    const c = next[e.id] || live[e.id];
+    if(!c) return { id: e.id, name: e.name, start: e.start, end: e.end, status: 'pre' };
+    const { golfers: names, ...rest } = c;
+    Object.assign(golfers, names);
+    return rest;
+  });
+  return { stored: next, changed, complete, events: out, golfers };
+}
+
+// ---- Per-golfer news (Google News RSS, via the worker) ----
+
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+function xmlText(raw){
+  return String(raw || '')
+    .replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1')
+    .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (m, e) => {
+      if(e[0] !== '#') return XML_ENTITIES[e.toLowerCase()];
+      const code = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : m;
+    })
+    .trim();
+}
+function xmlTag(block, tag){
+  const m = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`).exec(block);
+  return m ? xmlText(m[1]) : '';
+}
+
+// Google News RSS search results -> [{ title, url, source, at }], the
+// shape the worker's Perigon news uses, so the team page draws both the
+// same way. Google appends " - Source" to each title; the <source> tag
+// names it, so that suffix comes off.
+export function parseGoogleNewsRss(xml, limit = 8){
+  const out = [];
+  const items = String(xml || '').match(/<item>[\s\S]*?<\/item>/g) || [];
+  for(const item of items){
+    const url = xmlTag(item, 'link');
+    const source = xmlTag(item, 'source');
+    let title = xmlTag(item, 'title');
+    if(source && title.endsWith(` - ${source}`)) title = title.slice(0, -(source.length + 3));
+    const at = Date.parse(xmlTag(item, 'pubDate'));
+    if(!title || !/^https?:\/\//i.test(url) || !Number.isFinite(at)) continue;
+    out.push({ title, url, source, at: new Date(at).toISOString() });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+}
+
+// What the worker may search for: a golfer's name, nothing else.
+export function validGolferName(name){
+  return typeof name === 'string' && /^\p{L}[\p{L} .'’-]{2,39}$/u.test(name);
+}
+
+export function golferNewsSearchUrl(name){
+  const q = encodeURIComponent(`"${name}" golf when:14d`);
+  return `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`;
 }
 
 // One finish as a form bar (the golfer page's Recent form and Event by
