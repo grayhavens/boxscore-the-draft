@@ -30,7 +30,7 @@ import { paintSceneStill } from './landing-explainer.js';
 import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
 
-import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
+import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
 const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 // The first five match the tab bar's icons (index.html).
@@ -132,7 +132,7 @@ const APP_ROWS = [
   },
   {
     id: 'overall', icon: 'points', title: 'Points',
-    lead: 'The leaderboard, the season race, and each drafter’s breakdown.',
+    lead: 'The Leaderboard, Activity, the season Race, and each drafter’s breakdown.',
     pre: { lead: 'The leaderboard, once the draft is done.' },
     go: ['Go to Points', "switchView('overall')"]
   },
@@ -153,7 +153,7 @@ const APP_ROWS = [
   },
   {
     id: 'settings', icon: 'gear', title: 'Settings',
-    lead: 'The gear up top: who you are, light or dark, the tab the app opens to.',
+    lead: 'The gear up top: who you are, light or dark, the tab the app opens to. Commissioner sign-in is at the bottom.',
     go: ['Back to Settings', 'backToSettings()']
   }
 ];
@@ -197,10 +197,7 @@ function tourCardBody(card){
       <div class="welcome-title">Turn on alerts</div>
       <div class="welcome-sub">Know when you’re on the clock${ACTIVE_SEASON.preDraft ? '' : ', your points move,'} or someone posts. Change these, and find more help, in <b>Settings</b>.</div>
       <div class="guide-alert-rows">${PUSH_KINDS.map(([kind, title]) => `
-        <button type="button" class="set-row" role="switch" aria-checked="${prefs[kind]}" onclick="guideTogglePush('${kind}')">
-          <span class="set-row-text"><span class="set-row-title">${title}</span></span>
-          ${switchHtml({ on: prefs[kind] })}
-        </button>`).join('')}</div>
+        ${settingsRowHtml({ title, onclick: `guideTogglePush('${kind}')`, switchOn: prefs[kind] })}`).join('')}</div>
       ${tour.note ? `<div class="welcome-note">${tour.note}</div>` : ''}`;
   }
   return `

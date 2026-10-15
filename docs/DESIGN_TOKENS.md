@@ -102,6 +102,7 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 | `backLinkHtml({label, onclick, cls})` | "‹ Points" style back link |
 | `iconButtonHtml({icon, label, onclick, cls})` | round `.icon-btn` |
 | `switchHtml({on, label, onclick})` | toggle |
+| `settingsRowHtml({title, sub, onclick, chevron, rightHtml, switchOn, switchKey, cls})` | `.set-row` tile (Settings, Home draft card, tour alerts); `switchOn` makes a switch row |
 | `filterTabHtml({label, active, onclick})` + `revealActiveTab(row)` | underline filter tabs |
 | `segmentedControlHtml(segments, activeKey, fnName)` (in `js/utils.js`) | `.seg` track + thumb |
 | `tagHtml({label, variant})` | `.status-tag` (live, locked, win, …) |
@@ -120,7 +121,7 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 
 Not yet in the design system (per `docs/design-system-plan.md`): folded PathToPoints. Screens not covered by the spec:
 draft room, team page, race chart (per the plan). Components in the spec without a `ui.js` helper yet (e.g. Banner,
-ChatBubble, ChatComposer, SettingsRow, Sheet, SheetRow) are still hand-written markup in their screens.
+ChatBubble, ChatComposer, Sheet, SheetRow) are still hand-written markup in their screens.
 
 ## Layout and interaction patterns
 
