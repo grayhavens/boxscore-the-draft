@@ -4,8 +4,9 @@ From the Boxscore Flow Map review (2026-10-15, `main` at f5fbf3c), a walk throug
 what it loads and how often it refreshes. Eleven items, ordered by how much a regular group member would notice. Each
 lists the problem, the change, where it lives in the code, and what it means for the design system.
 
-Status: not started. Quick wins (items 1–4, 11) can each ship as their own small PR. Growth items (5–10) need a short
-plan of their own before code.
+Status: quick wins (items 1–4, 11) shipped 2026-10-15, one PR each (#282–#286); each item below ends with a
+**Shipped** note on what was built and where it differs from the plan. Growth items (5–10) are not started and need a
+short plan of their own before code.
 
 ## Design system rules for every item
 
@@ -74,6 +75,12 @@ link carries the code, so the first open is smooth; the second is not.
 **New to the design system:** none expected. If a reusable "code display" block turns out to be needed in both the
 install steps and the code prompt, add it as a `codeBlockHtml` helper with a spec pair.
 
+**Shipped (#284).** The iPhone steps get a third step when the group has a code: open it from the Home Screen, with the
+code in a `--surface-2` well and a Copy button. Android gets none (its installed app shares Chrome's storage). The
+name pick already came only after "Continue in browser", so that part needed no change. Differences: the code uses
+`--fs-22` in `--font-display`, since `--type-score` is only 17px; the email change is the admin page's default body
+(`js/system-admin.js`), so the worker and `js/welcome-template.js` were untouched. No `codeBlockHtml` was needed.
+
 ### 2. Stop calling two things "Standings"
 
 **Problem.** The Standings tab is the real league tables. The first segment on Points (`js/overall.js`, key
@@ -88,6 +95,9 @@ Standings" (Activity alerts, `docs/ARCHITECTURE.md`, `docs/points-ux-plan.md`).
 **Design system.** Label change only, inside `segmentedControlHtml`. Check the label fits the segment at 375px with
 four segments (Leaderboard, Activity, Race, History).
 **New to the design system:** none.
+
+**Shipped (#282).** The label is "Leaderboard" and the key stays `standings`. At 375px with four segments each is 84px
+and the label 80px, so it fits on one line.
 
 ### 3. Tidy Settings for regular members
 
@@ -109,6 +119,10 @@ markup today (`set-row`, `set-row-title`, `set-row-sub`, `set-chev`). The sign-i
 **New to the design system:** `settingsRowHtml({ title, sub, onclick, chevron, rightHtml })` in `js/ui.js`, matching
 `docs/design-system/components/SettingsRow.*`; move existing rows onto it. No new tokens.
 
+**Shipped (#283).** As planned. The helper also takes `switchOn` / `switchKey` for switch rows, and Settings, the
+pre-draft Home card and the tour's alert rows all use it. The Preview section also shows on a device that already has
+fake data on, so it can be turned off. The sign-in link is a new `.set-link` recipe.
+
 ### 4. Give returning members a way home
 
 **Problem.** `boxscore.space` lists only groups still recruiting (`LANDING_GROUPS`). A member of The Draft who types
@@ -125,6 +139,12 @@ the bare address has no way to their group.
 **Design system.** The card reuses the landing group card recipe and its handoff animation (`#landing-handoff`); the
 row is a SettingsRow-style row from item 3 or a plain `buttonHtml({ variant: 'secondary' })`.
 **New to the design system:** none expected.
+
+**Shipped (#285).** The cookie is `bx-group=<id>` (`lastGroupCookie` / `groupFromCookie` in `js/groups.js`), written from
+`js/group.js` but not from the hidden `?bg=1` copy; it's a plain host cookie on dev and preview hosts. With it, the
+group's card ("Your group", Open ›) sits above "Find your group". Without it, the row is a quiet line of text links
+under the button rather than a SettingsRow. Both use the handoff. This names every group on the public page, The
+Draft included.
 
 ### 11. Teach the hidden gestures once
 
@@ -146,6 +166,13 @@ page, pull to refresh. One-time moments (the playoffs reveal) can't be found aga
 **New to the design system:** a **Tip** component: `tipHtml({ text, onclose })` in `js/ui.js` with a spec pair, plus
 semantic tokens if the recipe needs them (`--tip-bg` → `var(--sheet)`, `--tip-ink` → `var(--text)`, and a `--z-tip`
 layer: z-order has no tokens yet, so this would be the first, documented in `docs/DESIGN_TOKENS.md`). One tip recipe for all three places, never three.
+
+**Shipped (#286).** `tipHtml` plus `js/tips.js`, with tokens `--tip-bg`, `--tip-ink` and `--z-tip` (250: over the tab
+bar, under sheets) and a Tip spec pair. Tips sit at the top of the screen (at the bottom one would cover chat's
+composer). They show on touch phones only and never under an open sheet, and go away on a tap, on the gesture, or
+after 8 s. Chat now uses the shared 380 ms `LONG_PRESS_MS`. The guide's Replay rows cover each league's playoffs
+reveal. Left for later: chat's 10px move cancel vs `MOVE_SLOP` (8px), and a Replay row for the champion moment once
+it exists.
 
 ---
 
