@@ -152,6 +152,11 @@ display name) and is shared with the worker; `js/group.js` resolves the active g
 (`?group=<id>` also works on localhost and Pages previews only). The bare domain `boxscore.space` (and `www.`) is the
 platform, not a group: an inline script at the top of `index.html` sends it to `landing.html` (`js/landing.js`), which
 lists the groups in its `LANDING_GROUPS` (only Season Ticket now, the one still recruiting) with a link to each subdomain.
+Members get a way home: each group's app writes a `bx-group=<id>` cookie on `.boxscore.space` at boot
+(`lastGroupCookie` in `js/groups.js`, from `js/group.js`, not from the hidden `?bg=1` copy; a plain host cookie on
+dev / preview hosts; only the group id). The landing reads it (`groupFromCookie`) and shows that group's card, "Your
+group", over "Find your group"; with no cookie, a quiet "Already in a group?" row links every group in `js/groups.js`.
+Both open with the same splash handoff as the group cards.
 A group with `open: true` roster spots in `js/groups.js` shows there as a recruiting card (a spots meter, the draft date from `GET /draft/status`, and "Claim a spot ›" opening a claim form inside the card with name and email, both required; no link into its app until its last spot is filled): `POST /claim` (`worker/claims.js`)
 stores the request in KV, rate-limited per IP, with no push alert; instead it emails the platform admin (worker secret
 `CLAIM_ALERT_EMAIL`, sent through Resend) who claimed and a link to `boxscore.space/admin?group=<id>`, which opens on that group. The admin page lists claims at the top: **Confirm**
