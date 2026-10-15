@@ -97,7 +97,7 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
   if(cached) return new Response(await cached.text(), { headers: { ...headers, 'Content-Type': 'application/json' } });
 
   const fetchJson = async (u, ttl) => {
-    const res = await cachedUpstreamFetch(u, ttl, {}, ctx);
+    const res = await cachedUpstreamFetch(u, ttl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, ctx);
     if(!res.ok) throw new Error(`upstream ${res.status}`);
     return res.json();
   };
@@ -105,6 +105,7 @@ export async function handleGolfSeason(request, url, env, headers, ctx, { cached
   try {
     calendar = parseCalendar(await fetchJson(golfCalendarUrl(season), CALENDAR_TTL_SECONDS));
   } catch (e){
+    console.error('[golf] calendar failed', season, e && e.message);
     return json({ error: 'upstream' }, 502, headers);
   }
   const stored = (await env.LEAGUE_FACTS.get(golfSeasonKey(season), 'json')) || {};
