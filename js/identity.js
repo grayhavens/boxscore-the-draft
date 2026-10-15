@@ -24,9 +24,9 @@
    ============================================================ */
 import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
-import { GROUP_DOMAIN } from './groups.js';
+import { GROUP_DOMAIN, allowsGroupOverride } from './groups.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
-import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, loadAdminPassword } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
 import { personalMockRoom } from './draft-rules.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
@@ -34,8 +34,10 @@ import './season-switcher.js';
 import { APP_VERSION } from './version.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref, sendTestPush, syncPushDevice } from './push.js';
 import { startTour, endTour } from './guide.js';
+import { accessCode } from './access.js';
+import { escapeHtml } from './escape.js';
 
-import { buttonHtml, backLinkHtml, switchHtml } from './ui.js';
+import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
 const PROFILE_KEY = 'teamDashboardProfileId';
 
 function loadProfileId(){
@@ -89,7 +91,13 @@ const setSheetTitle = t => { document.getElementById('identity-sheet-title').tex
    At 900px and up (css/style.css "Settings, wide") the identity card and
    the device note sit in a sticky column (.set-side) beside the sections
    (.set-main); under 900px both wrappers are display: contents, so the
-   phone page is the same single column it always was. */
+   phone page is the same single column it always was.
+   Commissioner-only rows stay out of the way: the Commissioner row shows
+   only on a device that has signed in (a saved password or token, see
+   loadAdminPassword in js/utils.js); everyone else gets a quiet
+   "Commissioner sign-in" link at the bottom. Preview with fake data has
+   its own section for the commissioner, for anyone who has it on (so
+   they can turn it off), and on dev / preview hosts with ?dev=1. */
 const settingsEl = () => document.getElementById('settings-content');
 
 const THEME_SWATCH = {
@@ -99,11 +107,17 @@ const THEME_SWATCH = {
 };
 
 function switchRowHtml(key, title, sub, on, onclick){
-  return `
-    <button type="button" class="set-row" data-switch="${key}" role="switch" aria-checked="${on}" onclick="${onclick}">
-      <span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span>
-      ${switchHtml({ on })}
-    </button>`;
+  return settingsRowHtml({ title, sub, onclick, switchOn: on, switchKey: key });
+}
+
+const isCommissionerDevice = () => !!loadAdminPassword();
+
+function devPreviewAsked(){
+  try {
+    return allowsGroupOverride(window.location.hostname) && new URLSearchParams(window.location.search).get('dev') === '1';
+  } catch (e){
+    return false;
+  }
 }
 
 function sectionHtml(label, body){
@@ -119,6 +133,8 @@ export function renderSettingsPage(backLabel = 'Back'){
   const s = getSettings();
   const me = DRAFT_TEAMS.find(d => d.id === currentProfileId);
   const fake = (window.getObMode ? window.getObMode() : 'real') === 'simulated';
+  const commissioner = isCommissionerDevice();
+  const showPreview = commissioner || fake || devPreviewAsked();
   el.innerHTML = `
     <div class="set-head">
       <div class="page-header">
@@ -137,15 +153,8 @@ export function renderSettingsPage(backLabel = 'Back'){
       <div class="set-side-foot">Saved on this device only<br>Version ${APP_VERSION}</div>
     </aside>
     <div class="set-main">
-    ${sectionHtml('App', `
-      <button type="button" class="set-row" onclick="openGuide()">
-        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">Every feature and where to find it</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>${installPlatform() ? `
-      <button type="button" class="set-row" onclick="openInstallGuide()">
-        <span class="set-row-text"><span class="set-row-title">Add to Home Screen</span><span class="set-row-sub">Open Boxscore like an app</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>` : ''}`)}
+    ${sectionHtml('App', settingsRowHtml({ title: 'How Boxscore works', sub: 'Every feature and where to find it', onclick: 'openGuide()', chevron: true }) +
+      (installPlatform() ? settingsRowHtml({ title: 'Add to Home Screen', sub: 'Open Boxscore like an app', onclick: 'openInstallGuide()', chevron: true }) : ''))}
     ${sectionHtml('Appearance', `<div class="set-themes">${THEME_OPTIONS.map(([v, label]) => `
       <button type="button" class="set-theme ${v === s.theme ? 'on' : ''}" data-theme-opt="${v}" aria-pressed="${v === s.theme}" onclick="setSetting('theme', '${v}')">
         <span class="set-swatch" style="background:${THEME_SWATCH[v]}"></span>
@@ -155,18 +164,12 @@ export function renderSettingsPage(backLabel = 'Back'){
       <button type="button" class="set-chip ${v === s.landing ? 'on' : ''}" data-landing-opt="${v}" aria-pressed="${v === s.landing}" onclick="setSetting('landing', '${v}')">${label}</button>`).join('')}</div>`)}
     <div id="set-alerts"></div>
     ${sectionHtml('Chat', switchRowHtml('chatBadge', 'Unread badge', 'Message count on the Chat tab', s.chatBadge, "setSetting('chatBadge', !getSettingsValue('chatBadge'))"))}
-    ${sectionHtml('League', `
-      <button type="button" class="set-row" onclick="openDraftPicker()">
-        <span class="set-row-text"><span class="set-row-title">Draft</span><span class="set-row-sub">Mock or live</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>
-      <button type="button" class="set-row" onclick="switchView('admin')">
-        <span class="set-row-text"><span class="set-row-title">Commissioner</span><span class="set-row-sub">Draft &amp; scoring</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>
-      ${switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')}`)}
+    ${sectionHtml('League', settingsRowHtml({ title: 'Draft', sub: 'Mock or live', onclick: 'openDraftPicker()', chevron: true }) +
+      (commissioner ? settingsRowHtml({ title: 'Commissioner', sub: 'Draft & scoring', onclick: "switchView('admin')", chevron: true }) : ''))}
+    ${showPreview ? sectionHtml('Preview', switchRowHtml('obMode', 'Preview with fake data', 'Points tab only', fake, 'toggleSettingsObMode()')) : ''}
     ${HAS_MULTIPLE_SEASONS ? sectionHtml('Draft class', `<div class="set-chips">${SEASON_IDS.map(id => `
       <button type="button" class="set-chip ${id === ACTIVE_SEASON_ID ? 'on' : ''}" aria-pressed="${id === ACTIVE_SEASON_ID}" onclick="setSheetSeason('${id}')">${id}</button>`).join('')}</div>`) : ''}
+    ${commissioner ? '' : `<button type="button" class="set-link" onclick="switchView('admin')">Commissioner sign-in</button>`}
     </div>
     <div class="set-foot">Saved on this device only</div>
     <div class="set-foot set-version">Version ${APP_VERSION}</div>
@@ -182,9 +185,7 @@ let alertsNote = '';
 let alertsBusy = false;
 
 function alertsInfoRow(title, sub, onclick){
-  return onclick
-    ? `<button type="button" class="set-row" onclick="${onclick}"><span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span><span class="set-chev">&rsaquo;</span></button>`
-    : `<div class="set-row"><span class="set-row-text"><span class="set-row-title">${title}</span><span class="set-row-sub">${sub}</span></span></div>`;
+  return settingsRowHtml({ title, sub, onclick, chevron: !!onclick });
 }
 
 function paintAlertsSection(){
@@ -441,6 +442,9 @@ function showTour(){
 // row). It comes before the name pick because the iPhone Home Screen app
 // keeps its own storage and would ask for the name again; "Continue in
 // browser" means they're staying, so the names (and then the tour) follow.
+// For the same reason the iPhone steps end with the group's invite code
+// (js/access.js), big and copyable: the Home Screen app asks for it once.
+// Android's installed app shares Chrome's storage, so it needs neither.
 let namesAfterInstall = false;
 
 export function skipInstall(){
@@ -477,10 +481,44 @@ function renderWelcomeNames(){
   el.scrollTop = 0;
 }
 
+// The iPhone's last step: open the Home Screen app and enter this code.
+function installCodeStepHtml(){
+  const code = accessCode();
+  if(!code) return '';
+  return `Open Boxscore from your Home Screen. You&rsquo;ll enter this code once more:
+    <span class="welcome-code">
+      <span class="welcome-code-value">${escapeHtml(code)}</span>
+      ${buttonHtml({ label: 'Copy', variant: 'secondary', onclick: 'copyInviteCode(this)', cls: 'welcome-code-copy' })}
+    </span>`;
+}
+
+window.copyInviteCode = btn => {
+  const code = accessCode();
+  if(!code) return;
+  const done = () => { if(btn) btn.textContent = 'Copied'; };
+  // Same fallback as chat's Copy (js/chat.js) for when the async
+  // clipboard is missing or refused.
+  const fallback = () => {
+    const area = document.createElement('textarea');
+    area.value = code;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e){}
+    area.remove();
+    if(ok) done();
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fallback);
+  else fallback();
+};
+
 function renderWelcomeInstall(platform, firstRun){
   const el = welcomeEl();
   el.dataset.step = 'install';
-  const steps = INSTALL_STEPS[platform].map((html, i) => `
+  const codeStep = platform === 'ios' ? installCodeStepHtml() : '';
+  const steps = INSTALL_STEPS[platform].concat(codeStep ? [codeStep] : []).map((html, i) => `
     <li><span class="welcome-step-num">${i + 1}</span><span class="welcome-step-text">${html}</span></li>
   `).join('');
   const installBtn = platform === 'android' && deferredInstallPrompt

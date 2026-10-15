@@ -4,12 +4,15 @@
    drifting rows of the recruiting group's teams, the "How it works"
    scroll tour (js/landing-explainer.js), the groups in LANDING_GROUPS
    below as cards with a spots meter and spot claims, and the FAQ.
+   Members get a way home: the group this browser last opened (the
+   bx-group cookie, js/groups.js) as a card over "Find your group", or,
+   with no cookie, a quiet "Already in a group?" row naming every group.
 
    Motion: the hero rises once the launch splash hands off, sections rise
    in the first time they're 35% in view, and opening a group grows the
    splash ground out of its card. Reduced motion shows everything still.
    ============================================================ */
-import { GROUPS, GROUP_DOMAIN, groupAppUrl, openSpots } from './groups.js';
+import { GROUPS, GROUP_IDS, GROUP_DOMAIN, groupAppUrl, openSpots, groupFromCookie } from './groups.js';
 import { DEFAULT_CAPS } from './draft-rules.js';
 import { SPORT_KEYS, SPORT_LABELS, MAX_SPORT_PICKS } from './sports.js';
 import { initTour } from './landing-explainer.js';
@@ -94,6 +97,24 @@ document.getElementById('ld-drift').innerHTML = rows.filter(r => r.length).map((
   const html = r.map(driftBadge).join('');
   return `<div class="ld-track${i ? ' rev' : ''}">${html}${html}</div>`;
 }).join('');
+
+// ---- A way home for members ----
+// A group card, like the full ones below, so it opens with the same handoff.
+const homeId = (() => { try { return groupFromCookie(document.cookie); } catch (e){ return null; } })();
+const homeEl = document.getElementById('ld-home');
+const memberEl = document.getElementById('ld-member');
+if(homeId){
+  homeEl.innerHTML = `
+  <a class="ld-group landing-group" href="${groupAppUrl(homeId, host)}">
+    <span class="ld-group-top"><span class="ld-group-name">${escapeHtml(GROUPS[homeId].name)}</span><span class="ld-group-go">Open ›</span></span>
+    <span class="ld-group-meta"><span>Your group</span></span>
+  </a>`;
+  homeEl.hidden = false;
+} else {
+  memberEl.innerHTML = `Already in a group? ${GROUP_IDS.map(id =>
+    `<a class="landing-group" href="${groupAppUrl(id, host)}">${escapeHtml(GROUPS[id].name)}</a>`).join(' · ')}`;
+  memberEl.hidden = false;
+}
 
 // "Find your group": down to the group cards.
 document.getElementById('ld-find').addEventListener('click', () => {
@@ -332,7 +353,8 @@ const logo = document.querySelector('.landing-logo');
 const main = document.querySelector('.landing-main');
 let anims = [], timer = 0;
 
-groupsEl.addEventListener('click', e => {
+// Any group link on the page: the cards below and the way home up top.
+document.addEventListener('click', e => {
   const link = e.target.closest('.landing-group');
   if(!link || link.tagName !== 'A' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
   e.preventDefault();

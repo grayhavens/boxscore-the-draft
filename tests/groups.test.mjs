@@ -1,7 +1,7 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUPS, LEGACY_GROUP_ID, groupCaps, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl } from '../js/groups.js';
+import { GROUPS, LEGACY_GROUP_ID, groupCaps, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl, lastGroupCookie, groupFromCookie } from '../js/groups.js';
 
 test('a group subdomain picks that group', () => {
   assert.equal(chooseGroupId({ hostname: 'thedraft.boxscore.space', fromUrl: null }), 'thedraft');
@@ -62,4 +62,22 @@ test('groupCaps: The Draft uses the draft room default; caps keys are league-sha
       assert.ok(Number.isInteger(v) && v >= 0 && v <= 10, `${id}/${k}`);
     });
   });
+});
+
+test('the last-group cookie is shared across boxscore.space, host-only on dev hosts, absent elsewhere', () => {
+  const prod = lastGroupCookie('seasonticket', 'seasonticket.boxscore.space');
+  assert.match(prod, /^bx-group=seasonticket; Path=\/; Max-Age=\d+; SameSite=Lax; Domain=boxscore\.space; Secure$/);
+  assert.equal(lastGroupCookie('thedraft', 'localhost'), lastGroupCookie('thedraft', 'localhost').replace(/; Domain.*/, ''));
+  assert.doesNotMatch(lastGroupCookie('thedraft', 'abc.boxscorethedraft.pages.dev'), /Domain/);
+  assert.equal(lastGroupCookie('thedraft', 'example.com'), null);
+  assert.equal(lastGroupCookie('nope', 'thedraft.boxscore.space'), null);
+});
+
+test('groupFromCookie reads a known group only', () => {
+  assert.equal(groupFromCookie('a=1; bx-group=thedraft; b=2'), 'thedraft');
+  assert.equal(groupFromCookie('bx-group=seasonticket'), 'seasonticket');
+  assert.equal(groupFromCookie('xbx-group=thedraft'), null);
+  assert.equal(groupFromCookie('bx-group=constructor'), null);
+  assert.equal(groupFromCookie(''), null);
+  assert.equal(groupFromCookie(undefined), null);
 });
