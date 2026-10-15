@@ -6890,6 +6890,13 @@ body.ld-still .ld-title span, body.ld-still .ld-lede{ opacity: 1; transform: non
 @keyframes ld-drift{ to{ transform: translateX(-50%); } }
 body.ld-still .ld-track{ animation: none; }
 .ld-find{ margin-top: 28px; }
+/* The way home (js/landing.js): your last group's card over Find your group, or a quiet row of every group. */
+.ld-home{ margin-top: 28px; }
+.ld-home + .ld-find{ margin-top: 12px; }
+.ld-home[hidden], .ld-member[hidden]{ display: none; }
+.ld-member{ margin: 14px 0 0; text-align: center; font-size: var(--fs-13); line-height: 1.5; color: var(--text-sub); }
+.ld-member a{ font-weight: 700; color: var(--text); text-decoration: none; white-space: nowrap; }
+@media (hover: hover){ .ld-member a:hover{ color: var(--accent); } }
 
 /* Sections rise the first time they're 35% in view (.in, js/landing.js). */
 body:not(.ld-still) .ld-rv{

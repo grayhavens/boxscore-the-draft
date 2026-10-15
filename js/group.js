@@ -6,7 +6,7 @@
 
    Browser-only; js/groups.js holds the registry the worker shares.
    ============================================================ */
-import { GROUPS, LEGACY_GROUP_ID, chooseGroupId } from './groups.js';
+import { GROUPS, LEGACY_GROUP_ID, chooseGroupId, lastGroupCookie } from './groups.js';
 import { loadRoster } from './roster.js';
 import { loadSports } from './group-sports.js';
 import { ensureAccess, accessCode } from './access.js';
@@ -22,6 +22,18 @@ function resolveActiveGroupId(){
 
 export const ACTIVE_GROUP_ID = resolveActiveGroupId();
 export const ACTIVE_GROUP = GROUPS[ACTIVE_GROUP_ID];
+
+// Remember this group for the bare boxscore.space (lastGroupCookie in
+// js/groups.js), so a member who types it gets a way home. Not from the
+// hidden older-season copy (IS_SEASON_BACKGROUND in js/season.js, which
+// can't be imported here without a cycle; same test).
+(function rememberGroup(){
+  try {
+    if(window.parent !== window && new URLSearchParams(window.location.search).get('bg') === '1') return;
+    const cookie = lastGroupCookie(ACTIVE_GROUP_ID, window.location.hostname);
+    if(cookie) document.cookie = cookie;
+  } catch (e){}
+})();
 
 // The group's invite code (js/access.js): taken from the invite link, or
 // asked for once, before anything below reads group state.
