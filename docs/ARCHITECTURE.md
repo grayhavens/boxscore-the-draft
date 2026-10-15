@@ -388,7 +388,8 @@ Exporting is now optional: it pins a reviewed copy as a committed file, which th
 machine are pure modules shared by the browser, the worker and Node tests (`js/draft-rules.js`,
 `js/draft-engine.js`); the `DraftRoom` Durable Object holds the authoritative state and the browser only
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
-entered on Settings → Commissioner (`js/admin.js`, `?view=admin`) — one gate for the draft and scoring; the
+entered on Settings → Commissioner (`js/admin.js`, `?view=admin`; a device that hasn't signed in sees only a quiet "Commissioner sign-in"
+link at the bottom of Settings, and the Commissioner row once it has) — one gate for the draft and scoring; the
 room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
 league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Group settings screen
 (screen key `draft`; "Group" on the phone switch) has a "Before the <next> draft" checklist (`js/draft-prep.js`'s
@@ -607,7 +608,8 @@ a sticky column on the right; a row tap opens that drafter's breakdown in the co
 1000px of content the column drops under the table. Rows that moved glide as on the phone. Crossing 900px re-renders
 Points. Team color
 appears only in crests and the hero's orb and glow; the glow falls back to the second color only for near-black teams
-(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`): two columns instead of one
+(luminance under 0.04, `glowColor`). Settings (`renderSettingsPage` in `js/identity.js`; rows are `settingsRowHtml` from `js/ui.js`; Preview with fake data sits in its
+own Preview section, shown to a signed-in commissioner, to a device that has it on, and with `?dev=1` on dev / preview hosts): two columns instead of one
 narrow one, the identity card (bigger, with a Switch button) and the device note and version in a sticky column on the
 left, the sections on the right with each section's rows joined into one list; rows and choices get hover states. The
 two wrappers (`.set-side`, `.set-main`) are `display: contents` under 900px, so the phone page is unchanged. The draft
