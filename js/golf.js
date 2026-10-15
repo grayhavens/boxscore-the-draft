@@ -17,8 +17,8 @@
                  the tour's newest 50 stories; ?athletes= and ?player= are
                  ignored (checked 2026-10-13), but each story tags its
                  golfers, so a golfer's page filters them (golferNews). The 50-story
-                 window is thin, so "More news" adds a per-golfer Google News
-                 search through the worker (parseGoogleNewsRss).
+                 window is thin, so "More news" adds stories from tour RSS
+                 feeds the worker merges (parseRssFeed, golferStories).
 
    Quirks worth knowing:
    - Use the site.web.api host: site.api.espn.com answers 403 to a
@@ -332,13 +332,24 @@ export async function updateSeason({ calendar, stored, now, fetchLeaderboard, ma
   return { stored: next, changed, complete, events: out, golfers };
 }
 
-// ---- Per-golfer news (Google News RSS, via the worker) ----
+// ---- Tour news from RSS feeds (via the worker) ----
+// ESPN's golf news ignores any per-golfer filter and Google News 503s
+// Workers (both checked 2026-10-15), so the worker merges a few tour-wide
+// feeds and a golfer's page picks the stories that name them.
 
-const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+export const GOLF_NEWS_FEEDS = [
+  { source: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/golf/rss.xml' },
+  { source: 'Golf.com', url: 'https://golf.com/feed/' },
+  { source: 'CBS Sports', url: 'https://www.cbssports.com/rss/headlines/golf/' },
+  { source: 'Yahoo Sports', url: 'https://sports.yahoo.com/golf/rss/' },
+  { source: 'ESPN', url: 'https://www.espn.com/espn/rss/golf/news' }
+];
+
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 function xmlText(raw){
   return String(raw || '')
     .replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1')
-    .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (m, e) => {
+    .replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (m, e) => {
       if(e[0] !== '#') return XML_ENTITIES[e.toLowerCase()];
       const code = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
       return code > 0 && code < 0x110000 ? String.fromCodePoint(code) : m;
@@ -350,33 +361,47 @@ function xmlTag(block, tag){
   return m ? xmlText(m[1]) : '';
 }
 
-// Google News RSS search results -> [{ title, url, source, at }], the
-// shape the worker's Perigon news uses, so the team page draws both the
-// same way. Google appends " - Source" to each title; the <source> tag
-// names it, so that suffix comes off.
-export function parseGoogleNewsRss(xml, limit = 8){
+// One RSS feed -> [{ title, url, source, at, text }]. `text` is the
+// summary with tags stripped, kept short; the page matches names against
+// it. Rows without a web link or a date are dropped.
+export function parseRssFeed(xml, source, limit = 40){
   const out = [];
-  const items = String(xml || '').match(/<item>[\s\S]*?<\/item>/g) || [];
+  const items = String(xml || '').match(/<item[\s>][\s\S]*?<\/item>/g) || [];
   for(const item of items){
     const url = xmlTag(item, 'link');
-    const source = xmlTag(item, 'source');
-    let title = xmlTag(item, 'title');
-    if(source && title.endsWith(` - ${source}`)) title = title.slice(0, -(source.length + 3));
+    const title = xmlTag(item, 'title');
     const at = Date.parse(xmlTag(item, 'pubDate'));
     if(!title || !/^https?:\/\//i.test(url) || !Number.isFinite(at)) continue;
-    out.push({ title, url, source, at: new Date(at).toISOString() });
+    const text = xmlText(xmlTag(item, 'description')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+    out.push({ title, url, source, at: new Date(at).toISOString(), text });
   }
-  return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
+  return out.slice(0, limit);
 }
 
-// What the worker may search for: a golfer's name, nothing else.
-export function validGolferName(name){
-  return typeof name === 'string' && /^\p{L}[\p{L} .'’-]{2,39}$/u.test(name);
+const titleKey = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+// Several feeds merged: duplicates by headline dropped, newest first.
+export function mergeNewsFeeds(lists, limit = 150){
+  const seen = new Set();
+  return lists.flat()
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .filter(s => { const k = titleKey(s.title); if(!k || seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, limit);
 }
 
-export function golferNewsSearchUrl(name){
-  const q = encodeURIComponent(`"${name}" golf when:14d`);
-  return `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`;
+const plain = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+// The stories that name this golfer: the full name, or a last name of six
+// letters or more (Scheffler, McIlroy). Shorter ones (Kim, Young, Burns)
+// would match anyone, so those need the full name.
+export function golferStories(stories, name, limit = 6){
+  const full = plain(name).replace(/[^a-z ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const last = full.split(' ').pop();
+  const needles = [full, ...(last.length >= 6 ? [last] : [])].filter(Boolean);
+  return (stories || [])
+    .filter(s => { const hay = plain(`${s.title} ${s.text || ''}`).replace(/[^a-z ]+/g, ' ').replace(/\s+/g, ' '); return needles.some(n => hay.includes(n)); })
+    .slice(0, limit)
+    .map(({ title, url, source, at }) => ({ title, url, source, at }));
 }
 
 // One finish as a form bar (the golfer page's Recent form and Event by

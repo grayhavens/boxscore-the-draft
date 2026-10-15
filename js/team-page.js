@@ -1986,7 +1986,7 @@ function moreNewsHtml(teamKey){
       <div class="headline">${escapeHtml(a.title)}</div>
       <div class="news-meta">${escapeHtml(a.source || 'News')} <span class="news-dot">·</span> ${timeAgo(a.at)}</div>
     </a>
-  `).join('') + `<div class="news-footer-note">More headlines via ${isGolfer(metaOf(teamKey)) ? 'Google News' : 'Perigon'}</div>`;
+  `).join('') + `<div class="news-footer-note">More headlines via ${isGolfer(metaOf(teamKey)) ? 'tour news feeds' : 'Perigon'}</div>`;
 }
 
 // One shared read per league (js/news-more.js); repaints just the news
@@ -1994,7 +1994,7 @@ function moreNewsHtml(teamKey){
 function ensureMoreNews(teamKey){
   const meta = TEAM_META[teamKey];
   if(!meta) return;
-  // A golfer's come from the worker's Google News search (worker/golf.js);
+  // A golfer's come from the worker's tour RSS feeds (worker/golf.js);
   // a team's from the Perigon batch.
   (isGolfer(meta) ? fetchGolferMoreNews(meta.espnAthleteId, meta.name) : fetchMoreNewsCached(meta.leagueKey).then(teams => teams && teams[teamKey])).then(stories => {
     if(!stories || !stories.length || stories === moreNewsCache[teamKey]) return;
