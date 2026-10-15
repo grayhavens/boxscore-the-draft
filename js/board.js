@@ -97,7 +97,7 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
-import { teamRowHtml, filterTabHtml, revealActiveTab } from './ui.js';
+import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml } from './ui.js';
 import { initPullToRefresh } from './pull-refresh.js';
 import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
@@ -332,14 +332,8 @@ function renderDraftHome(){
         ${pre ? '<div class="draft-home-sub">Your teams show up here once the draft is done.</div>' : ''}
       </div>
       ${draftWhenHtml()}
-      ${pre ? `<button type="button" class="set-row" onclick="openGuide('board')">
-        <span class="set-row-text"><span class="set-row-title">How Boxscore works</span><span class="set-row-sub">New to this? The short version, in three steps</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>` : ''}
-      <button type="button" class="set-row" onclick="goToMyMockDraft()">
-        <span class="set-row-text"><span class="set-row-title">Mock Draft</span><span class="set-row-sub">Your own practice room &middot; picks don&rsquo;t count</span></span>
-        <span class="set-chev">&rsaquo;</span>
-      </button>
+      ${pre ? settingsRowHtml({ title: 'How Boxscore works', sub: 'New to this? The short version, in three steps', onclick: "openGuide('board')", chevron: true }) : ''}
+      ${settingsRowHtml({ title: 'Mock Draft', sub: 'Your own practice room \u00b7 picks don\u2019t count', onclick: 'goToMyMockDraft()', chevron: true })}
     </section>` : '';
 }
 onDraftSchedule(renderDraftHome);

@@ -5083,6 +5083,18 @@ html.chat-kb .tab-bar{ display: none; }
 
 
 .set-foot{ font-size: var(--fs-12); color: var(--text-mute); text-align: center; }
+/* A quiet text link at the end of Settings (Commissioner sign-in): back-link weight, not a button. */
+.set-link{
+  align-self: center;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
+  font-weight: 600;
+  color: var(--text-sub);
+  cursor: pointer;
+}
 .set-version{ margin-top: -14px; font-size: var(--fs-10); font-weight: 600; letter-spacing: 0.2px; opacity: 0.6; }
 
 /* Light theme: labels one step darker for contrast. */
@@ -8394,6 +8406,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .set-main .set-label + .set-row{ border-top-width: 1px; border-radius: var(--r-md) var(--r-md) 0 0; }
   .set-main .set-row:not(:has(+ .set-row)){ border-bottom-left-radius: var(--r-md); border-bottom-right-radius: var(--r-md); }
   .set-main .set-section > .set-foot{ margin-top: 10px; text-align: left; }
+  .set-main .set-link{ align-self: flex-start; padding-left: 0; }
 
   .set-main .set-themes{ gap: 12px; }
   .set-main .set-theme{ padding: 10px; }
@@ -8403,6 +8416,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     .set-side .set-identity:hover{ border-color: var(--hairline-strong); }
     .set-side .set-identity:hover .set-identity-switch{ border-color: var(--accent); }
     .set-main button.set-row:hover{ background: var(--surface-2); }
+    .set-link:hover{ color: var(--text); }
     .set-main .set-theme:not(.on):hover{ border-color: var(--hairline-strong); }
     .set-main .set-chip:not(.on):hover{ color: var(--text); border-color: var(--text-mute); }
   }
