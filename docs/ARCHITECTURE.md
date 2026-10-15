@@ -263,7 +263,7 @@ including across sessions.
   video. Clip ids are resolved to playable .mp4s straight from Brightcove in the browser
   (`js/nhl-clips.js`), uncached since those URLs are signed and expire. Additive only: ESPN stays
   the source for NHL scores/boxscores.
-- **PGA Tour golf** (`docs/golf-plan.md`; off for every group for now, a commissioner turns it on from the Sports screen): ESPN too. `js/golf.js` parses (shared with the worker),
+- **PGA Tour golf** (`docs/golf-plan.md`; a commissioner turns it on per group from the Sports screen; Season Ticket has it on): ESPN too. `js/golf.js` parses (shared with the worker),
   `js/golf-api.js` fetches. The browser builds the FedEx Cup season (`buildGolfSeason`, `js/golf-api.js`): calendar from `?dates=<year>0101` (~12KB), finished events condensed by `updateSeason` (`js/golf.js`) and kept in localStorage (`boxscore-golf-season-<year>`, ~220KB; first run reads ~38 leaderboards six at a time). The worker's `/golf/season/<year>` (`worker/golf.js`) does the same into KV (`golf:<year>`) but ESPN 403s Workers, so it is unused until that clears; the live event comes straight from ESPN. A golfer's page news is ESPN's tour feed filtered by tag (ESPN ignores any per-golfer param) plus "More news" from the worker's `/golf/news` Google News search (unofficial feed, personal-use terms; hidden if it fails). Use
   the `site.web.api.espn.com` host: `site.api` answers 403 to the worker's requests. The draft pool's golfers are
   `js/golfers.js` (`node tools/golfer-pool.mjs`); a golfer is league `pga` with `espnAthleteId`, not a team id. Scoring: `golfAuto` rules
