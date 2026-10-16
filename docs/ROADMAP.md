@@ -27,12 +27,15 @@ As of 2026-10-15 (`main` at ba4e689, PR #286). No open PRs besides this docs one
   the first z-order token `--z-tip` (#286).
 - Golf: golfers get full team pages (#275), the season is built in the browser with per-golfer news (#278, #279), tour
   RSS feeds for golf news (#280). Last season keeps scoring after the next draft (#277). Android back keeps the URL (#276).
+- Pre-draft hygiene for the next live draft: ranked team lists verified, `tools/golfer-pool.mjs` and outlooks re-run (done 2026-10-16).
+- Design system Step 3 (2026-10-16): Banner, Sheet + SheetRow, ChatBubble + ReactionBar, ChatComposer and SharedGameCard
+  got `js/ui.js` helpers and every screen using them moved over; `.prior-season-note`, `.ob-sim-banner` and
+  `CHECK_ICON_SVG` are gone (design-system-plan.md, DESIGN_TOKENS.md).
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
 
-- Design system Step 3: moving screens to `js/ui.js` as they're touched. SettingsRow (#283) and Tip (#286) now have helpers; Banner, ChatBubble, ChatComposer, Sheet and SheetRow still don't (design-system-plan.md, DESIGN_TOKENS.md).
-- Pre-draft hygiene for the next live draft: verify ranked team lists, re-run `tools/golfer-pool.mjs` and outlooks (draft-room-plan.md "Before draft day", CLAUDE.md).
+- Nothing right now.
 
 ## Next up
 

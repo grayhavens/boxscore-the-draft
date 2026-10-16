@@ -193,13 +193,15 @@ body{
 }
 .chat-badge.show{ display: block; }
 
-/* Shown under a view's header while it's displaying someone else's
-   board via a ?team= link (a "peek" — see setDraftTeam's comment in
-   js/board.js) rather than your own. Reuses .prior-season-note's
-   accent-callout language below so it reads as "worth noticing" without
-   implying an error. */
+/* Banner (bannerHtml in js/ui.js): a tinted callout that reads as
+   "worth noticing" without implying an error. Gold by default (someone
+   else's board, a prior or finished season, preview data); .live is red,
+   .prov blue. .note is the smaller inline note (prior season, preview
+   data, the commissioner's lock status). The peek banner (.peek: you're
+   viewing someone else's board via a ?team= link, see setDraftTeam in
+   js/board.js) stays hidden until js/identity.js shows it. */
 .peek-banner{
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -211,11 +213,19 @@ body{
   font-size: var(--fs-13);
   font-weight: 600;
   color: var(--accent);
+  line-height: 1.4;
 }
+.peek-banner.note{ font-size: var(--fs-12); justify-content: flex-start; gap: 8px; }
+.peek-banner.live{ background: var(--live-soft); border-color: var(--live-border); color: var(--live); }
+.peek-banner.prov{ background: var(--provisional-soft); border-color: var(--provisional-border); color: var(--provisional); }
 
-.peek-banner.show{ display: flex; }
+.peek-banner.peek{ display: none; }
+.peek-banner.peek.show{ display: flex; }
+/* Where a screen injects the peek banner (js/identity.js): no box of its
+   own, so the banner stays sticky against the view, not this slot. */
+.peek-slot{ display: contents; }
 
-.peek-banner button{
+.peek-banner .banner-action{
   flex: 0 0 auto;
   min-height: 32px;
   padding: 0 12px;
@@ -336,30 +346,6 @@ body{
   letter-spacing: normal;
 }
 
-/* MLB/WNBA-only heads-up (see PRIOR_SEASON_DISPLAY_LEAGUES in
-   js/data.js): the records below are real, but they're last season's
-   — drafted teams don't start scoring until '27. Boxed as a contained
-   callout (same accent-soft/accent-border banner treatment as
-   .ob-sim-banner) rather than bare bold text, so it reads as a
-   pronounced but self-contained aside instead of shouting inline with
-   the surrounding content — easy to misread as live scoring if
-   skimmed. Lives as a third line inside .league-tab.standings-league-
-   tab's own column/gap, and as a note above the modal body in the
-   team modal. */
-.prior-season-note{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  font-size: var(--fs-12);
-  font-weight: 600;
-  color: var(--accent);
-  line-height: 1.4;
-  margin-bottom: 14px;
-}
 
 .team{
   display:flex;
@@ -1202,6 +1188,7 @@ body{
   justify-content: center;
 }
 
+.sheet-check{ color: var(--on-accent); }
 .sheet-check svg{ width: 11px; height: 11px; }
 
 .sheet-row.active .sheet-check{ background: var(--accent-fill); border-color: transparent; }
@@ -3290,23 +3277,6 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   gap: 12px;
 }
 
-/* TEMPORARY: a preview aid for showing the page's shape before the
-   season produces real results. Safe to delete this block (and the
-   matching "TEMPORARY" block in js/overall.js, and the toggle markup in
-   index.html) once real data makes it unnecessary. */
-.ob-sim-banner{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-border);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  font-size: var(--fs-12);
-  font-weight: 600;
-  color: var(--accent);
-}
 
 /* -- Locked / Live primitives --
    Solid ink = Locked, blue hatch = Live, red hatch = Live at risk
@@ -5173,7 +5143,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   transition: background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), transform var(--dur-press) var(--ease-out);
 }
 .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
-.chat-send:active, .peek-banner button:active{ transform: scale(0.97); }
+.chat-send:active, .peek-banner .banner-action:active{ transform: scale(0.97); }
 .scope-chip:active, .ob-back:active{ background-color: var(--press); }
 .icon-btn:active, .modal-close:active, .picker-hit:active .settings-icon{ transform: scale(0.92); }
 .tab-btn:active .tab-icon{ transform: scale(0.94); }
@@ -5202,13 +5172,13 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Sticky peek banner (R7). Opaque base under the tonal wash so content
    doesn't show through while scrolling. Standings already pins its
    own filter row at this offset, so the banner stays static there. */
-.peek-banner{
+.peek-banner.peek{
   position: sticky;
   top: calc(env(safe-area-inset-top) + 8px);
   z-index: 6;
   background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg);
 }
-#view-standings .peek-banner{ position: static; }
+#view-standings .peek-banner.peek{ position: static; }
 
 /* Tabular numerals on every number column (R10) */
 .standings-row, .person-record-chip, .league-tab .n,
@@ -5235,7 +5205,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   .skel-dot{ animation: none; }
   .news-card:active, .tg-row.clickable:active .tg-card, .game-card.clickable:active,
   .modal-cta:active, .admin-gate-btn:active, .ob-detail-link:active, .admin-adj-save:active,
-  .chat-send:active, .peek-banner button:active, .icon-btn:active, .modal-close:active,
+  .chat-send:active, .peek-banner .banner-action:active, .icon-btn:active, .modal-close:active,
   .picker-hit:active .settings-icon, .tab-btn:active .tab-icon{ transform: none; }
 }
 
@@ -5521,6 +5491,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
   width: 22px; height: 22px; border-radius: 7px;
   border: 1.5px solid var(--hairline-strong);
 }
+.draft-poll-check{ color: var(--on-accent); }
 .draft-poll-check svg{ width: 14px; height: 14px; opacity: 0; }
 .draft-poll-opt[aria-pressed="true"] .draft-poll-check{ background: var(--accent-fill); border-color: var(--accent-fill); }
 .draft-poll-opt[aria-pressed="true"] .draft-poll-check svg{ opacity: 1; }

@@ -30,7 +30,7 @@ import { loadGifKey, reportGifShare } from './gifs.js';
 import { initGifPicker, closeGifPicker, toggleGifPicker } from './gif-picker.js';
 import { escapeHtml as esc, loadAdminPassword } from './utils.js';
 import { EVERYONE, EVERYONE_NAME, findMentions, mentionSegments, mentionsMe, activeMentionQuery, mentionOptions } from './chat-mentions.js';
-import { mentionHtml, mentionListHtml } from './ui.js';
+import { mentionHtml, mentionListHtml, REACTION_EMOJI, chatMetaHtml, chatBubbleHtml, chatReactionsHtml, reactionBarHtml, chatComposerHtml } from './ui.js';
 import { clearAlerts } from './push.js';
 import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
 import { fxOn, play, pop, burst } from './motion-fx.js';
@@ -47,10 +47,6 @@ const DEAD_AFTER_MS = 50000;          // no frame (pong included) this long -> s
 const RECONNECT_MAX_MS = 15000;
 const STICK_TO_BOTTOM_PX = 120;
 const GAME_LINE_TICK_MS = 20000;      // how often open chat checks its shared games (each game is still looked up at most once a minute)
-
-// Mirrors REACTION_EMOJI in worker/chat-room.js (which rejects anything
-// else). Also the order the picker and a message's pills are shown in.
-const REACTION_EMOJI = ['👍', '👎', '😂', '😮', '😢', '🔥', '😎'];
 
 function chatSocketUrl(after){
   return withGroupQuery(`${chatWorkerBase().replace(/^http/, 'ws')}/chat/ws${after ? `?after=${after}` : ''}`);
@@ -378,38 +374,32 @@ function textBubbleHtml(m, mine){
     .map(seg => seg.id ? mentionHtml({ label: seg.text, me: seg.id === currentProfileId || seg.id === EVERYONE }) : esc(seg.text))
     .join('');
   const tagsMe = !mine && mentionsMe(m.mentions, currentProfileId);
-  return `<div class="chat-bubble${mine ? ' mine' : ''}${tagsMe ? ' tags-me' : ''}" data-msg="${m.id}">${body}</div>`;
+  return chatBubbleHtml({ html: body, mine, tagsMe, id: m.id });
 }
 
 // Pressing and holding a message opens its picker (an in-flow row of the
 // emoji, with the ones you've already used highlighted), like iOS Messages;
 // a tap elsewhere closes it. Tapping an emoji there, or a pill under the
 // message, toggles that reaction for you. A tap on a text bubble copies it.
-// Both carry
-// data-react/data-mid and are handled by one delegated listener (see
-// onListClick) since renderList rebuilds the list's innerHTML.
-function reactionButtonHtml(cls, m, emoji, inner, label, extraAttrs = ''){
-  return `<button type="button" class="${cls}" data-react="${emoji}" data-mid="${m.id}" aria-label="${esc(label)}"${extraAttrs}>${inner}</button>`;
-}
-
+// Both carry data-react/data-mid and are handled by one delegated listener
+// (see onListClick) since renderList rebuilds the list's innerHTML.
 function reactionsHtml(m, mine){
   const reactions = m.reactions || {};
-  const pills = REACTION_EMOJI.filter(e => reactions[e] && reactions[e].length).map(e => {
-    const who = reactions[e];
-    const on = who.includes(currentProfileId);
-    const names = who.map(drafterName).join(', ');
-    return reactionButtonHtml(`chat-react-pill${on ? ' on' : ''}`, m, e, `${e}<span>${who.length}</span>`, `${e} ${names}`, ` title="${esc(names)}" aria-pressed="${on}"`);
-  }).join('');
-  return pills ? `<div class="chat-reactions ${mine ? 'mine' : ''}">${pills}</div>` : '';
+  return chatReactionsHtml({
+    mine,
+    mid: m.id,
+    reactions: REACTION_EMOJI.filter(e => reactions[e] && reactions[e].length).map(e => ({
+      emoji: e,
+      count: reactions[e].length,
+      on: reactions[e].includes(currentProfileId),
+      names: reactions[e].map(drafterName).join(', ')
+    }))
+  });
 }
 
 function pickerHtml(m, mine){
   const reactions = m.reactions || {};
-  const buttons = REACTION_EMOJI.map(e => {
-    const on = (reactions[e] || []).includes(currentProfileId);
-    return reactionButtonHtml(`chat-react-opt${on ? ' on' : ''}`, m, e, e, `React ${e}`);
-  }).join('');
-  return `<div class="chat-react-bar ${mine ? 'mine' : ''}">${buttons}</div>`;
+  return reactionBarHtml({ mid: m.id, mine, selected: REACTION_EMOJI.filter(e => (reactions[e] || []).includes(currentProfileId)) });
 }
 
 // The list's rows as [key, html] pairs, in order. Keys are stable per
@@ -424,7 +414,7 @@ function listRows(){
     if(newDay) rows.push([`day-${m.id}`, `<div class="chat-day">${esc(dayLabel(m.ts))}</div>`]);
     const startsGroup = newDay || prev.from !== m.from || m.ts - prev.ts > GROUP_GAP_MS;
     if(startsGroup){
-      rows.push([`meta-${m.id}`, `<div class="chat-meta ${mine ? 'mine' : ''}">${mine ? '' : `<span class="chat-name">${esc(drafterName(m.from))}</span>`}<span class="chat-time">${esc(timeLabel(m.ts))}</span></div>`]);
+      rows.push([`meta-${m.id}`, chatMetaHtml({ name: drafterName(m.from), time: timeLabel(m.ts), mine })]);
     }
     if(m.gif) rows.push([`gif-${m.id}`, gifBubbleHtml(m, mine)]);
     // A shared game's text is only the fallback for app versions without
@@ -938,6 +928,8 @@ async function setUpGifs(){
 }
 
 export function initChat(){
+  const slot = document.getElementById('chat-composer-slot');
+  if(slot) slot.outerHTML = chatComposerHtml({ onsend: 'sendChatMessage()', ongif: 'toggleGifPicker()', maxLength: MAX_TEXT_LENGTH });
   const input = inputEl();
   if(input){
     input.addEventListener('input', () => { autoGrow(); updateMentionList(); });

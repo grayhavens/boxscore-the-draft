@@ -7,7 +7,7 @@
    rendered HTML.
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, CHECK_ICON_SVG, standingsOwnerHtml, findCfbTeamKeyByLocation, segmentedControlHtml } from './utils.js';
+import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, standingsOwnerHtml, findCfbTeamKeyByLocation, segmentedControlHtml } from './utils.js';
 import { escapeHtml } from './escape.js';
 import { standingsHeadHtml, leagueLeaders, overviewRows } from './standings-cols.js';
 import { findFlatTeamKey } from './standings-flat.js';
@@ -97,7 +97,7 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
-import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml } from './ui.js';
+import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml, bannerHtml, iconHtml } from './ui.js';
 import { initPullToRefresh, tipPullToRefresh } from './pull-refresh.js';
 import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
@@ -224,7 +224,7 @@ window.setBoardFilter = setBoardFilter;
 function draftPollOptionHtml(arg, on, title, sub, count){
   return `
     <button type="button" class="draft-poll-opt" aria-pressed="${on}" onclick="toggleDraftPollVote(${arg})">
-      <span class="draft-poll-check">${CHECK_ICON_SVG}</span>
+      <span class="draft-poll-check">${iconHtml('check')}</span>
       <span class="draft-poll-text"><span class="draft-poll-title">${title}</span>${sub ? `<span class="draft-poll-sub">${sub}</span>` : ''}</span>
       <span class="draft-poll-count">${count}</span>
     </button>`;
@@ -463,12 +463,12 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
   // On its Postseason view (MLB's or the WNBA's '26 postseason), the note names that.
   const onPostseason = fieldSet && postseasonPhase(league.key, standingsFilterKey === 'all') === 'post';
   const priorSeasonNoteHtml = PRIOR_SEASON_DISPLAY_LEAGUES.includes(league.key) && league.key !== 'pga'
-    ? `<div class="prior-season-note">${onPostseason
+    ? bannerHtml({ note: true, text: onPostseason
       ? `Points earned for '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} postseason only.`
-      : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.`}</div>`
+      : `Showing the '${shortYear(ACTIVE_SEASON_ID)} season, still in progress — points won't count until the '${shortYear(Number(ACTIVE_SEASON_ID) + 1)} season.` })
     : '';
   const frozenNoteHtml = isLeagueFrozen(league.key)
-    ? `<div class="prior-season-note">Final standings — this draft class's season is over, so these are its saved end-of-season numbers.</div>`
+    ? bannerHtml({ note: true, text: "Final standings — this draft class's season is over, so these are its saved end-of-season numbers." })
     : '';
 
   const topHtml = fieldSet

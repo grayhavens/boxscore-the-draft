@@ -95,7 +95,7 @@ const ADMIN_RECENT_MESSAGES = 40;
 // it stops being checked (the message still posts, untagged).
 const MAX_AUTH_FAILURES = 5;
 
-// Mirrors REACTION_EMOJI in js/chat.js — the picker's order is also the
+// Mirrors REACTION_EMOJI in js/ui.js — the picker's order is also the
 // order reaction pills are shown in.
 const REACTION_EMOJI = ['👍', '👎', '😂', '😮', '😢', '🔥', '😎'];
 

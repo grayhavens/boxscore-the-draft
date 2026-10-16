@@ -45,8 +45,6 @@ const ALLOWED = {
   },
   // Fallback hero accent for a team with none of its own.
   'js/team-page.js': { '#D9B45B': 1 },
-  // CHECK_ICON_SVG's stroke.
-  'js/utils.js': { '#0A0B0D': 1 },
   // The welcome email: email clients can't use CSS variables, so it inlines the palette.
   'js/welcome-template.js': {
     '#0A0B0D': 2, '#16171B': 1, '#26272C': 1, '#F3F4F6': 1, '#94969E': 1, '#64666E': 1, '#D9B45B': 1

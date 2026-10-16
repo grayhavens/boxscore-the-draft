@@ -72,7 +72,7 @@ import {
   backLinkHtml, teamBadgeHtml as badgeHtml, teamOrbHtml, compactBarHtml, pageDotsHtml, sectionCardHtml,
   pathToPointsHtml, formStripHtml, nextGameHtml,
   filterTabHtml, revealActiveTab, iconHtml,
-  onTheLineHtml, gameByGameHtml, matchCardHtml
+  onTheLineHtml, gameByGameHtml, matchCardHtml, bannerHtml
 } from './ui.js';
 import { isWide, onWideChange } from './wide-query.js';
 import { gameByGame, gameByGameSub, glowColor } from './team-wide-math.js';
@@ -2319,17 +2319,17 @@ function ensurePlayerStats(teamKey, meta){
 }
 
 // Two different reasons a Stats tab isn't this season's scoring numbers,
-// both flagged with the shared .prior-season-note (see
+// both flagged with the same note Banner (see
 // PRIOR_SEASON_DISPLAY_LEAGUES in js/data.js): the league's drafted
 // season hasn't started (MLB/WNBA — live, but non-scoring), or ESPN is
 // serving last season because the current one hasn't tipped off yet
 // (NBA/NHL/College Basketball each preseason).
 function seasonNoteHtml(meta, data){
   if(PRIOR_SEASON_DISPLAY_LEAGUES.includes(meta.leagueKey)){
-    return `<div class="prior-season-note">Showing the '26 season, still in progress — points won't count until the '27 season.</div>`;
+    return bannerHtml({ note: true, text: "Showing the '26 season, still in progress — points won't count until the '27 season." });
   }
   if(data && data.isPriorSeason){
-    return `<div class="prior-season-note">Showing last season (${data.seasonLabel}) — the new season hasn't started yet.</div>`;
+    return bannerHtml({ note: true, text: `Showing last season (${data.seasonLabel}) — the new season hasn't started yet.` });
   }
   return '';
 }

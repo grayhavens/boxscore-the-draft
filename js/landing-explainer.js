@@ -34,7 +34,8 @@ import { escapeHtml } from './escape.js';
 import {
   iconHtml, teamBadgeHtml, gameCardHtml, gameSectionHtml, pathToPointsHtml,
   splitBarHtml, tagHtml, teamOrbHtml, tourStepsHtml,
-  clockHeroHtml, draftClockHtml, setDraftClock, pickLandingHtml
+  clockHeroHtml, draftClockHtml, setDraftClock, pickLandingHtml,
+  chatMetaHtml, chatBubbleHtml, chatReactionsHtml, sharedGameCardHtml
 } from './ui.js';
 
 // Scroll per step, in px. The section is this times the step count, plus
@@ -391,12 +392,12 @@ function chatScene(m){
   const g = CHAT_GAME;
   const side = ([name, owner, score], lost) => {
     const t = m.team(g.league, name);
-    return `<div class="cg-side${lost ? ' lost' : ''}">${badge(t)}<span class="cg-name">${escapeHtml(t.name)}<span class="cg-owner">${escapeHtml(owner)}</span></span><span class="cg-score">${score[1]}</span></div>`;
+    return { badgeHtml: badge(t), name: t.name, owner, score: score[1], lost };
   };
   const msg = (c, extra = '') => `
     <div class="tour-msg" data-at="${c.at}">
-      <div class="chat-meta"><span class="chat-name">${escapeHtml(c.from)}</span></div>
-      <div class="chat-bubble">${escapeHtml(c.text)}</div>${extra}
+      ${chatMetaHtml({ name: c.from })}
+      ${chatBubbleHtml({ text: c.text })}${extra}
     </div>`;
   return {
     title: 'Talk smack all season',
@@ -404,13 +405,9 @@ function chatScene(m){
     tab: 2,
     html: `${head('Chat', 'Your group')}<div class="tour-chat">
       <div class="tour-msg mine on" data-at="0">
-        <div class="chat-game mine">
-          <div class="cg-league">${escapeHtml(m.short(g.league))}</div>
-          ${side(g.sides[0], false)}${side(g.sides[1], true)}
-          <div class="cg-foot"><span class="cg-status live">${escapeHtml(g.clock)}</span><span class="cg-shared">Shared 8:41 PM</span></div>
-        </div>
+        ${sharedGameCardHtml({ league: m.short(g.league), away: side(g.sides[0], false), home: side(g.sides[1], true), status: g.clock, live: true, shared: 'Shared 8:41 PM', mine: true })}
       </div>
-      ${msg(CHAT[0], '<div class="chat-reactions"><span class="chat-react-pill">😂 <span class="tour-react-n">1</span></span></div>')}
+      ${msg(CHAT[0], chatReactionsHtml({ reactions: [{ emoji: '😂', count: 1 }] }))}
       ${msg(CHAT[1])}
     </div>`,
     draw(el, p, set){
@@ -419,7 +416,7 @@ function chatScene(m){
       const rx = el.querySelector('.chat-reactions');
       set(rx, 'n', n, x => {
         rx.classList.toggle('on', x > 0);
-        if(x){ rx.querySelector('.tour-react-n').textContent = String(x); rx.classList.remove('pop'); void rx.offsetWidth; rx.classList.add('pop'); }
+        if(x){ rx.querySelector('.chat-react-pill span').textContent = String(x); rx.classList.remove('pop'); void rx.offsetWidth; rx.classList.add('pop'); }
       });
     }
   };

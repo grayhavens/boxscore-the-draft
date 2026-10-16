@@ -41,12 +41,12 @@
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
 import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached, syncScoresDetail } from './live-data.js';
-import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG } from './utils.js';
+import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
 import { golfCardsForDay, golfCardMatchesScope, golfCardHtml } from './golf-view.js';
 import { escapeHtml as esc } from './escape.js';
-import { gameCardHtml, gameSectionHtml, tagHtml, scoreBumpHtml } from './ui.js';
+import { gameCardHtml, gameSectionHtml, tagHtml, scoreBumpHtml, sheetHtml, sheetRowHtml } from './ui.js';
 import { fxOn, playClass, pop, floatUp } from './motion-fx.js';
 
 import { isFreshAt } from './cache-fresh.js';
@@ -446,15 +446,7 @@ function todayScopeChipLabel(){
 }
 
 function todayScopeRowHtml(key, label, desc, active){
-  return `
-    <button class="sheet-row ${active ? 'active' : ''}" onclick="toggleTodayScope('${key}')">
-      <div class="sheet-row-text">
-        <div>${label}</div>
-        <div class="sheet-desc">${desc}</div>
-      </div>
-      <span class="sheet-check">${active ? CHECK_ICON_SVG : ''}</span>
-    </button>
-  `;
+  return sheetRowHtml({ title: label, desc, check: true, active, onclick: `toggleTodayScope('${key}')` });
 }
 
 function refreshTodayScopeChrome(){
@@ -472,6 +464,13 @@ function refreshTodayScopeChrome(){
 }
 
 export function openTodayScopeSheet(){
+  const el = document.getElementById('today-scope-sheet-content');
+  if(el) el.innerHTML = sheetHtml({
+    title: 'Show which teams?',
+    sub: 'Tap any combination — Drafted and Favorites can both be on.',
+    onclose: 'closeTodayScopeSheet()',
+    bodyId: 'today-scope-sheet-rows'
+  });
   refreshTodayScopeChrome();
   openSheetOverlay(document.getElementById('today-scope-sheet-overlay'));
   lockBodyScroll();

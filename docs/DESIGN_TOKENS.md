@@ -126,10 +126,17 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 | `draftClockHtml` / `setDraftClock`, `clockHeroHtml`, `pickLandingHtml`, `snakeRailHtml`, `clockMiniHtml` | draft room |
 | `updateCardHtml`, `updateStatsHtml`, `updateStackHtml`, `updatesPillHtml` | Since last time |
 | `tipHtml({text, onclose})` | one-time gesture hint pill (`.tip`), shown by `js/tips.js` |
+| `bannerHtml({text\|html, tone, note, actionLabel, onaction, actionHtml, cls})` | tinted callout (`.peek-banner`; `.live`, `.prov`, `.note`): the peek banner (`cls: 'peek'`), prior-season / final-standings / preview-data notes, the commissioner's lock status |
+| `sheetHtml({title, sub, onclose, html, bodyId, bodyCls})`, `sheetHeadHtml({…, eyebrowHtml, extraHtml, rightHtml, cls, titleCls})` | the inside of a `.modal` sheet: title row with the round ×, then the body (overlays stay in `index.html`, opened by `js/sheet.js`) |
+| `sheetRowHtml({title, desc, check, active, rightHtml, onclick})` | selectable sheet row; `check` adds the ring that fills gold when `active` |
+| `chatMetaHtml`, `chatBubbleHtml`, `chatReactionsHtml`, `reactionBarHtml`, `REACTION_EMOJI` | chat message rows (ChatBubble, ReactionBar); flat siblings because `js/chat.js` diffs them |
+| `chatComposerHtml({onsend, ongif, showGif})` | the chat composer, drawn by `initChat` |
+| `sharedGameCardHtml({league, away, home, status, live, shared, mine, nowHtml, attrs})` | a game shared into chat (`.chat-game`), also the landing tour's |
 
 Not yet in the design system (per `docs/design-system-plan.md`): folded PathToPoints. Screens not covered by the spec:
-draft room, team page, race chart (per the plan). Components in the spec without a `ui.js` helper yet (e.g. Banner,
-ChatBubble, ChatComposer, Sheet, SheetRow) are still hand-written markup in their screens.
+draft room, team page, race chart (per the plan). Every spec component a screen renders now has a
+`ui.js` helper (Step 3 done 2026-10-16). Still outside `ui.js`: the page header (`js/page-header.js`), favorite star
+(`js/favorites.js`), segmented control (`js/utils.js`), and one-off screen rows such as the compare picker (`.cmp-pick`).
 
 ## Layout and interaction patterns
 

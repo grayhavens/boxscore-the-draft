@@ -42,7 +42,7 @@ import { drafterLinesHtml, drafterLeagueKeys, loadLineInputs } from './lines.js'
 import { historyPanelHtml, drafterTitlesHtml, loadHistory, hasHistory } from './history.js';
 import { compareHtml, comparePickerHtml, setupCompareSticky, fillSameRace, bonusStandings, loadBonusInputs } from './compare.js';
 
-import { buttonHtml, iconHtml, backLinkHtml, splitBarHtml, pointsTableHtml, lockStampHtml } from './ui.js';
+import { buttonHtml, iconHtml, backLinkHtml, splitBarHtml, pointsTableHtml, lockStampHtml, bannerHtml, sheetHeadHtml, sheetHtml } from './ui.js';
 import { fxOn, play, pop, flashTint, once } from './motion-fx.js';
 import { isWide } from './wide-query.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
@@ -828,19 +828,19 @@ function obSheetHtml(rows, row){
     : `<div class="ob-sheet-empty">No points in any league yet.</div>`;
   const own = me && me.id === row.id;
   return `
-    <div class="sheet-title-row ob-sheet-head">
-      <div>
-        <div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>
-        <div class="sheet-title ob-sheet-name">${row.name}</div>
-        <div class="sheet-title-sub">${vsYou}</div>
-        ${drafterTitlesHtml(row.id)}
-      </div>
-      <div class="ob-sheet-total">
+    ${sheetHeadHtml({
+      cls: 'ob-sheet-head',
+      titleCls: 'ob-sheet-name',
+      eyebrowHtml: `<div class="ob-detail-eyebrow mute">${obRankPhrase(row)}</div>`,
+      title: row.name,
+      sub: vsYou,
+      extraHtml: drafterTitlesHtml(row.id),
+      rightHtml: `<div class="ob-sheet-total">
         <span class="ob-sheet-total-num">${obPts(row.total)}</span>
         <span class="ob-sheet-total-split">${row.confirmedTotal} locked &middot; ${obSignedPts(row.provisionalTotal)} live</span>
-      </div>
-      <button class="modal-close" onclick="obCloseSheet()" aria-label="Close">&times;</button>
-    </div>
+      </div>`,
+      onclose: 'obCloseSheet()'
+    })}
     <div class="ob-sheet-leagues">${leaguesHtml}</div>
     <div class="ob-sheet-actions">
       ${buttonHtml({ label: own || !me ? 'Compare…' : 'Compare with you', variant: 'secondary', onclick: `obSheetCompare('${row.id}')` })}
@@ -1099,8 +1099,13 @@ export function obOpenComparePicker(){
   const rows = obRankedRows();
   const me = rows.find(r => r.id === obDetailId);
   if(!me) return;
-  document.getElementById('compare-sheet-title').textContent = 'Compare ' + me.name + ' with…';
-  document.getElementById('compare-sheet-rows').innerHTML = comparePickerHtml(rows, obDetailId, obCompareId);
+  document.getElementById('compare-sheet-content').innerHTML = sheetHtml({
+    title: `Compare ${me.name} with…`,
+    sub: 'Projected points, by rank',
+    onclose: 'obCloseComparePicker()',
+    bodyCls: 'cmp-pick-list',
+    html: comparePickerHtml(rows, obDetailId, obCompareId)
+  });
   openSheetOverlay(comparePickerOverlay());
   lockBodyScroll();
 }
@@ -1171,7 +1176,7 @@ function obRenderWide(container, rows, simBanner, growNow, push){
   if(obSheetId) obCloseSheet();
 }
 
-const OB_SIM_BANNER_HTML = `<div class="ob-sim-banner">Showing fake results for preview &mdash; set Points Tab Data to Real in Settings for live standings.</div>`;
+const OB_SIM_BANNER_HTML = bannerHtml({ note: true, text: 'Showing fake results for preview — set Points Tab Data to Real in Settings for live standings.' });
 
 export function renderOverallStandings(opts){
   const container = document.getElementById('overall-content');

@@ -20,6 +20,7 @@
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { GAME_DETAIL_LEAGUES, FLAT_SCHEDULE_LEAGUES, openGameDetail } from './live-data.js';
 import { teamBadgeHtml, draftOwnerName, escapeHtml as esc, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { sharedGameCardHtml } from './ui.js';
 
 const LIVE_LINE_EVERY_MS = 60 * 1000;
 // A game that still isn't final this long after it started was
@@ -35,22 +36,17 @@ function sideMeta(side, league){
   return meta && meta.leagueKey === league ? meta : null;
 }
 
-function sideHtml(side, league, lost){
+// One side as sharedGameCardHtml takes it.
+function sideFor(side, league, lost){
   const meta = sideMeta(side, league);
   // An undrafted opponent: the same plain monogram Game Details gives one.
-  const badge = teamBadgeHtml(meta || {
+  const badgeHtml = teamBadgeHtml(meta || {
     name: side.name,
     badgeStyle: NEUTRAL_BADGE_STYLE,
     badgeText: esc(side.abbr)
   });
   const owner = meta && !PRE_DRAFT ? draftOwnerName(side.team) : '';
-  const score = side.score === null || side.score === undefined ? '' : String(side.score);
-  return `
-    <div class="cg-side${lost ? ' lost' : ''}">
-      ${badge}
-      <span class="cg-name">${esc(meta ? meta.name : side.name)}${owner ? `<span class="cg-owner">${esc(owner)}</span>` : ''}</span>
-      <span class="cg-score">${score}</span>
-    </div>`;
+  return { badgeHtml, name: meta ? meta.name : side.name, owner, score: side.score, lost };
 }
 
 function startLabel(start){
@@ -60,10 +56,10 @@ function startLabel(start){
   return sameDay ? `Starts ${time}` : `Starts ${d.toLocaleDateString(undefined, { weekday: 'short' })} ${time}`;
 }
 
-function statusHtml(game){
-  if(game.state === 'pre') return `<span class="cg-status">${esc(game.start ? startLabel(game.start) : game.status)}</span>`;
-  if(game.state === 'in') return `<span class="cg-status live">${esc(game.status || 'Live')}</span>`;
-  return `<span class="cg-status">${esc(game.status || 'Final')}</span>`;
+function statusText(game){
+  if(game.state === 'pre') return game.start ? startLabel(game.start) : game.status;
+  if(game.state === 'in') return game.status || 'Live';
+  return game.status || 'Final';
 }
 
 // Worth a line only once something has actually moved on from the
@@ -98,14 +94,17 @@ export function gameCardHtml(m, mine, sharedLabel){
   const league = LEAGUES.find(l => l.key === game.league);
   const done = game.state === 'post';
   const opener = openerTeam(game);
-  return `
-    <div class="chat-game ${mine ? 'mine' : ''}" data-msg="${m.id}"${opener ? ` data-game-team="${esc(opener)}" data-game-event="${esc(game.event)}" role="button" aria-label="Open box score"` : ''}>
-      <div class="cg-league">${esc(league ? league.label : game.league.toUpperCase())}</div>
-      ${sideHtml(game.away, game.league, done && game.away.score < game.home.score)}
-      ${sideHtml(game.home, game.league, done && game.home.score < game.away.score)}
-      <div class="cg-foot">${statusHtml(game)}<span class="cg-shared">Shared ${esc(sharedLabel)}</span></div>
-      ${liveLineHtml(game, m.gameNow)}
-    </div>`;
+  return sharedGameCardHtml({
+    league: league ? league.label : game.league.toUpperCase(),
+    away: sideFor(game.away, game.league, done && game.away.score < game.home.score),
+    home: sideFor(game.home, game.league, done && game.home.score < game.away.score),
+    status: statusText(game),
+    live: game.state === 'in',
+    shared: `Shared ${sharedLabel}`,
+    mine,
+    nowHtml: liveLineHtml(game, m.gameNow),
+    attrs: ` data-msg="${esc(m.id)}"${opener ? ` data-game-team="${esc(opener)}" data-game-event="${esc(game.event)}" role="button" aria-label="Open box score"` : ''}`
+  });
 }
 
 // A tap on a card opens that game's Game Details over the chat.
