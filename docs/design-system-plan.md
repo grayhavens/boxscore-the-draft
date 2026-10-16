@@ -53,6 +53,8 @@ The helpers below are listed as **helper: classes it outputs (where the markup l
 
 ## Step 3: Move screens over gradually
 
+**Done 2026-10-16:** the last spec components (Banner, Sheet + SheetRow, ChatBubble + ReactionBar, ChatComposer, SharedGameCard) got helpers and their screens moved over; see `docs/DESIGN_TOKENS.md`'s helper table. New screens keep following the rule below.
+
 Don't do one big rewrite. When a task touches a screen, swap that screen's markup for `ui.js` calls in the same change. Suggested order, highest reuse first: buttons and back links, then chips and segmented controls, team badge and row, sheets, game card, and finally the points table.
 
 Where a screen uses a one-off version of a component, such as the four back-button styles, keep the design-system one and delete the CSS for the others.

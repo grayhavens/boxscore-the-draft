@@ -69,7 +69,7 @@ import { commissionerChecklist } from './draft-prep.js';
 import { inPlaySummary } from './season-background.js';
 import { seasonLabel } from './season-overlap.js';
 
-import { backLinkHtml, buttonHtml, filterTabHtml } from './ui.js';
+import { backLinkHtml, buttonHtml, filterTabHtml, bannerHtml } from './ui.js';
 import { GROUP_MOCK_ROOM } from './draft-rules.js';
 // The live draft room. Mock rooms are self-serve and need no password.
 const LIVE_DRAFT_ROOM = 'main';
@@ -468,26 +468,24 @@ function adjustmentRowHtml(teamKey, adjustments){
 // the safety valve for THAT button (or the automatic check) firing by
 // mistake — see that file's header comment for both. Same reuse-
 // existing-styling instinct as everywhere else on this page:
-// .prior-season-note for the banner shape, .admin-adj-save for the
+// the note Banner for the shape, .admin-adj-save for the
 // buttons.
 function lockStatusHtml(league){
   if(!league.teams || !LEAGUE_SCORING[league.key].rules.some(r => r.rankAuto)) return '';
   const locked = isLeagueLocked(league.key);
   if(locked){
     const at = lockedAtFor(league.key);
-    return `
-      <div class="prior-season-note">
-        🔒 Regular season locked in${at ? ` — ${formatDateShort(at)}` : ''}. Standings-based rules below are frozen, not live.
-        <button class="admin-adj-save end" onclick="unlockLeague('${league.key}')">Unlock</button>
-      </div>
-    `;
+    return bannerHtml({
+      note: true,
+      text: `🔒 Regular season locked in${at ? ` — ${formatDateShort(at)}` : ''}. Standings-based rules below are frozen, not live.`,
+      actionHtml: `<button class="admin-adj-save end" onclick="unlockLeague('${league.key}')">Unlock</button>`
+    });
   }
-  return `
-    <div class="prior-season-note">
-      Standings-based rules below are still live — they'll lock automatically once ESPN confirms the regular season is over.
-      <button class="admin-adj-save end" onclick="forceLockLeague('${league.key}')">Force Lock</button>
-    </div>
-  `;
+  return bannerHtml({
+    note: true,
+    text: "Standings-based rules below are still live — they'll lock automatically once ESPN confirms the regular season is over.",
+    actionHtml: `<button class="admin-adj-save end" onclick="forceLockLeague('${league.key}')">Force Lock</button>`
+  });
 }
 
 function leagueSectionHtml(league){

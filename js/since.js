@@ -45,7 +45,7 @@ import { fxOn, once, stagger, pop } from './motion-fx.js';
 import { attachDrag, releaseDirection } from './gestures.js';
 import {
   updateCardHtml, updateStackHtml, updatesPillHtml, updateStatsHtml, rankBadgeHtml, tagHtml,
-  teamBadgeHtml as uiTeamBadgeHtml
+  teamBadgeHtml as uiTeamBadgeHtml, sheetHtml
 } from './ui.js';
 import { isAwayLongEnough, buildCards } from './since-math.js';
 
@@ -358,12 +358,13 @@ window.openSinceUpdates = function(){
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   if(!overlay || !content) return;
-  content.innerHTML = `
-    <div class="sheet-title-row">
-      <div><div class="sheet-title">${TITLE}</div><div class="sheet-title-sub">${EYEBROW}</div></div>
-      <button class="modal-close" onclick="closeModalSheet()" aria-label="Close">&times;</button>
-    </div>
-    <div class="update-list">${cards.map(c => cardHtml(c, true)).join('')}</div>`;
+  content.innerHTML = sheetHtml({
+    title: TITLE,
+    sub: EYEBROW,
+    onclose: 'closeModalSheet()',
+    bodyCls: 'update-list',
+    html: cards.map(c => cardHtml(c, true)).join('')
+  });
   openSheetOverlay(overlay);
   lockBodyScroll();
 };

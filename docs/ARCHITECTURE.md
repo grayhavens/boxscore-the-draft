@@ -815,7 +815,7 @@ table. A cup winner replaces any commissioner mark (the rules are exclusive); th
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
 actually being played right now. Until that next season starts, their Standings tab and team pages
-show real, live, but non-scoring results — flagged with a shared `prior-season-note` (bold/accent
+show real, live, but non-scoring results — flagged with a note Banner (`bannerHtml({ note: true })`, accent
 styling — this is easy to misread as counting if skimmed) rather than hiding the data. Their team
 pages also suppress the season-phase pill (`In-Season`/`Pre-Season`/etc.) entirely, since showing
 it would read as if the current season counts. The class lists them; each drops off by itself once the class season's regular season has begun,

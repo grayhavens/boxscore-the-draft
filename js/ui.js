@@ -7,12 +7,13 @@
 
    Helpers land here as screens move over (docs/design-system-plan.md, Step
    3). A component the app doesn't render yet gets its helper together with
-   its first screen, so nothing here is untested markup. Still to come:
-   scope chip, tag, the ghost icon button, live dot, team badge and row,
-   league card, game card, points table, split bar, activity row, banner,
-   sheet, settings row and page header. The segmented control (and the count
-   badge inside it) already live in js/utils.js (segmentedControlHtml), which
-   matches the recipe; they move here with the first screen that needs them.
+   its first screen, so nothing here is untested markup. Not here yet: the
+   scope chip, live dot, league card and page header (js/page-header.js),
+   and the favorite star (js/favorites.js). The segmented control (and the
+   count badge inside it) lives in js/utils.js (segmentedControlHtml), which
+   matches the recipe; it moves here with the next screen that needs it.
+   Sheet overlays stay static in index.html and open through js/sheet.js;
+   sheetHtml fills the .modal inside one.
 
    Keep this a leaf module (only escape.js and icons.js): js/access.js uses
    it at boot, before js/data.js may be imported. */
@@ -80,6 +81,52 @@ export function settingsRowHtml({ title, sub = '', onclick = null, chevron = fal
 // top of the screen. The whole pill dismisses it; the × says so.
 export function tipHtml({ text, onclose }){
   return `<div class="tip" role="status" onclick="${onclose}"><span class="tip-text">${escapeHtml(text)}</span><button type="button" class="tip-close" aria-label="Dismiss">${iconHtml('close')}</button></div>`;
+}
+
+// Banner: a tinted callout, "worth noticing", never an error. `tone` is
+// '' (gold: peek, prior season, preview data), 'live' (red) or 'prov'
+// (blue); `note` is the smaller left-aligned inline note. Text is `text`,
+// or trusted `html`. `actionLabel` + `onaction` add the gold button on
+// the right; `actionHtml` is any other trailing control (trusted). `cls`
+// adds a screen's own class (the peek banner's `peek`).
+export function bannerHtml({ text = '', html = null, tone = '', note = false, actionLabel = '', onaction = null, actionHtml = '', cls = '' }){
+  const classes = ['peek-banner', tone, note ? 'note' : '', cls].filter(Boolean).join(' ');
+  const action = actionLabel && onaction ? `<button type="button" class="banner-action" onclick="${onaction}">${escapeHtml(actionLabel)}</button>` : '';
+  return `<div class="${classes}"><span>${html !== null ? html : escapeHtml(text)}</span>${action}${actionHtml}</div>`;
+}
+
+// Sheet: the inside of a .modal (the overlay itself stays in index.html
+// and opens through js/sheet.js). A title row with an optional sub and
+// the round ×, then the body. `titleHtml` / `subHtml` take trusted markup
+// in place of the text; `eyebrowHtml` sits over the title, `extraHtml`
+// under the sub, `rightHtml` beside the title block; `cls` adds a class to
+// the title row. `bodyId` / `bodyCls` wrap `html` in a div a screen can
+// re-render in place (the rows of a filter sheet).
+export function sheetHeadHtml({ title = '', titleHtml = null, sub = '', subHtml = null, eyebrowHtml = '', extraHtml = '', rightHtml = '', onclose, cls = '', titleCls = '' }){
+  const subPart = subHtml !== null ? subHtml : (sub ? escapeHtml(sub) : '');
+  return `<div class="sheet-title-row${cls ? ` ${cls}` : ''}"><div>${eyebrowHtml}`
+    + `<div class="sheet-title${titleCls ? ` ${titleCls}` : ''}">${titleHtml !== null ? titleHtml : escapeHtml(title)}</div>`
+    + (subPart ? `<div class="sheet-title-sub">${subPart}</div>` : '')
+    + `${extraHtml}</div>${rightHtml}`
+    + `<button type="button" class="modal-close" onclick="${onclose}" aria-label="Close">&times;</button></div>`;
+}
+
+export function sheetHtml({ html = '', bodyId = '', bodyCls = '', ...head }){
+  const wrap = bodyId || bodyCls;
+  return sheetHeadHtml(head)
+    + (wrap ? `<div${bodyId ? ` id="${bodyId}"` : ''}${bodyCls ? ` class="${bodyCls}"` : ''}>${html}</div>` : html);
+}
+
+// SheetRow: a selectable row in a Sheet, 44px+, a divider between rows.
+// `desc` goes under the title; `check` shows the ring that fills with a
+// gold check when `active`; `rightHtml` is any other trailing part (a ›).
+export function sheetRowHtml({ title, desc = '', active = false, check = false, rightHtml = '', onclick, cls = '' }){
+  const classes = ['sheet-row', active ? 'active' : '', cls].filter(Boolean).join(' ');
+  const text = desc
+    ? `<span class="sheet-row-text">${escapeHtml(title)}<span class="sheet-desc block">${escapeHtml(desc)}</span></span>`
+    : `<span class="sheet-row-text">${escapeHtml(title)}</span>`;
+  const ring = check ? `<span class="sheet-check">${active ? iconHtml('check') : ''}</span>` : '';
+  return `<button type="button" class="${classes}" onclick="${onclick}"${check ? ` aria-pressed="${!!active}"` : ''}>${text}${ring}${rightHtml}</button>`;
 }
 
 // FilterTab: one underline tab of a filter row (leagues, roster groups,
@@ -330,6 +377,84 @@ export function mentionHtml({ label, me = false }){
 // highlighted one, which Enter or Tab picks.
 export function mentionListHtml({ options, active = 0 }){
   return options.map((o, i) => `<button type="button" class="mention-opt${i === active ? ' active' : ''}" data-mention="${escapeHtml(o.id)}" role="option" aria-selected="${i === active}"><span class="mention-opt-name">@${escapeHtml(o.name)}</span>${o.sub ? `<span class="mention-opt-sub">${escapeHtml(o.sub)}</span>` : ''}</button>`).join('');
+}
+
+// ---- Chat (ChatBubble, ReactionBar, ChatComposer, SharedGameCard) ----
+// Chat's list is flat: the meta line, the bubble, the picker and the pills
+// are sibling rows (js/chat.js diffs them one by one), so each is its own
+// helper rather than one ChatBubble block. All sit in a flex column.
+
+// The seven reactions, the only emoji in the product. Mirrors
+// REACTION_EMOJI in worker/chat-room.js, which rejects anything else; the
+// order is the picker's and the pills'.
+export const REACTION_EMOJI = ['👍', '👎', '😂', '😮', '😢', '🔥', '😎'];
+
+// The line over a run of messages: who and when. Your own has no name.
+export function chatMetaHtml({ name = '', time = '', mine = false }){
+  return `<div class="chat-meta${mine ? ' mine' : ''}">${name && !mine ? `<span class="chat-name">${escapeHtml(name)}</span>` : ''}${time ? `<span class="chat-time">${escapeHtml(time)}</span>` : ''}</div>`;
+}
+
+// ChatBubble: a text message. `html` is trusted (mentions already tagged);
+// `mine` is yours (right, gold), `tagsMe` outlines one that tags you.
+// `id` (data-msg) makes it a real message the list can press and react to.
+export function chatBubbleHtml({ text = '', html = null, mine = false, tagsMe = false, id = null }){
+  return `<div class="chat-bubble${mine ? ' mine' : ''}${tagsMe ? ' tags-me' : ''}"${id ? ` data-msg="${escapeHtml(id)}"` : ''}>${html !== null ? html : escapeHtml(text)}</div>`;
+}
+
+// One reaction button; chat.js's delegated click listener reads
+// data-react / data-mid.
+function reactionButtonHtml(cls, mid, emoji, inner, label, extra = ''){
+  return `<button type="button" class="${cls}" data-react="${emoji}" data-mid="${escapeHtml(mid)}" aria-label="${escapeHtml(label)}"${extra}>${inner}</button>`;
+}
+
+// The pills under a message: [{ emoji, count, on, names }]. With `mid`
+// each pill toggles that reaction; without one (the landing tour) they're
+// plain marks. Nothing at all when no one has reacted.
+export function chatReactionsHtml({ reactions, mine = false, mid = null }){
+  if(!reactions.length) return '';
+  const pills = reactions.map(r => {
+    const inner = `${r.emoji}<span>${r.count}</span>`;
+    if(!mid) return `<span class="chat-react-pill${r.on ? ' on' : ''}">${inner}</span>`;
+    const names = r.names || '';
+    return reactionButtonHtml(`chat-react-pill${r.on ? ' on' : ''}`, mid, r.emoji, inner, `${r.emoji} ${names}`, ` title="${escapeHtml(names)}" aria-pressed="${!!r.on}"`);
+  }).join('');
+  return `<div class="chat-reactions${mine ? ' mine' : ''}">${pills}</div>`;
+}
+
+// ReactionBar: the picker that opens under a held message, every emoji,
+// the ones in `selected` (yours) highlighted.
+export function reactionBarHtml({ mid, selected = [], mine = false }){
+  const buttons = REACTION_EMOJI.map(e => reactionButtonHtml(`chat-react-opt${selected.includes(e) ? ' on' : ''}`, mid, e, e, `React ${e}`)).join('');
+  return `<div class="chat-react-bar${mine ? ' mine' : ''}">${buttons}</div>`;
+}
+
+// ChatComposer: the GIF pill (hidden until GIFs are set up), the growing
+// textarea and the round gold send button. `onsend` / `ongif` are the
+// handlers; ids are what js/chat.js and js/gif-picker.js look up.
+export function chatComposerHtml({ onsend, ongif, placeholder = 'Message', showGif = false, maxLength = 1000 }){
+  return `<form class="chat-composer" onsubmit="${onsend}; return false;">`
+    + `<button type="button" class="chat-gif-btn" id="chat-gif-btn" onmousedown="event.preventDefault()" onclick="${ongif}" aria-label="Choose a GIF"${showGif ? '' : ' hidden'}>GIF</button>`
+    + `<textarea id="chat-input" rows="1" maxlength="${maxLength}" placeholder="${escapeHtml(placeholder)}" enterkeyhint="send" autocomplete="off"></textarea>`
+    + `<button type="submit" class="chat-send" onmousedown="event.preventDefault()" aria-label="Send">${iconHtml('send')}</button>`
+    + `</form>`;
+}
+
+// SharedGameCard: a game shared into chat, frozen as it was when shared.
+// `league` is the label ("NFL"); each side is { badgeHtml, name, owner?,
+// score, lost? } (badgeHtml trusted). `status` + `live` make the foot's
+// left; `shared` its right ("Shared 8:41 PM"). `nowHtml` is the trusted
+// live line under it (js/game-card.js), `attrs` trusted extra attributes
+// (data-msg, the box score opener).
+export function sharedGameCardHtml({ league, away, home, status, live = false, shared = '', mine = false, nowHtml = '', attrs = '' }){
+  const side = s => `<div class="cg-side${s.lost ? ' lost' : ''}">${s.badgeHtml}`
+    + `<span class="cg-name">${escapeHtml(s.name)}${s.owner ? `<span class="cg-owner">${escapeHtml(s.owner)}</span>` : ''}</span>`
+    + `<span class="cg-score">${s.score === null || s.score === undefined ? '' : escapeHtml(String(s.score))}</span></div>`;
+  return `<div class="chat-game${mine ? ' mine' : ''}"${attrs}>`
+    + `<div class="cg-league">${escapeHtml(league)}</div>`
+    + side(away) + side(home)
+    + `<div class="cg-foot"><span class="cg-status${live ? ' live' : ''}">${escapeHtml(status)}</span>${shared ? `<span class="cg-shared">${escapeHtml(shared)}</span>` : ''}</div>`
+    + nowHtml
+    + `</div>`;
 }
 
 // ---- Draft room (docs/delight-plan.md, Phase 1) ----

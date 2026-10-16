@@ -26,7 +26,7 @@ import { DRAFT_TEAMS } from './data.js';
 import { ACTIVE_GROUP } from './group.js';
 import { GROUP_DOMAIN, allowsGroupOverride } from './groups.js';
 import { getSettings, THEME_OPTIONS, LANDING_OPTIONS } from './settings.js';
-import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, CHECK_ICON_SVG, loadAdminPassword } from './utils.js';
+import { lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss, loadAdminPassword } from './utils.js';
 import { SEASON_IDS } from './seasons/index.js';
 import { personalMockRoom } from './draft-rules.js';
 import { ACTIVE_SEASON_ID, HAS_MULTIPLE_SEASONS } from './season.js';
@@ -37,7 +37,7 @@ import { startTour, endTour } from './guide.js';
 import { accessCode } from './access.js';
 import { escapeHtml } from './escape.js';
 
-import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
+import { buttonHtml, backLinkHtml, settingsRowHtml, bannerHtml, sheetHtml, sheetRowHtml } from './ui.js';
 const PROFILE_KEY = 'teamDashboardProfileId';
 
 function loadProfileId(){
@@ -70,15 +70,23 @@ export function paintIdentityChrome(displayedDraftTeamId){
   const viewing = DRAFT_TEAMS.find(d => d.id === displayedDraftTeamId) || profile;
   const isPeeking = displayedDraftTeamId !== currentProfileId;
 
-  document.querySelectorAll('.peek-banner').forEach(el => {
-    el.classList.toggle('show', isPeeking);
-    const nameEl = el.querySelector('.peek-name');
-    if(nameEl) nameEl.textContent = viewing.name;
+  const html = bannerHtml({
+    html: `Viewing <strong>${escapeHtml(viewing.name)}</strong>'s board`,
+    actionLabel: 'Back to yours',
+    onaction: 'backToMyBoard()',
+    cls: `peek${isPeeking ? ' show' : ''}`
   });
+  document.querySelectorAll('.peek-slot').forEach(el => { el.innerHTML = html; });
 }
 
-const sheetRows = () => document.getElementById('identity-sheet-rows');
-const setSheetTitle = t => { document.getElementById('identity-sheet-title').textContent = t; };
+// Fills the identity sheet (#identity-sheet-overlay) and opens it.
+function openIdentitySheet(title, rowsHtml){
+  const el = document.getElementById('identity-sheet-content');
+  if(!el) return;
+  el.innerHTML = sheetHtml({ title, onclose: 'closeIdentitySheet()', html: rowsHtml });
+  openSheetOverlay(document.getElementById('identity-sheet-overlay'));
+  lockBodyScroll();
+}
 
 /* ---- Settings page (#view-settings) ----
    A full page pushed in from the header gear (openSettings in
@@ -277,17 +285,9 @@ window.toggleSettingsObMode = () => {
 
 // The identity card's drafter switcher: the one job the sheet still has.
 export function openProfileSwitcher(){
-  if(!sheetRows()) return;
-  setSheetTitle('Who are you?');
   // Open spots (js/groups.js) are nobody yet, so they aren't offered.
-  sheetRows().innerHTML = DRAFT_TEAMS.filter(d => !d.open || d.id === currentProfileId).map(d => `
-    <button class="sheet-row ${d.id === currentProfileId ? 'active' : ''}" onclick="chooseProfile('${d.id}')">
-      <span>${d.name}</span>
-      <span class="sheet-check">${d.id === currentProfileId ? CHECK_ICON_SVG : ''}</span>
-    </button>
-  `).join('');
-  openSheetOverlay(document.getElementById('identity-sheet-overlay'));
-  lockBodyScroll();
+  openIdentitySheet('Who are you?', DRAFT_TEAMS.filter(d => !d.open || d.id === currentProfileId)
+    .map(d => sheetRowHtml({ title: d.name, check: true, active: d.id === currentProfileId, onclick: `chooseProfile('${d.id}')` })).join(''));
 }
 window.openProfileSwitcher = openProfileSwitcher;
 
@@ -295,19 +295,10 @@ window.openProfileSwitcher = openProfileSwitcher;
 // real one. (The group's shared rehearsal room is on Commissioner.)
 
 export function openDraftPicker(){
-  if(!sheetRows()) return;
-  setSheetTitle('Draft');
-  sheetRows().innerHTML = `
-    <button class="sheet-row" onclick="goToMyMockDraft()">
-      <span class="sheet-row-text">Mock Draft<span class="sheet-desc block">Your own practice room &middot; picks don&rsquo;t count</span></span>
-      <span class="set-chev">&rsaquo;</span>
-    </button>
-    <button class="sheet-row" onclick="goToDraftRoom('main')">
-      <span class="sheet-row-text">Live Draft<span class="sheet-desc block">The real draft room</span></span>
-      <span class="set-chev">&rsaquo;</span>
-    </button>`;
-  openSheetOverlay(document.getElementById('identity-sheet-overlay'));
-  lockBodyScroll();
+  const chev = '<span class="set-chev">&rsaquo;</span>';
+  openIdentitySheet('Draft',
+    sheetRowHtml({ title: 'Mock Draft', desc: 'Your own practice room · picks don’t count', rightHtml: chev, onclick: 'goToMyMockDraft()' })
+    + sheetRowHtml({ title: 'Live Draft', desc: 'The real draft room', rightHtml: chev, onclick: "goToDraftRoom('main')" }));
 }
 window.openDraftPicker = openDraftPicker;
 
@@ -468,12 +459,7 @@ function renderWelcomeNames(){
       <div class="welcome-sub">Every team drafted in ${ACTIVE_GROUP.name}, followed and scored live. First things first &mdash; who are you?</div>
     </div>
     <div class="welcome-names">
-      ${DRAFT_TEAMS.filter(d => !d.open).map(d => `
-        <button class="sheet-row" onclick="chooseWelcomeProfile('${d.id}')">
-          <span>${d.name}</span>
-          <span class="welcome-chev">&rsaquo;</span>
-        </button>
-      `).join('')}
+      ${DRAFT_TEAMS.filter(d => !d.open).map(d => sheetRowHtml({ title: d.name, rightHtml: '<span class="welcome-chev">&rsaquo;</span>', onclick: `chooseWelcomeProfile('${d.id}')` })).join('')}
     </div>
     ${DRAFT_TEAMS.some(d => d.open) ? `
       <p class="welcome-unlisted">Not listed? Claim a spot at <a href="https://${GROUP_DOMAIN}/">${GROUP_DOMAIN}</a>, and your name shows up here once the commissioner confirms it.</p>` : ''}

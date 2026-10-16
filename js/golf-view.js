@@ -27,7 +27,7 @@ import {
   golferResults, fedexTable, finishPosition, isMissedCut, golferHeadshotUrl,
   activeMajor, majorGolfers, majorLeaders, majorFromBoard, isOut, golferNews, finishForm, FORM_FINISH_CAP
 } from './golf.js';
-import { nextGameHtml, sectionCardHtml, formStripHtml, gameByGameHtml } from './ui.js';
+import { nextGameHtml, sectionCardHtml, formStripHtml, gameByGameHtml, bannerHtml } from './ui.js';
 import { barHeight, GAME_BY_GAME_MAX } from './team-wide-math.js';
 import { PGA_ACCENT, PGA_SCORING, majorOf } from './seasons/pga.js';
 import { previewParam } from './postseason.js';
@@ -466,7 +466,7 @@ export function golferNationHtml(athleteId){
 export function priorSeasonNoteHtml(){
   if(!PRIOR_SEASON_DISPLAY_LEAGUES.includes('pga') || !golfStore.season) return '';
   const yy = y => String(y).slice(-2);
-  return `<div class="prior-season-note golf-note">Showing the '${yy(golfStore.season)} FedEx Cup season &mdash; points count from the '${yy(Number(golfStore.season) + 1)} season.</div>`;
+  return bannerHtml({ note: true, cls: 'golf-note', text: `Showing the '${yy(golfStore.season)} FedEx Cup season — points count from the '${yy(Number(golfStore.season) + 1)} season.` });
 }
 
 // The stat strip: FedEx rank and points, then what the golfer is worth
