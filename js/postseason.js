@@ -138,15 +138,15 @@ export function postseasonYear(key){
 // Sunday) and April (the title game). MLB: from September 25 (the field
 // is set in the season's last days) through November (the World Series
 // ends by early November). The WNBA: from September 10 through October
-// (the Finals end by mid-October). The NBA and NHL: from April 14 (the
-// NBA's field is set once its play-in ends) through June. Outside them
+// (the Finals end by mid-October). The NBA and NHL: from April 10 (the
+// NBA's Play-In starts mid-April) through June. Outside them
 // there's no postseason to fetch.
 function inWindow(key){
   if(previewYear(key) !== null) return true;
   const now = new Date(), m = now.getMonth();
   if(key === 'mlb') return m === 9 || m === 10 || (m === 8 && now.getDate() >= 25);
   if(key === 'wnba') return m === 9 || (m === 8 && now.getDate() >= 10);
-  if(key === 'nba' || key === 'nhl') return m === 4 || m === 5 || (m === 3 && now.getDate() >= 14);
+  if(key === 'nba' || key === 'nhl') return m === 4 || m === 5 || (m === 3 && now.getDate() >= 10);
   return (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(m);
 }
 
@@ -678,7 +678,8 @@ function crownHtml(key, S){
 function scrubHtml(key, S){
   // Each stop is named for the row it highlights (the rung the alive teams
   // have reached at that stage): Field, then the next round, … Champ.
-  const stops = ['Field', ...S.L.roundShort.slice(1), 'Champ'];
+  // The NBA's start at its Play-In (`stops`).
+  const stops = S.L.stops || ['Field', ...S.L.roundShort.slice(1), 'Champ'];
   return `
     <div class="ps-scrub" data-ps-scrub="${key}" role="slider" tabindex="0" aria-label="Replay the postseason"
       aria-valuemin="0" aria-valuemax="${S.latest}" aria-valuenow="${S.stage}" aria-valuetext="${escapeHtml(S.stageLabel)}" style="--f:${S.stage / S.N}">
@@ -1141,9 +1142,10 @@ export function restorePostseason(container, kept){
 
 // ---- Home: the postseason banner ----
 
-// "Field set · 2026"; the NCAA's field is set on Selection Sunday.
+// "Field set · 2026"; the NCAA's field is set on Selection Sunday, and the
+// NBA's postseason opens with its Play-In.
 export function fieldSetEyebrow(key){
-  return `${key === 'mcbb' ? 'Selection Sunday' : 'Field set'} · ${shownYear(key)}`;
+  return `${key === 'mcbb' ? 'Selection Sunday' : key === 'nba' ? 'Play-In' : 'Field set'} · ${shownYear(key)}`;
 }
 
 // Home leads with a card for each league whose postseason is on, for as

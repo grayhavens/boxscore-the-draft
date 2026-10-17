@@ -3106,7 +3106,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   transition: left var(--dur-move) var(--ease-spring);
 }
 .ps-stops{ position: absolute; left: 0; right: 0; top: 34px; display: flex; justify-content: space-between; }
-.ps-stops span{ width: 28px; text-align: center; font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.04em; color: var(--text-mute); transition: color var(--dur-ui); }
+.ps-stops span{ width: 28px; display: flex; justify-content: center; white-space: nowrap; font: 800 var(--fs-10) var(--font-ui); letter-spacing: 0.04em; color: var(--text-mute); transition: color var(--dur-ui); }
 .ps-stops span.on{ color: var(--accent); }
 .ps-stops span.later{ opacity: 0.45; }
 

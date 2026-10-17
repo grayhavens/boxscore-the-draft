@@ -49,13 +49,12 @@
    and the World Series pair meets in the middle.
 
    The NBA and NHL play four best-of-7 rounds, 16 teams, eight per
-   conference, split East / West like MLB's AL / NL. Their late rounds
+   conference, split East / West like MLB's AL / NL. The NBA's Play-In
+   comes first, as a round of its own (NBA_PLAY_IN). Their late rounds
    are also read for scoring by js/playoff-series-math.js before the
    ladder has a bracket; both take the conference finals and final
    patterns and the rules from its PLAYOFF_SERIES_LEAGUES, so the two
-   can't disagree. The NBA's play-in is its own season type on ESPN, so
-   it never reaches the ladder: seeds 7 and 8 are whoever won it (ESPN's
-   final standings already say so).
+   can't disagree.
    ============================================================ */
 import { PLAYOFF_SERIES_LEAGUES } from './playoff-series-math.js';
 
@@ -223,34 +222,68 @@ const WNBA = {
 // Round - Game 1", "West Semifinals" (NBA) / "West 2nd Round" (NHL),
 // "East Finals" / "East Final", "NBA Finals" / "Stanley Cup Final". The
 // conference finals and final come from js/playoff-series-math.js (its
-// rounds 1 and 2 are ours 3 and 4), and so do the rules.
-function fourRounds(key, { second, rounds, roundShort, rungs, stages, champTitle, finalNote }){
+// rounds 1 and 2 are our last two), and so do the rules.
+// `playIn`: the NBA's Play-In comes first, as a round of its own (below).
+function fourRounds(key, { second, rounds, roundShort, rungs, stages, champTitle, finalNote, playIn = null }){
   const P = PLAYOFF_SERIES_LEAGUES[key];
+  const pi = playIn ? 1 : 0;
   return {
-    key, fieldSize: 16, series: true, seriesNeed: [4, 4, 4, 4],
-    rounds, roundShort, rungs, stages, gamesPerRound: [8, 4, 2, 1],
+    key, fieldSize: 16 + (playIn ? 4 : 0), series: true, seriesNeed: [...(playIn ? [1] : []), 4, 4, 4, 4],
+    rounds, roundShort, rungs, stages, gamesPerRound: [...(playIn ? [6] : []), 8, 4, 2, 1],
     champTitle, sides: ['East', 'West'],
-    rules: P.rules.map(r => r.win ? r : { re: r.re, reach: r.reach + 2 }),
+    rules: P.rules.map(r => r.win ? r : { re: r.re, reach: r.reach + 2 + pi }),
+    ...(playIn || {}),
     roundOf(evt){
       const h = evt.headline || '';
-      if(P.final.test(h)) return 4;
-      if(P.conf.test(h)) return 3;
-      if(second.test(h)) return 2;
-      if(/^(East|West) 1st Round\b/i.test(h)) return 1;
+      if(playIn && playIn.single(evt)) return 1;
+      if(P.final.test(h)) return 4 + pi;
+      if(P.conf.test(h)) return 3 + pi;
+      if(second.test(h)) return 2 + pi;
+      if(/^(East|West) 1st Round\b/i.test(h)) return 1 + pi;
       return 0;
     },
-    groupOf(evt){ const m = /^(East|West)\b/i.exec(evt.headline || ''); return m ? m[1] : ''; },
-    noteOf(evt, round){ return round === 4 ? finalNote : ''; }
+    groupOf(evt){ const m = /\b(East|West)\b/i.exec(evt.headline || ''); return m ? m[1] : ''; },
+    noteOf(evt, round){ return round === rounds.length ? finalNote : ''; }
   };
 }
 
+// The NBA's Play-In ("NBA Play-In - East - 7th Place vs 8th Place", then
+// "9th Place vs 10th Place" and the "8th Seed Game"; its own season type on
+// ESPN) is the NBA's first round here, single games, before the field:
+// seeds 1-6 per conference wait on the First Round rung (`byeSeeds`), 7-10
+// start on the Play-In rung. The 7 v 8 winner is the 7 seed; its loser gets
+// a second chance (`lifeline`), the 8th Seed Game against the 9 v 10 winner,
+// who stays on the Play-In rung until then (`holds`). The losers of those two
+// are out on the Play-In rung. Seeds are ESPN's final standings, which give
+// the Play-In's winners 7 and 8 and its losers 9 and 10; at the Play-In
+// stage its teams show where they finished instead (`place`). Checked
+// against the 2025 and 2026 Play-Ins (2026-10-16).
+const NBA_PLAY_IN = {
+  byeSeeds: 6,
+  // Not a series: seriesEvents passes these games through as they are.
+  single: evt => /\bplay-in\b/i.test(evt.headline || ''),
+  lifeline: evt => /7th Place vs 8th Place/i.test(evt.headline || ''),
+  holds: evt => /9th Place vs 10th Place/i.test(evt.headline || ''),
+  after: evt => /8th Seed Game/i.test(evt.headline || ''),
+  // Where a team finished, from its first Play-In game (the higher place is
+  // at home): its seed at the Play-In stage, before the final standings'.
+  placeOf(evt, side){
+    const h = evt.headline || '';
+    if(/7th Place vs 8th Place/i.test(h)) return side.home ? 7 : 8;
+    if(/9th Place vs 10th Place/i.test(h)) return side.home ? 9 : 10;
+    return null;
+  },
+  // The scrubber's stops: the Play-In, then the field.
+  stops: ['Play-In', 'Field', 'CSF', 'CF', 'F', 'Champ']
+};
+
 const NBA = fourRounds('nba', {
   second: /^(East|West) Semifinals\b/i,
-  rounds: ['First Round', 'Conference Semifinals', 'Conference Finals', 'NBA Finals'],
-  roundShort: ['R1', 'CSF', 'CF', 'F'],
-  rungs: ['First Round', 'Semifinals', 'Conf. Finals', 'Finals', 'Champion'],
-  stages: ['Field set', 'After first round', 'After semifinals', 'After conference finals', 'Champion'],
-  champTitle: 'NBA champions', finalNote: 'NBA Finals'
+  rounds: ['Play-In', 'First Round', 'Conference Semifinals', 'Conference Finals', 'NBA Finals'],
+  roundShort: ['PI', 'R1', 'CSF', 'CF', 'F'],
+  rungs: ['Play-In', 'First Round', 'Semifinals', 'Conf. Finals', 'Finals', 'Champion'],
+  stages: ['Play-In', 'Field set', 'After first round', 'After semifinals', 'After conference finals', 'Champion'],
+  champTitle: 'NBA champions', finalNote: 'NBA Finals', playIn: NBA_PLAY_IN
 });
 
 const NHL = fourRounds('nhl', {
@@ -341,8 +374,11 @@ export function parseScoreboardEvent(event){
 export function seriesEvents(leagueKey, events){
   const L = POSTSEASON_LEAGUES[leagueKey];
   const series = new Map();
+  const singles = [];
   (events || []).forEach(evt => {
     if(!evt || evt.sides.length !== 2) return;
+    // A single game in a series league (the NBA's Play-In): as it is.
+    if(L.single && L.single(evt)){ singles.push(evt); return; }
     const round = L.roundOf(evt);
     if(!round) return;
     const ids = evt.sides.map(s => s.id);
@@ -350,7 +386,7 @@ export function seriesEvents(leagueKey, events){
     const s = series.get(key) || series.set(key, { round, games: [] }).get(key);
     s.games.push(evt);
   });
-  return [...series.values()].map(({ round, games }) => {
+  return singles.concat([...series.values()].map(({ round, games }) => {
     games.sort((x, y) => String(x.date).localeCompare(String(y.date)));
     const first = games[0], last = games[games.length - 1];
     const counted = {};
@@ -374,7 +410,7 @@ export function seriesEvents(leagueKey, events){
       liveId: (games.slice().reverse().find(g => g.state === 'in') || {}).id || null,
       lastDate: last.date
     };
-  });
+  }));
 }
 
 // The playoff seeds per conference (the NFL's 1-7, MLB's 1-6 per league,
@@ -426,6 +462,8 @@ export function buildBracket(leagueKey, events, seeds = {}){
       if(!t.record && s.record) t.record = s.record;
       if(!t.conf) t.conf = L.groupOf(evt);
       if(!t.logo && s.logo) t.logo = s.logo;
+      const place = L.placeOf && L.placeOf(evt, s);
+      if(place) t.place = place;
     });
     const final = evt.state === 'post' && a.score !== null && b.score !== null && !!(a.id && b.id);
     const winner = final ? (a.winner ? a.id : b.winner ? b.id : (a.score > b.score ? a.id : b.id)) : null;
@@ -438,7 +476,11 @@ export function buildBracket(leagueKey, events, seeds = {}){
       liveId: live ? (evt.liveId || evt.id) : null,
       ot: final && /OT/.test(evt.detail || ''),
       // A series (seriesEvents): the wins it takes; its scores are series wins.
-      need: evt.need || null
+      need: evt.need || null,
+      // The NBA's Play-In: a loser who plays again, a winner who stays.
+      lifeline: !!(L.lifeline && L.lifeline(evt)), holds: !!(L.holds && L.holds(evt)),
+      // …and the game they meet in (the 8th Seed Game), set by those two.
+      after: !!(L.after && L.after(evt))
     });
   });
   const firstRound = games.filter(g => g.round === 1);
@@ -516,16 +558,19 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
   Object.values(bracket.teams).forEach(t => {
     const o = ownerOf(t) || {};
     byId[t.id] = {
-      ...t, teamKey: o.teamKey || null, owner: o.owner || null, ownerName: o.owner ? nameOf(o.owner) : null,
+      // At the NBA's Play-In stage its teams' seeds are where they finished.
+      ...t, ...(t.place && stage === 0 ? { seed: t.place } : {}), teamKey: o.teamKey || null, owner: o.owner || null, ownerName: o.owner ? nameOf(o.owner) : null,
       mine: !!o.owner && o.owner === me, isBye: bracket.byes.includes(t.id),
       outRound: null, outPlayIn: false, wonRound: 0, path: []
     };
   });
   bracket.games.filter(counts).forEach(g => {
     const loser = g.winner === g.a ? g.b : g.a;
-    if(byId[loser]){ byId[loser].outRound = g.round; byId[loser].outPlayIn = g.playIn; }
-    // A First Four win only gets a team into the Round of 64.
-    if(byId[g.winner] && !g.playIn) byId[g.winner].wonRound = Math.max(byId[g.winner].wonRound, g.round);
+    // The NBA's 7 v 8 loser plays again (the 8th Seed Game).
+    if(byId[loser] && !g.lifeline){ byId[loser].outRound = g.round; byId[loser].outPlayIn = g.playIn; }
+    // A First Four win only gets a team into the Round of 64; a 9 v 10
+    // win, into the 8th Seed Game.
+    if(byId[g.winner] && !g.playIn && !g.holds) byId[g.winner].wonRound = Math.max(byId[g.winner].wonRound, g.round);
   });
 
   const teams = Object.values(byId);
@@ -544,7 +589,10 @@ export function snapshot(bracket, stage, { rules = [], ownerOf = () => null, dra
   const games = bracket.games.map(g => {
     const final = counts(g);
     // A side is shown once that team has reached this round (at this stage).
-    const side = (id, score) => ({ team: id && seen(id) >= g.round ? byId[id] : null, score: final ? score : null, won: final && id === g.winner, lost: final && !!g.winner && id !== g.winner });
+    // A replayed stage can't know who the NBA's 8th Seed Game will be
+    // between until the round's over (`after`): its sides wait till then.
+    const blind = g.after && !isLatest && g.round > stage;
+    const side = (id, score) => ({ team: id && !blind && seen(id) >= g.round ? byId[id] : null, score: final ? score : null, won: final && id === g.winner, lost: final && !!g.winner && id !== g.winner });
     // A series still being played, at the latest stage: its tally so far.
     const series = isLatest && g.need && !final && g.a && g.b
       ? { need: g.need, top: g.scoreA || 0, bot: g.scoreB || 0, wins: { [g.a]: g.scoreA || 0, [g.b]: g.scoreB || 0 } } : null;
@@ -602,7 +650,9 @@ export function topRung(teams){
 export function matchups(teams, games){
   const byId = Object.fromEntries(teams.map(t => [t.id, t]));
   const side = (t, g) => byId[ghostId(t.id, g.round)] || byId[t.id];
-  return (games || []).filter(g => g.top.team && g.bot.team).map(g => {
+  // A single game over never pairs: its loser stays, and when its winner
+  // stays too (the NBA's 9 v 10), the two have nothing left to play.
+  return (games || []).filter(g => g.top.team && g.bot.team && !(g.final && !g.need)).map(g => {
     const a = side(g.top.team, g), b = side(g.bot.team, g);
     if(!a || !b || a.rung !== b.rung || a.rung !== g.round - 1) return null;
     return Object.assign([a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99)), { game: g });
@@ -684,9 +734,11 @@ function rungRows(teams, games, sides = null, perRow = PER_ROW, pairGap = null){
     const rows = [[]];
     units.forEach(u => {
       const row = rows[rows.length - 1];
-      // Two rows split at the halfway mark (football's ladder); three or
-      // more also never let a game push a row past perRow.
-      if(row.length && ((rows.length < want && row.length >= even) || (want > 2 && row.length + u.length > perRow))) rows.push([]);
+      // Two rows split at the halfway mark (football's ladder), and a game
+      // never pushes a row past perRow (a half's three, with byes before
+      // the pairs: MLB's field, the NBA's at its Play-In) but takes a row
+      // of its own.
+      if(row.length && ((rows.length < want && row.length >= even) || (want > 1 && row.length + u.length > perRow))) rows.push([]);
       rows[rows.length - 1].push(...u);
     });
     out[k] = rows;

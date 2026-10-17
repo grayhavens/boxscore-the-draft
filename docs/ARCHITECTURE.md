@@ -793,16 +793,22 @@ league-wide, read from the league-level standings (`standings?level=1`, `parseNf
 white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
 `PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
 the Finals" and "Win the Finals" score from the ladder.
-**NBA** (`nba`) and **NHL** (`nhl`) are loaded the same way (every day from April 14 to June 30 so far, `bxPsDay:<league>:<day>`,
-folded by `seriesEvents`): 16 teams, four best-of-7 rounds, no byes, split into East / West columns like MLB's AL / NL
-(`sides`). Seeds are ESPN's 1-8 per conference from the final standings (`parseNflSeeds(…, 8)`). The NBA's play-in is
-its own season type on ESPN, so it never reaches the ladder: seeds 7 and 8 are its winners (the standings already say so).
-The NHL pairs by division (1-3 per division plus two wild cards); the ladder only follows the pairings ESPN reports. Both
+**NBA** (`nba`) and **NHL** (`nhl`) are loaded the same way (every day from April 10 to June 30 so far,
+`bxPsDay:nba-pi:<day>` / `bxPsDay:nhl:<day>`, folded by `seriesEvents`): 16 teams, four best-of-7 rounds, split into East /
+West columns like MLB's AL / NL (`sides`). Seeds are ESPN's per conference from the final standings (`parseNflSeeds`).
+The NBA's **Play-In** comes first, as its own round (`NBA_PLAY_IN`): a Play-In rung under First Round and a "Play-In"
+scrubber stop before "Field" (`stops`). Its six games ("NBA Play-In - East - 7th Place vs 8th Place", "9th Place vs 10th
+Place", "8th Seed Game"; ESPN's `play-in-season`) stay single games (`single`, passed through `seriesEvents` as they are).
+Seeds 1-6 wait on First Round (`byeSeeds: 6`, "Bye" at the Play-In stage); the 7 v 8 loser plays again (`lifeline`), the
+9 v 10 winner stays on the Play-In rung for the 8th Seed Game (`holds`), whose sides a replayed stage hides until that
+round is over (`after`). At the Play-In stage its teams show where they finished (`place`, from their first game: the
+higher place is at home); from the field on, the final standings' seeds (the Play-In's winners 7 and 8, losers 9 and 10).
+A single game over never pairs on the ladder (`matchups`). The NHL pairs by division (1-3 per division plus two wild cards); the ladder only follows the pairings ESPN reports. Both
 take their conference finals and final patterns and their rules from `PLAYOFF_SERIES_LEAGUES` in
 `js/playoff-series-math.js`, so the ladder and `js/playoff-series.js` (which scores the late rounds before the ladder has
 a bracket) can't disagree; both find drafted teams by exact nickname (`findFlatTeamKey`), since a substring match took the
 Hornets for the Nets. The title is the league's own logo from ESPN with "Playoffs". ESPN names these seasons by the spring
-they end in, like the NCAA's, so `?psyear=2025` replays the 2026 playoffs. Their window is April 14 through June.
+they end in, like the NCAA's, so `?psyear=2025` replays the 2026 playoffs. Their window is April 10 through June.
 **Golf majors on Home** (`golfMajorHomeItem` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
 `majorGolfers` / `majorLeaders` / `pickWeekEvent` in `js/golf.js`, tested in `tests/golf.test.mjs`; plan in
 `docs/golf-majors-plan.md`): a group with PGA Tour on gets a card in Home's postseason stack (after those cards,

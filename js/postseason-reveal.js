@@ -149,9 +149,10 @@ function start(key, card){
   const title = postseasonTitle(key);
   const lockup = !!(logo && logo.lockup);
   // Seven badges to a row (six for the CFP's and MLB's 12, four for the
-  // WNBA's 8, eight for the NBA's and NHL's 16, a conference a row); the
-  // NCAA's can need more than two rows, and the strip grows to fit them.
-  const cols = key === 'cfb' || key === 'mlb' ? 6 : key === 'wnba' ? 4 : key === 'nba' || key === 'nhl' ? 8 : 7;
+  // WNBA's 8, eight for the NHL's 16, a conference a row, and five for the
+  // NBA's 20 with its Play-In, a conference two rows); the NCAA's can need
+  // more than two rows, and the strip grows to fit them.
+  const cols = key === 'cfb' || key === 'mlb' ? 6 : key === 'wnba' ? 4 : key === 'nba' ? 5 : key === 'nhl' ? 8 : 7;
   const gridH = Math.max(2, Math.ceil(hero.length / cols)) * HERO_ROW + 10;
   header.insertAdjacentHTML('afterend', `
     <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}" style="--ps-hero-grid:${gridH}px;--ps-hero-h:${250 + gridH - 110}px">
