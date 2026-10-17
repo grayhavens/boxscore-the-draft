@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, roundSeriesLine, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, POSTSEASON_LEAGUES
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, POSTSEASON_LEAGUES
 } from '../js/postseason-math.js';
 import { playoffReach, teamsEarning } from '../js/playoff-series-math.js';
 
@@ -108,22 +108,6 @@ test('NHL 2026: the second round under way', () => {
   assert.equal(by.CAR.rung, 1);
   assert.equal(by.OTT.status, 'Out · R1');
   assert.deepEqual(earned(S, 'Make conference finals'), []);
-});
-
-test('NHL: Home’s card says where the round’s series stand', () => {
-  const at = (year, day, opts) => {
-    const b = bracket(year, day);
-    return roundSeriesLine(snapshot(b, latestStage(b), opts));
-  };
-  assert.equal(at(2026, '2026-04-22'), '8 series under way');
-  assert.equal(at(2026, '2026-04-30'), '4 of 8 series still on');
-  const mine = { ownerOf: t => ['MTL', 'PHI'].includes(t.abbr) ? { teamKey: t.abbr, owner: 'me' } : null, me: 'me' };
-  assert.equal(at(2026, '2026-04-22', mine), 'PHI leads 3–0 · TB and MTL tied 1–1');
-  // Four series: each still on.
-  assert.equal(at(2026, '2026-05-12'), 'COL leads 3–1 · VGK and ANA tied 2–2 · BUF and MTL tied 2–2');
-  assert.equal(at(2026, '2026-05-28'), 'VGK won 4–0 · CAR leads 3–1');
-  assert.equal(at(2026, '2026-05-30'), null);
-  assert.equal(at(2026, '2026-06-07'), 'VGK leads 2–1');
 });
 
 test('NHL: each series over keeps its count, by the team that lost it', () => {

@@ -653,44 +653,6 @@ export function seriesResultLine(r){
   return `${(r.winner && r.winner.abbr) || ''} won ${r.won}\u2013${r.lost}`.trim();
 }
 
-// The round being played, its series in one line for Home's postseason
-// card, or null (not a series league, an earlier stage, a champion). One
-// series reads as seriesLine does ("NY leads 2-1", "Tied 1-1"); several
-// name both teams on a tie, and in a two-series round one already won
-// says so, so the round still reads: "CLE leads 2-1 · MIL won 4-0" (with
-// four, as in a first round, the line keeps to the ones still on). Before
-// anyone has a win it's the length ("Best of 7"); a series yet to win a
-// game sits out while others have. A round of more than four (the NBA's
-// and NHL's eight first-round series) would run to lines, so it keeps to
-// the series with one of your teams, or counts them: "5 of 8 series
-// still on".
-export function roundSeriesLine(S){
-  if(!S || !S.isLatest || !S.L.series) return null;
-  const round = S.latest + 1;
-  let games = S.games.filter(g => g.round === round && g.need && g.top.team && g.bot.team);
-  const open = games.filter(g => g.series);
-  if(!open.length) return null;
-  if(open.every(g => !g.series.top && !g.series.bot)) return seriesLine(open[0]);
-  if(games.length === 1) return seriesLine(open[0]);
-  if(games.length > 4){
-    const total = games.length;
-    games = open.filter(g => (g.series.top || g.series.bot) && (g.top.team.mine || g.bot.team.mine));
-    if(!games.length) return open.length < total ? `${open.length} of ${total} series still on` : `${total} series under way`;
-  }
-  const abbr = t => t.abbr || '';
-  const parts = games.map(g => {
-    if(g.final){
-      if(games.length > 2) return null;
-      const [w, l] = g.top.won ? [g.top, g.bot] : [g.bot, g.top];
-      return seriesResultLine({ winner: w.team, won: w.score, lost: l.score });
-    }
-    const s = g.series;
-    if(!s || (!s.top && !s.bot)) return null;
-    return s.top === s.bot ? `${abbr(g.top.team)} and ${abbr(g.bot.team)} tied ${s.top}\u2013${s.bot}` : seriesLine(g);
-  }).filter(Boolean);
-  return parts.join(' \u00b7 ') || null;
-}
-
 // The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung
 // the two sides of each game still to play sit together (matchups), games
 // and lone teams in order of conference (the NCAA's region), then best seed.

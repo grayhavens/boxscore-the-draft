@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, roundSeriesLine, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, POSTSEASON_LEAGUES
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, POSTSEASON_LEAGUES
 } from '../js/postseason-math.js';
 import { playoffReach, teamsEarning } from '../js/playoff-series-math.js';
 
@@ -104,26 +104,6 @@ test('NBA 2025: the conference finals under way', () => {
   assert.equal(by.DEN.status, 'Out · CSF');
   // Reaching the conference finals is locked as soon as the round is reached.
   assert.deepEqual(earned(S, 'Make conference finals'), ['IND', 'MIN', 'NY', 'OKC']);
-});
-
-test('NBA: Home’s card says where the round’s series stand', () => {
-  const at = (year, day, opts) => {
-    const b = bracket(year, day);
-    return roundSeriesLine(snapshot(b, latestStage(b), opts));
-  };
-  // Eight first-round series would run to lines: counted instead.
-  assert.equal(at(2025, '2025-04-23'), '8 series under way');
-  assert.equal(at(2025, '2025-05-01'), '2 of 8 series still on');
-  // …or, with a team of yours in one, just yours.
-  const mine = { ownerOf: t => t.abbr === 'DEN' ? { teamKey: 'nuggets', owner: 'me' } : null, me: 'me' };
-  assert.equal(at(2025, '2025-04-27', mine), 'DEN and LAC tied 2–2');
-  // Four series: each still on.
-  assert.equal(at(2025, '2025-05-13'), 'NY leads 3–1 · OKC and DEN tied 2–2 · MIN leads 3–1');
-  // Two: a series already won stays.
-  assert.equal(at(2026, '2026-05-27'), 'OKC leads 3–2 · NY won 4–0');
-  // Between rounds there's nothing to say; the Finals read as the ladder does.
-  assert.equal(at(2025, '2025-05-18'), null);
-  assert.equal(at(2025, '2025-06-14'), 'Tied 2–2');
 });
 
 test('NBA: each series over keeps its count, by the team that lost it', () => {

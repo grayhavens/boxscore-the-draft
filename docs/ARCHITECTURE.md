@@ -746,10 +746,6 @@ reduced motion skips straight there.
 Home shows a gold "NFL Playoffs" card per league (`postseasonHomeItems`, in Home's stack) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
-A series league (MLB, WNBA, NBA, NHL) adds where the round's series stand (`roundSeriesLine`: "Best of 7", "NY leads 2–1", several
-joined with " · ", a tie naming both teams, a series already won kept only in a two-series round). A round of more than
-four series (the NBA's and NHL's first round) keeps to the series with one of your teams, or counts them ("5 of 8 series
-still on").
 A pre-draft group (`PRE_DRAFT`) gets no cards: `renderHomeStack` leaves them out until the draft is in.
 A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
 that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.

@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, roundSeriesLine, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, ladderGeometry
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, ladderGeometry
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-wnba.json'), 'utf8'));
@@ -111,26 +111,6 @@ test('A WNBA postseason that doesn’t count: no rules, so nothing banked or in 
   const S = snapshot(bracket(2026), 1, { rules: [] });
   assert.equal(S.milestones.length, 0);
   assert.ok(S.teams.every(t => t.banked === 0 && t.inPlay === 0));
-});
-
-test('WNBA: Home’s card says where the round’s series stand', () => {
-  const at = (year, day) => {
-    const b = buildBracket('wnba', seriesEvents('wnba', FIX[year].events.filter(e => e.date.slice(0, 10) <= day)), FIX[year].seeds);
-    return roundSeriesLine(snapshot(b, latestStage(b)));
-  };
-  // First round: the series still on, a tie naming both teams.
-  assert.equal(at(2026, '2026-10-01'), 'LV and IND tied 1\u20131 \u00b7 GS and DAL tied 1\u20131');
-  // Semifinals: two series, so the one already won stays.
-  assert.equal(at(2026, '2026-10-09'), 'ATL won 3\u20130 \u00b7 GS leads 2\u20130');
-  // Between rounds there's nothing to say.
-  assert.equal(at(2026, '2026-10-10'), null);
-  // The Finals, Game 1 scheduled: the length.
-  assert.equal(at(2026, '2026-10-17'), 'Best of 7');
-  // 2025's Finals, one series: as the ladder words it.
-  assert.equal(at(2025, '2025-10-05'), 'LV leads 2\u20130');
-  // An earlier stage has no line.
-  const b = bracket(2025);
-  assert.equal(roundSeriesLine(snapshot(b, 1)), null);
 });
 
 test('WNBA: each series over keeps its count, by the team that lost it', () => {

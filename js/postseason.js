@@ -65,7 +65,7 @@ import { allowsGroupOverride } from './groups.js';
 import { isWide } from './wide-query.js';
 import { isLeagueLocked } from './season-lock.js';
 import {
-  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, roundSeriesLine, seriesResultLine, ladderGhosts, finalRound, isMissRule,
+  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, seriesResultLine, ladderGhosts, finalRound, isMissRule,
   postseasonStarted, currentRoundName, titleGameDate
 } from './postseason-math.js';
 
@@ -1185,8 +1185,6 @@ export function postseasonHomeItems(leagueKeys){
       : !started ? `You have ${plural(mineIn.length, 'team', 'teams')} in`
       : mine.length ? `You have ${plural(mine.length, 'team', 'teams')} left`
       : 'None of your teams left';
-    // A series league: where the round's series stand (roundSeriesLine).
-    const seriesSub = round === 'Champion' ? null : roundSeriesLine(S);
     // A postseason that doesn't count says so under the title.
     const noPts = postseasonScores(key) ? '' : 'Doesn’t count for points';
     const html = `
@@ -1196,7 +1194,6 @@ export function postseasonHomeItems(leagueKeys){
           <span class="ps-home-eyebrow">${escapeHtml(eyebrow)}</span>
           <span class="ps-home-title">${title}</span>
           ${sub ? `<span class="ps-home-sub">${sub}</span>` : ''}
-          ${seriesSub ? `<span class="ps-home-sub">${escapeHtml(seriesSub)}</span>` : ''}
           ${noPts ? `<span class="ps-home-sub">${noPts}</span>` : ''}
         </span>
         ${mine.length ? `<span class="ps-home-teams">${mine.slice(0, 4).map(t => `<span class="ps-home-team">${badgeOf(t)}</span>`).join('')}</span>` : ''}
