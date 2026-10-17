@@ -1117,7 +1117,12 @@ function showView(view){
   }
   if(view !== 'standings') endPostseasonReveal();
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    // VoiceOver reads "current page" on the selected tab.
+    if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
   paintTabPill(view);
   updateUrlParam('view', view === 'board' ? null : view);
   // A tab tapped from the team page leaves it behind.

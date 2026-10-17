@@ -5,7 +5,16 @@
    plain synchronous script just before the tab bar, so it runs before
    first paint and before js/board.js registers the window handlers
    the inline onclicks call. Opt a header out of the Settings button
-   with data-settings="off". */
+   with data-settings="off".
+
+   It also builds the title bar (.title-bar in css/style.css): when a tab
+   view's large title (.view > .page-header h1) scrolls up under the status
+   bar, the same title shows small and centered on a glass bar, with the
+   view's Settings button, the way iOS collapses a large title. An
+   IntersectionObserver on the titles drives it, so nothing runs per scroll
+   frame. Chat and the draft room keep their own fixed headers (their
+   .page-header isn't a direct child of the view), and team pages have
+   their compact bar. */
 (function(){
   var LOGO = '<a class="app-logo-link" href="#" onclick="switchView(\'board\'); return false;" aria-label="Home">'
     + '<img class="app-logo" src="icons/logo-header.png" alt=""></a>';
@@ -19,4 +28,50 @@
       top.insertAdjacentHTML('beforeend', SETTINGS);
     }
   }
+
+  // ---- Title bar ----
+  var titles = document.querySelectorAll('.view > .page-header h1');
+  if(!titles.length || !window.IntersectionObserver) return;
+  var bar = document.createElement('div');
+  bar.className = 'title-bar';
+  bar.setAttribute('aria-hidden', 'true');
+  bar.innerHTML = '<span class="title-bar-title"></span>' + SETTINGS;
+  var label = bar.firstChild;
+  var gear = bar.querySelector('.picker-hit');
+  gear.tabIndex = -1;
+  document.body.appendChild(bar);
+  var root = document.documentElement;
+  var shown = null;
+
+  // The bar's bottom edge: the status-bar inset plus --title-bar-h (0 in
+  // the wide layout, where the bar never shows).
+  function barBottom(){
+    var cs = getComputedStyle(root);
+    var h = parseFloat(cs.getPropertyValue('--title-bar-h')) || 0;
+    var cover = document.querySelector('.safe-area-top');
+    return h ? h + (cover ? cover.getBoundingClientRect().height : 0) : 0;
+  }
+  function update(){
+    var view = document.querySelector('.view.active');
+    var h1 = view && view.querySelector(':scope > .page-header h1');
+    var bottom = barBottom();
+    var on = !!(h1 && bottom && h1.getBoundingClientRect().bottom <= bottom);
+    if(on){
+      label.textContent = h1.textContent.trim();
+      gear.style.display = view.querySelector(':scope > .page-header .picker-hit') ? '' : 'none';
+    }
+    if(on === shown) return;
+    shown = on;
+    root.classList.toggle('title-bar-on', on);
+  }
+  var io = null;
+  function observe(){
+    if(io) io.disconnect();
+    io = new IntersectionObserver(update, { rootMargin: '-' + Math.round(barBottom()) + 'px 0px 0px 0px' });
+    for(var i = 0; i < titles.length; i++) io.observe(titles[i]);
+  }
+  observe();
+  // A view switch shows another title; a resize can cross into the wide layout.
+  document.addEventListener('bx:viewshown', update);
+  window.addEventListener('resize', function(){ observe(); update(); });
 })();

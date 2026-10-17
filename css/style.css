@@ -1,6 +1,24 @@
 *{ box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
 
-html{ background: var(--bg); }
+/* Dynamic Type: 1rem is the reader's body text size and every --fs-* token
+   is in rem (css/tokens.css). On phones and tablets WebKit's
+   -apple-system-body is that size from Settings > Display > Text Size
+   (17px by default); elsewhere it's 17/16 of the browser's own default, so
+   a browser's text size setting carries through the same way. The font
+   shorthand also resets family and line height; body sets the family, and
+   line-height goes back to normal here. text-size-adjust stops Safari
+   inflating text in landscape on top of that. */
+html{
+  background: var(--bg);
+  font-size: 106.25%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@supports (font: -apple-system-body){
+  @media (pointer: coarse){
+    html{ font: -apple-system-body; line-height: normal; }
+  }
+}
 
 /* This app runs as an installed iOS PWA with a translucent status bar
    (apple-mobile-web-app-status-bar-style: black-translucent, in
@@ -79,6 +97,45 @@ body{
 }
 .page-header.compact{ padding: 0 4px 4px; }
 .page-header.compact h1{ font-size: var(--fs-22); }
+
+/* Title bar (js/page-header.js): once a tab's large title scrolls up under
+   the status bar, the title comes back small and centered on a glass bar,
+   the way iOS's navigation bar collapses its large title. It covers the
+   status-bar strip while it shows, so .safe-area-top steps aside, and
+   sticky rows park under it (--title-bar-h, css/tokens.css). Phones only:
+   the wide layout has its own header. */
+.title-bar{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1001;
+  height: calc(env(safe-area-inset-top) + var(--title-bar-h));
+  padding: env(safe-area-inset-top) max(var(--page-pad), env(safe-area-inset-right)) 0 max(var(--page-pad), env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bar);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 0.5px solid var(--glass-rule);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-ui) var(--ease-out), visibility 0s linear var(--dur-ui);
+}
+html.title-bar-on .title-bar{ opacity: 1; visibility: visible; transition: opacity var(--dur-ui) var(--ease-out); }
+html.title-bar-on .safe-area-top{ visibility: hidden; }
+.title-bar-title{
+  min-width: 0;
+  max-width: calc(100% - 96px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 var(--fs-17)/1.2 var(--font-display);
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.title-bar .picker-hit{ position: absolute; right: max(calc(var(--page-pad) - 5px), env(safe-area-inset-right)); bottom: 5px; }
+@media (prefers-reduced-motion: reduce){ .title-bar, html.title-bar-on .title-bar{ transition: none; } }
+@media (min-width: 900px){ .title-bar{ display: none; } }
 
 .page-sub{
   font-size: var(--fs-13);
@@ -174,7 +231,7 @@ body{
   background: var(--live);
   color: var(--on-live);
   font-family: var(--font-display);
-  font-size: var(--fs-10);
+  font-size: 11px; /* fixed: the bubble is a fixed 16px tall */
   font-weight: 700;
   line-height: 16px;
   text-align: center;
@@ -415,6 +472,10 @@ body{
   font-size: var(--fs-17);
   line-height: 1.15;
   letter-spacing: -0.1px;
+  /* At the largest text sizes one long word ("Manchester") can be wider
+     than the column: break it rather than run into the record. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .team-sub{
@@ -2728,7 +2789,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    this scroll-repaint business at all — as a last line of defense. */
 .standings-filter-row{
   position: sticky;
-  top: env(safe-area-inset-top);
+  top: calc(env(safe-area-inset-top) + var(--title-bar-h));
   z-index: 5;
   margin: 0 calc(-1 * var(--page-pad));
   padding: 0 var(--page-pad);
@@ -3041,7 +3102,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .ps-chip.tap{ cursor: pointer; }
 .ps-chip-badge{ display: block; border-radius: 9px; transition: filter 400ms, box-shadow 400ms; }
 .ps-chip-badge .badge{ width: 26px; height: 26px; flex-basis: 26px; border-radius: 7px; font-size: var(--fs-10); letter-spacing: 0; }
-.ps-chip-owner{ font-size: 9px; font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 10px; }
+.ps-chip-owner{ font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.02em; color: var(--text-sub); white-space: nowrap; line-height: 1.1; min-height: 1.1em; }
 .ps-chip.mine .ps-chip-owner{ color: var(--accent); }
 .ps-chip.out{ opacity: var(--ps-out-opacity); filter: var(--ps-out-filter); }
 .ps-chip.out .ps-chip-owner{ color: var(--text-mute); }
@@ -3493,14 +3554,14 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 
 .race-grid{ stroke: var(--race-grid); }
 .race-base{ stroke: var(--hairline-strong); }
-.race-axis{ font: 700 9.5px var(--font-display); fill: var(--text-mute); }
-.race-tick{ font: 700 9.5px var(--font-ui); fill: var(--text-mute); }
+.race-axis{ font: 700 11px var(--font-display); fill: var(--text-mute); }
+.race-tick{ font: 700 11px var(--font-ui); fill: var(--text-mute); }
 .race-tick.past{ fill: var(--text-sub); }
 .race-today{ stroke: var(--race-today); stroke-dasharray: 3 3; }
-.race-today-label{ font: 800 9px var(--font-ui); letter-spacing: var(--track-tag); fill: var(--text-sub); }
+.race-today-label{ font: 800 11px var(--font-ui); letter-spacing: var(--track-tag); fill: var(--text-sub); }
 .race-lock{ fill: var(--surface); stroke: var(--text-mute); stroke-width: 1; }
 .race-lock.done{ fill: var(--accent); stroke: var(--accent); }
-.race-lock-label{ font: 800 9px var(--font-ui); letter-spacing: 0.04em; fill: var(--accent); }
+.race-lock-label{ font: 800 11px var(--font-ui); letter-spacing: 0.04em; fill: var(--accent); }
 .race-line{ fill: none; stroke: var(--race-line); stroke-width: 1.25; stroke-linejoin: round; stroke-linecap: round; }
 .race-line.focus{ stroke: var(--text); stroke-width: 2.25; }
 .race-line.me{ stroke: var(--accent); stroke-width: 2.5; }
@@ -3515,7 +3576,7 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .race-dot.focus{ fill: var(--text); }
 .race-dot.me{ fill: var(--accent); }
 .race-label{
-  font: 700 10.5px var(--font-ui);
+  font: 700 11px var(--font-ui);
   fill: var(--text-sub);
   paint-order: stroke;
   stroke: var(--surface);
@@ -3797,24 +3858,27 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
 .view{ display: none; }
 .view.active{ display: block; }
 
-/* Total height is --nav-h PLUS the safe-area inset, not just --nav-h
-   with the inset squeezed inside it (which is what a plain `height:
-   var(--nav-h)` gave, since everything here is box-sizing: border-box —
-   padding-bottom ate into the box instead of extending it). That left
-   the tab icons/labels cramped into less than --nav-h of real space on
-   any notched/home-indicator iPhone, which read as the bar looking
-   short/cut off. */
+/* The iOS tab bar: a glass capsule floating over the content, inset from
+   the sides and sitting just above the home indicator (on a phone with
+   none, 8px off the bottom). It's --tab-bar-h tall; --nav-h is the room it
+   takes above the safe area (the capsule plus its gap), which the body's
+   bottom padding and anything parked above the bar (toasts, chat's
+   composer) measure from. Glass is for controls only: the cards under it
+   stay opaque (docs/DESIGN_TOKENS.md, "Glass"). The wide layout turns it
+   into the top header ("Wide layout" below). */
 .tab-bar{
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(var(--nav-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  background: var(--bar-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--hairline);
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(8px, calc(env(safe-area-inset-bottom) - 14px));
+  height: var(--tab-bar-h);
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--glass-bar);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
   display: flex;
   z-index: 200;
 }
@@ -3832,21 +3896,21 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
   gap: 2px;
 }
 
-.tab-btn svg{ width: 19px; height: 19px; }
+.tab-btn svg{ width: 24px; height: 24px; }
 .tab-icon{
   position: relative;
   display: flex;
-  padding: 3px 15px;
   border-radius: var(--r-pill);
   transition: background 0.2s ease, color 0.2s ease;
 }
+.tab-btn .chat-badge{ right: -9px; box-shadow: none; }
 
 
 .tab-label{
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--fs-10);
-  letter-spacing: 0.1px;
+  font-weight: 600;
+  font-size: var(--fs-tab);
+  letter-spacing: 0;
 }
 
 /* ============================================================
@@ -3907,6 +3971,10 @@ html:has(#view-team-page.active) .safe-area-top{ visibility: hidden; }
    vertical ones still scroll it. A swipe slides the page past the screen's
    edge, which mustn't make the page scroll sideways. */
 #team-page-content.swipes{ touch-action: pan-y; }
+/* Pushed screens take sideways drags themselves (the swipe from the left
+   edge to go back, js/team-page.js), so the browser only scrolls them
+   vertically. Anything inside that scrolls sideways still does. */
+#view-team-page, #view-team-schedule, #view-team-squad{ touch-action: pan-y pinch-zoom; }
 #team-page-content.swipes .team-hero{ cursor: grab; }
 html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflow-x: clip; }
 .team-hero img{ -webkit-user-drag: none; }
@@ -4098,7 +4166,7 @@ html:has(#view-team-page.active), html:has(#view-team-page.active) body{ overflo
 
 /* The team page's stat strip: record, standing, points. */
 #team-page-stats .stat-cell .num{ font-variant-numeric: tabular-nums; }
-#team-page-stats .stat-cell .lbl{ font-size: 9px; font-weight: 800; letter-spacing: var(--track-label); }
+#team-page-stats .stat-cell .lbl{ font-size: var(--fs-11); font-weight: 800; letter-spacing: var(--track-label); }
 
 /* SectionCard (sectionCardHtml): a titled card on a detail page. */
 .sec-card{ background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-table); padding: 16px; }
@@ -4374,10 +4442,13 @@ a.news-card.link{ display: block; color: inherit; text-decoration: none; }
   margin-top: 8px;
 }
 
-/* Selected tab: full-strength icon and label over the one shared gold
-   pill (.tab-pill, under "View transitions" below) that springs between
-   tabs, instead of each icon recoloring on its own. */
-.tab-btn.active{ color: var(--text); }
+/* Selected tab: gold icon and label inside the one shared lens
+   (.tab-pill, under "View transitions" below) that springs between tabs.
+   Like the system's tab bar, the selected glyph fills (.on-fill shapes in
+   index.html) or, for the line glyphs, gets heavier. */
+.tab-btn.active{ color: var(--accent); }
+.tab-btn.active svg{ stroke-width: 2.2; }
+.tab-btn.active .on-fill{ fill: currentColor; }
 
 /* ============================================================
    Chat screen (js/chat.js) — the Chat tab (#view-chat). Unlike the
@@ -5184,7 +5255,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
    own filter row at this offset, so the banner stays static there. */
 .peek-banner.peek{
   position: sticky;
-  top: calc(env(safe-area-inset-top) + 8px);
+  top: calc(env(safe-area-inset-top) + var(--title-bar-h) + 8px);
   z-index: 6;
   background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg);
 }
@@ -5309,7 +5380,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .cmp-league-dot{ width: 8px; height: 8px; border-radius: 2px; flex: none; display: inline-block; }
 .cmp-race-name{ font-family: var(--font-display); font-size: var(--fs-14); font-weight: 600; flex: 1; min-width: 0; }
 .cmp-chip{
-  font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+  font-size: var(--fs-11); font-weight: 700; padding: 2px 6px; border-radius: 5px;
   border: 1px solid transparent; white-space: nowrap;
 }
 .cmp-chip.prov{ color: var(--provisional); background: var(--provisional-soft); border-color: var(--provisional-border); }
@@ -5352,7 +5423,7 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 /* Compact bar that replaces the big header once it scrolls away. Takes
    no layout space (negative bottom margin) so nothing jumps. */
 .cmp-sticky{
-  position: sticky; top: env(safe-area-inset-top); z-index: 6;
+  position: sticky; top: calc(env(safe-area-inset-top) + var(--title-bar-h)); z-index: 6;
   display: flex; align-items: center; gap: 8px;
   height: 48px; margin: 0 calc(-1 * var(--page-pad)) -48px; padding: 0 var(--page-pad);
   background: var(--bar-bg);
@@ -6308,22 +6379,22 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 ::view-transition-old(tab-bar), ::view-transition-old(safe-top){ display: none; }
 ::view-transition-new(tab-bar), ::view-transition-new(safe-top){ animation: none; }
 
-/* One gold pill behind the active tab, springing between slots. --tab-i
-   and .no-pill are set by paintTabPill in js/board.js. */
+/* One lens behind the active tab's icon and label, springing between the
+   five slots inside the bar's 4px padding. --tab-i and .no-pill are set by
+   paintTabPill in js/board.js. */
 .tab-bar{ --tab-i: 0; }
 .tab-btn{ position: relative; }
 .tab-pill{
   position: absolute;
-  top: 6px;
-  left: calc(var(--tab-i) * 20%);
-  width: 20%;
-  height: 30px;
+  top: 4px;
+  bottom: 4px;
+  left: calc(4px + var(--tab-i) * (100% - 8px) / 5);
+  width: calc((100% - 8px) / 5);
   display: flex;
-  justify-content: center;
   pointer-events: none;
   transition: left 420ms var(--ease-spring), opacity var(--dur-ui) var(--ease-out);
 }
-.tab-pill::before{ content: ""; width: 46px; height: 30px; border-radius: 15px; background: var(--tab-pill); }
+.tab-pill::before{ content: ""; flex: 1; border-radius: var(--r-pill); background: var(--tab-lens); }
 .tab-bar.no-pill .tab-pill{ opacity: 0; }
 @media (prefers-reduced-motion: reduce){ .tab-pill{ transition: none; } }
 
@@ -6432,7 +6503,7 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
 .draft-clock-ring{ fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 339.3; transition: stroke-dashoffset 1000ms linear, stroke 300ms; }
 .draft-clock-time{ position: absolute; inset: 0; display: grid; place-content: center; gap: 2px; text-align: center; }
 .draft-clock-time b{ font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; transition: color 300ms; }
-.draft-clock-time span{ font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+.draft-clock-time span{ font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
 .draft-clock.hurry .draft-clock-ring{ stroke: var(--live); }
 .draft-clock.hurry .draft-clock-time b{ color: var(--live); }
 /* The countdown to the start: "1:05:09" or "2d 4h" needs a smaller size. */
@@ -6505,7 +6576,7 @@ html.chat-kb .chat-head .draft-live-slot{ display: none; }
   border-radius: 10px; background: var(--surface); border: 1px solid var(--hairline);
   transition: background-color 320ms, border-color 320ms;
 }
-.snake-slot-pk{ font-family: var(--font-display); font-size: 10px; font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+.snake-slot-pk{ font-family: var(--font-display); font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
 .snake-slot-nm{ font-size: 12px; font-weight: 700; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .snake-slot.now{ background: var(--accent-soft); border-color: var(--accent-border); }
 .snake-slot.now .snake-slot-nm{ color: var(--accent); }
@@ -7662,8 +7733,10 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
     right: var(--chat-w);
     height: var(--wide-head-h);
     padding: 0 var(--wide-pad);
-    border-top: 0;
+    border: 0;
     border-bottom: 1px solid var(--hairline);
+    border-radius: 0;
+    box-shadow: none;
     background: var(--bg);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -7728,7 +7801,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   }
   .wr-scroll::-webkit-scrollbar{ display: none; }
   .wr-group{ padding-top: 12px; }
-  .wr-league{ display: flex; align-items: center; gap: 6px; padding: 0 14px 4px; white-space: nowrap; font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+  .wr-league{ display: flex; align-items: center; gap: 6px; padding: 0 14px 4px; white-space: nowrap; font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
   .wr-league::after{ content: ""; flex: 1; height: 1px; background: var(--hairline); }
   .wr-item{
     position: relative;
@@ -7905,7 +7978,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   button.match-card:active{ transform: scale(0.985); }
   .match-card.live{ border-color: var(--live-border); background: radial-gradient(120% 100% at 50% 0%, var(--live-soft), transparent 70%), var(--surface); }
   .mc-head{ display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .mc-title{ display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+  .mc-title{ display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
   .match-card.live .mc-title{ color: var(--live); }
   .mc-dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--live); }
   .mc-when{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); }
@@ -7978,7 +8051,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .gbg-col.clamped.w .gbg-bar{ box-shadow: inset 0 6px 0 -4px var(--bg); }
   .gbg-col.clamped.l .gbg-bar{ box-shadow: inset 0 -6px 0 -4px var(--bg); }
   .gbg-draw{ position: absolute; left: 3px; right: 3px; top: calc(50% - 1.5px); height: 3px; border-radius: 2px; background: var(--text-mute); }
-  .gbg-foot{ display: flex; justify-content: space-between; margin-top: 8px; font-size: 10.5px; font-weight: 700; color: var(--text-mute); }
+  .gbg-foot{ display: flex; justify-content: space-between; margin-top: 8px; font-size: var(--fs-11); font-weight: 700; color: var(--text-mute); }
 
   /* Schedule */
   .tw-sched-row{ display: grid; grid-template-columns: 112px 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 54px; padding: 6px 10px; border-top: 1px solid var(--divider); }
@@ -8008,7 +8081,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .tw-news-top{ display: flex; flex-direction: column; gap: 6px; margin: 0 -18px; padding: 14px 18px 16px; border-top: 1px solid var(--divider); }
   .tw-news-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 14px; margin: 0 -18px; padding: 12px 18px; border-top: 1px solid var(--divider); }
   @media (hover: hover){ .tw-news-top:hover, .tw-news-row:hover{ background: var(--hover); } }
-  .tw-news-meta{ flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
+  .tw-news-meta{ flex: none; font-size: var(--fs-11); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute); }
   .tw-news-row .tw-news-meta{ font-size: 11.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
   .tw-news-lead{ font: 700 var(--fs-22)/1.2 var(--font-display); letter-spacing: -0.4px; text-wrap: balance; }
   .tw-news-blurb{ font-size: var(--fs-14); line-height: 1.45; color: var(--text-sub); }
@@ -8063,7 +8136,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   .standings-row.st-head{ display: grid; min-height: 30px; padding-top: 8px; padding-bottom: 6px; background: none; cursor: default; }
   .st-head-badge{ width: 26px; }
   .st-head .team-name, .st-head .team-sub, .st-head .st-cols, .st-head .standings-rank{
-    font: 800 10.5px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
+    font: 800 var(--fs-11) var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
   }
   .st-head + .standings-row, .st-head + .standings-group-header{ border-top: 1px solid var(--divider); }
 
@@ -8345,7 +8418,7 @@ html.since-hold #view-board .leagues, html.since-hold #view-board .filter-chips{
   }
   .obw-row.head{
     min-height: 34px; border-top: 0; cursor: default;
-    font: 800 10.5px var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
+    font: 800 var(--fs-11) var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-mute);
   }
   .obw-row.head > *{ font: inherit; color: inherit; }
   @media (hover: hover){ .obw-row:not(.head):hover{ background: var(--hover); } }

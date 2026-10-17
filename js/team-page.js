@@ -41,7 +41,7 @@
 import { TEAM_META, LEAGUES, DRAFT_TEAMS, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import {
   teamBadgeHtml, crestImgsHtml, updateUrlParam, segmentedControlHtml, retryPending, abbrFromName, NEUTRAL_BADGE_STYLE,
-  EASE_SPRING, EASE_OUT, MOVE_SLOP, SWIPE_COMMIT, FLING_VELOCITY, RUBBER_BAND, SNAP_BACK_MS
+  EASE_SPRING, EASE_OUT, EASE_PUSH, MOVE_SLOP, SWIPE_COMMIT, FLING_VELOCITY, RUBBER_BAND, SNAP_BACK_MS, EDGE_BACK
 } from './utils.js';
 import { fetchEspnTeamNews, fetchEspnTeamRoster, fetchEspnTeamStatistics, fetchEspnTeamPlayerStats } from './espn.js';
 import {
@@ -61,7 +61,7 @@ import { showTip, tipDone } from './tips.js';
 import { teamPathToPoints, loadStandingsTables } from './lines.js';
 import { postseasonTeamHtml, postseasonTeamOpened, onPostseasonData } from './postseason.js';
 import { currentProfileId } from './identity.js';
-import { attachDrag, releaseDirection } from './gestures.js';
+import { attachDrag, releaseDirection, edgeBackCommits } from './gestures.js';
 import {
   fetchNflverseDepthChartCached, fetchNflverseInjuriesCached,
   getTeamDepthChart, getTeamInjuries, nflverseInjuryStatus,
@@ -1503,7 +1503,7 @@ function bindPageSwipe(){
     slop: MOVE_SLOP,
     ignore: t => t.closest('input, select, textarea') || scrollsSideways(t, page),
     // Clearly sideways only, so a slightly diagonal scroll stays a scroll.
-    accept: (axis, { dx, dy }) => !rowMotion && !gesture && axis === 'x' && !isWide()
+    accept: (axis, { dx, dy }) => !rowMotion && !gesture && !edgeDown && axis === 'x' && !isWide()
       && state.swipeOrder.length > 1 && Math.abs(dx) > Math.abs(dy) * 1.2,
     onStart: () => {
       gesture = 'x';
@@ -1534,6 +1534,135 @@ function bindPageSwipe(){
     }
   });
 }
+
+// ---- Swipe from the left edge to go back ----
+// An installed PWA gets no system back gesture, so the pushed screens (the
+// team page, and its full schedule and squad) bring their own, as on iOS:
+// a drag that starts at the screen's left edge pulls the page off to the
+// right with the screen it goes back to sliding in underneath (shaded,
+// a little behind, like the pop transition's vt-pop-new), and letting go
+// past EDGE_BACK.commit of the width, or with a flick, finishes the pop;
+// anything less settles back. The page rides the same fixed layer the
+// crest transition uses (layTeamPageOver), so the screen underneath is
+// the real one at its own scroll. It wins over the swipe between teams
+// (edgeDown) and over anything that scrolls sideways at the edge. With
+// motion off it doesn't track; a long enough swipe just goes back.
+const EDGE_UNDER_SHIFT = 0.28;   // how far behind the screen underneath starts, × width
+const EDGE_UNDER_SHADE = 0.55;   // its brightness at the start
+let edgeDown = false;            // the current touch started at the left edge
+
+// The view a pushed screen goes back to, or null when `page` isn't one.
+function edgeBackTarget(page){
+  if(!page) return null;
+  if(page.id === 'view-team-page') return 'view-' + state.originView;
+  if(page.id === 'view-team-schedule' || page.id === 'view-team-squad') return 'view-team-page';
+  return null;
+}
+
+function bindEdgeBack(){
+  const root = document.documentElement;
+  document.addEventListener('pointerdown', e => {
+    edgeDown = e.isPrimary && e.pointerType !== 'mouse' && e.clientX <= EDGE_BACK.edge;
+  }, true);
+  let page = null, under = null, pageScroll = 0, underScroll = 0, tracking = false;
+  const width = () => window.innerWidth;
+  const paint = dx => {
+    const w = width(), p = Math.min(1, Math.max(0, dx / w));
+    page.style.transform = `translateX(${Math.max(0, dx).toFixed(1)}px)`;
+    under.style.transform = `translateX(${(-EDGE_UNDER_SHIFT * w * (1 - p)).toFixed(1)}px)`;
+    under.style.filter = `brightness(${(EDGE_UNDER_SHADE + (1 - EDGE_UNDER_SHADE) * p).toFixed(3)})`;
+  };
+  const clear = () => {
+    [page, under].forEach(el => { el.style.transform = ''; el.style.filter = ''; el.style.boxShadow = ''; });
+    ['--tp-bx', '--tp-by', '--tp-vw'].forEach(v => page.style.removeProperty(v));
+  };
+  attachDrag(root, {
+    slop: MOVE_SLOP,
+    accept: (axis, { dx }) => {
+      if(!edgeDown || axis !== 'x' || dx <= 0 || rowMotion || gesture || isWide()) return false;
+      // A sheet over the page keeps the touch.
+      if(document.querySelector('.modal-overlay.open')) return false;
+      const active = document.querySelector('.view.active');
+      return !!(edgeBackTarget(active) && document.getElementById(edgeBackTarget(active)));
+    },
+    onStart: () => {
+      gesture = 'back';
+      page = document.querySelector('.view.active');
+      under = document.getElementById(edgeBackTarget(page));
+      tracking = fxOn() && !!page.querySelector(':scope > .tp-clip');
+      if(!tracking) return;
+      pageScroll = window.scrollY;
+      underScroll = page.id === 'view-team-page' ? state.originScrollY : 0;
+      layTeamPageOver(page, under);
+      page.querySelector(':scope > .tp-clip').scrollTop = pageScroll;
+      if(page.id === 'view-team-page') setFold(page, pageScroll);
+      // The layer is the whole screen, so its compact bar sits at its own top left.
+      page.style.setProperty('--tp-bx', '0px');
+      page.style.setProperty('--tp-by', '0px');
+      page.style.setProperty('--tp-vw', width() + 'px');
+      page.style.boxShadow = 'var(--shadow-modal)';
+      window.scrollTo(0, underScroll);
+      paint(0);
+    },
+    onMove: (axis, { dx }) => { if(tracking) paint(dx); },
+    onEnd: (axis, { dx, vx, cancelled }) => {
+      const back = !cancelled && edgeBackCommits(dx, vx, width(), { commit: EDGE_BACK.commit, fling: FLING_VELOCITY });
+      edgeDown = false;
+      if(!tracking){
+        gesture = null;
+        if(back) goBackFrom(page);
+        return;
+      }
+      const w = width();
+      const from = Math.max(0, dx);
+      const to = back ? w : 0;
+      // Quicker the faster it was thrown, never slower than the pop itself.
+      const duration = Math.round(Math.min(340, Math.max(160, Math.abs(to - from) / Math.max(Math.abs(vx), 1.2))));
+      const frames = x => ({ transform: `translateX(${x}px)` });
+      const underAt = x => {
+        const p = Math.min(1, Math.max(0, x / w));
+        return { transform: `translateX(${-EDGE_UNDER_SHIFT * w * (1 - p)}px)`, filter: `brightness(${EDGE_UNDER_SHADE + (1 - EDGE_UNDER_SHADE) * p})` };
+      };
+      const opts = { duration, easing: EASE_PUSH, fill: 'forwards' };
+      const a = page.animate([frames(from), frames(to)], opts);
+      const b = under.animate([underAt(from), underAt(to)], opts);
+      const done = () => {
+        if(back) landEdgeBack(page, under);
+        else {
+          liftTeamPageLayer(page, under);
+          page.classList.remove('tp-still');
+          window.scrollTo(0, pageScroll);
+        }
+        clear();
+        a.cancel(); b.cancel();
+        gesture = null;
+      };
+      a.finished.then(done, done);
+    }
+  });
+}
+
+// The pop without its transition, for a swipe that already played it.
+function landEdgeBack(page, under){
+  const id = under.id.replace(/^view-/, '');
+  setActiveView(under.id);
+  liftTeamPageLayer(page, under);
+  page.classList.remove('tp-still');
+  if(page.id === 'view-team-page'){
+    updateUrlParam('view', id === 'board' ? null : id);
+    updateUrlParam('tp', null);
+  } else {
+    updateUrlParam('view', 'team');
+    applyScroll();
+  }
+}
+
+// The ordinary Back for `page` (motion off, or no layer to ride).
+function goBackFrom(page){
+  if(page.id === 'view-team-page') backFromTeamPage();
+  else backFromFullScreen();
+}
+bindEdgeBack();
 
 // Slides the page out toward where the finger was going (`dx` and `vx` are
 // where and how fast the drag let go), then shows the team at `index`.

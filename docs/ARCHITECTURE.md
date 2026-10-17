@@ -592,6 +592,17 @@ leagues and table points for EPL/NHL. It reads the same ranked tables the rules 
 rule's line under it, and a drafter's Points breakdown lists their five closest calls. Clinched / out of reach / stuck / safe use games left and
 ignore tiebreakers. Only for a league whose season is under way and not locked.
 
+**Phone chrome** (under 900px; css/style.css, `js/page-header.js`): built to read as a native iOS app. The tab bar is a
+glass capsule floating above the home indicator (`--tab-bar-h`, glass tokens in css/tokens.css); one spring lens
+(`.tab-pill`, `paintTabPill` in `js/board.js`) sits behind the selected tab's icon and label, the selected glyph fills
+or gets heavier, and the selected button carries `aria-current="page"`. `js/page-header.js`, besides the shared logo
+and Settings button, builds the title bar: an IntersectionObserver on each tab view's large title shows a glass bar
+with the title small and centered (plus the gear) once the title passes under the status bar, sets
+`html.title-bar-on` (which hides `.safe-area-top`), and sticky rows sit under it via `--title-bar-h`. Chat and the
+draft room keep their own fixed headers. Type follows the iPhone's Text Size: every `--fs-*` token is in rem on
+`font: -apple-system-body` (coarse pointers; 17/16 of the browser default elsewhere), with 11px as the floor and
+`tests/type-scale.test.mjs` guarding both.
+
 **Wide layout** (900px and up: iPad landscape and desktop; `js/wide.js`, `js/wide-query.js`, css/style.css "Wide
 layout", `docs/desktop-redesign-brief.md`): the same page and views, rearranged; under 900px (phones, iPad Split View,
 iPad mini portrait) nothing changes. The bottom tab bar becomes a 68px top header (group name left, Settings right; each
@@ -676,7 +687,7 @@ card, a Compare team) grows what was tapped into the page, crest, name and owner
 picks the parts), and Back shrinks it back; Points' rule and activity rows, which show no crest, push it in. Back says
 where it returns to. A 300px hero (status-bar strip included) with the team
 orb, that folds into a fixed compact bar as you scroll (one passive listener writes the view's `--y` and `--p`; the notch
-cover is off on this page). Swiping sideways anywhere on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
+cover is off on this page). A swipe from the left edge goes back, as iOS does in a native app (an installed PWA gets no system back gesture): the page follows the finger off to the right over the screen it returns to, riding the crest transition's fixed layer (`bindEdgeBack`; Full schedule and Full squad have it too, back to the page). Swiping sideways anywhere else on the page (the page follows the finger; a drag that starts in a sideways scroller is left to it) moves through your own teams in Home's order (dots under the hero; off
 on a team you don't own), replacing `tp` in the URL so Back still goes where the page came from; pulling it down at the
 top stretches it (pull to refresh, `js/pull-refresh.js`, is off on this page for that; the first time a page with more than one of your teams opens, a one-time tip says to swipe). The stat strip is Record / Standing / Points (`teamRecordStanding` in `js/live-data.js`), the next
 game card shows the opponent with the date and time (no crest for the team itself), Overview leads with the last five games as bars (every result row is on Full schedule),

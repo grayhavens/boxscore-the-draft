@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lockAxis, releaseDirection, velocity } from '../js/gestures.js';
+import { lockAxis, releaseDirection, velocity, edgeBackCommits } from '../js/gestures.js';
 
 test('lockAxis waits out the slop, then picks the longer axis', () => {
   assert.equal(lockAxis(3, 4, 8), null);
@@ -37,4 +37,14 @@ test('velocity reads the last stretch of samples', () => {
   assert.equal(velocity(samples, 'x'), 0.7);
   assert.equal(velocity(samples, 'y'), 0);
   assert.equal(velocity([{ t: 0, x: 0, y: 0 }], 'x'), 0);
+});
+
+test('edgeBackCommits goes back past the fraction of the width, or on a rightward fling', () => {
+  const opts = { commit: 0.35, fling: 0.6 };
+  assert.equal(edgeBackCommits(140, 0, 393, opts), true);    // past 137.55
+  assert.equal(edgeBackCommits(130, 0, 393, opts), false);
+  assert.equal(edgeBackCommits(40, 0.8, 393, opts), true);   // a quick flick
+  assert.equal(edgeBackCommits(200, -0.9, 393, opts), false); // pulled back while letting go
+  assert.equal(edgeBackCommits(-20, 0, 393, opts), false);
+  assert.equal(edgeBackCommits(0, 1, 393, opts), false);
 });
