@@ -68,10 +68,16 @@ test('NBA 2026: the champion is the Finals winner', () => {
   assert.ok(Object.values(reach).find(t => t.champion).round === 2);
 });
 
-test('MLB through the Division Series: nobody has reached an LCS yet', () => {
+test('MLB 2026 through the LCS: the real "NLCS" / "ALCS" / "World Series" headlines', () => {
   const reach = playoffReach('mlb', games('mlb'));
-  assert.deepEqual(teamsEarning('mlb', RULES.mlb, 'Make LCS', reach), []);
+  assert.deepEqual(names('mlb', reach, 'Make LCS').filter(n => n !== 'Rays/Guardians'), ['Cleveland Guardians', 'Los Angeles Dodgers', 'Milwaukee Brewers', 'Tampa Bay Rays']);
+  // Milwaukee swept the NLCS; World Series Game 1 is listed ahead against a
+  // placeholder for the ALCS winner, which no drafted team can match.
+  assert.deepEqual(names('mlb', reach, 'Make World Series'), ['Milwaukee Brewers', 'Rays/Guardians']);
   assert.deepEqual(teamsEarning('mlb', RULES.mlb, 'Win World Series', reach), []);
+  // A rained-out game keeps its round ("ALCS - Game 4 Rain - Makeup on Oct 18").
+  assert.equal(seriesRound('mlb', 'ALCS - Game 4 Rain - Makeup on Oct 18'), 1);
+  assert.equal(seriesRound('mlb', 'World Series - Game 5 If Necessary'), 2);
 });
 
 test('playoff dates step by three days up to today', () => {
@@ -85,5 +91,8 @@ test('playoff dates step by three days up to today', () => {
 test('no follow-up days once the final has a champion, or before it starts', () => {
   const far = new Date(Date.UTC(2027, 0, 1));
   assert.deepEqual(finalFollowUps('nba', games('nba'), far), []);
-  assert.deepEqual(finalFollowUps('mlb', games('mlb'), far), []);
+  // MLB: a World Series game is listed and nobody has won it, so the days
+  // after the last one seen are asked about, one by one.
+  assert.deepEqual(finalFollowUps('mlb', games('mlb'), far).slice(0, 2), ['20261025', '20261026']);
+  assert.deepEqual(finalFollowUps('mlb', games('mlb'), new Date(Date.UTC(2026, 9, 16))), []);
 });
