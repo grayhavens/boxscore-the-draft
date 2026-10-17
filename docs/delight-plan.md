@@ -374,7 +374,8 @@ No new image assets. Icons come from `js/icons.js`. The landing logo and app ico
 
 ## Suggested order
 
-Phase 1 if a live draft is coming up, otherwise Phase 2 first: it's the most-visited page, and Path to points makes On the line visible. Then 3, 4 and 5. Phase 6 only has to be ready before the first league locks.
+Phase 1 if a live draft is coming up, otherwise Phase 2 first: it's the most-visited page, and Path to points makes On the line visible. Then 3, 4 and 5. Phase 6 has to be ready before the first season is recorded in History: for both groups' first class (2026/27) that's
+after the 2027 World Series, so it's due 2027-09-01 and starts in July 2027 (decided 2026-10-16, see `docs/ROADMAP.md`).
 
 ## Prompt to start Claude Code
 

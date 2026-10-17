@@ -40,6 +40,8 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
 - UX item 6, load rare parts on demand (2026-10-16): the Commissioner console, other groups' draft classes and the
   guide's stills load on first use; launch is 203 KB lighter for The Draft, 128 KB for Season Ticket
   (docs/lazy-load-plan.md).
+- Quick fixes (2026-10-16): chat's long press cancels at the shared `MOVE_SLOP` (8px) like every other gesture; merged
+  branches deleted on GitHub.
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -52,7 +54,6 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
   three one-time tips (#286).
 - UX items 7–10: each needs a detailed plan first (the plan doc gives each its problem, change and files). Items 7 and 8
   start in the worker; 9 and 10 change groups and sign-in.
-- Decide Delight Phase 6's deadline (see Other).
 
 ## Not started
 
@@ -75,15 +76,16 @@ For growth (each needs a short plan of its own first):
 ### Other
 
 - Delight Phase 3: chat hold-and-slide reactions + swipe to reply (`replyTo` not in code) (planned, not a priority yet; keep the plan details, delight-plan.md).
-- Delight Phase 6: champion crowned full-screen moment (planned; keep the plan details, delight-plan.md). Deadline to
-  confirm: the plan triggers it when a season is recorded in History, and both groups' first class (2026/27) ends in
-  fall 2027; the older "before the first league locks" note would mean about December 2026 (College Football).
+- Delight Phase 6: champion crowned full-screen moment (planned; keep the plan details, delight-plan.md). **Ready by
+  2027-09-01; start building in July 2027** (decided 2026-10-16). It plays when a season is recorded in History, and
+  both groups' first class (2026/27) can't be recorded until MLB and WNBA '27 are done (the World Series ends in early
+  November 2027). September keeps it clear of the 2027 drafts; it needs a worker field (the champion message), so the
+  worker deploys first. The old "before the first league locks" note was wrong: a league lock isn't a champion.
 - Postseason `fact` events in Activity (deferred, points-ux-plan.md).
 - Scoring automation, remaining gaps (commissioner marks until built): WNBA Commissioner's Cup (WNBA playoff rounds are
   automatic); college basketball conference tournaments (NCAA Tournament rounds score automatically); college football
   "Don't make a bowl" (needs an FBS list). Each needs a real ESPN payload captured first (tests/fixtures/espn-*.json).
-- Small follow-ups from the quick wins: chat's long press still cancels at 10px of movement where `js/gestures.js`
-  uses `MOVE_SLOP` (8px); the guide's Replay rows cover only playoffs reveals (add the champion moment once Delight
+- Small follow-ups from the quick wins: the guide's Replay rows cover only playoffs reveals (add the champion moment once Delight
   Phase 6 exists); the landing page now names every group, The Draft included (#285), so revisit if a group should
   stay unlisted.
 - Draft-room open items: draft date/cutover, old-class fidelity, worker allowlists vs. season keys, EPL/WNBA 2027 field check (draft-room-plan.md "Open items"). Still open; to address at the end of this draft year / before next season.
