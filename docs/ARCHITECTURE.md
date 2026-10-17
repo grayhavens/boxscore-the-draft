@@ -717,8 +717,8 @@ played", your place and what's left, tap to open it); the Commissioner's Group s
 asks to record it once every league is done, opening History on that season, where it's recorded like any other.
 
 **Postseason** (`js/postseason.js`, pure `js/postseason-math.js` tested in `tests/postseason-math.test.mjs` and
-`tests/postseason-cbb.test.mjs` / `tests/postseason-mlb.test.mjs`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP, NCAA men's
-Tournament or MLB bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched December through February for football, March
+`tests/postseason-cbb.test.mjs` / `-mlb` / `-wnba` / `-nba` / `-nhl`, the reveal in `js/postseason-reveal.js`): once ESPN has an NFL, CFP, NCAA men's
+Tournament, MLB, WNBA, NBA or NHL bracket (`fetchEspnPostseason` in `js/espn.js`, only fetched December through February for football, March
 and April for the NCAA), those Standings cards get a Regular | Postseason toggle. Regular is the old card, untouched;
 the card opens on Postseason. Postseason is a ladder of every playoff team: it only shows the rounds someone has reached
 (`topRung`), the two sides of each game still to play sit together with a gray "v" between them (`matchups`), eliminated
@@ -746,8 +746,6 @@ reduced motion skips straight there.
 Home shows a gold "NFL Playoffs" card per league (`postseasonHomeItems`, in Home's stack) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
-A series league (MLB, WNBA) adds where the round's series stand (`roundSeriesLine`: "Best of 7", "NY leads 2–1", several
-joined with " · ", a tie naming both teams, a series already won kept only in a two-series round).
 A pre-draft group (`PRE_DRAFT`) gets no cards: `renderHomeStack` leaves them out until the draft is in.
 A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
 that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.
@@ -776,10 +774,10 @@ leaves a ghost (`ladderGhosts`, id `<team>~<round>`, grayed like the team it bea
 between them (`matchups` pairs a ghost with its opponent), so a finished round still says who played whom; the ladder
 keeps a chip for every ghost of the latest stage, hidden on its winner's spot until its series is over at the stage
 shown. As a winner moves up, a few fading copies of its badge trail it (`moveAheadFx`, `.ps-echo`, only with `fxOn()`).
-Finished rounds hold two rows of chips (4 pairs), so the ladder is taller once a round is over. While a game is on (a single game too, which gets the dot on its "v"), the pair's
+Finished rounds hold two rows of chips (4 pairs), so the ladder is taller once a round is over. On the wide ladder rows are 70px apart (`DIMS.wide.rowH`, the pair backing is 64px) and a two-row rung grows to fit (`ladderGeometry`), so the NBA's and NHL's eight first-round pairs don't overlap. While a game is on (a single game too, which gets the dot on its "v"), the pair's
 mark is a button that calls `openGameDetail` for the live game (`liveId`: `seriesEvents` carries the in-progress
 game's id, since a series' own id is its first game's) through whichever side is a drafted team, so the Scores
-sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split
+sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA, NBA, NHL). MLB's ladder is also split
 into AL / NL columns (`sides`: each half of every rung laid out on its own by `rungRows`, the World Series pair
 meeting in the middle) under small AL / NL labels (`sidesHtml`) that fade once a champion is crowned. The lockup is `icons/mlb-postseason-*.png`,
 drawn for 2026 only (`MLB_LOGOS` by ESPN year; another year has no logo). Its window is Sept 25 through November.
@@ -795,6 +793,23 @@ league-wide, read from the league-level standings (`standings?level=1`, `parseNf
 white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
 `PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
 the Finals" and "Win the Finals" score from the ladder.
+**NBA** (`nba`) and **NHL** (`nhl`) are loaded the same way (every day from April 10 to June 30 so far,
+`bxPsDay:nba-pi:<day>` / `bxPsDay:nhl:<day>`, folded by `seriesEvents`): 16 teams, four best-of-7 rounds, split into East /
+West columns like MLB's AL / NL (`sides`). Seeds are ESPN's per conference from the final standings (`parseNflSeeds`).
+The NBA's **Play-In** comes first, as its own round (`NBA_PLAY_IN`): a Play-In rung under First Round and a "Play-In"
+scrubber stop before "Field" (`stops`). Its six games ("NBA Play-In - East - 7th Place vs 8th Place", "9th Place vs 10th
+Place", "8th Seed Game"; ESPN's `play-in-season`) stay single games (`single`, passed through `seriesEvents` as they are).
+Seeds 1-6 skip it (`byeSeeds: 6`) and the Play-In stage shows just the Play-In (`hideByes`: their chips wait, hidden,
+above the ladder and drop into First Round at the field; the reveal introduces the Play-In's eight); the 7 v 8 loser plays again (`lifeline`), the
+9 v 10 winner stays on the Play-In rung for the 8th Seed Game (`holds`), whose sides a replayed stage hides until that
+round is over (`after`). At the Play-In stage its teams show where they finished (`place`, from their first game: the
+higher place is at home); from the field on, the final standings' seeds (the Play-In's winners 7 and 8, losers 9 and 10).
+A single game over never pairs on the ladder (`matchups`). The NHL pairs by division (1-3 per division plus two wild cards); the ladder only follows the pairings ESPN reports. Both
+take their conference finals and final patterns and their rules from `PLAYOFF_SERIES_LEAGUES` in
+`js/playoff-series-math.js`, so the ladder and `js/playoff-series.js` (which scores the late rounds before the ladder has
+a bracket) can't disagree; both find drafted teams by exact nickname (`findFlatTeamKey`), since a substring match took the
+Hornets for the Nets. The title is the league's own logo from ESPN with "Playoffs". ESPN names these seasons by the spring
+they end in, like the NCAA's, so `?psyear=2025` replays the 2026 playoffs. Their window is April 10 through June.
 **Golf majors on Home** (`golfMajorHomeItem` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
 `majorGolfers` / `majorLeaders` / `pickWeekEvent` in `js/golf.js`, tested in `tests/golf.test.mjs`; plan in
 `docs/golf-majors-plan.md`): a group with PGA Tour on gets a card in Home's postseason stack (after those cards,

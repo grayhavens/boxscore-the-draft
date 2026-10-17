@@ -96,3 +96,15 @@ test('no follow-up days once the final has a champion, or before it starts', () 
   assert.deepEqual(finalFollowUps('mlb', games('mlb'), far).slice(0, 2), ['20261025', '20261026']);
   assert.deepEqual(finalFollowUps('mlb', games('mlb'), new Date(Date.UTC(2026, 9, 16))), []);
 });
+
+test('a game keeps each side’s nickname, which drafted teams are found by exactly', () => {
+  const g = parseSeriesEvent({
+    id: '1', season: { slug: 'post-season' }, date: '2027-05-20T00:00Z',
+    competitions: [{ notes: [{ headline: 'East Finals - Game 1' }], competitors: [
+      { id: '30', team: { id: '30', displayName: 'Charlotte Hornets', name: 'Hornets' } },
+      { id: '17', team: { id: '17', displayName: 'Brooklyn Nets', name: 'Nets' } }
+    ] }]
+  });
+  const reach = playoffReach('nba', [g]);
+  assert.deepEqual([reach['30'].nick, reach['17'].nick], ['Hornets', 'Nets']);
+});

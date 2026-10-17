@@ -95,7 +95,8 @@ export function parseSeriesEvent(event){
     headline: note ? note.headline : '',
     seriesDone: !!(series && series.completed),
     wins: series ? (series.competitors || []).map(c => ({ id: String(c.id), wins: Number(c.wins) || 0 })) : [],
-    sides: (comp.competitors || []).map(c => ({ id: String((c.team && c.team.id) || c.id), name: (c.team && c.team.displayName) || '' }))
+    // `nick`: the nickname ("Hornets"), which drafted teams are found by.
+    sides: (comp.competitors || []).map(c => ({ id: String((c.team && c.team.id) || c.id), name: (c.team && c.team.displayName) || '', nick: (c.team && c.team.name) || '' }))
   };
 }
 
@@ -108,7 +109,7 @@ export function seriesRound(leagueKey, headline){
   return 0;
 }
 
-// Parsed games → { [espnTeamId]: { name, round, champion } } for every team in the late rounds.
+// Parsed games → { [espnTeamId]: { name, nick, round, champion } } for every team in the late rounds.
 export function playoffReach(leagueKey, games){
   const teams = {};
   (games || []).forEach(g => {
@@ -116,7 +117,7 @@ export function playoffReach(leagueKey, games){
     if(!round) return;
     g.sides.forEach(s => {
       if(!s.id) return;
-      const t = teams[s.id] || (teams[s.id] = { name: s.name, round: 0, champion: false });
+      const t = teams[s.id] || (teams[s.id] = { name: s.name, nick: s.nick || '', round: 0, champion: false });
       t.round = Math.max(t.round, round);
     });
     // A series is won with the clinching game, which is also what flips
