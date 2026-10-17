@@ -1,0 +1,41 @@
+# The daily robot visit (docs/server-scoring-plan.md): once a day, each
+# group's app is opened in headless Chromium (tools/robot-visit.mjs) so a day
+# nobody opens it still gets its Race sample, Activity and points alerts.
+# The app does the scoring itself, exactly as a phone does. A run that never
+# finishes fails the job, and GitHub emails the repo owner.
+#
+# Playwright is installed in this job only; the repo has no package.json.
+# Secrets: GROUP_CODE_SEASONTICKET, Season Ticket's invite code.
+name: Daily scoring visit
+
+on:
+  schedule:
+    # 13:30 UTC: 8:30 Central in daylight time, 7:30 in standard time.
+    # After overnight games are final, before most people are up.
+    - cron: '30 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [thedraft, seasonticket]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright (this job only)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Visit ${{ matrix.group }}
+        env:
+          GROUP_CODE: ${{ matrix.group == 'seasonticket' && secrets.GROUP_CODE_SEASONTICKET || '' }}
+        run: node tools/robot-visit.mjs --group ${{ matrix.group }}

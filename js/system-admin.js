@@ -461,7 +461,19 @@ function espnTile(){
       <div class="sysadmin-tile-top"><span class="sysadmin-tile-label">ESPN</span>${tag}</div>
       <span class="sysadmin-tile-value">${up.length} / ${espn.length} leagues</span>
       <span class="sysadmin-env">${down.length ? `Down: ${down.map(l => l.label).join(', ')}` : slowest ? `Slowest ${slowest.label} ${slowest.ms} ms` : ''}</span>
+      ${espnProbeHtml()}
     </div>`;
+}
+
+// ESPN as the worker sees it (worker/espn-probe.js, the daily cron): it
+// has answered Workers 403 since 2026-10-15, which parks the shared ESPN
+// passthrough (docs/espn-passthrough-plan.md). Reachable again is the
+// signal to pick that back up.
+function espnProbeHtml(){
+  const p = status.platform.espnProbe;
+  if(!p) return '';
+  const since = new Date(p.since).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return `<span class="sysadmin-env">From the worker: ${p.ok ? `reachable since ${since}` : `blocked (${p.status || 'no answer'}) since ${since}`}</span>`;
 }
 
 function platformHtml(){

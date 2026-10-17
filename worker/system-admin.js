@@ -78,6 +78,7 @@ import { loadAccess, changeAccess } from './access-code.js';
 import { loadWelcomed, clearWelcomed, loadEmails, welcomeContacts, sendWelcome, setDrafterEmail, welcomeEnabled } from './welcome-email.js';
 import { historyKey } from './points-history.js';
 import { loadAdminLog, logAdminAction } from './admin-log.js';
+import { loadEspnProbe } from './espn-probe.js';
 
 const DEV_ORIGIN = 'http://localhost:8934';
 const MAX_MESSAGE_LENGTH = 200;
@@ -233,10 +234,11 @@ async function groupStatus(env, id, deps){
 }
 
 async function handleStatus(env, deps, identity){
-  const [groups, log, interest] = await Promise.all([
+  const [groups, log, interest, espnProbe] = await Promise.all([
     Promise.all(GROUP_IDS.map(id => groupStatus(env, id, deps))),
     loadAdminLog(env),
-    deps.loadInterest(env)
+    deps.loadInterest(env),
+    loadEspnProbe(env)
   ]);
   return json({
     you: identity.email,
@@ -250,7 +252,10 @@ async function handleStatus(env, deps, identity){
         email: welcomeEnabled(env),
         claimAlerts: claimAlertEnabled(env)
       },
-      interest
+      interest,
+      // ESPN as the worker sees it (worker/espn-probe.js), null until the
+      // first daily cron run.
+      espnProbe
     },
     groups,
     log: log.slice(0, STATUS_LOG_LINES)
