@@ -43,19 +43,23 @@
   var root = document.documentElement;
   var shown = null;
 
-  // The bar's bottom edge: the status-bar inset plus --title-bar-h (0 in
-  // the wide layout, where the bar never shows).
-  function barBottom(){
-    var cs = getComputedStyle(root);
-    var h = parseFloat(cs.getPropertyValue('--title-bar-h')) || 0;
+  // Where a title counts as gone: the bottom of the status-bar strip. The
+  // bar shows only once the large title has slid all the way under it, so
+  // at the top of a page (title fully in view, its bottom only a few px
+  // above where the bar's edge would be) it never does, and the bar never
+  // sits over a title you can still read. Null in the wide layout
+  // (--title-bar-h is 0 there), where the bar never shows.
+  function goneLine(){
+    var h = parseFloat(getComputedStyle(root).getPropertyValue('--title-bar-h')) || 0;
+    if(!h) return null;
     var cover = document.querySelector('.safe-area-top');
-    return h ? h + (cover ? cover.getBoundingClientRect().height : 0) : 0;
+    return cover ? cover.getBoundingClientRect().height : 0;
   }
   function update(){
     var view = document.querySelector('.view.active');
     var h1 = view && view.querySelector(':scope > .page-header h1');
-    var bottom = barBottom();
-    var on = !!(h1 && bottom && h1.getBoundingClientRect().bottom <= bottom);
+    var line = goneLine();
+    var on = !!(h1 && line !== null && h1.getBoundingClientRect().bottom <= line);
     if(on){
       label.textContent = h1.textContent.trim();
       gear.style.display = view.querySelector(':scope > .page-header .picker-hit') ? '' : 'none';
@@ -67,7 +71,7 @@
   var io = null;
   function observe(){
     if(io) io.disconnect();
-    io = new IntersectionObserver(update, { rootMargin: '-' + Math.round(barBottom()) + 'px 0px 0px 0px' });
+    io = new IntersectionObserver(update, { rootMargin: '-' + Math.round(goneLine() || 0) + 'px 0px 0px 0px' });
     for(var i = 0; i < titles.length; i++) io.observe(titles[i]);
   }
   observe();
