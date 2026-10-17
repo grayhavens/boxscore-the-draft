@@ -49,7 +49,7 @@
    the bracket hasn't changed.
    ============================================================ */
 import { TEAM_META, DRAFT_TEAMS, LEAGUES, LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
-import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE, EASE_SPRING } from './utils.js';
 import { teamBadgeHtml as uiBadgeHtml, tagHtml } from './ui.js';
 import { escapeHtml } from './escape.js';
 import { fetchEspnPostseason } from './espn.js';
@@ -64,7 +64,7 @@ import { allowsGroupOverride } from './groups.js';
 import { isWide } from './wide-query.js';
 import { isLeagueLocked } from './season-lock.js';
 import {
-  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, finalRound, isMissRule,
+  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, roundSeriesLine, seriesResultLine, ladderGhosts, finalRound, isMissRule,
   postseasonStarted, currentRoundName, titleGameDate
 } from './postseason-math.js';
 
@@ -531,15 +531,23 @@ export function ladderWide(inAll){
   return !inAll && isWide();
 }
 
-// The ladder's teams, rungs and chip spots at this stage.
+// The ladder's teams, rungs and chip spots at this stage. A series league
+// also has its ghosts (ladderGhosts): `shown`, the ones for the series
+// over at this stage, take a spot on their round beside the team they
+// beat; `ghosts` is every one the latest stage has, so the ladder keeps a
+// chip for each and the ones not shown yet wait, hidden, on their
+// winner's spot (ghostSpot).
 function ladderOf(key, S, D){
   const teams = ladderTeams(key, S);
+  const shown = ladderGhosts(teams, S);
+  const ghosts = S.isLatest ? shown : ladderGhosts(teams, snap(key, S.latest));
+  const placed = teams.concat(shown);
   const top = topRung(teams);
   const opts = { rungH: D.rungH, rowH: D.rowH, perRow: D.perRow, pairGap: D.pairGap, top, games: S.games, sides: S.L.sides || null };
   return {
-    teams, top,
-    geo: ladderGeometry(teams, { ...opts, rungs: S.N + 1 }),
-    pos: ladderLayout(teams, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N })
+    teams, ghosts, shown: new Set(shown.map(g => g.id)), top,
+    geo: ladderGeometry(placed, { ...opts, rungs: S.N + 1 }),
+    pos: ladderLayout(placed, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N })
   };
 }
 
@@ -561,8 +569,20 @@ function chipView(t, pos, spot, D){
   if(t.mine) cls.push('mine');
   if(spot && t.owner !== spot) cls.push('dim');
   if(t.teamKey) cls.push('tap');
+  if(t.ghostOf) cls.push('ghost');
   const x = p.x != null ? `${p.x}px` : laneX(p.fx, (p.dx || 0) - D.chipW / 2);
   return { cls: cls.join(' '), transform: `translate(${x}, ${p.y}px) scale(${scale})` };
+}
+
+// A ghost's look: on its round's spot once its series is over at this
+// stage, else hidden on its winner's spot, so it appears where the winner
+// was as the winner moves up (and goes back into it on a scrub down).
+function ghostView(t, L, spot, D){
+  if(L.shown.has(t.id)) return chipView(t, L.pos, spot, D);
+  const p = L.pos[t.ghostOf];
+  if(!p) return null;
+  const v = chipView(t, { [t.id]: p }, spot, D);
+  return { ...v, cls: `${v.cls} off` };
 }
 
 // A small gray "v" between the two sides of each game still to play, so the
@@ -571,6 +591,9 @@ function chipView(t, pos, spot, D){
 // to right like the chips, the leader's number brighter), with the red
 // live dot above it while one of its games is on. On the wide ladder the
 // pair also shares a soft backing, so a game reads as one unit.
+// A series that's over keeps its pair on the round where it was played
+// (the winner's ghost beside the team it beat) and its final count
+// between them, the winner's number brighter.
 function pairsHtml(teams, S, pos, D){
   return matchups(teams, S.games).map(pair => {
     const pa = pos[pair[0].id], pb = pos[pair[1].id];
@@ -578,7 +601,8 @@ function pairsHtml(teams, S, pos, D){
     const fx = (pa.fx + pb.fx) / 2, dx = ((pa.dx || 0) + (pb.dx || 0)) / 2;
     const at = (w, dy) => `transform:translate(${laneX(fx, dx - w / 2)}, ${pa.y + dy}px)`;
     const bg = D.pairGap ? `<span class="ps-pair-bg" style="${at(D.pairGap * 2 + D.chipW + 12, -6)}"></span>` : '';
-    const g = pair.game, s = g.series;
+    const g = pair.game;
+    const s = g.final && g.need ? { top: g.scoreA, bot: g.scoreB, wins: { [g.a]: g.scoreA || 0, [g.b]: g.scoreB || 0 } } : g.series;
     const dy = D.badgeMid - 6;
     // While a game is on, the red dot opens it in Game Details (the same
     // sheet a Scores card opens), through whichever side is a drafted team.
@@ -588,15 +612,15 @@ function pairsHtml(teams, S, pos, D){
       : `<span class="${cls}${g.live ? ' live' : ''}" style="${at(w, dy)}"${label ? ` role="img" aria-label="${escapeHtml(label)}"` : ''}>${inner}</span>`;
     if(!s || !(s.top || s.bot)) return `${bg}${tag('ps-vs', 12, 'v', openKey ? 'Live game, open score' : '')}`;
     const [l, r] = (pa.fx - pb.fx || (pa.dx || 0) - (pb.dx || 0)) < 0 ? pair : [pair[1], pair[0]];
-    const wl = s.wins[l.id], wr = s.wins[r.id];
+    const wl = s.wins[l.ghostOf || l.id], wr = s.wins[r.ghostOf || r.id];
     const n = (w, o) => `<b${w > o ? ' class="lead"' : ''}>${w}</b>`;
-    return `${bg}${tag('ps-vs ps-tally', 28, `${n(wl, wr)}–${n(wr, wl)}`, openKey ? `${seriesLine(g)}. Live, open score` : seriesLine(g))}`;
+    const said = g.final ? seriesResultLine({ winner: (wl > wr ? l : r), won: Math.max(wl, wr), lost: Math.min(wl, wr) }) : seriesLine(g);
+    return `${bg}${tag('ps-vs ps-tally', 28, `${n(wl, wr)}–${n(wr, wl)}`, openKey ? `${said}. Live, open score` : said)}`;
   }).join('');
 }
 
-function chipHtml(key, t, pos, spot, D){
-  const v = chipView(t, pos, spot, D);
-  const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
+function chipHtml(key, t, pos, spot, D, v = chipView(t, pos, spot, D)){
+  const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.ghostOf || t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
   return `
     <${t.teamKey ? 'button type="button"' : 'div'} class="${v.cls}" data-team="${t.id}" style="transform:${v.transform}"${tap} aria-label="${escapeHtml(nameOf(t, key))}">
       <span class="ps-chip-badge">${badgeOf(t)}</span>
@@ -676,7 +700,8 @@ export function postseasonCardHtml(key, wide = false){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const D = dimsOf(wide);
-  const { teams, top, geo, pos } = ladderOf(key, S, D);
+  const L = ladderOf(key, S, D);
+  const { teams, top, geo, pos } = L;
   const rungs = S.L.rungs.map((_, i) => S.N - i).map(k => `
     <div class="${rungClasses(k, S, top)}" data-rung="${k}" style="${rungStyle(k, geo)}">
       <div class="ps-rung-label"><span>${S.L.rungs[k]}</span><span class="ps-rung-pts">${rungPts(k, S)}</span></div>
@@ -691,8 +716,9 @@ export function postseasonCardHtml(key, wide = false){
       ${sidesHtml(S)}
       <div class="ps-ladder${S.L.sides ? ' sided' : ''}" style="height:${geo.height}px">
         ${rungs}
-        <div class="ps-pairs">${pairsHtml(teams, S, pos, D)}</div>
+        <div class="ps-pairs">${pairsHtml(teams.concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D)}</div>
         ${teams.map(t => chipHtml(key, t, pos, spot, D)).join('')}
+        ${L.ghosts.map(g => { const v = ghostView(g, L, spot, D); return v ? chipHtml(key, g, pos, spot, D, v) : ''; }).join('')}
         ${teams.length ? '' : '<div class="ps-empty">No drafted teams made the field.</div>'}
       </div>
       ${scrubHtml(key, S)}
@@ -800,7 +826,8 @@ function paint(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const D = dimsOf(el.classList.contains('ps-wide'));
-  const { teams, top, geo, pos } = ladderOf(key, S, D);
+  const L = ladderOf(key, S, D);
+  const { teams, top, geo, pos } = L;
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${geo.height}px`;
   const sides = el.querySelector('.ps-sides');
@@ -814,11 +841,20 @@ function paint(key){
     r.style.height = `${geo.heights[k]}px`;
   });
   const pairs = el.querySelector('.ps-pairs');
-  const pairsNow = pairsHtml(teams, S, pos, D);
+  const pairsNow = pairsHtml(teams.concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D);
   if(pairs && pairs.dataset.html !== pairsNow){
     pairs.innerHTML = pairsNow;
     pairs.dataset.html = pairsNow;
   }
+  // A ghost coming into view is a winner moving up: its echoes follow it.
+  const advancing = L.ghosts.filter(g => {
+    const chip = el.querySelector(`.ps-chip[data-team="${g.id}"]`);
+    return chip && chip.classList.contains('off') && L.shown.has(g.id);
+  }).map(g => g.ghostOf);
+  const from = Object.fromEntries(advancing.map(id => {
+    const chip = el.querySelector(`.ps-chip[data-team="${id}"]`);
+    return [id, chip && chip.style.transform];
+  }));
   teams.forEach(t => {
     const chip = el.querySelector(`.ps-chip[data-team="${t.id}"]`);
     if(!chip) return;
@@ -826,6 +862,14 @@ function paint(key){
     chip.className = v.cls;
     chip.style.transform = v.transform;
   });
+  L.ghosts.forEach(g => {
+    const chip = el.querySelector(`.ps-chip[data-team="${g.id}"]`);
+    const v = chip && ghostView(g, L, spot, D);
+    if(!v) return;
+    chip.className = v.cls;
+    chip.style.transform = v.transform;
+  });
+  advancing.forEach(id => moveAheadFx(el, id, from[id]));
   const show = S.stage === S.N && !!S.champ;
   const pts = el.querySelector('.ps-champ-pts');
   if(pts && !counting) pts.textContent = `+${show ? pts.dataset.target : 0}`;
@@ -840,6 +884,33 @@ function paint(key){
     drafted.querySelector('.ps-drafted-table').innerHTML = table;
     drafted.querySelector('.ps-drafted-note').innerHTML = note;
   }
+}
+
+// A winner moving up a round: a few fading copies of its badge trail it
+// from the spot it won on (where its ghost now sits) to its new one, each
+// a beat behind the last, on the chip's own spring. Transform and opacity
+// only, and nothing at all without motion (fxOn); the chip itself moves
+// either way.
+const ECHOES = [0.4, 0.24, 0.12];
+const ECHO_MS = 640, ECHO_STEP_MS = 60;
+function moveAheadFx(el, id, from){
+  const chip = el.querySelector(`.ps-chip[data-team="${id}"]`);
+  const ladder = el.querySelector('.ps-ladder');
+  if(!fxOn() || !chip || !ladder || !from || from === chip.style.transform) return;
+  const to = chip.style.transform;
+  ECHOES.forEach((o, i) => {
+    const echo = document.createElement('span');
+    echo.className = 'ps-echo';
+    echo.setAttribute('aria-hidden', 'true');
+    echo.innerHTML = chip.querySelector('.ps-chip-badge').outerHTML;
+    echo.style.transform = from;
+    ladder.insertBefore(echo, chip);
+    const delay = (i + 1) * ECHO_STEP_MS;
+    play(echo, [{ transform: from, opacity: o }, { transform: to, opacity: o * 0.6, offset: 0.7 }, { transform: to, opacity: 0 }],
+      { duration: ECHO_MS + 200, delay, easing: EASE_SPRING, fill: 'both' });
+    later(ECHO_MS + 200 + delay + 40, () => echo.remove());
+  });
+  pop(chip.querySelector('.ps-chip-badge'), { scale: 1.14, duration: 520 });
 }
 
 function setStage(key, s){
@@ -1106,6 +1177,8 @@ export function postseasonHomeItems(leagueKeys){
       : !started ? `You have ${plural(mineIn.length, 'team', 'teams')} in`
       : mine.length ? `You have ${plural(mine.length, 'team', 'teams')} left`
       : 'None of your teams left';
+    // A series league: where the round's series stand (roundSeriesLine).
+    const seriesSub = round === 'Champion' ? null : roundSeriesLine(S);
     // A postseason that doesn't count says so under the title.
     const noPts = postseasonScores(key) ? '' : 'Doesn’t count for points';
     const html = `
@@ -1115,6 +1188,7 @@ export function postseasonHomeItems(leagueKeys){
           <span class="ps-home-eyebrow">${escapeHtml(eyebrow)}</span>
           <span class="ps-home-title">${title}</span>
           ${sub ? `<span class="ps-home-sub">${sub}</span>` : ''}
+          ${seriesSub ? `<span class="ps-home-sub">${escapeHtml(seriesSub)}</span>` : ''}
           ${noPts ? `<span class="ps-home-sub">${noPts}</span>` : ''}
         </span>
         ${mine.length ? `<span class="ps-home-teams">${mine.slice(0, 4).map(t => `<span class="ps-home-team">${badgeOf(t)}</span>`).join('')}</span>` : ''}

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung,
-  matchups, seriesLine, ladderGeometry, ladderLayout, POSTSEASON_LEAGUES
+  matchups, seriesLine, seriesResults, ladderGeometry, ladderLayout, POSTSEASON_LEAGUES
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-mlb.json'), 'utf8'));
@@ -176,4 +176,15 @@ test('MLB wide ladder: four chips to a half row, the World Series on the center 
     assert.equal(wpos[t.id].fx, 0.5);
     assert.equal(wpos[t.id].dx, t.conf === 'AL' ? -36 : 36);
   });
+});
+
+test('MLB: each series over keeps its count, by the team that lost it', () => {
+  const b = bracket(2025);
+  const all = seriesResults(snapshot(b, latestStage(b)));
+  // 4 Wild Card + 4 Division Series + 2 LCS + the World Series.
+  assert.equal(all.length, 11);
+  assert.ok(all.every(r => r.won === r.game.need && r.lost < r.won));
+  // 2025's World Series went seven.
+  const ws = all.find(r => r.game.round === 4);
+  assert.deepEqual([ws.winner.abbr, ws.won, ws.loser.abbr, ws.lost], ['LAD', 4, 'TOR', 3]);
 });
