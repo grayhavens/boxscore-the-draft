@@ -26,7 +26,6 @@ import { DEFAULT_CAPS } from './draft-rules.js';
 import { SPORT_KEYS } from './sports.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
 import { preDraftClass } from './seasons/pre-draft.js';
-import { paintSceneStill } from './landing-explainer.js';
 import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
 
@@ -346,7 +345,21 @@ export function renderGuidePage({ backLabel = 'Settings' } = {}){
     </section>
     ${replayHtml()}
   `;
-  el.querySelectorAll('.guide-shot').forEach(node => paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at)));
+  paintShots(el);
+}
+
+// The stills are the landing page's tour scenes (js/landing-explainer.js),
+// loaded the first time the guide draws them rather than at every launch
+// (docs/lazy-load-plan.md). Until then each frame holds its size in the
+// skeleton fill (.guide-shot:empty).
+let explainer = null;
+function paintShots(el){
+  const shots = [...el.querySelectorAll('.guide-shot')];
+  if(!shots.length) return;
+  if(!explainer) explainer = import('./landing-explainer.js');
+  explainer.then(m => shots.forEach(node => {
+    if(node.isConnected) m.paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at));
+  }), e => { console.error('[Guide] stills failed to load', e); explainer = null; });
 }
 
 // The Alerts entry's button: back to Settings, scrolled to its Alerts

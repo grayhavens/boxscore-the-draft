@@ -7,7 +7,7 @@
    rendered HTML.
    ============================================================ */
 import { DRAFT_TEAMS, TEAM_META, LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
-import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, standingsOwnerHtml, findCfbTeamKeyByLocation, segmentedControlHtml } from './utils.js';
+import { updateUrlParam, teamBadgeHtml, skeletonRowsHtml, standingsOwnerHtml, findCfbTeamKeyByLocation, segmentedControlHtml, loadAdminPassword, takeCommissionerToken } from './utils.js';
 import { escapeHtml } from './escape.js';
 import { standingsHeadHtml, leagueLeaders, overviewRows } from './standings-cols.js';
 import { findFlatTeamKey } from './standings-flat.js';
@@ -84,7 +84,6 @@ import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
 import { replayReveals, postseasonHomeItems, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonOverviewHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
-import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS, LEAGUE_FULL_LABELS } from './league-labels.js';
 import { getSettings } from './settings.js';
@@ -1067,12 +1066,31 @@ function setDraftActive(on){
   // Both directions chain on the one import, so they land in order.
   draftModule.then(m => m.setDraftActive(on), e => { console.error('[Draft] failed to load', e); draftModule = null; });
 }
-function preloadDraftRoom(){
-  if(draftModule) return;
+function preloadModule(file){
   const link = document.createElement('link');
   link.rel = 'modulepreload';
-  link.href = new URL('./draft.js', import.meta.url).href;
+  link.href = new URL(file, import.meta.url).href;
   document.head.appendChild(link);
+}
+function preloadDraftRoom(){
+  if(!draftModule) preloadModule('./draft.js');
+}
+
+// The Commissioner console (js/admin.js) the same way: one person per
+// group uses it, so it loads the first time it opens (skeleton rows
+// meanwhile), and is fetched ahead when idle only on a device that has
+// signed in as commissioner (docs/lazy-load-plan.md).
+let adminModule = null;
+function openAdminPage(){
+  if(!adminModule){
+    const content = document.getElementById('admin-content');
+    if(content && !content.childElementCount) content.innerHTML = skeletonRowsHtml(4);
+    adminModule = import('./admin.js');
+  }
+  adminModule.then(m => { if(isViewActive('admin')) m.showAdminPage(); }, e => { console.error('[Commissioner] failed to load', e); adminModule = null; });
+}
+function preloadAdmin(){
+  if(!adminModule && loadAdminPassword()) preloadModule('./admin.js');
 }
 
 // Tab bar order, left to right: a switch between two of these slides
@@ -1113,7 +1131,7 @@ function showView(view){
   if(view === 'board') renderHomeStack();
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
-  if(view === 'admin') showAdminPage();
+  if(view === 'admin') openAdminPage();
   else updateUrlParam('screen', null);
   if(view === 'settings') renderSettingsPage(SETTINGS_BACK_LABELS[settingsOrigin] || 'Back');
   if(view === 'guide') renderGuidePage({ backLabel: guideFromHome ? 'Home' : 'Settings' });
@@ -1239,6 +1257,10 @@ loadSeasonPhaseCache();
 loadTeamInfoCache();
 // Nothing is broken down by draft team until there's been a draft.
 if(PRE_DRAFT) document.getElementById('standings-sub').textContent = 'Real standings for every league';
+// A commissioner link from the system admin page (#commissioner=<token>):
+// saved before anything reads the password, wherever the link lands.
+if(!IS_SEASON_BACKGROUND) takeCommissionerToken();
+
 // The hidden copy of an older season (js/season-background.js) runs only
 // its scoring work, then reports back and is removed: nothing below that
 // draws, connects or polls.
@@ -1261,7 +1283,7 @@ if(IS_SEASON_BACKGROUND){
   });
   applyUrlState();
   enableNavMotion();
-  (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(preloadDraftRoom, { timeout: 8000 });
+  (window.requestIdleCallback || (fn => setTimeout(fn, 3000)))(() => { preloadDraftRoom(); preloadAdmin(); }, { timeout: 8000 });
   maybeShowWelcome();
   // Once the first paint has settled (and not under the welcome sheet,
   // which js/tips.js checks): the one-time "Pull down to refresh" tip.

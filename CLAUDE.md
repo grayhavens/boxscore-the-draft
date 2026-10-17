@@ -23,7 +23,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 ## Commands (all verified 2026-10-03 unless noted)
 
 - **Install:** none. `npx` fetches wrangler on demand.
-- **Test:** `node --test tests/*.test.mjs` (46 files, 414 tests, all pass, ~5s; 2026-10-16).
+- **Test:** `node --test tests/*.test.mjs` (47 files, 416 tests, all pass, ~5s; 2026-10-16).
 - **Dev, site:** `python3 -m http.server 8934` from the repo root, open `/index.html` (never `file://`). Use port
   8934: it's the only localhost origin the worker's CORS allowlist accepts. The `team-dashboard` launch config
   serves a mirror at `$TMPDIR/boxscorethedraft-preview`; re-sync it first:
@@ -93,6 +93,8 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
   `IS_SEASON_BACKGROUND`.
 - Scoring exists only in the browser; the worker stores what the browser computes.
 - `js/ui.js` must stay a leaf module (imports only `escape.js`, `icons.js`) or boot cycles.
+- The draft room, Commissioner console (`js/admin.js`), other groups' classes and the guide's stills load on first use
+  (`docs/lazy-load-plan.md`); don't import them statically, or they're back in every launch.
 - `switchView` and team-page navigation apply DOM changes asynchronously inside a View Transition.
 - KLIPY must be called from the browser and never cached/proxied (their terms).
 - Any new upstream call goes through `cachedUpstreamFetch` in the worker; never put a private key in client JS.

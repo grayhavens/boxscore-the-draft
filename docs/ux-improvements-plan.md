@@ -201,6 +201,8 @@ no new tokens.
 
 ### 6. Load the rare parts only when used
 
+**Shipped 2026-10-16:** detailed plan and decisions in `docs/lazy-load-plan.md`.
+
 **Problem.** Launch loads 111 of 117 code files (1,771 KB before compression). Every phone loads the Commissioner
 console (`js/admin.js`, 82 KB) and every group's draft class (`js/seasons/2026.js` and
 `js/seasons/seasonticket-2026.js`, 155 KB together). Both grow with each new group. The draft room already loads on

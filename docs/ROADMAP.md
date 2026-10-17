@@ -37,6 +37,9 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
   (#242); the 2026 fixtures and tests now cover them.
 - UX item 5, Home priority rule (2026-10-16): one written order for everything above your teams, two at most, the rest
   under "More right now (N)" (docs/home-priority-plan.md); new `linkRowHtml` and `homeStackHtml` helpers.
+- UX item 6, load rare parts on demand (2026-10-16): the Commissioner console, other groups' draft classes and the
+  guide's stills load on first use; launch is 203 KB lighter for The Draft, 128 KB for Season Ticket
+  (docs/lazy-load-plan.md).
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -47,8 +50,8 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
 
 - Check on a real iPhone what the preview couldn't: the invite code's Copy button on the install steps (#284) and the
   three one-time tips (#286).
-- UX item 6 (load rare parts on demand): a detailed plan, then build. The plan doc already gives it its problem, change,
-  files and design-system notes.
+- UX items 7–10: each needs a detailed plan first (the plan doc gives each its problem, change and files). Items 7 and 8
+  start in the worker; 9 and 10 change groups and sign-in.
 - Decide Delight Phase 6's deadline (see Other).
 
 ## Not started
@@ -63,7 +66,7 @@ Quick wins 1–4 and 11: shipped (see Done, #282–#286).
 
 For growth (each needs a short plan of its own first):
 - 5. Home priority rule: shipped 2026-10-16 (see Done).
-- 6. Load rare parts on demand: Commissioner console (82 KB) and other groups' draft classes (155 KB), maybe team page extras; skeletons while loading (board.js, seasons/index.js, sw.js). New: none.
+- 6. Load rare parts on demand: shipped 2026-10-16 (see Done).
 - 7. Daily server-side points sample when no phone reported, for the leagues ESPN lets the worker read (worker cron, points-history.js). New: none.
 - 8. Optional edge-cached ESPN passthrough with the browser's direct call as fallback (rundown-proxy.js, espn.js). New: none.
 - 9. Groups in KV with a wildcard subdomain, created from the system admin page (groups.js, system-admin.js). New: none expected.

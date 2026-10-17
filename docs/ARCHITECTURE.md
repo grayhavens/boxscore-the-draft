@@ -32,6 +32,10 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 
 ## Modules (static site, `js/`)
 
+- **Loaded on first use, not at launch** (`docs/lazy-load-plan.md`): the draft room (`draft.js` and its files), the
+  Commissioner console (`admin.js`, `draft-prep.js`), other groups' draft classes (`seasons/index.js` loads only the
+  active group's registry, with a top-level `await`; The Draft's stays static as every group's team catalog), the
+  guide's stills (`landing-explainer.js`), ESPN's team lists. Never import `admin.js` statically.
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
   `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
@@ -398,7 +402,7 @@ machine are pure modules shared by the browser, the worker and Node tests (`js/d
 sends actions and renders what comes back. Commissioner actions need the admin password, which is only
 entered on Settings → Commissioner (`js/admin.js`, `?view=admin`; a device that hasn't signed in sees only a quiet "Commissioner sign-in"
 link at the bottom of Settings, and the Commissioner row once it has) — one gate for the draft and scoring; the
-room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
+room signs its socket in with the password saved there. `js/draft.js` and everything under it load on first open (`setDraftActive` in `js/board.js`), modulepreloaded once the app is idle. The console itself (`js/admin.js`, with `js/draft-prep.js`) also loads on first open (`openAdminPage` in `js/board.js`, skeleton rows meanwhile), modulepreloaded when idle only on a device that has signed in; `js/league-facts.js` and `js/season-lock.js` repaint it through `window.renderAdminPage`, and the system admin page's `#commissioner=<token>` link is saved at boot (`takeCommissionerToken` in `js/utils.js`) wherever it lands (`docs/lazy-load-plan.md`). At 900px and up that page is a full-screen sidebar shell (Draft, then one screen per
 league, the `desk*` functions, with `?screen=<league>` in the URL and the phone tab bar hidden). The Group settings screen
 (screen key `draft`; "Group" on the phone switch) has a "Before the <next> draft" checklist (`js/draft-prep.js`'s
 `commissionerChecklist`): sports and picks, last season's board still in the room (reset stays in the room's bar), the

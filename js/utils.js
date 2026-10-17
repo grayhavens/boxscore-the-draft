@@ -84,6 +84,27 @@ export function saveAdminPassword(password){
   }
 }
 
+// The system admin page (boxscore.space/admin, js/system-admin.js) opens
+// the app with a signed commissioner token in the URL fragment
+// (#commissioner=<token>), which never reaches a server. It's saved where a
+// typed password would be (the worker accepts either, see
+// worker/commissioner-token.js), then dropped from the address bar. Run at
+// boot (js/board.js), not by the console: that loads only when opened
+// (docs/lazy-load-plan.md), and the link may land anywhere.
+export function commissionerTokenFrom(hash){
+  const m = /^#commissioner=([\w.-]+)$/.exec(hash || '');
+  return m ? m[1] : null;
+}
+
+export function takeCommissionerToken(){
+  try {
+    const token = commissionerTokenFrom(window.location.hash);
+    if(!token) return;
+    saveAdminPassword(token);
+    history.replaceState(history.state, '', window.location.pathname + window.location.search);
+  } catch (e){}
+}
+
 export function clearAdminPassword(){
   try {
     localStorage.removeItem(ADMIN_PASSWORD_KEY);

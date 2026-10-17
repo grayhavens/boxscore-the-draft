@@ -63,7 +63,8 @@ import { eplStandingsCache } from './standings-epl.js';
 import { computeLiveRankAutoTeams } from './league-facts.js';
 import { liveBonusHolder, loadBonusInputs } from './compare.js';
 import { renderStandings, standingsDataChanged } from './board.js';
-import { renderAdminPage } from './admin.js';
+// The console (js/admin.js) loads only when opened; repaint it if it's there.
+const renderAdminPage = () => { if(window.renderAdminPage) window.renderAdminPage(); };
 
 const SEASON_LOCK_KEY = 'teamDashboardSeasonLock';
 

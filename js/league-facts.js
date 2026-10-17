@@ -61,7 +61,8 @@ import {
 import { standingsDataChanged } from './board.js';
 import { golfStore } from './golf-view.js';
 import { golferAwardCounts } from './golf.js';
-import { renderAdminPage } from './admin.js';
+// The console (js/admin.js) loads only when opened; repaint it if it's there.
+const renderAdminPage = () => { if(window.renderAdminPage) window.renderAdminPage(); };
 import { isLeagueLocked, getLockedRuleTeams } from './season-lock.js';
 import { postseasonRuleTeams } from './postseason.js';
 import { playoffRuleTeams } from './playoff-series.js';
