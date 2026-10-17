@@ -77,20 +77,6 @@ const LIVE_DRAFT_ROOM = 'main';
 // run with the whole group (docs/draft-day-runbook.md).
 const REHEARSAL_NOTE = 'A shared mock room for a dry run with the whole group. Anyone in it can run it. Everyone else\u2019s Mock Draft is their own, private room.';
 
-// The system admin page (boxscore.space/admin, js/system-admin.js) opens
-// this page with a signed commissioner token in the URL fragment, which
-// never reaches a server. It's saved where a typed password would be (the
-// worker accepts either, see worker/commissioner-token.js), then dropped
-// from the address bar.
-(function takeCommissionerToken(){
-  try {
-    const m = window.location.hash.match(/^#commissioner=([\w.-]+)$/);
-    if(!m) return;
-    saveAdminPassword(m[1]);
-    history.replaceState(history.state, '', window.location.pathname + window.location.search);
-  } catch (e){}
-})();
-
 let unlocked = false;
 let verifying = false;
 let errorMsg = '';
@@ -1757,6 +1743,11 @@ export function renderAdminPage(){
   }
   container.innerHTML = unlocked ? unlockedHtml() : gateHtml();
 }
+
+// This module loads only when the console first opens (js/board.js,
+// docs/lazy-load-plan.md); js/league-facts.js and js/season-lock.js
+// repaint it through window rather than importing it.
+window.renderAdminPage = renderAdminPage;
 
 // The page was just opened (js/board.js's showView): refresh the draft
 // status, which may have moved on since it was last shown.

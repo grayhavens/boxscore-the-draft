@@ -290,12 +290,15 @@ test('a group registry is created once and then appended to', () => {
 
 test('the seasons index lists each group once, and the real index takes it', () => {
   const src = fs.readFileSync(new URL('../js/seasons/index.js', import.meta.url), 'utf8');
-  const once = updateIndexRegistry(src, 'seasonticket');
-  assert.match(once, /import \{ GROUP_SEASONS as SEASONTICKET_SEASONS \} from '\.\/seasonticket\.js';/);
-  assert.match(once, /const OTHER_GROUP_SEASONS = \{\n  seasonticket: SEASONTICKET_SEASONS\n\};/);
+  // Already listed (as a loader: only that group's members load it).
+  assert.equal(updateIndexRegistry(src, 'seasonticket'), src);
+  const empty = src.replace(/const OTHER_GROUP_SEASONS = \{[^}]*?\n\};/, 'const OTHER_GROUP_SEASONS = {};');
+  const once = updateIndexRegistry(empty, 'seasonticket');
+  assert.match(once, /const OTHER_GROUP_SEASONS = \{\n  seasonticket: \(\) => import\('\.\/seasonticket\.js'\)\n\};/);
+  assert.doesNotMatch(once, /from '\.\/seasonticket\.js'/);
   assert.equal(updateIndexRegistry(once, 'seasonticket'), once);
   const two = updateIndexRegistry(once, 'otherbunch');
-  assert.match(two, /seasonticket: SEASONTICKET_SEASONS,\n  otherbunch: OTHERBUNCH_SEASONS\n\};/);
+  assert.match(two, /seasonticket: \(\) => import\('\.\/seasonticket\.js'\),\n  otherbunch: \(\) => import\('\.\/otherbunch\.js'\)\n\};/);
 });
 
 test('shell files are added after the anchor, once', () => {

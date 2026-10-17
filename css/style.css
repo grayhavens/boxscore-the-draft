@@ -6741,6 +6741,8 @@ html[data-theme="light"] .app-logo{ content: url(../icons/logo-header-light.png)
   font: 800 var(--fs-12) var(--font-display);
 }
 .guide-shot{ max-width: 290px; margin: 16px auto 4px; }
+/* Before js/landing-explainer.js has loaded (js/guide.js paintShots): the frame's size, in the skeleton fill. */
+.guide-shot:empty{ height: 404px; border-radius: 26px; background: var(--skeleton); }
 .guide-shot .tour-screen{ box-shadow: none; }
 /* Around the app: one tappable row per tab and setting. */
 .guide-rows{ display: flex; flex-direction: column; margin-top: 6px; }

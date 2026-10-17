@@ -23,18 +23,24 @@ import { ACTIVE_GROUP_ID, IS_LEGACY_GROUP } from '../group.js';
 import { groupCaps, groupShown } from '../groups.js';
 import { THE_DRAFT_SEASONS, THE_DRAFT_LATEST } from './the-draft.js';
 import { preDraftClass, withScoresOnly } from './pre-draft.js';
-import { GROUP_SEASONS as SEASONTICKET_SEASONS } from './seasonticket.js';
 import { PGA_SCORING } from './pga.js';
 import { readLiveClasses } from '../live-class-store.js';
 import { liveClassChain } from '../draft-class.js';
 
 // Every other group's classes, by group id. A group with none yet gets
 // its pre-draft class (js/seasons/pre-draft.js).
+// Every other group's registry, loaded only for that group's own members
+// (docs/lazy-load-plan.md): a top-level await, so importers still read the
+// exports below as plain values. The Draft's stays a static import: it's
+// the legacy group's, and the team catalog every group's pre-draft and
+// shown-only sports come from (js/seasons/pre-draft.js).
+// tools/export-draft.mjs adds a line here for a group's first class.
 const OTHER_GROUP_SEASONS = {
-  seasonticket: SEASONTICKET_SEASONS
+  seasonticket: () => import('./seasonticket.js')
 };
 
-const COMMITTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
+const loadOther = OTHER_GROUP_SEASONS[ACTIVE_GROUP_ID];
+const COMMITTED = IS_LEGACY_GROUP ? THE_DRAFT_SEASONS : loadOther ? (await loadOther()).GROUP_SEASONS : null;
 const COMMITTED_IDS = COMMITTED ? Object.keys(COMMITTED) : [];
 
 // The newest committed class's year, or null for a group with none.

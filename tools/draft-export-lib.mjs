@@ -99,19 +99,17 @@ export const GROUP_SEASONS = {
 `;
 }
 
-// Lists a group's registry in js/seasons/index.js (OTHER_GROUP_SEASONS) — idempotent.
+// Lists a group's registry in js/seasons/index.js (OTHER_GROUP_SEASONS) as
+// a loader, so only that group's members load it (docs/lazy-load-plan.md)
+// — idempotent.
 export function updateIndexRegistry(source, group){
-  const name = `${group.toUpperCase()}_SEASONS`;
-  if(source.includes(`from './${group}.js'`)) return source;
-  const anchor = "import { preDraftClass, withScoresOnly } from './pre-draft.js';";
-  if(!source.includes(anchor)) throw new Error('could not find the imports in js/seasons/index.js');
-  let out = source.replace(anchor, `${anchor}\nimport { GROUP_SEASONS as ${name} } from './${group}.js';`);
+  if(source.includes(`import('./${group}.js')`)) return source;
+  const line = `${group}: () => import('./${group}.js')`;
   const empty = 'const OTHER_GROUP_SEASONS = {};';
   const filled = /(const OTHER_GROUP_SEASONS = \{[^}]*?)(\n\};)/;
-  if(out.includes(empty)) out = out.replace(empty, `const OTHER_GROUP_SEASONS = {\n  ${group}: ${name}\n};`);
-  else if(filled.test(out)) out = out.replace(filled, `$1,\n  ${group}: ${name}$2`);
-  else throw new Error('could not find OTHER_GROUP_SEASONS in js/seasons/index.js');
-  return out;
+  if(source.includes(empty)) return source.replace(empty, `const OTHER_GROUP_SEASONS = {\n  ${line}\n};`);
+  if(filled.test(source)) return source.replace(filled, `$1,\n  ${line}$2`);
+  throw new Error('could not find OTHER_GROUP_SEASONS in js/seasons/index.js');
 }
 
 // Adds files to sw.js's SHELL_FILES after `anchor`, skipping any already there.
