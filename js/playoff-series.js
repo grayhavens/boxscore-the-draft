@@ -17,6 +17,7 @@
 import { LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
 import { loadDays } from './espn-days.js';
 import { findDraftedTeamByName } from './utils.js';
+import { findFlatTeamKey } from './standings-flat.js';
 import { standingsDataChanged } from './board.js';
 import {
   PLAYOFF_SERIES_LEAGUES, parseSeriesEvent, playoffDates, playoffReach, finalFollowUps, teamsEarning
@@ -69,5 +70,11 @@ export function playoffRuleTeams(key, rule){
   if(!s.reach) return null;
   const ids = teamsEarning(key, LEAGUE_SCORING[key].rules, rule.label, s.reach);
   if(!ids) return null;
-  return ids.map(id => findDraftedTeamByName(key, s.reach[id].name)).filter(Boolean);
+  // By exact nickname, as the ladder (js/postseason.js) finds them: the
+  // full name's substring match took the Hornets for the Nets. A day
+  // saved before `nick` was kept still has the full name only.
+  return ids.map(id => {
+    const t = s.reach[id];
+    return t.nick ? findFlatTeamKey(key, t.nick) : findDraftedTeamByName(key, t.name);
+  }).filter(Boolean);
 }

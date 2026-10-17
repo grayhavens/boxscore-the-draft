@@ -1,5 +1,5 @@
 /* ============================================================
-   Postseason ladder math (Standings → NFL/CFB/CBB/MLB/WNBA → Postseason): pure, no
+   Postseason ladder math (Standings → NFL/CFB/CBB/MLB/WNBA/NBA/NHL → Postseason): pure, no
    DOM and no fetches, shared by js/postseason.js and
    tests/postseason-math.test.mjs.
 
@@ -40,13 +40,24 @@
    tally back then), and the ladder writes it in place of the pair's "v"
    once a game is in ("1-0", read left to right like the chips), so it
    costs no room. seriesLine says the same in words for screen readers.
-   Any league whose events come through seriesEvents gets this (MLB, WNBA).
+   Any league whose events come through seriesEvents gets this (MLB, WNBA,
+   NBA, NHL).
 
    MLB's ladder is also split down the middle (`sides`): AL teams on the
    left half of every rung, NL on the right, each half laid out on its own
    (rungRows), so the two leagues read as columns under an AL / NL label
    and the World Series pair meets in the middle.
+
+   The NBA and NHL play four best-of-7 rounds, 16 teams, eight per
+   conference, split East / West like MLB's AL / NL. Their late rounds
+   are also read for scoring by js/playoff-series-math.js before the
+   ladder has a bracket; both take the conference finals and final
+   patterns and the rules from its PLAYOFF_SERIES_LEAGUES, so the two
+   can't disagree. The NBA's play-in is its own season type on ESPN, so
+   it never reaches the ladder: seeds 7 and 8 are whoever won it (ESPN's
+   final standings already say so).
    ============================================================ */
+import { PLAYOFF_SERIES_LEAGUES } from './playoff-series-math.js';
 
 const NFL = {
   key: 'nfl', fieldSize: 14, byeSeeds: 1,
@@ -207,7 +218,51 @@ const WNBA = {
   noteOf(evt, round){ return round === 3 ? 'WNBA Finals' : ''; }
 };
 
-export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB, wnba: WNBA };
+// The NBA and NHL: 16 teams, 8 per conference, four best-of-7 rounds.
+// ESPN's headlines (2025 and 2026 playoffs, checked 2026-10-16): "East 1st
+// Round - Game 1", "West Semifinals" (NBA) / "West 2nd Round" (NHL),
+// "East Finals" / "East Final", "NBA Finals" / "Stanley Cup Final". The
+// conference finals and final come from js/playoff-series-math.js (its
+// rounds 1 and 2 are ours 3 and 4), and so do the rules.
+function fourRounds(key, { second, rounds, roundShort, rungs, stages, champTitle, finalNote }){
+  const P = PLAYOFF_SERIES_LEAGUES[key];
+  return {
+    key, fieldSize: 16, series: true, seriesNeed: [4, 4, 4, 4],
+    rounds, roundShort, rungs, stages, gamesPerRound: [8, 4, 2, 1],
+    champTitle, sides: ['East', 'West'],
+    rules: P.rules.map(r => r.win ? r : { re: r.re, reach: r.reach + 2 }),
+    roundOf(evt){
+      const h = evt.headline || '';
+      if(P.final.test(h)) return 4;
+      if(P.conf.test(h)) return 3;
+      if(second.test(h)) return 2;
+      if(/^(East|West) 1st Round\b/i.test(h)) return 1;
+      return 0;
+    },
+    groupOf(evt){ const m = /^(East|West)\b/i.exec(evt.headline || ''); return m ? m[1] : ''; },
+    noteOf(evt, round){ return round === 4 ? finalNote : ''; }
+  };
+}
+
+const NBA = fourRounds('nba', {
+  second: /^(East|West) Semifinals\b/i,
+  rounds: ['First Round', 'Conference Semifinals', 'Conference Finals', 'NBA Finals'],
+  roundShort: ['R1', 'CSF', 'CF', 'F'],
+  rungs: ['First Round', 'Semifinals', 'Conf. Finals', 'Finals', 'Champion'],
+  stages: ['Field set', 'After first round', 'After semifinals', 'After conference finals', 'Champion'],
+  champTitle: 'NBA champions', finalNote: 'NBA Finals'
+});
+
+const NHL = fourRounds('nhl', {
+  second: /^(East|West) 2nd Round\b/i,
+  rounds: ['First Round', 'Second Round', 'Conference Final', 'Stanley Cup Final'],
+  roundShort: ['R1', 'R2', 'CF', 'SCF'],
+  rungs: ['1st Round', '2nd Round', 'Conf. Final', 'Cup Final', 'Champion'],
+  stages: ['Field set', 'After first round', 'After second round', 'After conference finals', 'Champion'],
+  champTitle: 'Stanley Cup champions', finalNote: 'Stanley Cup Final'
+});
+
+export const POSTSEASON_LEAGUES = { nfl: NFL, cfb: CFB, mcbb: MCBB, mlb: MLB, wnba: WNBA, nba: NBA, nhl: NHL };
 
 // The league's last round, which is also its Champion rung and the stage
 // the champion is crowned on (4 for football, 6 for the NCAA Tournament).
@@ -276,7 +331,7 @@ export function parseScoreboardEvent(event){
   };
 }
 
-// MLB / WNBA: one event per game → one per series, in parseScoreboardEvent's
+// MLB / WNBA / NBA / NHL: one event per game → one per series, in parseScoreboardEvent's
 // shape, so buildBracket reads a series like a single game. A series is
 // its round ("ALDS", from "ALDS - Game 2") and its two teams. Its sides'
 // scores are series wins: the best of ESPN's tally on its latest game and
@@ -322,7 +377,8 @@ export function seriesEvents(leagueKey, events){
   });
 }
 
-// The playoff seeds per conference (the NFL's 1-7, MLB's 1-6 per league)
+// The playoff seeds per conference (the NFL's 1-7, MLB's 1-6 per league,
+// the NBA's and NHL's 1-8)
 // from a season's final standings (ESPN's site standings, `playoffSeed`):
 // { espnId: { seed, conf, record, … } }.
 export function parseNflSeeds(data, maxSeed = 7){
@@ -604,15 +660,23 @@ export function seriesResultLine(r){
 // says so, so the round still reads: "CLE leads 2-1 · MIL won 4-0" (with
 // four, as in a first round, the line keeps to the ones still on). Before
 // anyone has a win it's the length ("Best of 7"); a series yet to win a
-// game sits out while others have.
+// game sits out while others have. A round of more than four (the NBA's
+// and NHL's eight first-round series) would run to lines, so it keeps to
+// the series with one of your teams, or counts them: "5 of 8 series
+// still on".
 export function roundSeriesLine(S){
   if(!S || !S.isLatest || !S.L.series) return null;
   const round = S.latest + 1;
-  const games = S.games.filter(g => g.round === round && g.need && g.top.team && g.bot.team);
+  let games = S.games.filter(g => g.round === round && g.need && g.top.team && g.bot.team);
   const open = games.filter(g => g.series);
   if(!open.length) return null;
   if(open.every(g => !g.series.top && !g.series.bot)) return seriesLine(open[0]);
   if(games.length === 1) return seriesLine(open[0]);
+  if(games.length > 4){
+    const total = games.length;
+    games = open.filter(g => (g.series.top || g.series.bot) && (g.top.team.mine || g.bot.team.mine));
+    if(!games.length) return open.length < total ? `${open.length} of ${total} series still on` : `${total} series under way`;
+  }
   const abbr = t => t.abbr || '';
   const parts = games.map(g => {
     if(g.final){

@@ -1,6 +1,6 @@
 /* ============================================================
    Postseason ladder (Standings → NFL / College FB / College BB / MLB /
-   WNBA → Postseason), and the team page's Postseason section. Design: the
+   WNBA / NBA / NHL → Postseason), and the team page's Postseason section. Design: the
    "Postseason standings" handoff (Regular | Postseason toggle + Ladder,
    direction 4a/4b), and its NCAA Tournament addendum (option 3a).
 
@@ -17,9 +17,10 @@
    each stage's view by the pure js/postseason-math.js. It's only fetched
    while that league's postseason can be on (football December through
    February, the NCAA Tournament March and April, MLB late September
-   through November); local dev and Pages previews can replay any winter
-   with ?psyear=2025 (the 2025 MLB postseason, NFL playoffs and CFP, and
-   the NCAA Tournament of March 2026).
+   through November, the NBA and NHL mid-April through June); local dev
+   and Pages previews can replay any winter with ?psyear=2025 (the 2025
+   MLB postseason, NFL playoffs and CFP, the NCAA Tournament of March
+   2026 and the 2026 NBA and NHL playoffs).
 
    College Basketball differs in a few ways. Its ladder shows only drafted
    teams (68 chips would bury them), on a rung per round, the first rung
@@ -106,12 +107,12 @@ export function previewParam(name){
 const REVEAL_REPLAY = previewParam('psreveal') === '1';
 
 // ESPN names a football season by the year it starts and a college
-// basketball season by the spring it ends in.
-const springSeason = key => key === 'mcbb';
+// basketball, NBA or NHL season by the spring it ends in.
+const springSeason = key => key === 'mcbb' || key === 'nba' || key === 'nhl';
 
 // ?psyear names a winter by the year it starts: ?psyear=2025 is the 2025
-// NFL playoffs and CFP and the March 2026 NCAA Tournament (ESPN's 2026),
-// so one replay shows all three. ?psreveal=1 without a ?psyear: last
+// NFL playoffs and CFP, the March 2026 NCAA Tournament (ESPN's 2026) and
+// the spring 2026 NBA and NHL playoffs, so one replay shows them all. ?psreveal=1 without a ?psyear: last
 // winter's.
 function previewYear(key){
   let y = Number(previewParam('psyear'));
@@ -137,13 +138,15 @@ export function postseasonYear(key){
 // Sunday) and April (the title game). MLB: from September 25 (the field
 // is set in the season's last days) through November (the World Series
 // ends by early November). The WNBA: from September 10 through October
-// (the Finals end by mid-October). Outside them there's no postseason to
-// fetch.
+// (the Finals end by mid-October). The NBA and NHL: from April 14 (the
+// NBA's field is set once its play-in ends) through June. Outside them
+// there's no postseason to fetch.
 function inWindow(key){
   if(previewYear(key) !== null) return true;
   const now = new Date(), m = now.getMonth();
   if(key === 'mlb') return m === 9 || m === 10 || (m === 8 && now.getDate() >= 25);
   if(key === 'wnba') return m === 9 || (m === 8 && now.getDate() >= 10);
+  if(key === 'nba' || key === 'nhl') return m === 4 || m === 5 || (m === 3 && now.getDate() >= 14);
   return (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(m);
 }
 
@@ -253,7 +256,7 @@ export function seasonLabelYear(key){
 }
 
 // The league's logo for the playoffs reveal, each part as { light, dark }:
-// { emblem, wordmark? }. The NFL's shield comes from ESPN; ESPN has no CFP
+// { emblem, wordmark? }. The NFL's, NBA's and NHL's come from ESPN; ESPN has no CFP
 // logo, so the College Football Playoff's emblem and wordmark are ours
 // (icons/cfp-*.png, cut from the CFP's light and dark artwork).
 const CFP_LOGO = {
@@ -280,7 +283,7 @@ const WNBA_LOGO = {
   emblem: { light: 'icons/wnba-playoffs-light.svg', dark: 'icons/wnba-playoffs-dark.svg' },
   lockup: true
 };
-const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason', wnba: 'WNBA Playoffs' };
+const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason', wnba: 'WNBA Playoffs', nba: 'NBA Playoffs', nhl: 'Stanley Cup Playoffs' };
 export const postseasonTitle = key => LOGO_TITLE[key] || 'Playoffs';
 // One logo part, both themes (CSS shows the one that matches).
 export function logoImgsHtml(part){
@@ -348,10 +351,13 @@ export function postseasonRuleTeams(key, rule){
   return s.teams.filter(t => t.teamKey && t.milestones.find(m => m.label === rule.label).got).map(t => t.teamKey);
 }
 
+// The pro leagues whose drafted teams are found by nickname (exact, so
+// "Nets" never matches "Hornets").
+const FLAT_LEAGUES = ['mlb', 'wnba', 'nba', 'nhl'];
 function ownerOf(key){
   return t => {
     const teamKey = key === 'nfl' ? findNflTeamKeyByEspnAbbr(t.abbr) : key === 'mcbb' ? findCbbTeamKeyByEspnId(t.id)
-      : key === 'mlb' || key === 'wnba' ? findFlatTeamKey(key, t.name) : findCfbTeamKeyByLocation(t.location);
+      : FLAT_LEAGUES.includes(key) ? findFlatTeamKey(key, t.name) : findCfbTeamKeyByLocation(t.location);
     const meta = teamKey && TEAM_META[teamKey];
     if(!meta) return null;
     return { teamKey, owner: PRE_DRAFT || meta.favoriteOnly ? null : meta.draftTeamId };
@@ -474,6 +480,8 @@ window.psPhase_cfb = v => setPhase('cfb', v);
 window.psPhase_mcbb = v => setPhase('mcbb', v);
 window.psPhase_mlb = v => setPhase('mlb', v);
 window.psPhase_wnba = v => setPhase('wnba', v);
+window.psPhase_nba = v => setPhase('nba', v);
+window.psPhase_nhl = v => setPhase('nhl', v);
 
 // Picking another league on Standings brings each ladder back to its
 // latest round.

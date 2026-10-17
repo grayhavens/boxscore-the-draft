@@ -2009,6 +2009,10 @@ export async function fetchEspnRegularSeasonEnd(coreLeaguePath, year){
 // Its seeds are league-wide (1-8), which only the league-level standings
 // (`level=1`, one table, no conferences) carry. Checked against the 2025
 // playoffs and the 2026 ones under way (2026-10-04).
+// The NBA's and NHL's the same way (mid-April to the end of June), seeds
+// 1-8 per conference from the final standings, which for the NBA already
+// count the play-in. `year` is ESPN's season, the spring it ends in.
+// Checked against the 2025 and 2026 playoffs (2026-10-16).
 // Shape returned: { events: [parseScoreboardEvent], seeds, logo: { light, dark } | null } | null
 export async function fetchEspnPostseason(leagueKey, year){
   if(leagueKey === 'nfl'){
@@ -2064,6 +2068,26 @@ export async function fetchEspnPostseason(leagueKey, year){
     if(!standings || games.failed) return null;
     const league = { children: [{ abbreviation: '', standings: standings.standings }] };
     return { events: seriesEvents('wnba', games.games), seeds: parseNflSeeds(league, 8), logo: null };
+  }
+  if(leagueKey === 'nba' || leagueKey === 'nhl'){
+    const sportPath = leagueKey === 'nba' ? 'basketball/nba' : 'hockey/nhl';
+    const days = [];
+    const end = Math.min(Date.now(), Date.UTC(year, 5, 30));
+    for(let t = Date.UTC(year, 3, 14); t <= end; t += 864e5) days.push(ymd(new Date(t)));
+    // The NBA's play-in is its own season type ('play-in-season'): left out.
+    const parse = e => e && e.season && e.season.slug === 'post-season' ? parseScoreboardEvent(e) : null;
+    const [standings, games] = await Promise.all([
+      fetchEspnJSON(`/apis/v2/sports/${sportPath}/standings?season=${year}`),
+      loadDays({ store: 'bxPsDay', key: leagueKey, sportPath, extra: '', parse }, days)
+    ]);
+    if(!standings || games.failed) return null;
+    // The league's own logo, as its scoreboard lists it (the day files
+    // keep games only, so it's named here).
+    const logo = 'https://a.espncdn.com/i/teamlogos/leagues/500';
+    return {
+      events: seriesEvents(leagueKey, games.games), seeds: parseNflSeeds(standings, 8),
+      logo: { light: `${logo}/${leagueKey}.png`, dark: `${logo}-dark/${leagueKey}.png` }
+    };
   }
   return null;
 }
