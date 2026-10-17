@@ -1,6 +1,6 @@
 # Roadmap
 
-As of 2026-10-15 (`main` at ba4e689, PR #286). No open PRs besides this docs one (#281); no GitHub issues; no TODO/FIXME comments in code.
+As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME comments in code.
 "(inferred)" = deduced from code/docs, not stated as a status anywhere.
 
 ## Done
@@ -31,6 +31,10 @@ As of 2026-10-15 (`main` at ba4e689, PR #286). No open PRs besides this docs one
 - Design system Step 3 (2026-10-16): Banner, Sheet + SheetRow, ChatBubble + ReactionBar, ChatComposer and SharedGameCard
   got `js/ui.js` helpers and every screen using them moved over; `.prior-season-note`, `.ob-sim-banner` and
   `CHECK_ICON_SVG` are gone (design-system-plan.md, DESIGN_TOKENS.md).
+- MLB and WNBA postseason headlines checked against live 2026 ESPN data (2026-10-16): "NLCS" / "ALCS" / "World
+  Series" (plus a rain-out and "If Necessary" games, and a placeholder opponent before the field is set), "WNBA
+  Semifinals" and "WNBA Finals". WNBA semifinals and Finals already score automatically through the postseason ladder
+  (#242); the 2026 fixtures and tests now cover them.
 - UX item 5, Home priority rule (2026-10-16): one written order for everything above your teams, two at most, the rest
   under "More right now (N)" (docs/home-priority-plan.md); new `linkRowHtml` and `homeStackHtml` helpers.
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
@@ -43,8 +47,9 @@ As of 2026-10-15 (`main` at ba4e689, PR #286). No open PRs besides this docs one
 
 - Check on a real iPhone what the preview couldn't: the invite code's Copy button on the install steps (#284) and the
   three one-time tips (#286).
-- Write short plans for the UX growth items 5–10 (below) before any code; item 5 (Home priority rule) first.
-- Run a Season Ticket rehearsal (`node tools/rehearse-draft.mjs --group seasonticket`) before its draft.
+- UX item 6 (load rare parts on demand): a detailed plan, then build. The plan doc already gives it its problem, change,
+  files and design-system notes.
+- Decide Delight Phase 6's deadline (see Other).
 
 ## Not started
 
@@ -67,9 +72,13 @@ For growth (each needs a short plan of its own first):
 ### Other
 
 - Delight Phase 3: chat hold-and-slide reactions + swipe to reply (`replyTo` not in code) (planned, not a priority yet; keep the plan details, delight-plan.md).
-- Delight Phase 6: champion crowned full-screen moment — must be ready before the first league locks (planned, not a priority yet; keep the plan details, delight-plan.md).
+- Delight Phase 6: champion crowned full-screen moment (planned; keep the plan details, delight-plan.md). Deadline to
+  confirm: the plan triggers it when a season is recorded in History, and both groups' first class (2026/27) ends in
+  fall 2027; the older "before the first league locks" note would mean about December 2026 (College Football).
 - Postseason `fact` events in Activity (deferred, points-ux-plan.md).
-- Scoring automation, remaining gaps (commissioner marks until built): WNBA semifinals / Finals / Commissioner's Cup (the playoff miss is automatic); college basketball conference tournaments (NCAA Tournament rounds score automatically); college football "Don't make a bowl" (needs an FBS list); confirm MLB "NLCS" / "ALCS" / "World Series" headlines once played. Each needs a real ESPN payload captured first (tests/fixtures/espn-*.json).
+- Scoring automation, remaining gaps (commissioner marks until built): WNBA Commissioner's Cup (WNBA playoff rounds are
+  automatic); college basketball conference tournaments (NCAA Tournament rounds score automatically); college football
+  "Don't make a bowl" (needs an FBS list). Each needs a real ESPN payload captured first (tests/fixtures/espn-*.json).
 - Small follow-ups from the quick wins: chat's long press still cancels at 10px of movement where `js/gestures.js`
   uses `MOVE_SLOP` (8px); the guide's Replay rows cover only playoffs reveals (add the champion moment once Delight
   Phase 6 exists); the landing page now names every group, The Draft included (#285), so revisit if a group should
@@ -78,6 +87,4 @@ For growth (each needs a short plan of its own first):
 
 ## Branches
 
-- `main`, plus merged branches not yet deleted: the five `ux/*` quick-win branches (#282–#286), `golfer-pages` (#275),
-  `season-overlap` (#277), `claude/eloquent-volhard-2642ce` (#276), `claude/project-thread-ww6hgn` (#279) and this docs
-  branch. All are safe to delete. `design-handoff` was deleted 2026-10-03.
+- `main` only; every merged branch has been deleted on GitHub except the newest PR's.

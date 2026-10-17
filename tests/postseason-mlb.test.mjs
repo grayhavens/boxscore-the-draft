@@ -1,6 +1,6 @@
 // MLB on the postseason ladder (js/postseason-math.js), against the real
 // postseasons as ESPN reported them (tests/fixtures/postseason-mlb.json):
-// the whole 2025 postseason, and 2026 with the Division Series under way.
+// the whole 2025 postseason, and 2026 through the LCS (fetched 2026-10-16).
 // ESPN's games fold into series (seriesEvents), seeds 1-2 get byes, and a
 // series between games still reads as under way.
 
@@ -25,6 +25,11 @@ const RULES = [
   { label: 'Last place in division', pts: -2, rankAuto: { scope: 'division', bottom: 1 } }
 ];
 const bracket = year => buildBracket('mlb', seriesEvents('mlb', FIX[year].events), FIX[year].seeds);
+// 2026 as it stood the morning of 2026-10-04, every Division Series one game in:
+// the same games cut at that date.
+const DS_UNDER_WAY = '2026-10-04T12:00Z';
+const earned = (S, label) => S.teams.filter(t => t.milestones.find(m => m.label === label).got).map(t => t.abbr).sort();
+const early = () => buildBracket('mlb', seriesEvents('mlb', FIX[2026].events.filter(e => e.date <= DS_UNDER_WAY)), FIX[2026].seeds);
 const abbrs = (b, ids) => ids.map(id => b.teams[id].abbr).sort();
 
 test('MLB milestones: the LCS, the World Series and winning it, by label', () => {
@@ -79,7 +84,7 @@ test('MLB 2025 replay: a bye team starts on the Division Series rung', () => {
 });
 
 test('MLB 2026: a series between games is under way, not over', () => {
-  const b = bracket(2026);
+  const b = early();
   assert.equal(latestStage(b), 1);
   assert.equal(postseasonStarted(b), true);
   assert.equal(currentRoundName(b), 'Division Series');
@@ -94,14 +99,29 @@ test('MLB 2026: a series between games is under way, not over', () => {
   assert.equal(by.CHW.rung, 1);
 });
 
+test('MLB 2026 through the LCS: the real headlines, a rain-out and a placeholder opponent', () => {
+  const b = bracket(2026);
+  const S = snapshot(b, latestStage(b), { rules: RULES });
+  assert.deepEqual(earned(S, 'Make LCS'), ['CLE', 'LAD', 'MIL', 'TB']);
+  // Milwaukee swept the NLCS. World Series Game 1 is listed against
+  // "Rays/Guardians" (ESPN id -2): no team, so it earns nothing.
+  assert.deepEqual(earned(S, 'Make World Series'), ['MIL']);
+  assert.deepEqual(earned(S, 'Win World Series'), []);
+  // The ALCS stands 2-1 for Cleveland: the rained-out Game 4 ("ALCS - Game 4
+  // Rain - Makeup on Oct 18", postponed, so "post" with no winner) counts for nobody.
+  const alcs = seriesEvents('mlb', FIX[2026].events).find(e => e.headline === 'ALCS');
+  assert.deepEqual(alcs.sides.map(s => [s.abbr, s.score]).sort(), [['CLE', 2], ['TB', 1]]);
+  assert.ok(FIX[2026].events.some(e => /Rain - Makeup/.test(e.headline) && e.state === 'post'));
+});
+
 test('A postseason that doesn’t count: no rules, so nothing banked or in play', () => {
-  const S = snapshot(bracket(2026), 1, { rules: [] });
+  const S = snapshot(early(), 1, { rules: [] });
   assert.equal(S.milestones.length, 0);
   assert.ok(S.teams.every(t => t.banked === 0 && t.inPlay === 0));
 });
 
 test('MLB 2026: each Division Series pair carries its tally, written under it', () => {
-  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const S = snapshot(early(), 1, { rules: RULES });
   const lines = matchups(S.teams, S.games).map(p => seriesLine(p.game)).sort();
   assert.deepEqual(lines, ['CHW leads 1\u20130', 'LAD leads 1\u20130', 'MIL leads 1\u20130', 'TB leads 1\u20130']);
   // Before the first win it's the length; level is "Tied".
@@ -113,7 +133,7 @@ test('MLB 2026: each Division Series pair carries its tally, written under it', 
 });
 
 test('MLB 2026: the tally costs the ladder no room', () => {
-  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const S = snapshot(early(), 1, { rules: RULES });
   const geo = ladderGeometry(S.teams, { top: 1, games: S.games });
   assert.equal(geo.heights[1], 84);
   const tb = S.games.find(g => g.series && g.series.wins[S.teams.find(t => t.abbr === 'TB').id] !== undefined);
@@ -121,7 +141,7 @@ test('MLB 2026: the tally costs the ladder no room', () => {
 });
 
 test('A replayed stage and a finished series show no tally', () => {
-  const S0 = snapshot(bracket(2026), 0, { rules: RULES });
+  const S0 = snapshot(early(), 0, { rules: RULES });
   assert.ok(S0.games.every(g => g.series === null));
   const S = snapshot(bracket(2025), 4, { rules: RULES });
   assert.ok(S.games.every(g => g.series === null));
@@ -129,7 +149,7 @@ test('A replayed stage and a finished series show no tally', () => {
 
 test('MLB ladder: AL on the left half, NL on the right, the World Series in the middle', () => {
   const sides = POSTSEASON_LEAGUES.mlb.sides;
-  const S = snapshot(bracket(2026), 1, { rules: RULES });
+  const S = snapshot(early(), 1, { rules: RULES });
   const pos = ladderLayout(S.teams, { top: 1, games: S.games, sides });
   S.teams.forEach(t => assert.ok(t.conf === 'AL' ? pos[t.id].fx < 0.5 : pos[t.id].fx > 0.5, t.abbr));
   // The Division Series rung: one pair per half on each of two rows.

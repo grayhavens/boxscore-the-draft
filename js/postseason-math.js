@@ -179,9 +179,10 @@ const MLB = {
 
 // WNBA: 8 teams seeded league-wide, first round (best of 3), semifinals
 // (5) and the Finals (7), each a series like MLB's. ESPN's headlines are
-// "First Round - Game 1", "Semifinals" (2025: "WNBA Semifinals") and
-// "WNBA Finals" (once "WNBA FINALS"). Checked against the 2025 playoffs
-// and the 2026 ones under way (2026-10-04).
+// "First Round - Game 1", "WNBA Semifinals - Game 1" (plain "Semifinals"
+// while the round was new, 2026-10-04) and "WNBA Finals" (once "WNBA
+// FINALS"), so the patterns stay loose. Checked against the 2025 playoffs
+// and 2026's through the semifinals (2026-10-16).
 const WNBA = {
   key: 'wnba', fieldSize: 8, series: true, seriesNeed: [2, 3, 4],
   rounds: ['First Round', 'Semifinals', 'Finals'],
