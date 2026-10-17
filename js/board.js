@@ -64,10 +64,10 @@ import {
   espnCbbStandingsCache, fetchEspnCbbStandingsCached, loadEspnCbbStandingsCache, findCbbTeamKeyByEspnId
 } from './standings-cbb.js';
 import { renderOverallStandings, setObMode, obEnterView, obOpenSegment } from './overall.js';
-import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeHtml, onGolfData, golferPageMeta } from './golf-view.js';
+import { renderAllPgaCardRecords, pgaStandingsBodyHtml, loadGolf, refreshGolfLive, golfMajorHomeItem, onGolfData, golferPageMeta } from './golf-view.js';
 import { startActivity } from './activity.js';
 import { startSince } from './since.js';
-import { startHistory } from './history.js';
+import { startHistory, championHomeItem } from './history.js';
 import { loadLiveDataCache, loadTeamInfoCache, renderRowStatus, backgroundRefreshTick, REFRESH_STEP_MS, liveDataCache, liveScoreboardSweepTick, LIVE_SWEEP_INTERVAL_MS } from './live-data.js';
 import { loadSeasonPhaseCache, fetchSeasonPhaseCached, SEASON_PHASE_LEAGUES } from './season-phase.js';
 import { checkSeasonLocks, primeFrozenSnapshots } from './season-lock.js';
@@ -75,7 +75,7 @@ import { isLeagueFrozen } from './frozen-cache.js';
 import { paintSeasonBanner } from './season-switcher.js';
 import { initDraftLive } from './draft-live.js';
 import { initSeasonEntry } from './season-entry.js';
-import { startSeasonBackground, runSeasonBackground } from './season-background.js';
+import { startSeasonBackground, runSeasonBackground, seasonOverlapHomeItem } from './season-background.js';
 import { initDraftSchedule, onDraftSchedule, getDraftSchedule, isDraftUpcoming, isDraftPollOpen, voteDraftPoll, scheduleDateLabel, scheduleTimeLabel, scheduleRelativeLabel } from './draft-schedule.js';
 import { pollTally } from './draft-poll.js';
 import { ACTIVE_SEASON_ID, ACTIVE_SEASON, IS_SEASON_BACKGROUND } from './season.js';
@@ -83,7 +83,7 @@ import { ACTIVE_GROUP } from './group.js';
 import { renderLiveNow, resetTodayDay } from './live-now.js';
 import { openTeamPage, settleTeamTransition } from './team-page.js';
 import { maybeStartPostseasonReveal, postseasonRevealBusy, endPostseasonReveal } from './postseason-reveal.js';
-import { replayReveals, postseasonHomeHtml, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonOverviewHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
+import { replayReveals, postseasonHomeItems, onPostseasonData, ensurePostseason, postseasonPhase, openPostseason, postseasonFieldSet, postseasonToggleHtml, postseasonCardHtml, postseasonOverviewHtml, postseasonDraftedHtml, resetPostseasonStages, keepPostseason, restorePostseason, ladderWide } from './postseason.js';
 import { showAdminPage } from './admin.js';
 import { openScoringSheet, setScoringRules } from './scoring-sheet.js';
 import { FILTER_CHIP_LABELS, LEAGUE_FULL_LABELS } from './league-labels.js';
@@ -97,7 +97,9 @@ import { syncPushDevice } from './push.js';
 import { favoriteMarkHtml, isFavorite } from './favorites.js';
 import { navigate, enableNavMotion } from './motion.js';
 
-import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml, bannerHtml, iconHtml } from './ui.js';
+import { teamRowHtml, filterTabHtml, revealActiveTab, settingsRowHtml, bannerHtml, iconHtml, homeStackHtml } from './ui.js';
+import { orderHomeItems, foldSummary } from './home-stack-math.js';
+import { stagger } from './motion-fx.js';
 import { initPullToRefresh, tipPullToRefresh } from './pull-refresh.js';
 import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
@@ -298,20 +300,49 @@ function draftWhenHtml(){
     </div>`;
 }
 
-// The "playoffs are set" cards (js/postseason.js): one per league whose
-// field is set and whose reveal this device hasn't seen yet, then a golf
-// major's card (js/golf-view.js) during its week and the week after. The
-// postseason cards go first: the only overlap is April, when the NCAA
-// Tournament's card is already on its last week. None before the draft:
-// with no teams drafted, Home leads with the Draft card instead.
-function renderPlayoffsHome(){
-  const el = document.getElementById('playoffs-home');
+// ---- Home's stack ----
+// Everything that can sit above your teams, in one written order
+// (docs/home-priority-plan.md, js/home-stack-math.js): the Draft card, the
+// champion row, postseason and golf major cards that count for points, the
+// last-season row, then postseasons that don't count. Two show; the rest
+// fold into "More right now (N)", which opens in place and stays open
+// until the next launch. Each source hands in an item:
+// - the Draft card (draftHomeItem below), never folded;
+// - one card per league whose postseason is on (postseasonHomeItems in
+//   js/postseason.js) and a golf major's (golfMajorHomeItem in
+//   js/golf-view.js), none before the draft: with no teams drafted, Home
+//   leads with the Draft card instead;
+// - the champion row (championHomeItem, js/history.js) and the
+//   last-season row (seasonOverlapHomeItem, js/season-background.js).
+// Every repaint of any of them goes through renderHomeStack.
+let homeMoreOpen = false;
+
+export function renderHomeStack(){
+  const el = document.getElementById('home-stack');
   if(!el) return;
-  const html = PRE_DRAFT ? '' : postseasonHomeHtml(LEAGUES.map(l => l.key)) + golfMajorHomeHtml();
-  el.innerHTML = html ? `<div class="ps-home-stack">${html}</div>` : '';
+  const items = [
+    draftHomeItem(),
+    championHomeItem(),
+    ...(PRE_DRAFT ? [] : [...postseasonHomeItems(LEAGUES.map(l => l.key)), golfMajorHomeItem()]),
+    seasonOverlapHomeItem()
+  ];
+  const { shown, folded } = orderHomeItems(items);
+  const open = homeMoreOpen && folded.length;
+  const more = folded.length && !open ? { ...foldSummary(folded), onclick: 'openHomeMore()' } : null;
+  el.innerHTML = homeStackHtml({ itemsHtml: (open ? shown.concat(folded) : shown).map(it => it.html), more });
+  return shown.length;
 }
-onPostseasonData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
-onGolfData(() => { if(isViewActive('board')) renderPlayoffsHome(); });
+window.renderHomeStack = () => renderHomeStack();
+onPostseasonData(() => { if(isViewActive('board')) renderHomeStack(); });
+onGolfData(() => { if(isViewActive('board')) renderHomeStack(); });
+
+// "More right now": the folded items come in where the row was.
+window.openHomeMore = () => {
+  homeMoreOpen = true;
+  const shownCount = renderHomeStack();
+  const stack = document.querySelector('#home-stack .home-stack');
+  if(stack) stagger([...stack.children].slice(shownCount), [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { step: 55, duration: 420 });
+};
 
 // A playoffs card's tap: Standings, on that league, where the reveal plays.
 window.openPlayoffs = key => {
@@ -321,11 +352,12 @@ window.openPlayoffs = key => {
   switchView('standings');
 };
 
-function renderDraftHome(){
-  const el = document.getElementById('draft-home');
-  if(!el) return;
+function draftHomeItem(){
   const pre = !!ACTIVE_SEASON.preDraft;
-  el.innerHTML = (pre || isDraftUpcoming() || isDraftPollOpen()) ? `
+  if(!(pre || isDraftUpcoming() || isDraftPollOpen())) return null;
+  return {
+    id: 'draft', tier: 'draft', title: 'Draft',
+    html: `
     <section class="draft-home">
       <div class="draft-home-head">
         <div class="draft-home-title">Draft</div>
@@ -334,16 +366,16 @@ function renderDraftHome(){
       ${draftWhenHtml()}
       ${pre ? settingsRowHtml({ title: 'How Boxscore works', sub: 'New to this? The short version, in three steps', onclick: "openGuide('board')", chevron: true }) : ''}
       ${settingsRowHtml({ title: 'Mock Draft', sub: 'Your own practice room \u00b7 picks don\u2019t count', onclick: 'goToMyMockDraft()', chevron: true })}
-    </section>` : '';
+    </section>`
+  };
 }
-onDraftSchedule(renderDraftHome);
+onDraftSchedule(renderHomeStack);
 
 export function renderBoard(){
   const chipsEl = document.getElementById('filter-chips');
   const leaguesEl = document.getElementById('leagues');
 
-  renderPlayoffsHome();
-  renderDraftHome();
+  renderHomeStack();
 
   // A league shown without being drafted (js/sports.js) has nothing of
   // yours on Home until you favorite something in it.
@@ -1078,7 +1110,7 @@ function showView(view){
   setDraftActive(view === 'draft');
   if(view === 'live-now'){ resetTodayDay(); renderLiveNow(); }
   if(view === 'standings') renderStandings();
-  if(view === 'board') renderPlayoffsHome();
+  if(view === 'board') renderHomeStack();
   if(view === 'overall'){ obEnterView(); renderOverallStandings(); }
   else updateUrlParam('seg', null);
   if(view === 'admin') showAdminPage();

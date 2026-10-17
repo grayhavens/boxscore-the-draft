@@ -31,6 +31,8 @@ As of 2026-10-15 (`main` at ba4e689, PR #286). No open PRs besides this docs one
 - Design system Step 3 (2026-10-16): Banner, Sheet + SheetRow, ChatBubble + ReactionBar, ChatComposer and SharedGameCard
   got `js/ui.js` helpers and every screen using them moved over; `.prior-season-note`, `.ob-sim-banner` and
   `CHECK_ICON_SVG` are gone (design-system-plan.md, DESIGN_TOKENS.md).
+- UX item 5, Home priority rule (2026-10-16): one written order for everything above your teams, two at most, the rest
+  under "More right now (N)" (docs/home-priority-plan.md); new `linkRowHtml` and `homeStackHtml` helpers.
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -55,7 +57,7 @@ anything new becomes a token or `js/ui.js` helper with a spec pair in `docs/desi
 Quick wins 1–4 and 11: shipped (see Done, #282–#286).
 
 For growth (each needs a short plan of its own first):
-- 5. Home priority rule: one written card order, at most two cards above your teams, the rest in a "More right now (N)" row (board.js, since.js, postseason.js, golf-view.js). New: possibly a `homeStackHtml` helper; no tokens.
+- 5. Home priority rule: shipped 2026-10-16 (see Done).
 - 6. Load rare parts on demand: Commissioner console (82 KB) and other groups' draft classes (155 KB), maybe team page extras; skeletons while loading (board.js, seasons/index.js, sw.js). New: none.
 - 7. Daily server-side points sample when no phone reported, for the leagues ESPN lets the worker read (worker cron, points-history.js). New: none.
 - 8. Optional edge-cached ESPN passthrough with the browser's direct call as fallback (rundown-proxy.js, espn.js). New: none.

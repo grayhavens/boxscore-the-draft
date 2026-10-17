@@ -447,7 +447,20 @@ same alarm (`autoPickLimitMs` in `js/draft-rules.js` picks the delay for any roo
 (`setAutoDraft`, no password) from under My queue in the room's right column (the My team tab on phones), before or during the draft; the commissioner can switch anyone's from the live
 room's Clock & auto-draft settings. It's kept through a lobby reset, and an auto-drafter gets no "You're on the
 clock" alert. Picks it makes carry `auto: true`. **Deploy the worker first:** an old worker rejects `setAutoDraft`.
-**Home draft card** (`renderDraftHome` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
+**Home's stack** (`renderHomeStack` in `js/board.js`, pure `js/home-stack-math.js` tested in
+`tests/home-stack-math.test.mjs`, `homeStackHtml` / `linkRowHtml` in `js/ui.js`; plan in `docs/home-priority-plan.md`):
+everything above your teams on Home goes into one `#home-stack`, in one written order: the Draft card (never folded), the
+champion row (21 days), postseason and golf major cards that count for points, the "still being played" row, then
+postseasons that don't count (MLB and WNBA while they show a prior season). Within a tier: under way, then field set,
+then the champion week; ties go to one where you still have a team alive, then the league tab order (golf last). At most
+two show; the rest fold into a "More right now (N)" row naming them, which opens in place (`openHomeMore`, the folded
+items stagger in) and stays open until the next launch. Each source hands in an item (`draftHomeItem`,
+`postseasonHomeItems`, `golfMajorHomeItem`, `championHomeItem`, `seasonOverlapHomeItem`); every data update that used
+to repaint one slot calls `renderHomeStack` (`js/history.js` and `js/season-background.js` through
+`window.renderHomeStack`, since `js/board.js` imports them). The live draft banner, the peek banner and Since last time
+are outside it.
+
+**Home draft card** (`draftHomeItem` in `js/board.js`, `js/draft-schedule.js`): before a group's first draft
 (`ACTIVE_SEASON.preDraft`) Home leads with the draft's start time (or the time poll) in a highlighted card whose foot, "Enter the draft room",
 opens the live room (`main`), then a Mock Draft row; it hides
 the empty league sections. Any group gets the same card while a scheduled live draft is still ahead, so The Draft's
@@ -726,10 +739,10 @@ first look during the semifinals walks through each round before it. Until it ha
 (`bxPsReveal:<league>:<year>` in localStorage) there's no toggle. It holds Standings re-renders while it runs
 (`postseasonRevealBusy`), ends at once on the latest round on a toggle tap, a league switch or leaving the tab, and
 reduced motion skips straight there.
-Home leads with a gold "NFL Playoffs" card per league (`postseasonHomeHtml`, `#playoffs-home`) for the whole
+Home shows a gold "NFL Playoffs" card per league (`postseasonHomeItems`, in Home's stack) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
-A pre-draft group (`PRE_DRAFT`) gets no cards: `renderPlayoffsHome` leaves `#playoffs-home` empty until the draft is in.
+A pre-draft group (`PRE_DRAFT`) gets no cards: `renderHomeStack` leaves them out until the draft is in.
 A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
 that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.
 On the All tab there's no reveal: a league's card has its toggle, on Postseason, from the moment the field is set. The year label
@@ -771,10 +784,10 @@ league-wide, read from the league-level standings (`standings?level=1`, `parseNf
 white turned black (the orange stays). Its window is Sept 10 through October. While the WNBA is in
 `PRIOR_SEASON_DISPLAY_LEAGUES` it doesn't count, exactly as MLB above; once it leaves, "Reach the semifinals", "Reach
 the Finals" and "Win the Finals" score from the ladder.
-**Golf majors on Home** (`golfMajorHomeHtml` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
+**Golf majors on Home** (`golfMajorHomeItem` in `js/golf-view.js`, pure `activeMajor` / `majorPoints` /
 `majorGolfers` / `majorLeaders` / `pickWeekEvent` in `js/golf.js`, tested in `tests/golf.test.mjs`; plan in
 `docs/golf-majors-plan.md`): a group with PGA Tour on gets a card in Home's postseason stack (after those cards,
-`renderPlayoffsHome`, repainted through `onGolfData`) for each major from the Monday of its week until a week after its
+`renderHomeStack`, repainted through `onGolfData`) for each major from the Monday of its week until a week after its
 last round (`majorWindow`). During the week it reads the live leaderboard (`golfStore.current`); the week after, the
 finished major from the condensed season. Eyebrow "Starts Thu" / "Round 3" / "Final"; the leader or winner; for a
 drafter in a group whose golf scores (`majorsScore`: drafted, not scores-only, not a prior FedEx season) their golfers

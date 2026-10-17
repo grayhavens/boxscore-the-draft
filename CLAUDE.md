@@ -23,7 +23,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 ## Commands (all verified 2026-10-03 unless noted)
 
 - **Install:** none. `npx` fetches wrangler on demand.
-- **Test:** `node --test tests/*.test.mjs` (45 files, 405 tests, all pass, ~5s; 2026-10-16).
+- **Test:** `node --test tests/*.test.mjs` (46 files, 412 tests, all pass, ~5s; 2026-10-16).
 - **Dev, site:** `python3 -m http.server 8934` from the repo root, open `/index.html` (never `file://`). Use port
   8934: it's the only localhost origin the worker's CORS allowlist accepts. The `team-dashboard` launch config
   serves a mirror at `$TMPDIR/boxscorethedraft-preview`; re-sync it first:

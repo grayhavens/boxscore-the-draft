@@ -18,6 +18,7 @@ import { withGroupQuery } from './group.js';
 import { fetchJSON, escapeHtml, ordinal } from './utils.js';
 import { ACTIVE_SEASON, ACTIVE_SEASON_ID } from './season.js';
 import { rankStandings, placeLabel, championsOf, namesText, allTimeTable } from './champions.js';
+import { linkRowHtml } from './ui.js';
 
 const STORE_KEY = 'bxHistory';
 // How long Home shows the newest champion after it's recorded.
@@ -222,38 +223,32 @@ export function drafterTitlesHtml(drafterId){
 
 // ---- Home ----
 
-// For HOME_DAYS after the newest season the app recorded: who won it.
-export function renderChampionHome(){
-  const el = document.getElementById('champion-home');
-  if(!el) return;
+// For HOME_DAYS after the newest season the app recorded: who won it. An
+// item for Home's stack (js/home-stack-math.js), null when there's none.
+export function championHomeItem(){
   const season = seasons.find(s => s.source === 'app');
-  if(PRE_DRAFT || !season || Date.now() - (season.at || 0) > HOME_DAYS * 86400000){
-    el.innerHTML = '';
-    return;
-  }
+  if(PRE_DRAFT || !season || Date.now() - (season.at || 0) > HOME_DAYS * 86400000) return null;
   const ranked = rankStandings(season.standings);
   const champs = ranked.filter(s => s.rank === 1);
   const sub = [champs[0].pts === null ? '' : `${ptsText(champs[0].pts)} pts`, ...podiumParts(ranked)].filter(Boolean).join(' &middot; ');
-  el.innerHTML = `
-    <button type="button" class="act-link unseen" onclick="obOpenSegment('history')">
-      <span class="act-dot"></span>
-      <span class="act-link-body">
-        <span class="act-link-title">${championText(season)} ${champs.length > 1 ? 'share' : 'wins'} the ${escapeHtml(season.label)}</span>
-        ${sub ? `<span class="act-link-sub">${sub}</span>` : ''}
-      </span>
-      <span class="act-link-go">History &rsaquo;</span>
-    </button>
-  `;
+  const title = `${championsOf(season).map(s => s.name).join(' & ')} ${champs.length > 1 ? 'share' : 'wins'} the ${season.label}`;
+  return {
+    id: 'champion', tier: 'champion', title,
+    html: linkRowHtml({ titleHtml: `${championText(season)} ${champs.length > 1 ? 'share' : 'wins'} the ${escapeHtml(season.label)}`, subHtml: sub, go: 'History', unseen: true, onclick: "obOpenSegment('history')" })
+  };
 }
 
+// Home's stack is js/board.js's, reached through window since board.js
+// imports this module.
+const repaintHome = () => { if(window.renderHomeStack) window.renderHomeStack(); };
+
 export function refreshHistoryUi(){
-  renderChampionHome();
-  if(window.renderSeasonOverlapHome) window.renderSeasonOverlapHome();
+  repaintHome();
   const view = document.getElementById('view-overall');
   if(view && view.classList.contains('active') && window.renderOverallStandings) window.renderOverallStandings();
 }
 
 export function startHistory(){
-  renderChampionHome();
+  repaintHome();
   if(!PRE_DRAFT) loadHistory();
 }

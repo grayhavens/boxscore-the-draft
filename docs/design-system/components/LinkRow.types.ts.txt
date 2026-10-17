@@ -1,0 +1,11 @@
+export interface LinkRowProps {
+  title: React.ReactNode;
+  /** One line under the title, ellipsized. */
+  sub?: React.ReactNode;
+  /** The word before the › on the right ("History", "Open", "Show"). */
+  go?: string;
+  /** New to you: a gold dot before the title, bolder title, gold `go`. */
+  unseen?: boolean;
+  onClick?: () => void;
+}
+export function LinkRow(props: LinkRowProps): JSX.Element;

@@ -36,8 +36,9 @@ import { obRankedRows } from './overall.js';
 import { loadBonusInputs } from './compare.js';
 import { loadScoringPostseasons, postseasonStillPlaying } from './postseason.js';
 import { currentProfileId } from './identity.js';
-import { escapeHtml, ordinal } from './utils.js';
+import { ordinal } from './utils.js';
 import { FILTER_CHIP_LABELS } from './league-labels.js';
+import { linkRowHtml } from './ui.js';
 
 const FIRST_RUN_DELAY_MS = 20 * 1000;
 const RUN_GAP_MS = 30 * 60 * 1000;
@@ -123,8 +124,8 @@ window.addEventListener('message', event => {
 
 export function startSeasonBackground(){
   if(IS_SEASON_BACKGROUND) return;
-  renderSeasonOverlapHome();
-  onSeasonSummary(renderSeasonOverlapHome);
+  repaintHome();
+  onSeasonSummary(repaintHome);
   setTimeout(maybeRun, FIRST_RUN_DELAY_MS);
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'visible') maybeRun();
@@ -135,27 +136,23 @@ export function startSeasonBackground(){
 
 const leagueNames = keys => keys.map(k => FILTER_CHIP_LABELS[k] || k.toUpperCase()).join(', ');
 
-// js/history.js repaints it when History loads (a just-recorded season
-// takes the card away); through window, since this module imports that one.
-window.renderSeasonOverlapHome = () => renderSeasonOverlapHome();
+// Home's stack is js/board.js's, reached through window since board.js
+// imports this module. js/history.js repaints it too when History loads
+// (a just-recorded season takes this row away).
+const repaintHome = () => { if(window.renderHomeStack) window.renderHomeStack(); };
 
 window.openSeasonInPlay = () => {
   const id = seasonInPlay();
   if(id) setActiveSeason(id);
 };
 
-// One row on Home, the same recipe as the champion card below it
-// (js/history.js): "2026/27 is still being played", where you stand in
-// it and what's left. Gone once that season is recorded (the champion
-// card takes over) or the new year comes.
-export function renderSeasonOverlapHome(){
-  const el = document.getElementById('season-overlap-home');
-  if(!el) return;
+// One row on Home, the same LinkRow as the champion's (js/history.js):
+// "2026/27 is still being played", where you stand in it and what's left.
+// Gone once that season is recorded (the champion row takes over) or the
+// new year comes. An item for Home's stack (js/home-stack-math.js).
+export function seasonOverlapHomeItem(){
   const summary = inPlaySummary();
-  if(!summary){
-    el.innerHTML = '';
-    return;
-  }
+  if(!summary) return null;
   const me = summary.rows && summary.rows.find(r => r.id === currentProfileId);
   const pts = n => (n < 0 ? `−${Math.abs(n)}` : String(n));
   const stand = me ? `You’re ${ordinal(me.rank)}, ${pts(me.total)} pts` : '';
@@ -163,16 +160,8 @@ export function renderSeasonOverlapHome(){
   const left = !open ? '' : !open.length ? 'Every league is done'
     : `${open.length > 2 ? `${open.length} leagues` : leagueNames(open)} still playing`;
   const sub = [stand, left].filter(Boolean).join(' · ');
-  el.innerHTML = `
-    <button type="button" class="act-link" onclick="openSeasonInPlay()">
-      <span class="act-dot"></span>
-      <span class="act-link-body">
-        <span class="act-link-title">${escapeHtml(seasonLabel(summary.id))} is still being played</span>
-        ${sub ? `<span class="act-link-sub">${escapeHtml(sub)}</span>` : ''}
-      </span>
-      <span class="act-link-go">Open &rsaquo;</span>
-    </button>
-  `;
+  const title = `${seasonLabel(summary.id)} is still being played`;
+  return { id: 'last-season', tier: 'last-season', title, html: linkRowHtml({ title, sub, go: 'Open', onclick: 'openSeasonInPlay()' }) };
 }
 
 // ---- The background copy's side ----
