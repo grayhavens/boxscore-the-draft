@@ -260,6 +260,9 @@ function fourRounds(key, { second, rounds, roundShort, rungs, stages, champTitle
 // against the 2025 and 2026 Play-Ins (2026-10-16).
 const NBA_PLAY_IN = {
   byeSeeds: 6,
+  // The ladder shows just the Play-In at its stage: seeds 1-6 join at the
+  // field (js/postseason.js, ladderOf).
+  hideByes: true,
   // Not a series: seriesEvents passes these games through as they are.
   single: evt => /\bplay-in\b/i.test(evt.headline || ''),
   lifeline: evt => /7th Place vs 8th Place/i.test(evt.headline || ''),

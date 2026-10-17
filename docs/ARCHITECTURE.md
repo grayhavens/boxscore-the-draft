@@ -799,7 +799,8 @@ West columns like MLB's AL / NL (`sides`). Seeds are ESPN's per conference from 
 The NBA's **Play-In** comes first, as its own round (`NBA_PLAY_IN`): a Play-In rung under First Round and a "Play-In"
 scrubber stop before "Field" (`stops`). Its six games ("NBA Play-In - East - 7th Place vs 8th Place", "9th Place vs 10th
 Place", "8th Seed Game"; ESPN's `play-in-season`) stay single games (`single`, passed through `seriesEvents` as they are).
-Seeds 1-6 wait on First Round (`byeSeeds: 6`, "Bye" at the Play-In stage); the 7 v 8 loser plays again (`lifeline`), the
+Seeds 1-6 skip it (`byeSeeds: 6`) and the Play-In stage shows just the Play-In (`hideByes`: their chips wait, hidden,
+above the ladder and drop into First Round at the field; the reveal introduces the Play-In's eight); the 7 v 8 loser plays again (`lifeline`), the
 9 v 10 winner stays on the Play-In rung for the 8th Seed Game (`holds`), whose sides a replayed stage hides until that
 round is over (`after`). At the Play-In stage its teams show where they finished (`place`, from their first game: the
 higher place is at home); from the field on, the final standings' seeds (the Play-In's winners 7 and 8, losers 9 and 10).

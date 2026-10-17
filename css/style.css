@@ -3026,6 +3026,8 @@ body:has(#view-admin.admin-desk-on.active) .tab-bar{ display: none; }
    winner has left it; hidden ("off") it waits on the winner's spot. */
 .ps-chip.ghost{ transition-delay: 0ms, 220ms, 220ms; }
 .ps-chip.ghost.off{ opacity: 0; pointer-events: none; transition-delay: 0ms; transition-duration: 0ms; }
+/* The NBA's top six at its Play-In stage: hidden above the ladder until the field. */
+.ps-chip.waiting{ opacity: 0; pointer-events: none; }
 /* The echoes that trail a winner moving up (moveAheadFx). */
 .ps-echo{ position: absolute; left: 0; top: 0; width: 40px; display: flex; justify-content: center; pointer-events: none; transform-origin: 50% 13px; opacity: 0; }
 .ps-wide .ps-echo{ width: 52px; transform-origin: 50% 18px; }

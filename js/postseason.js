@@ -545,17 +545,27 @@ export function ladderWide(inAll){
 // beat; `ghosts` is every one the latest stage has, so the ladder keeps a
 // chip for each and the ones not shown yet wait, hidden, on their
 // winner's spot (ghostSpot).
+// The NBA's Play-In stage shows just the Play-In (`hideByes`): seeds 1-6
+// keep a chip, `waiting` (hidden) on their First Round spot above the
+// ladder, so moving on to the field brings them in.
 function ladderOf(key, S, D){
-  const teams = ladderTeams(key, S);
+  const teams = ladderTeams(key, S).map(t => S.L.hideByes && t.bye ? { ...t, waiting: true } : t);
   const shown = ladderGhosts(teams, S);
   const ghosts = S.isLatest ? shown : ladderGhosts(teams, snap(key, S.latest));
-  const placed = teams.concat(shown);
-  const top = topRung(teams);
+  const visible = teams.filter(t => !t.waiting);
+  const placed = visible.concat(shown);
+  const top = topRung(visible);
   const opts = { rungH: D.rungH, rowH: D.rowH, perRow: D.perRow, pairGap: D.pairGap, top, games: S.games, sides: S.L.sides || null };
+  const layout = list => ladderLayout(list, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N });
+  const pos = layout(placed);
+  // The waiting take no room: their spot is the one they'd have with everyone in.
+  if(visible.length < teams.length){
+    const all = layout(teams.concat(shown));
+    teams.forEach(t => { if(t.waiting) pos[t.id] = all[t.id]; });
+  }
   return {
     teams, ghosts, shown: new Set(shown.map(g => g.id)), top,
-    geo: ladderGeometry(placed, { ...opts, rungs: S.N + 1 }),
-    pos: ladderLayout(placed, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N })
+    geo: ladderGeometry(placed, { ...opts, rungs: S.N + 1 }), pos
   };
 }
 
@@ -578,6 +588,7 @@ function chipView(t, pos, spot, D){
   if(spot && t.owner !== spot) cls.push('dim');
   if(t.teamKey) cls.push('tap');
   if(t.ghostOf) cls.push('ghost');
+  if(t.waiting) cls.push('waiting');
   const x = p.x != null ? `${p.x}px` : laneX(p.fx, (p.dx || 0) - D.chipW / 2);
   return { cls: cls.join(' '), transform: `translate(${x}, ${p.y}px) scale(${scale})` };
 }
@@ -725,7 +736,7 @@ export function postseasonCardHtml(key, wide = false){
       ${sidesHtml(S)}
       <div class="ps-ladder${S.L.sides ? ' sided' : ''}" style="height:${geo.height}px">
         ${rungs}
-        <div class="ps-pairs">${pairsHtml(teams.concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D)}</div>
+        <div class="ps-pairs">${pairsHtml(teams.filter(t => !t.waiting).concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D)}</div>
         ${teams.map(t => chipHtml(key, t, pos, spot, D)).join('')}
         ${L.ghosts.map(g => { const v = ghostView(g, L, spot, D); return v ? chipHtml(key, g, pos, spot, D, v) : ''; }).join('')}
         ${teams.length ? '' : '<div class="ps-empty">No drafted teams made the field.</div>'}
@@ -850,7 +861,7 @@ function paint(key){
     r.style.height = `${geo.heights[k]}px`;
   });
   const pairs = el.querySelector('.ps-pairs');
-  const pairsNow = pairsHtml(teams.concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D);
+  const pairsNow = pairsHtml(teams.filter(t => !t.waiting).concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D);
   if(pairs && pairs.dataset.html !== pairsNow){
     pairs.innerHTML = pairsNow;
     pairs.dataset.html = pairsNow;
