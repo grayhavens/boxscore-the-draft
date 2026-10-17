@@ -179,8 +179,10 @@ function cacheFor(key, year = postseasonYear(key)){
     const saved = JSON.parse(localStorage.getItem(`${STORE_KEY}:${key}:${year}`));
     if(saved && saved.data){
       c.data = saved.data;
-      // Saved before the league logo was part of it: fetch again.
-      c.fetchedAt = 'logo' in saved.data ? saved.fetchedAt || 0 : 0;
+      // Saved before the league logo was part of it, or (the NBA) before
+      // the Play-In was: fetch again.
+      const noPlayIn = key === 'nba' && saved.data.events.length && !saved.data.events.some(e => /play-in/i.test(e.headline || ''));
+      c.fetchedAt = 'logo' in saved.data && !noPlayIn ? saved.fetchedAt || 0 : 0;
       c.bracket = buildBracket(key, saved.data.events, saved.data.seeds);
     }
   } catch (e){}
