@@ -107,7 +107,7 @@ const SECTIONS = [
 const APP_ROWS = [
   {
     id: 'home', icon: 'home', title: 'Home',
-    lead: 'Your teams, their form and next game. Tap any team for its page. The two most important things right now (playoffs, a major, last season still being played) sit above your teams; the rest wait under More right now.',
+    lead: 'Your teams, their form and next game. Tap any team for its page, and swipe in from the left edge to come back. The two most important things right now (playoffs, a major, last season still being played) sit above your teams; the rest wait under More right now.',
     pre: { lead: 'The draft countdown and the way in. Your teams show here after.' },
     go: ['Go to Home', "switchView('board')"]
   },
@@ -152,7 +152,7 @@ const APP_ROWS = [
   },
   {
     id: 'settings', icon: 'gear', title: 'Settings',
-    lead: 'The gear up top: who you are, light or dark, the tab the app opens to. Commissioner sign-in is at the bottom.',
+    lead: 'The gear up top: who you are, light or dark, the tab the app opens to. Text follows your iPhone’s text size. Commissioner sign-in is at the bottom.',
     go: ['Back to Settings', 'backToSettings()']
   }
 ];

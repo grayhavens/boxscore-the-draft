@@ -2,9 +2,14 @@
 :root{
   --font-display: 'Space Grotesk', sans-serif;
   --font-ui: 'Manrope', sans-serif;
-  --fs-10: 10px; --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-15: 15px;
-  --fs-16: 16px; --fs-17: 17px; --fs-18: 18px; --fs-20: 20px; --fs-22: 22px; --fs-24: 24px; --fs-30: 30px;
-  --fs-hero: 40px;
+  /* In rem on the system body size (17px by default), so type follows the
+     iPhone's text size; 11px floor, tab labels fixed at 10px. */
+  --fs-10: calc(11rem / 17); --fs-11: calc(11rem / 17); --fs-12: calc(12rem / 17); --fs-13: calc(13rem / 17);
+  --fs-14: calc(14rem / 17); --fs-15: calc(15rem / 17); --fs-16: calc(16rem / 17); --fs-17: 1rem;
+  --fs-18: calc(18rem / 17); --fs-20: calc(20rem / 17); --fs-22: calc(22rem / 17); --fs-24: calc(24rem / 17);
+  --fs-30: calc(30rem / 17);
+  --fs-hero: calc(40rem / 17);
+  --fs-tab: 10px;
   --track-tight: -0.02em; --track-snug: -0.01em;
   --track-tag: 0.06em; --track-label: 0.08em;
 

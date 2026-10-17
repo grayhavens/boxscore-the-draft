@@ -28,6 +28,14 @@ export function releaseDirection(d, v, { commit, fling = Infinity }){
   return 0;
 }
 
+// Whether an edge swipe that let go at `dx` px moving `vx` px/ms goes back:
+// past `commit` (a fraction of `width`) or flung rightward. A flick back to
+// the left cancels it however far it got, as on iOS.
+export function edgeBackCommits(dx, vx, width, { commit, fling = Infinity }){
+  if(dx <= 0 || vx <= -fling) return false;
+  return releaseDirection(dx, vx, { commit: width * commit, fling }) === 1;
+}
+
 // Velocity (px/ms) over the last `windowMs` of [{ t, x, y }] samples.
 export function velocity(samples, axis, windowMs = 100){
   if(samples.length < 2) return 0;

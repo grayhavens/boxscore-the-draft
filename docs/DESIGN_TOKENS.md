@@ -19,7 +19,7 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--surface` | `#16171B` | `#FFFFFF` | cards |
 | `--surface-2` | `#1C1D21` | `#ECEAE4` | raised |
 | `--sheet` | `#18191D` | `#FFFFFF` | sheets/modals |
-| `--text` / `--text-sub` / `--text-mute` | `#F3F4F6` / `#94969E` / `#64666E` | `#16171B` / `#5B5D66` / `#8A8C94` | ink tiers |
+| `--text` / `--text-sub` / `--text-mute` | `#F3F4F6` / `#A3A5AD` / `#8A8C94` | `#16171B` / `#4E5059` / `#6B6D76` | ink tiers; mute is the floor for text (4.5:1 or better on cards) |
 | `--hairline` / `--hairline-strong` | ink 7% / 14% | same formula | borders |
 | `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
@@ -48,7 +48,12 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
 
 - Families: `--font-display` Space Grotesk (titles, scores, numbers, tab labels); `--font-ui` Manrope (UI, body).
   Loaded from Google Fonts (Space Grotesk 500–700, Manrope 400–800). Numerals tabular.
-- Sizes: `--fs-10 … --fs-30` (10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 30), `--fs-hero` 40px.
+- Sizes: `--fs-11 … --fs-30` (11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 30 at the default text size), `--fs-hero` 40.
+  All in rem as `calc(Npx-value rem / 17)`: 1rem is the reader's body size (`font: -apple-system-body` on phones and
+  tablets, so the iPhone's Text Size setting scales the app; 17/16 of the browser default elsewhere). `--fs-10` is
+  kept as a name but is 11, the floor (Apple's Caption 2). `--fs-tab` 10px stays fixed, like the system tab bar.
+  Literal font sizes are for display numerals and crest monograms only; `tests/type-scale.test.mjs` fails any token
+  outside rem, any size under 11px, and any literal under 11px that isn't a badge or tile monogram.
 - Tracking: `--track-tight` −0.02em, `--track-snug` −0.01em, `--track-tag` 0.06em, `--track-label` 0.08em.
 - Roles (shorthand `font`): `--type-page-title` 700 30/1 display; `--type-sheet-title` 700 20/1.2; `--type-section`
   700 15/1.2; `--type-body` 500 15/1.38 ui; `--type-row-title` 700 17/1.15; `--type-sub` 500 13/1.4; `--type-meta`
@@ -57,7 +62,8 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
 ## Spacing, radii, layout
 
 - Space: `--space-1 … --space-11` = 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24px.
-- Page padding `--page-pad`: 24px, 16px at ≤700px. Tab bar `--nav-h` 58px (+ safe area). `--hit-min` 44px.
+- Page padding `--page-pad`: 24px, 16px at ≤700px. Tab bar: a `--tab-bar-h` 60px capsule; `--nav-h` 68px is the room
+  it takes above the safe area. Title bar `--title-bar-h` 44px (0 at ≥900px). `--hit-min` 44px.
 - Radii: `--r-xs` 6, `--r-sm` 10, `--r-md` 14, `--r-lg` 20, `--r-sheet` 28, `--r-pill` 999; `--r-badge` 13,
   `--r-badge-sm` 8, `--r-table` 16, `--r-hero` 18, `--r-cta` 12, `--r-seg` 11, `--r-seg-thumb` 8.
 
@@ -77,7 +83,11 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
 - `seasonEntryHtml` (`js/ui.js`, not in the design system yet): the full-screen "building your season" moment after a draft
   (`js/season-entry.js`). Composed from existing parts: Welcome-card eyebrow, page title role, 44px `.badge`s in
   `--fill-soft` wells, a split-bar-shaped track filled with `--accent-fill`, and `.modal-cta` buttons.
-- Blur only on the tab bar and sheet overlay.
+- Blur only on the tab bar, the title bar and the sheet overlay.
+- Glass (`--glass-bar`, `--glass-blur`, `--glass-edge`, `--glass-shadow`, `--glass-rule`): the material for floating
+  controls only, the phone tab bar and the title bar, never cards or content. Reduce Transparency makes it solid
+  `--surface`. The tab bar's selection is `--tab-lens`, behind both icon and label; `--tab-pill` is now only the
+  landing tour's.
 - Tip (`tipHtml`): `--tip-bg` (→ `--sheet`) and `--tip-ink` (→ `--text`), aliases so they follow the theme; floats, so it
   takes `--shadow-tip`.
 
@@ -142,16 +152,20 @@ draft room, team page, race chart (per the plan). Every spec component a screen 
 
 ## Layout and interaction patterns
 
-- **Navigation:** bottom tab bar (Home, Scores, Chat raised center, Standings, Points); Settings via header gear. View
+- **Navigation:** a floating glass tab bar (Home, Scores, Chat, Standings, Points); the selected tab is gold with a
+  filled or heavier glyph (`.on-fill` shapes in `index.html`) and `aria-current="page"`. Settings via header gear. Once
+  a tab's large title scrolls under the status bar, a glass title bar shows it small and centered with the gear
+  (`.title-bar`, `js/page-header.js`); sticky rows park under it with `--title-bar-h`. View
   state in the URL (`?view=`, `?seg=`, `?tp=`, `?screen=`). Tab switch slides toward the tapped tab; pushed screens
   (team page, schedule, squad, settings, guide, draft) slide in from the right with a back link naming the return.
+  The team page, schedule and squad also go back with a swipe from the left edge (`EDGE_BACK` in `js/utils.js`).
   Same-document View Transitions (`navigate(kind, update)` in `js/motion.js`).
 - **Sheets:** bottom sheets on phones, centered modals on desktop (`js/sheet.js`: `openSheetOverlay`,
   `closeSheetOverlay`, `enableSheetSwipeToDismiss`, body scroll lock). Overlay `--overlay`.
 - **Team page:** 300px hero with team orb, folds into a compact bar on scroll; swipe sideways between your teams;
   crest-to-page shared element transition.
 - **Gestures:** `js/gestures.js` (`attachDrag`, axis lock); constants `LONG_PRESS_MS` 380, `MOVE_SLOP` 8,
-  `SWIPE_COMMIT` {team 70, card 90, reply 52}, `FLING_VELOCITY` 0.6. Long press for chat reactions; pull to refresh
+  `SWIPE_COMMIT` {team 70, card 90, reply 52}, `FLING_VELOCITY` 0.6, `EDGE_BACK` {edge 24px, commit 0.35 of the width}. Long press for chat reactions; pull to refresh
   (`js/pull-refresh.js`) with the brand mark.
 - **Desktop (≥900px):** the wide shell (`js/wide.js`): a top header instead of the tab bar, the team rail on the left
   (`--rail-w`), chat as a slide-over (900–1279px) or a column (1280px+, `--chat-w`). Pages start at the content's left
@@ -161,7 +175,7 @@ draft room, team page, race chart (per the plan). Every spec component a screen 
   `--fill-soft`; behind `(hover: hover)` (or phone widths) so a touch iPad doesn't keep a tapped row lit. Selection is
   an `--accent-soft` fill (`--accent-border` where it has an edge), never a stripe. Pushed pages (team page, Settings,
   the guide) carry a back link and leave no header tab selected.
-- **Safe area:** fixed `.safe-area-top` cover for the iOS translucent status bar; sticky filter rows bleed to edges
-  with `--page-pad`.
+- **Safe area:** fixed `.safe-area-top` cover for the iOS translucent status bar (hidden while the title bar covers
+  the strip); sticky filter rows bleed to edges with `--page-pad`.
 - **Callouts:** soft tint fill + matching 1px border + colored text, radius 10; never a left-border stripe.
 - **Copy:** sentence case, uppercase only for tiny tags, middot separators, real minus signs, no emoji in UI.

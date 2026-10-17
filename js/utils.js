@@ -237,6 +237,10 @@ export const SWIPE_COMMIT = { team: 70, card: 90, reply: 52 };
 export const FLING_VELOCITY = 0.6;
 export const RUBBER_BAND = { team: 0.6, pull: 0.5, reply: 0.55 };
 export const SNAP_BACK_MS = 520;
+// Swipe from the left edge to go back (js/team-page.js): starts within
+// `edge` px of the screen's left side, and goes back once it's dragged
+// `commit` of the screen's width or flung right.
+export const EDGE_BACK = { edge: 24, commit: 0.35 };
 
 // Tween a number inside `el` from `from` to `to` (cubic ease-out); `fmt`
 // builds the HTML for each frame. Lands on `to` exactly. A later call on

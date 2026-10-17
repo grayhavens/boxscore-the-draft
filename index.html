@@ -129,10 +129,10 @@
     <div class="tp-clip"><div id="team-page-content"></div></div>
   </div>
   <div id="view-team-schedule" class="view view-push-in">
-    <div id="team-schedule-content"></div>
+    <div class="tp-clip"><div id="team-schedule-content"></div></div>
   </div>
   <div id="view-team-squad" class="view view-push-in">
-    <div id="team-squad-content"></div>
+    <div class="tp-clip"><div id="team-squad-content"></div></div>
   </div>
 
   <!-- Settings page (js/identity.js renders it, js/board.js pushes it). -->
@@ -280,11 +280,11 @@
      hidden and nothing changes. -->
 <nav class="wide-rail" id="wide-rail" aria-label="Your teams"></nav>
 
-<nav class="tab-bar">
+<nav class="tab-bar" aria-label="Sections">
   <span class="tab-pill" aria-hidden="true"></span>
   <span class="wide-brand"><span class="wide-brand-name" data-group-name>The Draft</span><span class="wide-brand-sub">Boxscore</span></span>
-  <button class="tab-btn active" data-view="board" onclick="switchView('board')">
-    <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg></span>
+  <button class="tab-btn active" data-view="board" onclick="switchView('board')" aria-current="page">
+    <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect class="on-fill" x="3" y="3" width="8" height="8" rx="2"></rect><rect class="on-fill" x="13" y="3" width="8" height="8" rx="2"></rect><rect class="on-fill" x="3" y="13" width="8" height="8" rx="2"></rect><rect class="on-fill" x="13" y="13" width="8" height="8" rx="2"></rect></svg></span>
     <span class="tab-label">Home</span>
   </button>
   <button class="tab-btn" data-view="live-now" onclick="switchView('live-now')">
@@ -293,7 +293,7 @@
   </button>
   <button class="tab-btn chat-hit" data-view="chat" onclick="switchView('chat')" aria-label="Chat">
     <span class="tab-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="on-fill" d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3.5 20.5l1.6-4.9A8.4 8.4 0 1 1 21 11.5z"></path></svg>
       <span class="chat-badge count-badge"></span>
     </span>
     <span class="tab-label">Chat</span>
@@ -303,7 +303,7 @@
     <span class="tab-label">Standings</span>
   </button>
   <button class="tab-btn" data-view="overall" onclick="switchView('overall')">
-    <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 21v-9.5h5V21"></path><path d="M3 21v-6h6.5"></path><path d="M14.5 21H21v-8h-6.5"></path><path d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg></span>
+    <span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path class="on-fill" d="M9.5 21v-9.5h5V21z"></path><path class="on-fill" d="M3 21v-6h6.5V21z"></path><path class="on-fill" d="M14.5 21H21v-8h-6.5z"></path><path class="on-fill" d="M12 3l1.6 2.6L16.5 6l-2 2.1.5 2.9-3-1.5-3 1.5.5-2.9L7.5 6l2.9-.4z"></path></svg></span>
     <span class="tab-label">Points</span>
   </button>
   <span class="wide-actions">

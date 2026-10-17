@@ -28,8 +28,9 @@
   --surface-2: #1C1D21;
   --sheet: #18191D;
   --text: #F3F4F6;
-  --text-sub: #94969E;
-  --text-mute: #64666E;
+  --text-sub: #A3A5AD;
+  /* 5.3:1 on --surface, so small muted labels stay readable (HIG contrast). */
+  --text-mute: #8A8C94;
   --hairline: rgba(var(--ink-rgb),0.07);
   --hairline-strong: rgba(var(--ink-rgb),0.14);
   --accent: #D9B45B;
@@ -63,15 +64,17 @@
   --lb-ink-strong: #FFFFFF;
   --lb-ink-2: #E6E7EB;
   --lb-ink-3: #C7C9D1;
-  --lb-rank-mid: #9C9EA6;
-  --lb-rank-low: #5E6068;
+  --lb-rank-mid: #A3A5AD;
+  --lb-rank-low: #8A8C94;
   --lb-stroke: #4A4C54;
   --lb-divider: rgba(var(--ink-rgb),0.05);
   --lb-accent-wash: rgba(217,180,91,0.07);
   --lb-accent-wash-border: rgba(217,180,91,0.30);
   --record: #9AA5B5;
   --record-soft: rgba(154,165,181,0.16);
-  --nav-h: 58px;
+  --nav-h: 68px;      /* room the floating tab bar takes above the safe area */
+  --tab-bar-h: 60px;
+  --title-bar-h: 44px; /* the title bar that appears on scroll (phones; 0 in the wide layout) */
   /* Body's own horizontal padding — pulled into a variable so
      .standings-filter-row (see below) can bleed its sticky background
      out to the real screen edges instead of stopping at this inset,
@@ -108,8 +111,8 @@
   --surface-2: #ECEAE4;
   --sheet: #FFFFFF;
   --text: #16171B;
-  --text-sub: #5B5D66;
-  --text-mute: #8A8C94;
+  --text-sub: #4E5059;
+  --text-mute: #6B6D76;
   --accent: #85660C;
   --accent-fill: #E2B84A;
   /* Gold tints and glows are the fill gold (--accent-fill), so they read
@@ -131,8 +134,8 @@
   --lb-ink-strong: #0B0C0F;
   --lb-ink-2: #22242A;
   --lb-ink-3: #3F414A;
-  --lb-rank-mid: #6B6D76;
-  --lb-rank-low: #9A9CA4;
+  --lb-rank-mid: #4F515A;
+  --lb-rank-low: #6B6D76;
   --lb-stroke: #C9C7BF;
   --lb-accent-wash: rgba(226,184,74,0.12);
   --lb-accent-wash-border: rgba(205,160,45,0.4);
@@ -163,8 +166,8 @@
   --surface-2: #ECEAE4;
   --sheet: #FFFFFF;
   --text: #16171B;
-  --text-sub: #5B5D66;
-  --text-mute: #8A8C94;
+  --text-sub: #4E5059;
+  --text-mute: #6B6D76;
   --accent: #85660C;
   --accent-fill: #E2B84A;
   --accent-soft: rgba(226,184,74,0.2);
@@ -184,8 +187,8 @@
   --lb-ink-strong: #0B0C0F;
   --lb-ink-2: #22242A;
   --lb-ink-3: #3F414A;
-  --lb-rank-mid: #6B6D76;
-  --lb-rank-low: #9A9CA4;
+  --lb-rank-mid: #4F515A;
+  --lb-rank-low: #6B6D76;
   --lb-stroke: #C9C7BF;
   --lb-accent-wash: rgba(226,184,74,0.12);
   --lb-accent-wash-border: rgba(205,160,45,0.4);
@@ -200,8 +203,18 @@
 :root{
   --font-display: 'Space Grotesk', sans-serif;
   --font-ui: 'Manrope', sans-serif;
-  --fs-10: 10px; --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-15: 15px;
-  --fs-16: 16px; --fs-17: 17px; --fs-18: 18px; --fs-20: 20px; --fs-22: 22px; --fs-24: 24px; --fs-30: 30px;
+  /* Type sizes follow the iPhone's text size setting (Dynamic Type). 1rem is
+     the system body size: 17px by default, larger or smaller with Settings >
+     Display > Text Size (html in css/style.css). Each step is its px value at
+     the default, so calc(15rem / 17) is 15px until the reader changes it.
+     11px is the floor (Apple's Caption 2): --fs-10 is kept as a name so old
+     rules still read, but it is 11 now. --fs-tab stays 10px and fixed, like
+     the system tab bar's labels. */
+  --fs-10: calc(11rem / 17); --fs-11: calc(11rem / 17); --fs-12: calc(12rem / 17); --fs-13: calc(13rem / 17);
+  --fs-14: calc(14rem / 17); --fs-15: calc(15rem / 17); --fs-16: calc(16rem / 17); --fs-17: 1rem;
+  --fs-18: calc(18rem / 17); --fs-20: calc(20rem / 17); --fs-22: calc(22rem / 17); --fs-24: calc(24rem / 17);
+  --fs-30: calc(30rem / 17);
+  --fs-tab: 10px;
   --track-tight: -0.02em; --track-snug: -0.01em;
   --track-tag: 0.06em; --track-label: 0.08em;
   --r-xs: 6px; --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-sheet: 28px; --r-pill: 999px;
@@ -262,6 +275,39 @@
   }
 }
 
+/* Glass: the material for floating controls only (the tab bar, the title
+   bar that appears on scroll), never for cards or other content. A
+   translucent base, a blur that picks up what scrolls under it, a thin edge
+   and a soft lift. With Reduce Transparency on it turns into a solid
+   surface. */
+:root{
+  --glass-bar: rgba(30,31,36,0.62);
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-edge: rgba(255,255,255,0.14);
+  --glass-shadow: 0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  --glass-rule: rgba(255,255,255,0.10);   /* the title bar's bottom edge */
+  --tab-lens: rgba(var(--ink-rgb),0.10);
+}
+:root[data-theme="light"]{
+  --glass-bar: rgba(252,252,250,0.72);
+  --glass-edge: rgba(20,22,28,0.10);
+  --glass-shadow: 0 8px 24px rgba(20,22,28,0.14), inset 0 1px 0 rgba(255,255,255,0.8);
+  --glass-rule: rgba(20,22,28,0.10);
+  --tab-lens: rgba(var(--ink-rgb),0.07);
+}
+@media (prefers-color-scheme: light){
+  :root[data-theme="auto"]{
+    --glass-bar: rgba(252,252,250,0.72);
+    --glass-edge: rgba(20,22,28,0.10);
+    --glass-shadow: 0 8px 24px rgba(20,22,28,0.14), inset 0 1px 0 rgba(255,255,255,0.8);
+    --glass-rule: rgba(20,22,28,0.10);
+    --tab-lens: rgba(var(--ink-rgb),0.07);
+  }
+}
+@media (prefers-reduced-transparency: reduce){
+  :root, :root[data-theme]{ --glass-bar: var(--surface); --glass-blur: none; }
+}
+
 /* Body's own horizontal padding at phone width (--page-pad, above). */
 @media (max-width: 700px){
   :root{ --page-pad: 16px; }
@@ -277,6 +323,9 @@
   --wide-pad: 32px;
   --chat-w: 0px;
   --chat-over-w: 380px;
+}
+@media (min-width: 900px){
+  :root{ --title-bar-h: 0px; }
 }
 @media (min-width: 1280px){
   :root{ --chat-w: 340px; }
@@ -313,7 +362,7 @@
   --status-provisional: var(--provisional);
   --status-locked: var(--accent);
   /* Type roles */
-  --fs-hero: 40px;
+  --fs-hero: calc(40rem / 17);
   --type-page-title: 700 var(--fs-30)/1 var(--font-display);
   --type-sheet-title: 700 var(--fs-20)/1.2 var(--font-display);
   --type-section: 700 var(--fs-15)/1.2 var(--font-display);
