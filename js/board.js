@@ -476,7 +476,7 @@ export { LEAGUE_FULL_LABELS };
 // 2026 -> "26": the draft class's year, as the season labels write it.
 const shortYear = y => String(y).slice(-2);
 
-// NFL, CFB, College BB, MLB and WNBA get a slot for the Regular | Postseason switch once a
+// NFL, CFB, College BB, MLB, WNBA, NBA and NHL get a slot for the Regular | Postseason switch once a
 // playoff field is set (js/postseason.js), filled once the playoffs reveal
 // (js/postseason-reveal.js) has introduced it; the season label moves under
 // the name to make room. `afterHtml` sits below the card (the postseason's drafted
@@ -524,7 +524,7 @@ function leagueBlockHtml(league, bodyHtml, { afterHtml = '', span = false, contr
   return afterHtml ? `<div class="ps-stack">${cardHtml}${afterHtml}</div>` : cardHtml;
 }
 
-// NFL / CFB / College BB / MLB / WNBA: the ladder in place of the card's body while Postseason is
+// NFL / CFB / College BB / MLB / WNBA / NBA / NHL: the ladder in place of the card's body while Postseason is
 // picked; otherwise null, and the card renders as it always has.
 // Wide (a league picked on its own, ladderWide): the bigger ladder with
 // the drafted table beside it, in one full-width card. The All overview
@@ -1003,13 +1003,11 @@ export function renderStandings(){
       return leagueBlockHtml(league, bodyHtml);
     }
 
-    if(league.key === 'nba') return renderFlatLeagueBlock(league, flatApi('nba'));
-    if(league.key === 'nhl') return renderFlatLeagueBlock(league, flatApi('nhl'));
-    if(league.key === 'mlb'){
+    if(league.key === 'nba' || league.key === 'nhl' || league.key === 'mlb'){
       const post = postseasonBlockHtml(league);
       if(post) return post;
+      return renderFlatLeagueBlock(league, flatApi(league.key));
     }
-    if(league.key === 'mlb') return renderFlatLeagueBlock(league, flatApi('mlb'));
     // PGA Tour: the FedEx Cup table (js/golf-view.js).
     if(league.key === 'pga') return leagueBlockHtml(league, pgaStandingsBodyHtml());
 

@@ -79,7 +79,7 @@ export function postseasonRevealBusy(){ return !!run; }
 // After each Standings render: start the reveal if this league's tab is
 // showing, its field is set and this device hasn't seen it.
 export function maybeStartPostseasonReveal(container, filterKey){
-  if(run || !['nfl', 'cfb', 'mcbb', 'mlb', 'wnba'].includes(filterKey)) return;
+  if(run || !['nfl', 'cfb', 'mcbb', 'mlb', 'wnba', 'nba', 'nhl'].includes(filterKey)) return;
   const key = filterKey;
   if(!bracketFor(key) || revealSeen(key)) return;
   if(reducedMotion()){
@@ -129,10 +129,12 @@ function titleHtml(text){
 function start(key, card){
   markRevealSeen(key);
   const S = snap(key, 0);
-  const nfl = key === 'nfl', ncaa = key === 'mcbb', byLeague = nfl || key === 'mlb';
-  const teams = ladderTeams(key, S);
+  const nfl = key === 'nfl', ncaa = key === 'mcbb', byLeague = nfl || ['mlb', 'nba', 'nhl'].includes(key);
+  // The NBA's opens on its Play-In alone (`hideByes`): seeds 1-6 come at the field.
+  const teams = ladderTeams(key, S).filter(t => !(S.L.hideByes && t.bye));
   const seed = t => t.seed ?? 99;
-  // Hero order: the AFC then the NFC (MLB: the AL then the NL), each by
+  // Hero order: the AFC then the NFC (MLB: the AL then the NL; the NBA and
+  // NHL: East then West), each by
   // seed (seeds 1-6, 7-12 for the CFP; the WNBA's 1-4, 5-8); the NCAA's
   // drafted teams by seed, then region.
   const hero = teams.slice().sort((a, b) => byLeague ? (a.conf || '').localeCompare(b.conf || '') || seed(a) - seed(b)
@@ -148,9 +150,10 @@ function start(key, card){
   const title = postseasonTitle(key);
   const lockup = !!(logo && logo.lockup);
   // Seven badges to a row (six for the CFP's and MLB's 12, four for the
-  // WNBA's 8); the NCAA's can need more than two rows, and the strip grows
-  // to fit them.
-  const cols = key === 'cfb' || key === 'mlb' ? 6 : key === 'wnba' ? 4 : 7;
+  // WNBA's 8 and the NBA's Play-In, eight for the NHL's 16, a conference a
+  // row); the NCAA's can need more than two rows, and the strip grows to
+  // fit them.
+  const cols = key === 'cfb' || key === 'mlb' ? 6 : key === 'wnba' || key === 'nba' ? 4 : key === 'nhl' ? 8 : 7;
   const gridH = Math.max(2, Math.ceil(hero.length / cols)) * HERO_ROW + 10;
   header.insertAdjacentHTML('afterend', `
     <div class="ps-hero${nfl ? '' : ' long'}${logo ? ' with-logo' : ''}" style="--ps-hero-grid:${gridH}px;--ps-hero-h:${250 + gridH - 110}px">

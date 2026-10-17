@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, ladderGeometry
 } from '../js/postseason-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/postseason-wnba.json'), 'utf8'));
@@ -111,4 +111,43 @@ test('A WNBA postseason that doesn’t count: no rules, so nothing banked or in 
   const S = snapshot(bracket(2026), 1, { rules: [] });
   assert.equal(S.milestones.length, 0);
   assert.ok(S.teams.every(t => t.banked === 0 && t.inPlay === 0));
+});
+
+test('WNBA: each series over keeps its count, by the team that lost it', () => {
+  const b = bracket(2025);
+  const at = stage => seriesResults(snapshot(b, stage)).map(r => `${r.loser.abbr} ${r.lost}-${r.won}`).sort();
+  // Before a game: nothing. After the first round: its four series.
+  assert.deepEqual(at(0), []);
+  assert.equal(at(1).length, 4);
+  // The whole postseason: 4 + 2 + 1, the Finals a sweep.
+  const all = seriesResults(snapshot(b, latestStage(b)));
+  assert.equal(all.length, 7);
+  const finals = all.find(r => r.game.round === 3);
+  assert.equal(seriesResultLine(finals), 'LV won 4\u20130');
+  assert.ok(all.every(r => r.won === r.game.need && r.lost < r.won));
+});
+
+test('WNBA ladder: each series over keeps its pair, the winner’s ghost beside the team it beat', () => {
+  const b = bracket(2025);
+  const S = snapshot(b, latestStage(b));
+  const ghosts = ladderGhosts(S.teams, S);
+  // One per series over (4 + 2 + 1), on the round it was won, out of play.
+  assert.equal(ghosts.length, 7);
+  assert.ok(ghosts.every(g => g.rung === g.ghostRound - 1 && !g.alive && S.teams.some(t => t.id === g.ghostOf)));
+  const placed = S.teams.concat(ghosts);
+  const pairs = matchups(placed, S.games);
+  // Every series pairs up on its own round: ghost and the team it beat.
+  assert.equal(pairs.length, 7);
+  assert.ok(pairs.every(p => p.game.final && p.filter(t => t.ghostOf).length === 1 && p[0].rung === p.game.round - 1));
+  // Without the ghosts a series over never pairs (the winner moved up).
+  assert.equal(matchups(S.teams, S.games).length, 0);
+  // Both sides of each pair share a row, so the count sits between them,
+  // and eight chips on the first round still fit its rung (two rows).
+  const pos = ladderLayout(placed, { games: S.games, top: 3, champRung: 3 });
+  assert.ok(pairs.every(p => pos[p[0].id].y === pos[p[1].id].y));
+  const geo = ladderGeometry(placed, { games: S.games, top: 3, rungs: 4 });
+  assert.equal(geo.rows[0].length, 2);
+  assert.equal(geo.heights[0], 84);
+  // Before a game, no ghosts.
+  assert.equal(ladderGhosts(S.teams, snapshot(b, 0)).length, 0);
 });

@@ -1,6 +1,6 @@
 /* ============================================================
    Postseason ladder (Standings → NFL / College FB / College BB / MLB /
-   WNBA → Postseason), and the team page's Postseason section. Design: the
+   WNBA / NBA / NHL → Postseason), and the team page's Postseason section. Design: the
    "Postseason standings" handoff (Regular | Postseason toggle + Ladder,
    direction 4a/4b), and its NCAA Tournament addendum (option 3a).
 
@@ -17,9 +17,10 @@
    each stage's view by the pure js/postseason-math.js. It's only fetched
    while that league's postseason can be on (football December through
    February, the NCAA Tournament March and April, MLB late September
-   through November); local dev and Pages previews can replay any winter
-   with ?psyear=2025 (the 2025 MLB postseason, NFL playoffs and CFP, and
-   the NCAA Tournament of March 2026).
+   through November, the NBA and NHL mid-April through June); local dev
+   and Pages previews can replay any winter with ?psyear=2025 (the 2025
+   MLB postseason, NFL playoffs and CFP, the NCAA Tournament of March
+   2026 and the 2026 NBA and NHL playoffs).
 
    College Basketball differs in a few ways. Its ladder shows only drafted
    teams (68 chips would bury them), on a rung per round, the first rung
@@ -49,7 +50,7 @@
    the bracket hasn't changed.
    ============================================================ */
 import { TEAM_META, DRAFT_TEAMS, LEAGUES, LEAGUE_SCORING, PRE_DRAFT, PRIOR_SEASON_DISPLAY_LEAGUES, leagueOf } from './data.js';
-import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE } from './utils.js';
+import { teamBadgeHtml, segmentedControlHtml, findCfbTeamKeyByLocation, NEUTRAL_BADGE_STYLE, EASE_SPRING } from './utils.js';
 import { teamBadgeHtml as uiBadgeHtml, tagHtml } from './ui.js';
 import { escapeHtml } from './escape.js';
 import { fetchEspnPostseason } from './espn.js';
@@ -64,7 +65,7 @@ import { allowsGroupOverride } from './groups.js';
 import { isWide } from './wide-query.js';
 import { isLeagueLocked } from './season-lock.js';
 import {
-  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, finalRound, isMissRule,
+  POSTSEASON_LEAGUES, buildBracket, snapshot, latestStage, ladderLayout, ladderGeometry, topRung, matchups, seriesLine, seriesResultLine, ladderGhosts, finalRound, isMissRule,
   postseasonStarted, currentRoundName, titleGameDate
 } from './postseason-math.js';
 
@@ -73,12 +74,13 @@ import {
 // its badge doubled (52px), centered 42px in from the rung's left and top.
 // Wide (a league picked on its own at 900px and up, ladderWide): taller
 // rungs, 52px chips with 36px badges, eight to a row, each game's two chips
-// side by side on a shared backing (pairGap), and the crown's badge 58px,
+// side by side on a shared backing (pairGap; 64px tall, so rows are 70px
+// apart and two of them never overlap), and the crown's badge 58px,
 // centered 54px in. `badgeMid`: the badge's center, px from the chip's top
 // (the "v" / series tally sits level with it).
 const DIMS = {
   phone: { rungH: 84, rowH: 40, oneRowY: 26, perRow: 6, pairGap: null, chipW: 40, badgeMid: 13, crown: { x: 22, y: 29 }, crownScale: 2 },
-  wide: { rungH: 108, rowH: 52, oneRowY: 28, perRow: 8, pairGap: 36, chipW: 52, badgeMid: 18, crown: { x: 28, y: 36 }, crownScale: 1.6 }
+  wide: { rungH: 108, rowH: 70, oneRowY: 28, perRow: 8, pairGap: 36, chipW: 52, badgeMid: 18, crown: { x: 28, y: 36 }, crownScale: 1.6 }
 };
 const dimsOf = wide => wide ? DIMS.wide : DIMS.phone;
 const REPLAY_STEP_MS = 1700;
@@ -106,12 +108,12 @@ export function previewParam(name){
 const REVEAL_REPLAY = previewParam('psreveal') === '1';
 
 // ESPN names a football season by the year it starts and a college
-// basketball season by the spring it ends in.
-const springSeason = key => key === 'mcbb';
+// basketball, NBA or NHL season by the spring it ends in.
+const springSeason = key => key === 'mcbb' || key === 'nba' || key === 'nhl';
 
 // ?psyear names a winter by the year it starts: ?psyear=2025 is the 2025
-// NFL playoffs and CFP and the March 2026 NCAA Tournament (ESPN's 2026),
-// so one replay shows all three. ?psreveal=1 without a ?psyear: last
+// NFL playoffs and CFP, the March 2026 NCAA Tournament (ESPN's 2026) and
+// the spring 2026 NBA and NHL playoffs, so one replay shows them all. ?psreveal=1 without a ?psyear: last
 // winter's.
 function previewYear(key){
   let y = Number(previewParam('psyear'));
@@ -137,13 +139,15 @@ export function postseasonYear(key){
 // Sunday) and April (the title game). MLB: from September 25 (the field
 // is set in the season's last days) through November (the World Series
 // ends by early November). The WNBA: from September 10 through October
-// (the Finals end by mid-October). Outside them there's no postseason to
-// fetch.
+// (the Finals end by mid-October). The NBA and NHL: from April 10 (the
+// NBA's Play-In starts mid-April) through June. Outside them
+// there's no postseason to fetch.
 function inWindow(key){
   if(previewYear(key) !== null) return true;
   const now = new Date(), m = now.getMonth();
   if(key === 'mlb') return m === 9 || m === 10 || (m === 8 && now.getDate() >= 25);
   if(key === 'wnba') return m === 9 || (m === 8 && now.getDate() >= 10);
+  if(key === 'nba' || key === 'nhl') return m === 4 || m === 5 || (m === 3 && now.getDate() >= 10);
   return (springSeason(key) ? [2, 3] : [11, 0, 1]).includes(m);
 }
 
@@ -175,8 +179,10 @@ function cacheFor(key, year = postseasonYear(key)){
     const saved = JSON.parse(localStorage.getItem(`${STORE_KEY}:${key}:${year}`));
     if(saved && saved.data){
       c.data = saved.data;
-      // Saved before the league logo was part of it: fetch again.
-      c.fetchedAt = 'logo' in saved.data ? saved.fetchedAt || 0 : 0;
+      // Saved before the league logo was part of it, or (the NBA) before
+      // the Play-In was: fetch again.
+      const noPlayIn = key === 'nba' && saved.data.events.length && !saved.data.events.some(e => /play-in/i.test(e.headline || ''));
+      c.fetchedAt = 'logo' in saved.data && !noPlayIn ? saved.fetchedAt || 0 : 0;
       c.bracket = buildBracket(key, saved.data.events, saved.data.seeds);
     }
   } catch (e){}
@@ -253,7 +259,7 @@ export function seasonLabelYear(key){
 }
 
 // The league's logo for the playoffs reveal, each part as { light, dark }:
-// { emblem, wordmark? }. The NFL's shield comes from ESPN; ESPN has no CFP
+// { emblem, wordmark? }. The NFL's, NBA's and NHL's come from ESPN; ESPN has no CFP
 // logo, so the College Football Playoff's emblem and wordmark are ours
 // (icons/cfp-*.png, cut from the CFP's light and dark artwork).
 const CFP_LOGO = {
@@ -280,7 +286,7 @@ const WNBA_LOGO = {
   emblem: { light: 'icons/wnba-playoffs-light.svg', dark: 'icons/wnba-playoffs-dark.svg' },
   lockup: true
 };
-const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason', wnba: 'WNBA Playoffs' };
+const LOGO_TITLE = { nfl: 'NFL Playoffs', cfb: 'College Football Playoff', mcbb: 'NCAA Tournament', mlb: 'MLB Postseason', wnba: 'WNBA Playoffs', nba: 'NBA Playoffs', nhl: 'Stanley Cup Playoffs' };
 export const postseasonTitle = key => LOGO_TITLE[key] || 'Playoffs';
 // One logo part, both themes (CSS shows the one that matches).
 export function logoImgsHtml(part){
@@ -348,10 +354,13 @@ export function postseasonRuleTeams(key, rule){
   return s.teams.filter(t => t.teamKey && t.milestones.find(m => m.label === rule.label).got).map(t => t.teamKey);
 }
 
+// The pro leagues whose drafted teams are found by nickname (exact, so
+// "Nets" never matches "Hornets").
+const FLAT_LEAGUES = ['mlb', 'wnba', 'nba', 'nhl'];
 function ownerOf(key){
   return t => {
     const teamKey = key === 'nfl' ? findNflTeamKeyByEspnAbbr(t.abbr) : key === 'mcbb' ? findCbbTeamKeyByEspnId(t.id)
-      : key === 'mlb' || key === 'wnba' ? findFlatTeamKey(key, t.name) : findCfbTeamKeyByLocation(t.location);
+      : FLAT_LEAGUES.includes(key) ? findFlatTeamKey(key, t.name) : findCfbTeamKeyByLocation(t.location);
     const meta = teamKey && TEAM_META[teamKey];
     if(!meta) return null;
     return { teamKey, owner: PRE_DRAFT || meta.favoriteOnly ? null : meta.draftTeamId };
@@ -474,6 +483,8 @@ window.psPhase_cfb = v => setPhase('cfb', v);
 window.psPhase_mcbb = v => setPhase('mcbb', v);
 window.psPhase_mlb = v => setPhase('mlb', v);
 window.psPhase_wnba = v => setPhase('wnba', v);
+window.psPhase_nba = v => setPhase('nba', v);
+window.psPhase_nhl = v => setPhase('nhl', v);
 
 // Picking another league on Standings brings each ladder back to its
 // latest round.
@@ -531,15 +542,33 @@ export function ladderWide(inAll){
   return !inAll && isWide();
 }
 
-// The ladder's teams, rungs and chip spots at this stage.
+// The ladder's teams, rungs and chip spots at this stage. A series league
+// also has its ghosts (ladderGhosts): `shown`, the ones for the series
+// over at this stage, take a spot on their round beside the team they
+// beat; `ghosts` is every one the latest stage has, so the ladder keeps a
+// chip for each and the ones not shown yet wait, hidden, on their
+// winner's spot (ghostSpot).
+// The NBA's Play-In stage shows just the Play-In (`hideByes`): seeds 1-6
+// keep a chip, `waiting` (hidden) on their First Round spot above the
+// ladder, so moving on to the field brings them in.
 function ladderOf(key, S, D){
-  const teams = ladderTeams(key, S);
-  const top = topRung(teams);
+  const teams = ladderTeams(key, S).map(t => S.L.hideByes && t.bye ? { ...t, waiting: true } : t);
+  const shown = ladderGhosts(teams, S);
+  const ghosts = S.isLatest ? shown : ladderGhosts(teams, snap(key, S.latest));
+  const visible = teams.filter(t => !t.waiting);
+  const placed = visible.concat(shown);
+  const top = topRung(visible);
   const opts = { rungH: D.rungH, rowH: D.rowH, perRow: D.perRow, pairGap: D.pairGap, top, games: S.games, sides: S.L.sides || null };
+  const layout = list => ladderLayout(list, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N });
+  const pos = layout(placed);
+  // The waiting take no room: their spot is the one they'd have with everyone in.
+  if(visible.length < teams.length){
+    const all = layout(teams.concat(shown));
+    teams.forEach(t => { if(t.waiting) pos[t.id] = all[t.id]; });
+  }
   return {
-    teams, top,
-    geo: ladderGeometry(teams, { ...opts, rungs: S.N + 1 }),
-    pos: ladderLayout(teams, { ...opts, oneRowY: D.oneRowY, crown: D.crown, champRung: S.N })
+    teams, ghosts, shown: new Set(shown.map(g => g.id)), top,
+    geo: ladderGeometry(placed, { ...opts, rungs: S.N + 1 }), pos
   };
 }
 
@@ -561,8 +590,21 @@ function chipView(t, pos, spot, D){
   if(t.mine) cls.push('mine');
   if(spot && t.owner !== spot) cls.push('dim');
   if(t.teamKey) cls.push('tap');
+  if(t.ghostOf) cls.push('ghost');
+  if(t.waiting) cls.push('waiting');
   const x = p.x != null ? `${p.x}px` : laneX(p.fx, (p.dx || 0) - D.chipW / 2);
   return { cls: cls.join(' '), transform: `translate(${x}, ${p.y}px) scale(${scale})` };
+}
+
+// A ghost's look: on its round's spot once its series is over at this
+// stage, else hidden on its winner's spot, so it appears where the winner
+// was as the winner moves up (and goes back into it on a scrub down).
+function ghostView(t, L, spot, D){
+  if(L.shown.has(t.id)) return chipView(t, L.pos, spot, D);
+  const p = L.pos[t.ghostOf];
+  if(!p) return null;
+  const v = chipView(t, { [t.id]: p }, spot, D);
+  return { ...v, cls: `${v.cls} off` };
 }
 
 // A small gray "v" between the two sides of each game still to play, so the
@@ -571,6 +613,9 @@ function chipView(t, pos, spot, D){
 // to right like the chips, the leader's number brighter), with the red
 // live dot above it while one of its games is on. On the wide ladder the
 // pair also shares a soft backing, so a game reads as one unit.
+// A series that's over keeps its pair on the round where it was played
+// (the winner's ghost beside the team it beat) and its final count
+// between them, the winner's number brighter.
 function pairsHtml(teams, S, pos, D){
   return matchups(teams, S.games).map(pair => {
     const pa = pos[pair[0].id], pb = pos[pair[1].id];
@@ -578,7 +623,8 @@ function pairsHtml(teams, S, pos, D){
     const fx = (pa.fx + pb.fx) / 2, dx = ((pa.dx || 0) + (pb.dx || 0)) / 2;
     const at = (w, dy) => `transform:translate(${laneX(fx, dx - w / 2)}, ${pa.y + dy}px)`;
     const bg = D.pairGap ? `<span class="ps-pair-bg" style="${at(D.pairGap * 2 + D.chipW + 12, -6)}"></span>` : '';
-    const g = pair.game, s = g.series;
+    const g = pair.game;
+    const s = g.final && g.need ? { top: g.scoreA, bot: g.scoreB, wins: { [g.a]: g.scoreA || 0, [g.b]: g.scoreB || 0 } } : g.series;
     const dy = D.badgeMid - 6;
     // While a game is on, the red dot opens it in Game Details (the same
     // sheet a Scores card opens), through whichever side is a drafted team.
@@ -588,15 +634,15 @@ function pairsHtml(teams, S, pos, D){
       : `<span class="${cls}${g.live ? ' live' : ''}" style="${at(w, dy)}"${label ? ` role="img" aria-label="${escapeHtml(label)}"` : ''}>${inner}</span>`;
     if(!s || !(s.top || s.bot)) return `${bg}${tag('ps-vs', 12, 'v', openKey ? 'Live game, open score' : '')}`;
     const [l, r] = (pa.fx - pb.fx || (pa.dx || 0) - (pb.dx || 0)) < 0 ? pair : [pair[1], pair[0]];
-    const wl = s.wins[l.id], wr = s.wins[r.id];
+    const wl = s.wins[l.ghostOf || l.id], wr = s.wins[r.ghostOf || r.id];
     const n = (w, o) => `<b${w > o ? ' class="lead"' : ''}>${w}</b>`;
-    return `${bg}${tag('ps-vs ps-tally', 28, `${n(wl, wr)}–${n(wr, wl)}`, openKey ? `${seriesLine(g)}. Live, open score` : seriesLine(g))}`;
+    const said = g.final ? seriesResultLine({ winner: (wl > wr ? l : r), won: Math.max(wl, wr), lost: Math.min(wl, wr) }) : seriesLine(g);
+    return `${bg}${tag('ps-vs ps-tally', 28, `${n(wl, wr)}–${n(wr, wl)}`, openKey ? `${said}. Live, open score` : said)}`;
   }).join('');
 }
 
-function chipHtml(key, t, pos, spot, D){
-  const v = chipView(t, pos, spot, D);
-  const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
+function chipHtml(key, t, pos, spot, D, v = chipView(t, pos, spot, D)){
+  const tap = t.teamKey ? ` onclick="psTeam('${key}','${t.ghostOf || t.id}');openTeamPage('${t.teamKey}','standings',this)"` : '';
   return `
     <${t.teamKey ? 'button type="button"' : 'div'} class="${v.cls}" data-team="${t.id}" style="transform:${v.transform}"${tap} aria-label="${escapeHtml(nameOf(t, key))}">
       <span class="ps-chip-badge">${badgeOf(t)}</span>
@@ -646,7 +692,8 @@ function crownHtml(key, S){
 function scrubHtml(key, S){
   // Each stop is named for the row it highlights (the rung the alive teams
   // have reached at that stage): Field, then the next round, … Champ.
-  const stops = ['Field', ...S.L.roundShort.slice(1), 'Champ'];
+  // The NBA's start at its Play-In (`stops`).
+  const stops = S.L.stops || ['Field', ...S.L.roundShort.slice(1), 'Champ'];
   return `
     <div class="ps-scrub" data-ps-scrub="${key}" role="slider" tabindex="0" aria-label="Replay the postseason"
       aria-valuemin="0" aria-valuemax="${S.latest}" aria-valuenow="${S.stage}" aria-valuetext="${escapeHtml(S.stageLabel)}" style="--f:${S.stage / S.N}">
@@ -676,7 +723,8 @@ export function postseasonCardHtml(key, wide = false){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const D = dimsOf(wide);
-  const { teams, top, geo, pos } = ladderOf(key, S, D);
+  const L = ladderOf(key, S, D);
+  const { teams, top, geo, pos } = L;
   const rungs = S.L.rungs.map((_, i) => S.N - i).map(k => `
     <div class="${rungClasses(k, S, top)}" data-rung="${k}" style="${rungStyle(k, geo)}">
       <div class="ps-rung-label"><span>${S.L.rungs[k]}</span><span class="ps-rung-pts">${rungPts(k, S)}</span></div>
@@ -691,8 +739,9 @@ export function postseasonCardHtml(key, wide = false){
       ${sidesHtml(S)}
       <div class="ps-ladder${S.L.sides ? ' sided' : ''}" style="height:${geo.height}px">
         ${rungs}
-        <div class="ps-pairs">${pairsHtml(teams, S, pos, D)}</div>
+        <div class="ps-pairs">${pairsHtml(teams.filter(t => !t.waiting).concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D)}</div>
         ${teams.map(t => chipHtml(key, t, pos, spot, D)).join('')}
+        ${L.ghosts.map(g => { const v = ghostView(g, L, spot, D); return v ? chipHtml(key, g, pos, spot, D, v) : ''; }).join('')}
         ${teams.length ? '' : '<div class="ps-empty">No drafted teams made the field.</div>'}
       </div>
       ${scrubHtml(key, S)}
@@ -800,7 +849,8 @@ function paint(key){
   const S = snap(key, stageOf(key));
   const spot = uiFor(key).spot;
   const D = dimsOf(el.classList.contains('ps-wide'));
-  const { teams, top, geo, pos } = ladderOf(key, S, D);
+  const L = ladderOf(key, S, D);
+  const { teams, top, geo, pos } = L;
   el.querySelector('.ps-stage').textContent = S.stageLabel;
   el.querySelector('.ps-ladder').style.height = `${geo.height}px`;
   const sides = el.querySelector('.ps-sides');
@@ -814,11 +864,20 @@ function paint(key){
     r.style.height = `${geo.heights[k]}px`;
   });
   const pairs = el.querySelector('.ps-pairs');
-  const pairsNow = pairsHtml(teams, S, pos, D);
+  const pairsNow = pairsHtml(teams.filter(t => !t.waiting).concat(L.ghosts.filter(g => L.shown.has(g.id))), S, pos, D);
   if(pairs && pairs.dataset.html !== pairsNow){
     pairs.innerHTML = pairsNow;
     pairs.dataset.html = pairsNow;
   }
+  // A ghost coming into view is a winner moving up: its echoes follow it.
+  const advancing = L.ghosts.filter(g => {
+    const chip = el.querySelector(`.ps-chip[data-team="${g.id}"]`);
+    return chip && chip.classList.contains('off') && L.shown.has(g.id);
+  }).map(g => g.ghostOf);
+  const from = Object.fromEntries(advancing.map(id => {
+    const chip = el.querySelector(`.ps-chip[data-team="${id}"]`);
+    return [id, chip && chip.style.transform];
+  }));
   teams.forEach(t => {
     const chip = el.querySelector(`.ps-chip[data-team="${t.id}"]`);
     if(!chip) return;
@@ -826,6 +885,14 @@ function paint(key){
     chip.className = v.cls;
     chip.style.transform = v.transform;
   });
+  L.ghosts.forEach(g => {
+    const chip = el.querySelector(`.ps-chip[data-team="${g.id}"]`);
+    const v = chip && ghostView(g, L, spot, D);
+    if(!v) return;
+    chip.className = v.cls;
+    chip.style.transform = v.transform;
+  });
+  advancing.forEach(id => moveAheadFx(el, id, from[id]));
   const show = S.stage === S.N && !!S.champ;
   const pts = el.querySelector('.ps-champ-pts');
   if(pts && !counting) pts.textContent = `+${show ? pts.dataset.target : 0}`;
@@ -840,6 +907,33 @@ function paint(key){
     drafted.querySelector('.ps-drafted-table').innerHTML = table;
     drafted.querySelector('.ps-drafted-note').innerHTML = note;
   }
+}
+
+// A winner moving up a round: a few fading copies of its badge trail it
+// from the spot it won on (where its ghost now sits) to its new one, each
+// a beat behind the last, on the chip's own spring. Transform and opacity
+// only, and nothing at all without motion (fxOn); the chip itself moves
+// either way.
+const ECHOES = [0.4, 0.24, 0.12];
+const ECHO_MS = 640, ECHO_STEP_MS = 60;
+function moveAheadFx(el, id, from){
+  const chip = el.querySelector(`.ps-chip[data-team="${id}"]`);
+  const ladder = el.querySelector('.ps-ladder');
+  if(!fxOn() || !chip || !ladder || !from || from === chip.style.transform) return;
+  const to = chip.style.transform;
+  ECHOES.forEach((o, i) => {
+    const echo = document.createElement('span');
+    echo.className = 'ps-echo';
+    echo.setAttribute('aria-hidden', 'true');
+    echo.innerHTML = chip.querySelector('.ps-chip-badge').outerHTML;
+    echo.style.transform = from;
+    ladder.insertBefore(echo, chip);
+    const delay = (i + 1) * ECHO_STEP_MS;
+    play(echo, [{ transform: from, opacity: o }, { transform: to, opacity: o * 0.6, offset: 0.7 }, { transform: to, opacity: 0 }],
+      { duration: ECHO_MS + 200, delay, easing: EASE_SPRING, fill: 'both' });
+    later(ECHO_MS + 200 + delay + 40, () => echo.remove());
+  });
+  pop(chip.querySelector('.ps-chip-badge'), { scale: 1.14, duration: 520 });
 }
 
 function setStage(key, s){
@@ -1062,9 +1156,10 @@ export function restorePostseason(container, kept){
 
 // ---- Home: the postseason banner ----
 
-// "Field set · 2026"; the NCAA's field is set on Selection Sunday.
+// "Field set · 2026"; the NCAA's field is set on Selection Sunday, and the
+// NBA's postseason opens with its Play-In.
 export function fieldSetEyebrow(key){
-  return `${key === 'mcbb' ? 'Selection Sunday' : 'Field set'} · ${shownYear(key)}`;
+  return `${key === 'mcbb' ? 'Selection Sunday' : key === 'nba' ? 'Play-In' : 'Field set'} · ${shownYear(key)}`;
 }
 
 // Home leads with a card for each league whose postseason is on, for as
