@@ -678,19 +678,26 @@ window.addEventListener('boxscore:share-game', event => sendGame(event.detail));
 // tab bar is hidden meanwhile (html.chat-kb) so the composer sits right
 // on the keyboard, the way phone chat apps do.
 //
-// "Is the keyboard up" can't be read off the viewport alone: the
-// installed iOS PWA shrinks the layout viewport along with the visual one,
-// so innerHeight - visualViewport.height stays ~0 and the tab bar would
-// stay put, padded for a home indicator the keyboard now covers. On a
-// touch device the keyboard is up exactly when one of chat's text fields
-// has focus, so that's the primary signal; the height gap is kept as a
-// fallback for browsers that raise it without a focus change.
+// "Is the keyboard up" can't be read off innerHeight: the installed iOS
+// PWA shrinks the layout viewport along with the visual one, so
+// innerHeight - visualViewport.height stays ~0. What does change is the
+// visual viewport's own height, so it's measured against fullHeight, its
+// height while nothing in chat has focus. Focus alone isn't enough: it
+// lands a beat before the keyboard rises (and with a hardware keyboard,
+// none does), and switching the layout on focus dropped the composer into
+// the tab bar's empty slot, then jumped it up once the keys arrived. So
+// the layout changes only once the keyboard has actually taken the room.
+// The innerHeight gap stays as a fallback for browsers that raise the
+// keyboard without a focus change.
 const CHAT_TEXT_FIELDS = '#chat-input, #gif-search';
+const KEYBOARD_MIN = 120;   // px of height lost before it counts as a keyboard
+let fullHeight = 0;
 function keyboardUp(vv){
   const active = document.activeElement;
   const typing = active && active.matches && active.matches(CHAT_TEXT_FIELDS);
-  if(typing && window.matchMedia('(pointer: coarse)').matches) return true;
-  return window.innerHeight - vv.height > 120;
+  if(!typing) fullHeight = vv.height;
+  else if(fullHeight && fullHeight - vv.height > KEYBOARD_MIN) return true;
+  return window.innerHeight - vv.height > KEYBOARD_MIN;
 }
 
 let kbWasOpen = false;
