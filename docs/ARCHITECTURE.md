@@ -746,6 +746,8 @@ reduced motion skips straight there.
 Home shows a gold "NFL Playoffs" card per league (`postseasonHomeItems`, in Home's stack) for the whole
 postseason and a week past the title game: the current round in its eyebrow (`currentRoundName`: the round being played or
 up next, "First Four", "Champion: …"), the viewer's teams in (before the first game) or left, and their live teams' badges.
+A series league (MLB, WNBA) adds where the round's series stand (`roundSeriesLine`: "Best of 7", "NY leads 2–1", several
+joined with " · ", a tie naming both teams, a series already won kept only in a two-series round).
 A pre-draft group (`PRE_DRAFT`) gets no cards: `renderHomeStack` leaves them out until the draft is in.
 A tap (`openPlayoffs`) opens Standings on that league, where the reveal plays the first time (it also plays the first time
 that league's Standings tab is opened any other way); after that the tap goes straight to the ladder at its latest round.
@@ -769,7 +771,12 @@ is series wins. Seeds 1-2 per league are byes (`byeSeeds`, the NFL's is 1). A se
 round reads as under way, and the team page shows its tally ("Leads 2–1"). On the ladder, once a series has a
 game in, its tally replaces the pair's "v" ("1–0", read left to right like the chips, the leader's number brighter,
 a red dot above while a game is on; snapshot's `series` at the latest stage only, worded by `seriesLine` for screen
-readers), so it costs no room. While a game is on (a single game too, which gets the dot on its "v"), the pair's
+readers), so it costs no room. A series that's over keeps its pair on the rung where it was played: the winner
+leaves a ghost (`ladderGhosts`, id `<team>~<round>`, grayed like the team it beat) beside the loser, the final count
+between them (`matchups` pairs a ghost with its opponent), so a finished round still says who played whom; the ladder
+keeps a chip for every ghost of the latest stage, hidden on its winner's spot until its series is over at the stage
+shown. As a winner moves up, a few fading copies of its badge trail it (`moveAheadFx`, `.ps-echo`, only with `fxOn()`).
+Finished rounds hold two rows of chips (4 pairs), so the ladder is taller once a round is over. While a game is on (a single game too, which gets the dot on its "v"), the pair's
 mark is a button that calls `openGameDetail` for the live game (`liveId`: `seriesEvents` carries the in-progress
 game's id, since a series' own id is its first game's) through whichever side is a drafted team, so the Scores
 sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA). MLB's ladder is also split

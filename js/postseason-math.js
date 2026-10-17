@@ -541,10 +541,13 @@ export function topRung(teams){
 // [higher seed, lower seed] pairs: the ladder sits them side by side on a
 // shared backing. A game counts once both sides are known at this stage.
 // Each pair also carries its game (`pair.game`), for the series line.
+// A series that's over pairs too when its winner's stand-in is among the
+// teams (ladderGhosts): the stand-in and the team it beat, on that round.
 export function matchups(teams, games){
   const byId = Object.fromEntries(teams.map(t => [t.id, t]));
-  return (games || []).filter(g => !g.final && g.top.team && g.bot.team).map(g => {
-    const a = byId[g.top.team.id], b = byId[g.bot.team.id];
+  const side = (t, g) => byId[ghostId(t.id, g.round)] || byId[t.id];
+  return (games || []).filter(g => g.top.team && g.bot.team).map(g => {
+    const a = side(g.top.team, g), b = side(g.bot.team, g);
     if(!a || !b || a.rung !== b.rung || a.rung !== g.round - 1) return null;
     return Object.assign([a, b].sort((x, y) => (x.seed ?? 99) - (y.seed ?? 99)), { game: g });
   }).filter(Boolean);
@@ -560,6 +563,68 @@ export function seriesLine(game){
   if(s.top === s.bot) return `Tied ${s.top}\u2013${s.bot}`;
   const lead = s.top > s.bot ? game.top.team : game.bot.team;
   return `${(lead && lead.abbr) || ''} leads ${Math.max(s.top, s.bot)}\u2013${Math.min(s.top, s.bot)}`.trim();
+}
+
+// Each series over at this stage, for the ladder: the team that lost it
+// (it stays on that round's rung) and the wins each side took, so the
+// count outlives the series ("1-2" by the loser, its own wins first).
+// Empty for a league that doesn't play series.
+export function seriesResults(S){
+  if(!S || !S.L.series) return [];
+  return S.games.filter(g => g.final && g.need && g.top.team && g.bot.team).map(g => {
+    const [w, l] = g.top.won ? [g.top, g.bot] : [g.bot, g.top];
+    return { game: g, loser: l.team, winner: w.team, lost: l.score, won: w.score };
+  });
+}
+
+// A series league's ladder keeps each series over on the round where it
+// was played: the team that won it leaves a stand-in (a "ghost", grayed
+// like the team it beat) beside that team, so the pair and its count
+// still read as a matchup while the winner itself moves up. One ghost per
+// series over at this stage, among the ladder's teams; `ghostOf` is the
+// winner's id. Its id (ghostId) is the winner's and the round's.
+export const ghostId = (id, round) => `${id}~${round}`;
+export function ladderGhosts(teams, S){
+  const ids = new Set(teams.map(t => t.id));
+  return seriesResults(S).filter(r => ids.has(r.winner.id) && ids.has(r.loser.id)).map(({ winner: t, game: g }) => ({
+    ...t, id: ghostId(t.id, g.round), ghostOf: t.id, ghostRound: g.round,
+    rung: g.round - 1, alive: false, champion: false, justOut: false
+  }));
+}
+
+// "NY won 2-1" for a series over (a seriesResults entry), in words.
+export function seriesResultLine(r){
+  return `${(r.winner && r.winner.abbr) || ''} won ${r.won}\u2013${r.lost}`.trim();
+}
+
+// The round being played, its series in one line for Home's postseason
+// card, or null (not a series league, an earlier stage, a champion). One
+// series reads as seriesLine does ("NY leads 2-1", "Tied 1-1"); several
+// name both teams on a tie, and in a two-series round one already won
+// says so, so the round still reads: "CLE leads 2-1 · MIL won 4-0" (with
+// four, as in a first round, the line keeps to the ones still on). Before
+// anyone has a win it's the length ("Best of 7"); a series yet to win a
+// game sits out while others have.
+export function roundSeriesLine(S){
+  if(!S || !S.isLatest || !S.L.series) return null;
+  const round = S.latest + 1;
+  const games = S.games.filter(g => g.round === round && g.need && g.top.team && g.bot.team);
+  const open = games.filter(g => g.series);
+  if(!open.length) return null;
+  if(open.every(g => !g.series.top && !g.series.bot)) return seriesLine(open[0]);
+  if(games.length === 1) return seriesLine(open[0]);
+  const abbr = t => t.abbr || '';
+  const parts = games.map(g => {
+    if(g.final){
+      if(games.length > 2) return null;
+      const [w, l] = g.top.won ? [g.top, g.bot] : [g.bot, g.top];
+      return seriesResultLine({ winner: w.team, won: w.score, lost: l.score });
+    }
+    const s = g.series;
+    if(!s || (!s.top && !s.bot)) return null;
+    return s.top === s.bot ? `${abbr(g.top.team)} and ${abbr(g.bot.team)} tied ${s.top}\u2013${s.bot}` : seriesLine(g);
+  }).filter(Boolean);
+  return parts.join(' \u00b7 ') || null;
 }
 
 // The chips on each rung, in rows: { rung: [[team, …], …] }. Within a rung
