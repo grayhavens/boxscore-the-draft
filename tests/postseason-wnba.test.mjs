@@ -1,6 +1,7 @@
 // The WNBA on the postseason ladder (js/postseason-math.js), against the
 // real playoffs as ESPN reported them (tests/fixtures/postseason-wnba.json):
-// the whole 2025 playoffs, and 2026 with the semifinals under way. Eight
+// the whole 2025 playoffs, and 2026 through the semifinals with the Finals
+// listed ahead (fetched 2026-10-16). Eight
 // teams seeded league-wide, no byes, every round a series (seriesEvents).
 
 import { test } from 'node:test';
@@ -25,6 +26,10 @@ const RULES = [
   { label: 'Missing the playoffs', pts: -3, rankAuto: { eliminated: true } }
 ];
 const bracket = year => buildBracket('wnba', seriesEvents('wnba', FIX[year].events), FIX[year].seeds);
+// 2026 as it stood on 2026-10-05, each semifinal one game in: the same games cut at that date.
+const early = () => buildBracket('wnba', seriesEvents('wnba', FIX[2026].events.filter(e => e.date <= '2026-10-05T12:00Z')), FIX[2026].seeds);
+const earned = (S, label) => S.teams.filter(t => t.milestones.find(m => m.label === label).got).map(t => t.abbr).sort();
+
 
 test('WNBA milestones: the semifinals, the Finals and winning them, by label', () => {
   assert.deepEqual(milestonesFor('wnba', RULES).map(m => [m.label, m.reach ?? 'win']), [
@@ -75,7 +80,7 @@ test('WNBA 2025 replay: everyone starts on the first rung', () => {
 });
 
 test('WNBA 2026: the semifinals are under way after one game each', () => {
-  const b = bracket(2026);
+  const b = early();
   assert.equal(latestStage(b), 1);
   assert.equal(postseasonStarted(b), true);
   assert.equal(currentRoundName(b), 'Semifinals');
@@ -88,6 +93,18 @@ test('WNBA 2026: the semifinals are under way after one game each', () => {
   assert.equal(by.MIN.status, 'Out · R1');
   assert.equal(by.NY.alive, true);
   assert.equal(by.NY.rung, 1);
+});
+
+test('WNBA 2026: the real "WNBA Semifinals" and "WNBA Finals" headlines score both rounds', () => {
+  const b = bracket(2026);
+  assert.equal(currentRoundName(b), 'Finals');
+  const S = snapshot(b, latestStage(b), { rules: RULES });
+  // Atlanta and Golden State swept their semifinals; the Finals are listed, not yet played.
+  assert.deepEqual(earned(S, 'Reach the semifinals'), ['ATL', 'GS', 'LV', 'NY']);
+  assert.deepEqual(earned(S, 'Reach the Finals'), ['ATL', 'GS']);
+  assert.deepEqual(earned(S, 'Win the Finals'), []);
+  // The Commissioner's Cup isn't a playoff round: a commissioner mark.
+  assert.ok(!S.milestones.some(m => /Commissioner/.test(m.label)));
 });
 
 test('A WNBA postseason that doesn’t count: no rules, so nothing banked or in play', () => {

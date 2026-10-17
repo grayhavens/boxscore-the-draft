@@ -8,9 +8,11 @@
    series' tally so far (each side's wins, `completed` once decided). The
    league's own competition type is the same for every round, so only the
    headline says which round it is. Checked against the 2026 NBA and NHL
-   playoffs and the 2026 MLB postseason through the Division Series
-   (tests/fixtures/espn-playoffs-*.json); the MLB LCS and World Series
-   headlines ("NLCS", "ALCS", "World Series") are expected, not yet seen.
+   playoffs and the 2026 MLB postseason through the LCS
+   (tests/fixtures/espn-playoffs-*.json): "NLCS - Game 1", "ALCS - Game 4
+   Rain - Makeup on Oct 18", "World Series - Game 5 If Necessary". A World
+   Series listed before its field is set names a placeholder ("Rays/
+   Guardians", id -2), which matches no drafted team.
 
    Three rungs score in every league: 1 = conference finals (LCS), 2 = the
    final, and winning it. A team that reached the final also reached the
