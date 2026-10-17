@@ -27,7 +27,7 @@
    ============================================================ */
 import { LEAGUES, LEAGUE_SCORING, PRIOR_SEASON_DISPLAY_LEAGUES, PRE_DRAFT } from './data.js';
 import { SEASON_IDS, LATEST_SEASON_ID } from './seasons/index.js';
-import { ACTIVE_SEASON_ID, IS_SEASON_BACKGROUND, setActiveSeason } from './season.js';
+import { ACTIVE_SEASON_ID, IS_SEASON_BACKGROUND, IS_ROBOT, setActiveSeason } from './season.js';
 import { previousSeasonInPlay, seasonLabel } from './season-overlap.js';
 import { historySeasons } from './history.js';
 import { checkSeasonLocks, isLeagueLocked } from './season-lock.js';
@@ -204,6 +204,10 @@ export async function runSeasonBackground(refresh){
   } catch (e){
     console.warn('[season-background]', e);
   } finally {
-    try { window.parent.postMessage({ type: DONE_MESSAGE, summary }, window.location.origin); } catch (e){}
+    // The robot visit has no parent to report to: it marks the page for the
+    // GitHub Actions job instead ('done', or 'skipped' when the totals never
+    // held still, so nothing was written).
+    if(IS_ROBOT) document.documentElement.dataset.robotDone = summary && summary.rows ? 'done' : 'skipped';
+    else try { window.parent.postMessage({ type: DONE_MESSAGE, summary }, window.location.origin); } catch (e){}
   }
 }

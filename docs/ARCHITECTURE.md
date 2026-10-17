@@ -562,6 +562,22 @@ only — see `getLeagueRuleTeams`). `rankAuto: { eliminated: true }` (WNBA "Miss
 "Eliminated" clincher text, the mirror of `clinched`. Every league is on this model; the older per-team
 achievements checklist is retired (`js/board.js` deletes its leftover key at boot).
 
+**Daily robot visit** (`.github/workflows/daily-scoring.yml`, `tools/robot-visit.mjs`, `IS_ROBOT` in `js/season.js`;
+plan in `docs/server-scoring-plan.md`): at 13:30 UTC each group's app is opened with `?robot=1` in headless Chromium on
+GitHub Actions (Playwright installed in the job only). The page runs the same scoring-only boot as the hidden
+older-season copy (`IS_SEASON_BACKGROUND` is true for it), on the newest season: standings, postseasons, locks, then
+Activity with its Race sample and points alerts, exactly as a phone would. Then it sets `<html data-robot-done>`
+(`done`, or `skipped` when the totals never held still) for the job to wait on. It never draws, connects to chat, or
+writes `bx-group` / `bx-last-seen`; it counts only on a group's host or dev/preview hosts (`isRobotVisit` in
+`js/groups.js`). Season Ticket's invite code is the `GROUP_CODE_SEASONTICKET` Actions secret, passed as `#code=`. A run
+that never finishes fails the job (GitHub emails the owner). Scoring stays in the browser because ESPN answers 403 to
+Workers (below).
+
+**ESPN from the worker** (`worker/espn-probe.js`): ESPN has answered every Worker request with 403 since 2026-10-15, so
+golf's season is built in the browser and the shared ESPN passthrough (`docs/espn-passthrough-plan.md`) is parked. The
+daily cron asks ESPN for one small scoreboard and keeps `{ ok, status, at, since }` in KV (`espn-probe`); the system
+admin page's ESPN tile shows "From the worker: blocked (403) since …" or "reachable since …".
+
 **Points history** (`worker/points-history.js`): one sample per Central-time day of every drafter's projected and
 locked points, for the Points tab's Race segment (`js/race.js` draws it, `js/race-math.js` is its pure math;
 `docs/points-race-plan.md`). Scoring only exists in the browser, so

@@ -23,7 +23,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 ## Commands (all verified 2026-10-03 unless noted)
 
 - **Install:** none. `npx` fetches wrangler on demand.
-- **Test:** `node --test tests/*.test.mjs` (47 files, 416 tests, all pass, ~5s; 2026-10-16).
+- **Test:** `node --test tests/*.test.mjs` (50 files, 444 tests, all pass, ~5s; 2026-10-17).
 - **Dev, site:** `python3 -m http.server 8934` from the repo root, open `/index.html` (never `file://`). Use port
   8934: it's the only localhost origin the worker's CORS allowlist accepts. The `team-dashboard` launch config
   serves a mirror at `$TMPDIR/boxscorethedraft-preview`; re-sync it first:
@@ -37,7 +37,8 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 - **Tools:** `node tools/export-draft.mjs --dry-run [--group <id>] [--code <invite-code>]` (finished draft → `js/seasons/<year>.js`, or `<group>-<year>.js`; refuses an unfinished
   draft), `node tools/outlooks.mjs facts --league nfl` / `apply <file.json>`, `node tools/golfer-pool.mjs`,
   `node tools/vapid-keys.mjs`, `node tools/espn-teams.mjs` (saves ESPN's team lists to `js/seasons/espn-teams.js`;
-  run before each season's drafts).
+  run before each season's drafts), `node tools/robot-visit.mjs --group <id>` (the daily scoring visit by hand; needs
+  Playwright, which only the `daily-scoring.yml` GitHub Actions job installs).
 - **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check.
 - **Deploy:** site = push to `main` (Pages project `boxscorethedraft`, no build command; every branch/PR gets a
   preview at `<branch>.boxscorethedraft.pages.dev`). Worker = `cd worker && npx wrangler deploy`.
@@ -75,6 +76,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
 Worker secrets: `ADMIN_PASSWORD` (The Draft commissioner), `ADMIN_PASSWORD_<GROUP>` (others), `THERUNDOWN_API_KEY`,
 `SPORTSDB_API_KEY`, `PERIGON_API_KEY` (More news; unset hides it), `KLIPY_APP_KEY` (GIFs; unset hides them), `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (push; never
 rotate casually), `VAPID_SUBJECT`, `RESEND_API_KEY`, `CLAIM_ALERT_EMAIL`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`.
+GitHub Actions secret: `GROUP_CODE_SEASONTICKET` (Season Ticket's invite code, for the daily robot visit).
 Dev only: `ADMIN_DEV_BYPASS` (ignored when `ACCESS_AUD` is set). Local secrets go in `worker/.dev.vars` (gitignored).
 Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASHBOARD_WORKER_BASE`
 (`js/worker-base.js`), `APP_VERSION` (`js/version.js`), `CACHE_NAME` (`sw.js`).
@@ -90,7 +92,7 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
   season begins (its regular-season start on ESPN's calendar); the switch is automatic (`js/season-overlap.js`).
 - After a draft, last season keeps scoring in a hidden copy of the app (`?bg=1`, `js/season-background.js`) until
   it's recorded in History. Anything new in `js/board.js`'s boot that draws, connects or polls goes behind
-  `IS_SEASON_BACKGROUND`.
+  `IS_SEASON_BACKGROUND`, which is also true for the daily robot visit (`?robot=1`, `docs/server-scoring-plan.md`).
 - Scoring exists only in the browser; the worker stores what the browser computes.
 - `js/ui.js` must stay a leaf module (imports only `escape.js`, `icons.js`) or boot cycles.
 - The draft room, Commissioner console (`js/admin.js`), other groups' classes and the guide's stills load on first use

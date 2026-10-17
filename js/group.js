@@ -29,7 +29,10 @@ export const ACTIVE_GROUP = GROUPS[ACTIVE_GROUP_ID];
 // can't be imported here without a cycle; same test).
 (function rememberGroup(){
   try {
-    if(window.parent !== window && new URLSearchParams(window.location.search).get('bg') === '1') return;
+    const q = new URLSearchParams(window.location.search);
+    if(window.parent !== window && q.get('bg') === '1') return;
+    // Nor from the daily robot visit (IS_ROBOT in js/season.js).
+    if(q.get('robot') === '1') return;
     const cookie = lastGroupCookie(ACTIVE_GROUP_ID, window.location.hostname);
     if(cookie) document.cookie = cookie;
   } catch (e){}

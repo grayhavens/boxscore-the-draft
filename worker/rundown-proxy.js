@@ -215,6 +215,7 @@ import { handleSports } from './sports.js';
 import { gateRequest, handleAccessCheck } from './access-code.js';
 import { handleGolfSeason, handleGolfNews } from './golf.js';
 import { handleNews, refreshNews } from './news.js';
+import { runEspnProbe } from './espn-probe.js';
 import { parseSample, recordSample, handlePointsHistory } from './points-history.js';
 import { logAdminAction, commissionerNote } from './admin-log.js';
 
@@ -1148,9 +1149,12 @@ export default {
   },
 
   // The daily cron in wrangler.toml: one small batch of Perigon searches
-  // (worker/news.js), kept well under the free tier's monthly cap.
+  // (worker/news.js), kept well under the free tier's monthly cap, and one
+  // ESPN request to see whether ESPN still refuses Workers
+  // (worker/espn-probe.js, shown on the system admin page).
   async scheduled(event, env, ctx){
     ctx.waitUntil(refreshNews(env, ctx, { cachedUpstreamFetch }).catch(e => console.error('[news] refresh failed', e)));
+    ctx.waitUntil(runEspnProbe(env).catch(e => console.error('[espn-probe] failed', e)));
   }
 };
 

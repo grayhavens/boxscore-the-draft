@@ -16,6 +16,7 @@
    ============================================================ */
 import { SEASONS, SEASON_IDS, LATEST_SEASON_ID, LEGACY_SEASON_ID } from './seasons/index.js';
 import { withGroupQuery } from './group.js';
+import { isRobotVisit } from './groups.js';
 
 const SEASON_STORAGE_KEY = 'teamDashboardSeason';
 
@@ -43,10 +44,20 @@ function resolveActiveSeasonId(){
 
 export const ACTIVE_SEASON_ID = resolveActiveSeasonId();
 
+// The daily robot visit (docs/server-scoring-plan.md): a headless browser
+// on GitHub Actions opens ?robot=1 once a day so a group nobody opened
+// still gets its Race sample, Activity and points alerts. It boots the same
+// scoring-only copy as below, on the newest season, and marks the page done
+// (robotDone in js/season-background.js) for the job to wait on.
+export const IS_ROBOT = (() => {
+  try { return isRobotVisit(window.location.search, window.location.hostname, window.parent !== window); } catch (e){ return false; }
+})();
+
 // True in the hidden copy of an older season that js/season-background.js
-// loads while that season is still in play: it boots only the scoring
-// work (locks, Activity, points alerts) and draws nothing anyone sees.
-export const IS_SEASON_BACKGROUND = (() => {
+// loads while that season is still in play, and in the robot visit above:
+// it boots only the scoring work (locks, Activity, points alerts) and
+// draws nothing anyone sees.
+export const IS_SEASON_BACKGROUND = IS_ROBOT || (() => {
   try { return window.parent !== window && new URLSearchParams(window.location.search).get('bg') === '1'; } catch (e){ return false; }
 })();
 export const ACTIVE_SEASON = SEASONS[ACTIVE_SEASON_ID];

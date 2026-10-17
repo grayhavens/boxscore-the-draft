@@ -1,7 +1,7 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUPS, LEGACY_GROUP_ID, groupCaps, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl, lastGroupCookie, groupFromCookie } from '../js/groups.js';
+import { GROUPS, LEGACY_GROUP_ID, groupCaps, chooseGroupId, groupIdFromHost, adminSecretName, drafterIdsFor, isPlatformHost, groupAppUrl, lastGroupCookie, groupFromCookie, isRobotVisit } from '../js/groups.js';
 
 test('a group subdomain picks that group', () => {
   assert.equal(chooseGroupId({ hostname: 'thedraft.boxscore.space', fromUrl: null }), 'thedraft');
@@ -80,4 +80,15 @@ test('groupFromCookie reads a known group only', () => {
   assert.equal(groupFromCookie('bx-group=constructor'), null);
   assert.equal(groupFromCookie(''), null);
   assert.equal(groupFromCookie(undefined), null);
+});
+
+test('the robot visit: ?robot=1 on a group host or dev, never framed', () => {
+  assert.equal(isRobotVisit('?robot=1', 'thedraft.boxscore.space', false), true);
+  assert.equal(isRobotVisit('?robot=1&season=2026', 'seasonticket.boxscore.space', false), true);
+  assert.equal(isRobotVisit('?robot=1', 'localhost', false), true);
+  assert.equal(isRobotVisit('?robot=1', 'thedraft.boxscore.space', true), false);
+  assert.equal(isRobotVisit('?robot=0', 'thedraft.boxscore.space', false), false);
+  assert.equal(isRobotVisit('', 'thedraft.boxscore.space', false), false);
+  assert.equal(isRobotVisit('?robot=1', 'boxscore.space', false), false);
+  assert.equal(isRobotVisit('?robot=1', 'example.com', false), false);
 });

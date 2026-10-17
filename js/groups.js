@@ -215,6 +215,17 @@ export function chooseGroupId({ hostname, fromUrl }){
   return LEGACY_GROUP_ID;
 }
 
+// The daily robot visit (?robot=1, IS_ROBOT in js/season.js,
+// docs/server-scoring-plan.md): only on a group's own host, or local dev
+// and previews, and never inside a frame. Pure, for tests/groups.test.mjs.
+export function isRobotVisit(search, hostname, framed){
+  if(framed) return false;
+  try {
+    if(new URLSearchParams(search).get('robot') !== '1') return false;
+  } catch (e){ return false; }
+  return !!groupIdFromHost(hostname) || allowsGroupOverride(hostname);
+}
+
 // The worker secret holding a group's commissioner password. The Draft
 // keeps the original ADMIN_PASSWORD; every other group has its own, e.g.
 // ADMIN_PASSWORD_SEASONTICKET (`npx wrangler secret put ADMIN_PASSWORD_SEASONTICKET`).

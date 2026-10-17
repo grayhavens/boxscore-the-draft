@@ -42,6 +42,11 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
   (docs/lazy-load-plan.md).
 - Quick fixes (2026-10-16): chat's long press cancels at the shared `MOVE_SLOP` (8px) like every other gesture; merged
   branches deleted on GitHub.
+- Checked on a real iPhone (2026-10-16): the invite code's Copy button on the install steps (#284) and the three
+  one-time tips (#286).
+- UX item 7, daily scoring visit (2026-10-16): GitHub Actions opens each group's app with `?robot=1` once a day, so a
+  quiet day still gets its Race sample, Activity and alerts (docs/server-scoring-plan.md). Plans for items 8–10 written;
+  8 parked behind a daily ESPN probe, 9 and 10 on hold.
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -50,10 +55,8 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
 
 ## Next up
 
-- Check on a real iPhone what the preview couldn't: the invite code's Copy button on the install steps (#284) and the
-  three one-time tips (#286).
-- UX items 7–10: each needs a detailed plan first (the plan doc gives each its problem, change and files). Items 7 and 8
-  start in the worker; 9 and 10 change groups and sign-in.
+- After this merges: add the `GROUP_CODE_SEASONTICKET` Actions secret, deploy the worker (the ESPN probe), then run
+  "Daily scoring visit" once by hand from the Actions tab and check both groups' Race chart gains today.
 
 ## Not started
 
@@ -65,13 +68,16 @@ anything new becomes a token or `js/ui.js` helper with a spec pair in `docs/desi
 
 Quick wins 1–4 and 11: shipped (see Done, #282–#286).
 
-For growth (each needs a short plan of its own first):
+For growth (detailed plans written 2026-10-16):
 - 5. Home priority rule: shipped 2026-10-16 (see Done).
 - 6. Load rare parts on demand: shipped 2026-10-16 (see Done).
-- 7. Daily server-side points sample when no phone reported, for the leagues ESPN lets the worker read (worker cron, points-history.js). New: none.
-- 8. Optional edge-cached ESPN passthrough with the browser's direct call as fallback (rundown-proxy.js, espn.js). New: none.
-- 9. Groups in KV with a wildcard subdomain, created from the system admin page (groups.js, system-admin.js). New: none expected.
-- 10. Personal sign-in link in welcome emails, signed like the commissioner token, opt-in per group (identity.js, welcome-email.js). New: none expected; any tag variant goes through `tagHtml` and the Tag spec.
+- 7. Daily scoring when no phone reported: shipped 2026-10-16 as a daily robot visit (see Done).
+- 8. Shared ESPN passthrough: **parked**, because ESPN answers 403 to Workers. A daily probe (system admin page's ESPN tile)
+  shows when that changes; then pick up `docs/espn-passthrough-plan.md`.
+- 9. Add a group without a code change: **on hold until a third group is coming** (`docs/group-registry-plan.md`:
+  KV registry, token-only commissioners, subdomains added through the Pages API).
+- 10. Personal sign-in link: **on hold until item 9, or a group filling from strangers** (`docs/member-link-plan.md`:
+  enforced in the worker after a warn-only week).
 
 ### Other
 
