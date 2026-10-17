@@ -9,7 +9,7 @@
    - Home rows: FedEx rank after the country, and this week's place in
      the status slot;
    - the Scores tab's tournament card (golfCardsForDay, js/live-now.js);
-   - Home's card for a major (golfMajorHomeHtml, js/board.js), from the
+   - Home's card for a major (golfMajorHomeItem, js/board.js), from the
      Monday of its week until a week after (docs/golf-majors-plan.md).
 
    Data comes from js/golf-api.js: the season's finished events from the
@@ -289,11 +289,13 @@ function majorLeaderLine(major){
 // drafter in a group whose golf scores, how their golfers stand: points
 // in play (blue) while it's on, locked (gold) once it's over. Their
 // golfers still playing sit at the right (the winner, once it's over).
-// A tap opens the leaderboard.
-export function golfMajorHomeHtml(){
-  if(!hasGolf() && !MAJOR_REPLAY) return '';
+// A tap opens the leaderboard. An item for Home's stack
+// (js/home-stack-math.js): it counts when this group's majors score, and
+// goes after the team leagues' cards in a tie.
+export function golfMajorHomeItem(){
+  if(!hasGolf() && !MAJOR_REPLAY) return null;
   const major = activeMajor({ current: golfStore.current, events: golfStore.events || [], now: Date.now() });
-  if(!major) return '';
+  if(!major) return null;
   const year = String(major.start || '').slice(0, 4);
   const eyebrow = major.status === 'pre' ? `Starts ${weekday(major.start)} \u00b7 ${year}`
     : major.status === 'in' ? `Round ${major.round || 1} \u00b7 ${year}`
@@ -332,17 +334,23 @@ export function golfMajorHomeHtml(){
   const own = majorOf(major.name);
   const logo = own ? own.logo : golfStore.current && golfStore.current.event && golfStore.current.event.logo;
   const logoHtml = logo ? `<span class="ps-home-logo ${own && own.lockup ? 'lockup' : 'square'}"><img class="ps-logo-dark" src="${esc(logo.dark)}" alt="" draggable="false"><img class="ps-logo-light" src="${esc(logo.light)}" alt="" draggable="false"></span>` : '';
-  return `
+  const title = own ? own.name : shortName(major.name);
+  const html = `
     <button type="button" class="ps-home" onclick="openGolfEvent('${esc(major.id)}')">
       ${logoHtml}
       <span class="ps-home-text">
         <span class="ps-home-eyebrow">${esc(eyebrow)}</span>
-        <span class="ps-home-title">${esc(own ? own.name : shortName(major.name))}</span>
+        <span class="ps-home-title">${esc(title)}</span>
         ${lines.map(l => `<span class="ps-home-sub">${l}</span>`).join('')}
       </span>
       ${badges.length ? `<span class="ps-home-teams">${badges.slice(0, 4).map(b => `<span class="ps-home-team${b.mine ? '' : ' plain'}">${teamBadgeHtml(golferBadgeMeta(b.id))}</span>`).join('')}</span>` : ''}
       <span class="ps-home-go" aria-hidden="true">&rsaquo;</span>
     </button>`;
+  return {
+    id: 'golf-major', tier: scoring ? 'counts' : 'no-points',
+    state: major.status === 'post' ? 'done' : major.status === 'in' ? 'live' : 'set',
+    mineAlive: !!(mine && (major.status === 'pre' ? mine.rows.length : mine.playing)), order: 99, title, html
+  };
 }
 
 // ---- Preview: replay a major on Home ----

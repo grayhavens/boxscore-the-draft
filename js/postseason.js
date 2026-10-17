@@ -1076,18 +1076,22 @@ export function fieldSetEyebrow(key){
 // sit at the right, ringed in gold. A tap opens Standings on that league
 // (openPlayoffs in js/board.js), where the reveal plays the first time
 // and the ladder opens after that.
+// Each card is an item for Home's stack (js/home-stack-math.js): its tier
+// (counts for points or not), its state (under way, field set, champion
+// week) and whether you still have a team alive decide where it goes.
 const CHAMPION_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-export function postseasonHomeHtml(leagueKeys){
-  return leagueKeys.filter(key => POSTSEASON_LEAGUES[key]).map(key => {
+export function postseasonHomeItems(leagueKeys){
+  return leagueKeys.map((key, order) => {
+    if(!POSTSEASON_LEAGUES[key]) return null;
     ensurePostseason(key);
     const bracket = bracketFor(key);
-    if(!bracket) return '';
+    if(!bracket) return null;
     const S = snap(key, latestStage(bracket));
     const round = currentRoundName(bracket);
     // A week of the champion, then gone (a ?psyear replay keeps it).
     const crowned = titleGameDate(bracket);
-    if(round === 'Champion' && previewYear(key) === null && crowned && Date.now() - crowned.getTime() > CHAMPION_WEEK_MS) return '';
+    if(round === 'Champion' && previewYear(key) === null && crowned && Date.now() - crowned.getTime() > CHAMPION_WEEK_MS) return null;
     const started = postseasonStarted(bracket);
     const mineIn = S.teams.filter(t => t.mine);
     const mine = mineIn.filter(t => t.alive).sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99));
@@ -1104,7 +1108,7 @@ export function postseasonHomeHtml(leagueKeys){
       : 'None of your teams left';
     // A postseason that doesn't count says so under the title.
     const noPts = postseasonScores(key) ? '' : 'Doesn’t count for points';
-    return `
+    const html = `
       <button type="button" class="ps-home" onclick="openPlayoffs('${key}')">
         ${logo ? `<span class="ps-home-logo${logo.lockup ? ' lockup' : ''}">${logoImgsHtml(logo.emblem)}</span>` : ''}
         <span class="ps-home-text">
@@ -1116,7 +1120,12 @@ export function postseasonHomeHtml(leagueKeys){
         ${mine.length ? `<span class="ps-home-teams">${mine.slice(0, 4).map(t => `<span class="ps-home-team">${badgeOf(t)}</span>`).join('')}</span>` : ''}
         <span class="ps-home-go" aria-hidden="true">&rsaquo;</span>
       </button>`;
-  }).join('');
+    return {
+      id: `ps:${key}`, tier: noPts ? 'no-points' : 'counts',
+      state: round === 'Champion' ? 'done' : started ? 'live' : 'set',
+      mineAlive: mine.length > 0, order, title, html
+    };
+  }).filter(Boolean);
 }
 
 // ---- Team page: the Postseason section ----

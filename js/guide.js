@@ -108,7 +108,7 @@ const SECTIONS = [
 const APP_ROWS = [
   {
     id: 'home', icon: 'home', title: 'Home',
-    lead: 'Your teams, their form and next game. Tap any team for its page. After a draft, last season shows here until its last games are played.',
+    lead: 'Your teams, their form and next game. Tap any team for its page. The two most important things right now (playoffs, a major, last season still being played) sit above your teams; the rest wait under More right now.',
     pre: { lead: 'The draft countdown and the way in. Your teams show here after.' },
     go: ['Go to Home', "switchView('board')"]
   },

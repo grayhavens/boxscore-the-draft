@@ -35,6 +35,8 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
   Series" (plus a rain-out and "If Necessary" games, and a placeholder opponent before the field is set), "WNBA
   Semifinals" and "WNBA Finals". WNBA semifinals and Finals already score automatically through the postseason ladder
   (#242); the 2026 fixtures and tests now cover them.
+- UX item 5, Home priority rule (2026-10-16): one written order for everything above your teams, two at most, the rest
+  under "More right now (N)" (docs/home-priority-plan.md); new `linkRowHtml` and `homeStackHtml` helpers.
 - Earlier: one rank move per day, Race minimap removed (#222); simpler Next game card (#221); underline filter tabs (#220).
 
 ## In progress
@@ -45,8 +47,8 @@ As of 2026-10-16 (`main` at 53cf52f, PR #287). No GitHub issues; no TODO/FIXME c
 
 - Check on a real iPhone what the preview couldn't: the invite code's Copy button on the install steps (#284) and the
   three one-time tips (#286).
-- UX item 5 (Home priority rule), then item 6 (load rare parts on demand). The plan doc already gives each growth item
-  its problem, change, files and design-system notes, so each needs only a detailed plan, not a new write-up.
+- UX item 6 (load rare parts on demand): a detailed plan, then build. The plan doc already gives it its problem, change,
+  files and design-system notes.
 - Decide Delight Phase 6's deadline (see Other).
 
 ## Not started
@@ -60,7 +62,7 @@ anything new becomes a token or `js/ui.js` helper with a spec pair in `docs/desi
 Quick wins 1–4 and 11: shipped (see Done, #282–#286).
 
 For growth (each needs a short plan of its own first):
-- 5. Home priority rule: one written card order, at most two cards above your teams, the rest in a "More right now (N)" row (board.js, since.js, postseason.js, golf-view.js). New: possibly a `homeStackHtml` helper; no tokens.
+- 5. Home priority rule: shipped 2026-10-16 (see Done).
 - 6. Load rare parts on demand: Commissioner console (82 KB) and other groups' draft classes (155 KB), maybe team page extras; skeletons while loading (board.js, seasons/index.js, sw.js). New: none.
 - 7. Daily server-side points sample when no phone reported, for the leagues ESPN lets the worker read (worker cron, points-history.js). New: none.
 - 8. Optional edge-cached ESPN passthrough with the browser's direct call as fallback (rundown-proxy.js, espn.js). New: none.

@@ -95,6 +95,30 @@ export function bannerHtml({ text = '', html = null, tone = '', note = false, ac
   return `<div class="${classes}"><span>${html !== null ? html : escapeHtml(text)}</span>${action}${actionHtml}</div>`;
 }
 
+// LinkRow: the slim surface row that links somewhere (Home's champion and
+// last-season rows, its "More right now" row). `unseen` adds the gold dot
+// and a gold `go`; `titleHtml` / `subHtml` take trusted markup in place of
+// the text.
+export function linkRowHtml({ title = '', titleHtml = null, sub = '', subHtml = null, go = '', unseen = false, onclick, cls = '' }){
+  const subPart = subHtml !== null ? subHtml : (sub ? escapeHtml(sub) : '');
+  return `<button type="button" class="act-link${unseen ? ' unseen' : ''}${cls ? ` ${cls}` : ''}" onclick="${onclick}">`
+    + (unseen ? '<span class="act-dot"></span>' : '')
+    + `<span class="act-link-body"><span class="act-link-title">${titleHtml !== null ? titleHtml : escapeHtml(title)}</span>`
+    + (subPart ? `<span class="act-link-sub">${subPart}</span>` : '')
+    + `</span>${go ? `<span class="act-link-go">${escapeHtml(go)} &rsaquo;</span>` : ''}</button>`;
+}
+
+// HomeStack: what sits above your teams on Home, in the order js/home-
+// stack-math.js decides. `itemsHtml` are the items' own markup (trusted);
+// `more` ({ title, sub, onclick }) adds the "More right now" LinkRow.
+// The stack owns the spacing: items inside it drop their own margins.
+export function homeStackHtml({ itemsHtml = [], more = null }){
+  if(!itemsHtml.length && !more) return '';
+  return `<div class="home-stack">${itemsHtml.join('')}`
+    + (more ? linkRowHtml({ title: more.title, sub: more.sub, go: 'Show', onclick: more.onclick, cls: 'home-more' }) : '')
+    + `</div>`;
+}
+
 // Sheet: the inside of a .modal (the overlay itself stays in index.html
 // and opens through js/sheet.js). A title row with an optional sub and
 // the round ×, then the body. `titleHtml` / `subHtml` take trusted markup

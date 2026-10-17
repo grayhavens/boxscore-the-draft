@@ -5414,12 +5414,11 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-time{ font-size: var(--fs-11); font-weight: 600; color: var(--text-mute); }
 
 /* Home before a group's first draft: the way into the mock and live rooms */
-#draft-home:empty, .filter-chips[hidden]{ display: none; }
-.draft-home{ display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
+.filter-chips[hidden]{ display: none; }
+.draft-home{ display: flex; flex-direction: column; gap: 8px; }
 
 /* Home's "playoffs are set" card (postseasonHomeHtml in js/postseason.js):
    the way in to the playoffs reveal, styled like the reveal's gold strip. */
-.ps-home-stack{ display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
 .ps-home{
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 14px 14px 16px;
   border-radius: var(--r-lg); background: var(--ps-hero-bg); border: 1px solid var(--accent-border);
@@ -5526,6 +5525,13 @@ html[data-theme="light"] .set-label{ color: var(--text-sub); }
 .act-link-sub{ font-size: var(--fs-12); font-weight: 600; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .act-link-go{ font-size: var(--fs-12); font-weight: 800; color: var(--text-sub); white-space: nowrap; }
 .act-link.unseen .act-link-go{ color: var(--accent); }
+
+/* Home's stack (homeStackHtml in js/ui.js, ordered by js/home-stack-math.js):
+   the Draft card, the champion row, postseason and major cards, the
+   last-season row, then "More right now". The stack owns the spacing, so
+   its items drop their own margins (this comes after .act-link so it wins). */
+.home-stack{ display: flex; flex-direction: column; gap: 10px; margin: 0 0 18px; }
+.home-stack > *{ margin: 0; }
 
 /* Points > Activity */
 .act-group{ padding: 0; overflow: hidden; margin-bottom: 14px; }

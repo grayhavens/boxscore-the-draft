@@ -180,6 +180,8 @@ it exists.
 
 ### 5. Give Home a priority rule
 
+**Shipped 2026-10-16:** detailed plan and decisions in `docs/home-priority-plan.md`.
+
 **Problem.** Above your teams, Home can stack the draft card, Since last time, playoff cards (one per league), golf
 major cards, the champion card and the last-season row. Each sport added adds another card that can land at the top.
 

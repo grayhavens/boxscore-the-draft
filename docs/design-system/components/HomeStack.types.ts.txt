@@ -1,0 +1,7 @@
+export interface HomeStackProps {
+  /** The items to show, already ordered (Draft card, champion row, postseason and major cards, last-season row). */
+  children: React.ReactNode;
+  /** The folded rest: a LinkRow "More right now (N)" naming them, "Show ›". */
+  more?: { title: string; sub: string; onClick: () => void };
+}
+export function HomeStack(props: HomeStackProps): JSX.Element | null;

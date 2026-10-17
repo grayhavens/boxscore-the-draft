@@ -132,6 +132,8 @@ system admin), `1280px` (chat docks as a column), `1100px`, `1179px`. No breakpo
 | `chatMetaHtml`, `chatBubbleHtml`, `chatReactionsHtml`, `reactionBarHtml`, `REACTION_EMOJI` | chat message rows (ChatBubble, ReactionBar); flat siblings because `js/chat.js` diffs them |
 | `chatComposerHtml({onsend, ongif, showGif})` | the chat composer, drawn by `initChat` |
 | `sharedGameCardHtml({league, away, home, status, live, shared, mine, nowHtml, attrs})` | a game shared into chat (`.chat-game`), also the landing tour's |
+| `linkRowHtml({title\|titleHtml, sub\|subHtml, go, unseen, onclick, cls})` | slim surface row that links somewhere (`.act-link`): Home's champion, last-season and "More right now" rows |
+| `homeStackHtml({itemsHtml, more})` | what sits above your teams on Home (`.home-stack`, 10px gap, owns its items' spacing); order from `js/home-stack-math.js` |
 
 Not yet in the design system (per `docs/design-system-plan.md`): folded PathToPoints. Screens not covered by the spec:
 draft room, team page, race chart (per the plan). Every spec component a screen renders now has a
