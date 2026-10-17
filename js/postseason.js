@@ -74,12 +74,13 @@ import {
 // its badge doubled (52px), centered 42px in from the rung's left and top.
 // Wide (a league picked on its own at 900px and up, ladderWide): taller
 // rungs, 52px chips with 36px badges, eight to a row, each game's two chips
-// side by side on a shared backing (pairGap), and the crown's badge 58px,
+// side by side on a shared backing (pairGap; 64px tall, so rows are 70px
+// apart and two of them never overlap), and the crown's badge 58px,
 // centered 54px in. `badgeMid`: the badge's center, px from the chip's top
 // (the "v" / series tally sits level with it).
 const DIMS = {
   phone: { rungH: 84, rowH: 40, oneRowY: 26, perRow: 6, pairGap: null, chipW: 40, badgeMid: 13, crown: { x: 22, y: 29 }, crownScale: 2 },
-  wide: { rungH: 108, rowH: 52, oneRowY: 28, perRow: 8, pairGap: 36, chipW: 52, badgeMid: 18, crown: { x: 28, y: 36 }, crownScale: 1.6 }
+  wide: { rungH: 108, rowH: 70, oneRowY: 28, perRow: 8, pairGap: 36, chipW: 52, badgeMid: 18, crown: { x: 28, y: 36 }, crownScale: 1.6 }
 };
 const dimsOf = wide => wide ? DIMS.wide : DIMS.phone;
 const REPLAY_STEP_MS = 1700;

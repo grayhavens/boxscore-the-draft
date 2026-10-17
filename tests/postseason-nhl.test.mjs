@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, POSTSEASON_LEAGUES
+  seriesEvents, buildBracket, snapshot, latestStage, milestonesFor, finalRound, currentRoundName, postseasonStarted, topRung, seriesResults, seriesResultLine, ladderGhosts, matchups, ladderLayout, ladderGeometry, POSTSEASON_LEAGUES
 } from '../js/postseason-math.js';
 import { playoffReach, teamsEarning } from '../js/playoff-series-math.js';
 
@@ -145,4 +145,23 @@ test('NHL: the ladder and the late-round scoring (js/playoff-series-math.js) agr
       assert.deepEqual(S.teams.filter(t => t.milestones.find(m => m.label === label).got).map(t => t.id).sort(), ids, `${year} ${label}`);
     }
   }
+});
+
+test('NHL wide ladder: two rows of pairs on a rung are far enough apart for their backings', () => {
+  const b = bracket(2026);
+  const S = snapshot(b, latestStage(b));
+  const placed = S.teams.concat(ladderGhosts(S.teams, S));
+  // The wide ladder's sizes (DIMS.wide in js/postseason.js): 64px backings.
+  const wide = { rungH: 108, rowH: 70, perRow: 8, pairGap: 36, games: S.games, top: 4, sides: POSTSEASON_LEAGUES.nhl.sides };
+  const geo = ladderGeometry(placed, { ...wide, rungs: 5 });
+  // The first round's eight pairs: two rows of four, the rung grown to fit.
+  assert.equal(geo.rows[0].length, 2);
+  assert.equal(geo.heights[0], 140);
+  const pos = ladderLayout(placed, { ...wide, champRung: 4 });
+  const ys = [...new Set(geo.rows[0].flat().map(t => pos[t.id].y))].sort((x, y) => x - y);
+  assert.ok(ys[1] - ys[0] >= 64 + 6);
+  // The phone's rungs don't change: 84px for up to two 40px rows, else
+  // grown row by row (its first round here is four rows, three to a half).
+  const phone = ladderGeometry(placed, { games: S.games, top: 4, rungs: 5, sides: POSTSEASON_LEAGUES.nhl.sides });
+  assert.deepEqual([0, 1, 2, 3].map(k => phone.heights[k]), [0, 1, 2, 3].map(k => (phone.rows[k] || []).length > 2 ? 8 + phone.rows[k].length * 40 : 84));
 });

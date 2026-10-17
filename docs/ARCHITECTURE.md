@@ -774,7 +774,7 @@ leaves a ghost (`ladderGhosts`, id `<team>~<round>`, grayed like the team it bea
 between them (`matchups` pairs a ghost with its opponent), so a finished round still says who played whom; the ladder
 keeps a chip for every ghost of the latest stage, hidden on its winner's spot until its series is over at the stage
 shown. As a winner moves up, a few fading copies of its badge trail it (`moveAheadFx`, `.ps-echo`, only with `fxOn()`).
-Finished rounds hold two rows of chips (4 pairs), so the ladder is taller once a round is over. While a game is on (a single game too, which gets the dot on its "v"), the pair's
+Finished rounds hold two rows of chips (4 pairs), so the ladder is taller once a round is over. On the wide ladder rows are 70px apart (`DIMS.wide.rowH`, the pair backing is 64px) and a two-row rung grows to fit (`ladderGeometry`), so the NBA's and NHL's eight first-round pairs don't overlap. While a game is on (a single game too, which gets the dot on its "v"), the pair's
 mark is a button that calls `openGameDetail` for the live game (`liveId`: `seriesEvents` carries the in-progress
 game's id, since a series' own id is its first game's) through whichever side is a drafted team, so the Scores
 sheet opens in place; with neither side drafted it stays a plain mark. Any league fed through `seriesEvents` gets it (MLB, WNBA, NBA, NHL). MLB's ladder is also split

@@ -801,14 +801,17 @@ function splitRows(teams, games, sides, perRow = PER_ROW, pairGap = null){
 // Each rung's height and its top (px from the ladder's top), rungs top to
 // bottom from `top` (topRung) to the first round, and the ladder's
 // height. A rung is `rungH` tall unless its chips need three rows or more
-// (the NCAA's first rung, with every drafted team in the field on it).
+// (the NCAA's first rung, with every drafted team in the field on it), or
+// two rows that don't fit it (the wide ladder's).
 // A rung above `top` waits one rungH above the ladder.
 export function ladderGeometry(teams, { rungH = 84, rowH = ROW_H, perRow = PER_ROW, pairGap = null, top = 4, games = [], rungs = 5, sides = null } = {}){
   const { fx, dx, ...rows } = rungRows(teams, games, sides, perRow, pairGap);
   const heights = [], tops = [];
   for(let k = 0; k < rungs; k++){
     const n = rows[k] ? rows[k].length : 0;
-    heights[k] = n > 2 ? 8 + n * rowH : rungH;
+    // Two rows fit a phone's rung; the wide ladder's taller rows (each
+    // pair on its backing) grow it to fit.
+    heights[k] = n > 2 ? 8 + n * rowH : Math.max(rungH, n * rowH);
   }
   let y = 0;
   for(let k = rungs - 1; k >= 0; k--){
