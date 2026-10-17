@@ -34,7 +34,7 @@ import { mentionHtml, mentionListHtml, REACTION_EMOJI, chatMetaHtml, chatBubbleH
 import { clearAlerts } from './push.js';
 import { gameCardHtml, openSharedGame, refreshGameLines } from './game-card.js';
 import { fxOn, play, pop, burst } from './motion-fx.js';
-import { EASE_SPRING, LONG_PRESS_MS } from './utils.js';
+import { EASE_SPRING, LONG_PRESS_MS, MOVE_SLOP } from './utils.js';
 import { showTip, tipDone } from './tips.js';
 
 const CACHE_KEY = 'teamDashboardChatMessages';
@@ -635,7 +635,8 @@ function watchLongPress(list){
     }, LONG_PRESS_MS);
   });
   list.addEventListener('pointermove', event => {
-    if(timer && (Math.abs(event.clientX - startX) > 10 || Math.abs(event.clientY - startY) > 10)) cancel();
+    // The same slop every other gesture uses (js/gestures.js): past it, it's a scroll, not a hold.
+    if(timer && (Math.abs(event.clientX - startX) > MOVE_SLOP || Math.abs(event.clientY - startY) > MOVE_SLOP)) cancel();
   });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => list.addEventListener(type, cancel));
   list.addEventListener('contextmenu', event => {
