@@ -58,17 +58,61 @@ function clearSheetInline(overlay, sheet){
   }
 }
 
+// ---- A sheet is a dialog to VoiceOver and the keyboard ----
+// Before this, a sheet was just a div sliding up: focus stayed on the
+// page behind it, VoiceOver could wander there, and nothing said a sheet
+// had opened (docs/optimization-report.md, Phase 2 #3). Now the sheet is
+// a labelled modal dialog that takes focus, everything else on the page
+// is inert while it's open, and focus goes back to whatever opened it.
+//
+// Inert is recomputed from what's open rather than undone per sheet:
+// everything but the topmost open sheet (the last in the page, which is
+// how stacked sheets sit, game details over a sheet) is inert, and when
+// none is open only what this set is cleared. A sheet closed some other
+// way can't leave the page dead, and stacked sheets need no bookkeeping.
+const inertBySheets = new Set();
+function syncInert(){
+  const open = [...document.querySelectorAll('.modal-overlay.open:not(.closing)')];
+  const top = open[open.length - 1] || null;
+  [...document.body.children].forEach(el => {
+    const want = !!top && el !== top && el.tagName !== 'SCRIPT';
+    if(want && !el.inert){ el.inert = true; inertBySheets.add(el); }
+    else if(!want && inertBySheets.has(el)){ el.inert = false; inertBySheets.delete(el); }
+  });
+}
+
+function markDialog(sheet){
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('tabindex', '-1');
+  // The sheet's heading: .sheet-title (sheetHeadHtml), or any *-title
+  // (.welcome-title, .dr-title…), or a heading element.
+  const title = [...sheet.querySelectorAll('[class*="title"], h2, h3')]
+    .find(el => /^H[23]$/.test(el.tagName) || [...el.classList].some(c => c.endsWith('-title')));
+  const label = title && title.textContent.trim();
+  if(label) sheet.setAttribute('aria-label', label);
+}
+
 export function openSheetOverlay(overlay){
   if(!overlay || isSheetOpen(overlay)) return;
   overlay._sheetClose = null;
   const sheet = overlay.querySelector('.modal');
   clearSheetInline(overlay, sheet);
   if(sheet) watchSheetHeight(sheet);
+  const active = document.activeElement;
+  overlay._opener = active && active !== document.body && !overlay.contains(active) ? active : null;
   overlay.classList.remove('closing');
   overlay.classList.add('open', 'entering');
   clearTimeout(overlay._sheetEnter);
   overlay._sheetEnter = setTimeout(() => overlay.classList.remove('entering'), SHEET_ENTER_MS);
   overlay._settled = sheetSlide(sheet);
+  syncInert();
+  if(sheet){
+    markDialog(sheet);
+    try { sheet.focus({ preventScroll: true }); } catch (e){}
+    // Some sheets fill in after opening; label again once it has landed.
+    overlay._settled.then(() => { if(isSheetOpen(overlay)) markDialog(sheet); });
+  }
 }
 
 // Resolves once an opening sheet has finished sliding up (at once without
@@ -97,6 +141,13 @@ export function closeSheetOverlay(overlay){
     overlay._sheetClose = null;
     overlay.classList.remove('open', 'closing', 'entering');
     clearSheetInline(overlay, sheet);
+    syncInert();
+    // Back to what opened it, if it's still there and usable.
+    const opener = overlay._opener;
+    overlay._opener = null;
+    if(opener && opener.isConnected && !opener.closest('[inert]')){
+      try { opener.focus({ preventScroll: true }); } catch (e){}
+    }
   };
   clearTimeout(overlay._sheetEnter);
   if(sheet){
