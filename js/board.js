@@ -1124,6 +1124,7 @@ function showView(view){
     if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
   paintTabPill(view);
+  if(window.updateTitleBar) window.updateTitleBar();
   updateUrlParam('view', view === 'board' ? null : view);
   // A tab tapped from the team page leaves it behind.
   updateUrlParam('tp', null);
