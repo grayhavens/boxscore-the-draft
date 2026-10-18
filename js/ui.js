@@ -197,17 +197,22 @@ export function tagHtml({ label, variant = '' }){
 export function gameCardHtml({ id = null, state, time, sub = '', timeTone = null, tag = null, away, home, onclick = null, cls = '' }){
   const rail = `<div class="tg-rail"><div class="tg-rail-top${timeTone ? ` ${timeTone}` : ''}">${time}</div>${sub ? `<div class="tg-rail-bot${timeTone === 'pre' ? ' pre' : ''}">${sub}</div>` : ''}</div>`;
   const classes = ['tg-row', onclick ? 'clickable' : '', cls].filter(Boolean).join(' ');
-  return `<div class="${classes}"${id ? ` data-game="${escapeHtml(id)}"` : ''}${onclick ? ` onclick="${onclick}"` : ''}>${rail}<span class="tg-line"></span><span class="tg-node ${state}"></span><div class="tg-card ${state}">${tag ? `<div class="tg-tag ${tag.cls}">${escapeHtml(tag.text)}</div>` : ''}${gameSideHtml(away)}${gameSideHtml(home)}</div></div>`;
+  // A tappable card is a button to VoiceOver and the keyboard (Enter and
+  // Space click it: js/board.js), named by its own text so the score is
+  // read as it is now. Its crest buttons stay tappable but leave the
+  // focus order, since a button can't hold buttons.
+  const button = onclick ? ' role="button" tabindex="0"' : '';
+  return `<div class="${classes}"${id ? ` data-game="${escapeHtml(id)}"` : ''}${onclick ? ` onclick="${onclick}"` : ''}${button}>${rail}<span class="tg-line"></span><span class="tg-node ${state}"></span><div class="tg-card ${state}">${tag ? `<div class="tg-tag ${tag.cls}">${escapeHtml(tag.text)}</div>` : ''}${gameSideHtml(away, !!onclick)}${gameSideHtml(home, !!onclick)}</div></div>`;
 }
 
-function gameSideHtml(side){
+function gameSideHtml(side, inButton = false){
   const rank = side.rank ? `<span class="tg-rank" aria-label="Ranked ${side.rank}">${side.rank}</span>` : '';
   const name = `<span class="tg-name${side.dim ? ' dim' : ''}">${escapeHtml(side.name)}</span>`;
   const after = side.afterHtml || '';
   if(!side.owner && !side.badgeOnclick){
     return `<div class="tg-side">${side.badgeHtml}<div class="tg-label">${rank}${name}</div>${side.scoreHtml}${after}</div>`;
   }
-  const badge = `<button type="button" class="tg-badge-btn" onclick="${side.badgeOnclick}" aria-label="${escapeHtml(side.badgeLabel || side.name)}">${side.badgeHtml}</button>`;
+  const badge = `<button type="button" class="tg-badge-btn" onclick="${side.badgeOnclick}"${inButton ? ' tabindex="-1" aria-hidden="true"' : ` aria-label="${escapeHtml(side.badgeLabel || side.name)}"`}>${side.badgeHtml}</button>`;
   return `<div class="tg-side">${badge}<div class="tg-label">${rank}${name}<span class="tg-owner">${escapeHtml(side.owner || '')}</span></div>${side.favHtml || ''}${side.scoreHtml}${after}</div>`;
 }
 
@@ -234,9 +239,11 @@ export function teamBadgeHtml({ crestSrc = null, crestSrcDark = null, name = '',
 
 // TeamRow: a team line on Home: badge, name over a sub line (trusted HTML:
 // it carries the record chips), an optional favorite mark, and the status
-// slot the live data fills in (`statusId`).
+// slot the live data fills in (`statusId`). A button to VoiceOver and the
+// keyboard, named by its own text (name, record, the live status as it is
+// now); Enter and Space click it (js/board.js).
 export function teamRowHtml({ badgeHtml, name, subHtml = '', favHtml = '', statusId, onclick }){
-  return `<div class="team clickable" onclick="${onclick}">${badgeHtml}<div class="team-main"><div class="team-name">${escapeHtml(name)}</div><div class="team-sub">${subHtml}</div></div>${favHtml}<div class="status-slot" id="${statusId}"></div></div>`;
+  return `<div class="team clickable" role="button" tabindex="0" onclick="${onclick}">${badgeHtml}<div class="team-main"><div class="team-name">${escapeHtml(name)}</div><div class="team-sub">${subHtml}</div></div>${favHtml}<div class="status-slot" id="${statusId}"></div></div>`;
 }
 
 // SplitBar: Locked (solid ink) beside Live (blue hatch; red hatch when

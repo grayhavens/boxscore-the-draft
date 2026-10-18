@@ -7,6 +7,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES } from './data.js';
 import { scopedKey } from './season.js';
+import { scoreboardTtlMs, teamCycleMs } from './refresh-cadence.js';
 import { fetchJSON, ordinal, formatKickoff, formatDateShort, teamBadgeHtml, lockBodyScroll, unlockBodyScroll, isSheetOpen, openSheetOverlay, closeSheetOverlay, sheetSettled, enableSheetSwipeToDismiss, BALL_ICON_SVG, findDraftedTeamByName, findCfbTeamKeyByLocation, normalizeTeamName, abbrFromName, localYyyymmdd, segmentedControlHtml, skeletonLinesHtml, NEUTRAL_BADGE_STYLE, escapeHtml } from './utils.js';
 import { API_BASE, fetchRundownEventForTeam, isRundownEventLive, V2_MIGRATED_LEAGUES, UPCOMING_CHIP_LEAGUES, fetchSportsDbV2Team, fetchSportsDbV2Schedule } from './api.js';
 import { fetchEplStandingsTable, findEspnEplRow } from './standings-epl.js';
@@ -240,17 +241,37 @@ export async function fetchEspnScoreboardCached(sportPath){
   const cached = espnScoreboardCache[sportPath];
   // `day` is part of the hit check so a tab left open past midnight
   // refetches for the new date instead of serving yesterday's slate.
-  if(cached && cached.day === day && isFreshAt(cached.fetchedAt, ESPN_SCOREBOARD_TTL_MS)) return cached.data;
+  // A league with nothing live stays fresh until shortly before its next
+  // start (js/refresh-cadence.js); a live one, a minute as before.
+  if(cached && cached.day === day && isFreshAt(cached.fetchedAt, cached.ttl || ESPN_SCOREBOARD_TTL_MS)) return cached.data;
   const pending = espnScoreboardInFlight[sportPath];
   if(pending && pending.day === day) return pending.promise;
+  // A failed refresh keeps the last good copy for the same day (data and
+  // fetchedAt unchanged, so its age stays honest) and waits a minute
+  // before trying again; pull to refresh retries at once (isFreshAt's
+  // floor). Storing the null used to blank Scores ("Nothing scheduled")
+  // the moment a fetch failed (js/scores-status.js).
+  if(cached && cached.day === day && cached.data && isFreshAt(cached.failedAt, ESPN_SCOREBOARD_TTL_MS)) return cached.data;
   const promise = fetchEspnScoreboard(sportPath, day || undefined).then(data => {
-    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now() };
+    const prev = espnScoreboardCache[sportPath];
+    if(!data && prev && prev.day === day && prev.data){
+      prev.failedAt = Date.now();
+      return prev.data;
+    }
+    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now(), failedAt: data ? null : Date.now(), ttl: scoreboardTtlMs(data && data.events) };
     return data;
   }).finally(() => {
     if(espnScoreboardInFlight[sportPath] && espnScoreboardInFlight[sportPath].promise === promise) delete espnScoreboardInFlight[sportPath];
   });
   espnScoreboardInFlight[sportPath] = { day, promise };
   return promise;
+}
+
+// Where today's scoreboard for a sportPath stands, for Scores' status
+// line (js/scores-status.js): { loaded, fetchedAt, failed }.
+export function scoreboardState(sportPath){
+  const c = espnScoreboardCache[sportPath];
+  return { loaded: !!(c && c.data), fetchedAt: c ? c.fetchedAt : null, failed: !!(c && c.failedAt) };
 }
 
 export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetchedAt }
@@ -394,9 +415,21 @@ export async function fetchTeamBundle(teamKey){
         fetchEspnScoreboardCached(flatSchedule.sportPath)
       ]);
       const espnLive = findEspnScoreboardLine(scoreboard ? scoreboard.events : null, row.id);
-      const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
-      setTeamBundle(teamKey, bundle);
-      return bundle;
+      // A failed schedule fetch is null (js/team-schedule.js), never an
+      // empty schedule: keep the one this team already had (its age stays
+      // honest, fetchedAt unchanged), or, with none, fall through to the
+      // TheSportsDB/TheRundown branch below like a team ESPN can't place.
+      const prev = liveDataCache[teamKey];
+      if(!espnSchedule && prev && prev.espnSchedule){
+        const kept = { ...prev, espnLive: scoreboard ? espnLive : (prev.espnLive || null) };
+        setTeamBundle(teamKey, kept);
+        return kept;
+      }
+      if(espnSchedule){
+        const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
+        setTeamBundle(teamKey, bundle);
+        return bundle;
+      }
     }
   }
 
@@ -1849,7 +1882,8 @@ const LIVE_TEAM_KEYS = Object.keys(TEAM_META).filter(k => {
 // its page opens (ensureBundle in js/team-page.js), and nothing else reads
 // it. Rotating all ~183 meant a request every 1.6s, around the clock,
 // on every phone with the app open. Each tick refreshes the visible team
-// whose last full fetch is oldest, once it's MIN_REFRESH_CYCLE_MS old;
+// whose last full fetch is oldest, once it's due: MIN_REFRESH_CYCLE_MS near a
+// game, 30 minutes otherwise (teamCycleMs, js/refresh-cadence.js);
 // most ticks find nothing due and cost nothing. `lastFull` is kept here
 // rather than read off bundle.fetchedAt, which the live sweep bumps every
 // 20s without refetching the schedule.
@@ -1870,7 +1904,8 @@ export async function backgroundRefreshTick(){
   let teamKey = null, oldest = Infinity;
   for(const key of visibleTeamKeys()){
     const at = lastFull.get(key) || 0;
-    if(now - at >= MIN_REFRESH_CYCLE_MS && at < oldest){ oldest = at; teamKey = key; }
+    // 5 minutes near a game, 30 otherwise (js/refresh-cadence.js).
+    if(now - at >= teamCycleMs(liveDataCache[key], now) && at < oldest){ oldest = at; teamKey = key; }
   }
   if(!teamKey) return false;
   lastFull.set(teamKey, now);

@@ -59,3 +59,13 @@ export function leaguePhaseClubs(data){
   const entries = (data && data.children && data.children[0] && data.children[0].standings && data.children[0].standings.entries) || [];
   return entries.map(e => e.team && e.team.displayName).filter(Boolean);
 }
+
+// One read folded into what's already known (js/epl-cups.js). A read that
+// failed (offline, ESPN down) keeps the last answer: no reply isn't "no
+// clubs", and reading it that way took a club's Champions League points
+// away until the next good read. `at` stays put on a failure, so the
+// five-minute retry runs, not the hourly refresh.
+export function foldCupRead(prev, read, now){
+  if(read.failed) return { ...prev, failedAt: now };
+  return { ...prev, names: read.names, at: now, done: !!read.done };
+}
