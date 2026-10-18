@@ -249,6 +249,13 @@ back `seasonType` 1: every team reads 0-0 until opening night. Each row carries 
 year, and the core-API division fetches ask for that year rather than the calendar year; for NBA/NHL,
 ESPN's 2027 is 2026-27, so the calendar year used to fetch last season's final division records.
 
+**CFB records** come from ESPN's FBS standings (`fetchEspnCfbFullStandings`), plus one extra row for
+NDSU, the drafted FCS team those standings never list. NDSU's record is read from its team schedule
+(`fetchEspnCfbTeamRecord` → `parseEspnScheduleRecord`, tests `tests/espn-team-record.test.mjs`): the
+schedule's `team.recordSummary`, or a count of finished games if that field is missing. ESPN's
+`/teams/{id}?enable=record` stopped sending CORS headers (2026-10-18) and the schedule path still does.
+If NDSU's fetch fails, `findCfbRecord` falls back to TheRundown.
+
 **CFB's Top 25 switches polls** (`js/cfb-poll.js`, tests `tests/cfb-poll.test.mjs`): the AP Top 25
 until the College Football Playoff committee's first ranking (early November), then the CFP's for the
 rest of that season; never both. No date is hardcoded: ESPN's rankings feed gains a `type: 'cfp'` poll
