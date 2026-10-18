@@ -749,25 +749,57 @@ export async function fetchEspnCfbFullStandings(){
 // cover is already covered above; this exists for the one it can't:
 // NDSU (js/standings-cfb.js's NDSU_ESPN_TEAM_ID), an FCS program the
 // standings endpoint above never lists at all (FBS-only, unlike the Sun
-// Belt nesting bug fixed above). ESPN's individual team endpoint has no
-// such FBS/FCS split, so this works for any team id regardless of
-// division. Same CORS-open /apis/site/v2/ family as fetchEspnTeamSchedule
-// (the sibling /apis/v2/ path returned 404 here, confirmed live) — no
-// worker proxy needed.
-// Shape returned: [{ id, location, teamName, wins, losses }] | null
+// Belt nesting bug fixed above). ESPN's per-team endpoints have no such
+// FBS/FCS split, so this works for any team id regardless of division.
+//
+// Reads the team's schedule, not the team itself. This used to call
+// /teams/{id}?enable=record, but that endpoint stopped sending an
+// Access-Control-Allow-Origin header (confirmed with curl 2026-10-18, on
+// both site.web.api and site.api), so the browser blocked it on every
+// launch and NDSU fell through to TheRundown or showed no record. The
+// /teams/{id}/schedule path (the same one fetchEspnTeamSchedule uses)
+// still sends `Access-Control-Allow-Origin: *`, and its `team` block
+// carries the same season record as `recordSummary` ("6-1"). No worker
+// proxy: docs/espn-passthrough-plan.md has ESPN answering 403 to Workers.
+// Shape returned: { id, location, teamName, wins, losses } | null
 export async function fetchEspnCfbTeamRecord(espnTeamId){
-  const data = await fetchEspnJSON(`/apis/site/v2/sports/football/college-football/teams/${espnTeamId}?enable=record`);
+  const data = await fetchEspnJSON(`/apis/site/v2/sports/football/college-football/teams/${espnTeamId}/schedule`);
+  return parseEspnScheduleRecord(data);
+}
+
+// Pure half of fetchEspnCfbTeamRecord, exported for tests. Prefers the
+// team block's `recordSummary`; if ESPN ever drops that field, counts
+// the schedule's finished games instead (each competitor carries a
+// `winner` flag once a game is final). College football has no ties, so
+// a finished game the team didn't win is a loss. null when neither gives
+// a record, so the caller keeps its TheRundown fallback.
+export function parseEspnScheduleRecord(data){
   const team = data && data.team;
-  const items = team && team.record && team.record.items;
-  const overall = Array.isArray(items) && items.find(i => i.type === 'total');
-  const m = overall && /^(\d+)-(\d+)/.exec(overall.summary || '');
-  if(!team || !m) return null;
+  if(!team || !team.id) return null;
+  let wins = null, losses = null;
+  const m = /^(\d+)-(\d+)/.exec(team.recordSummary || '');
+  if(m){
+    wins = parseInt(m[1], 10);
+    losses = parseInt(m[2], 10);
+  } else if(Array.isArray(data.events)){
+    wins = 0; losses = 0;
+    data.events.forEach(event => {
+      const comp = event && event.competitions && event.competitions[0];
+      const done = comp && comp.status && comp.status.type && comp.status.type.completed;
+      const us = done && (comp.competitors || []).find(c => c.team && String(c.team.id) === String(team.id));
+      if(!us) return;
+      if(us.winner) wins++; else losses++;
+    });
+    if(!wins && !losses) return null;
+  } else {
+    return null;
+  }
   return {
     id: team.id,
     location: team.location,
     teamName: espnTeamName(team),
-    wins: parseInt(m[1], 10),
-    losses: parseInt(m[2], 10)
+    wins,
+    losses
   };
 }
 

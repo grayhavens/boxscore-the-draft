@@ -1,0 +1,315 @@
+{
+ "team": {
+  "id": "2449",
+  "abbreviation": "NDSU",
+  "location": "North Dakota State",
+  "name": "Bison",
+  "displayName": "North Dakota State Bison",
+  "recordSummary": "6-1",
+  "seasonSummary": "2026"
+ },
+ "events": [
+  {
+   "date": "2026-08-29T21:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "55"
+       },
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-09-05T19:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "2230"
+       },
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-09-13T02:00Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2005"
+       },
+       "winner": false
+      },
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-09-20T02:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "16"
+       },
+       "winner": false
+      },
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-10-03T19:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "2751"
+       },
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-10-10T23:00Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2439"
+       },
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-10-17T23:00Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": true
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       },
+       "winner": true
+      },
+      {
+       "team": {
+        "id": "2440"
+       },
+       "winner": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-10-25T02:00Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "167"
+       }
+      },
+      {
+       "team": {
+        "id": "2449"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-10-31T19:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       }
+      },
+      {
+       "team": {
+        "id": "2638"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-11-15T04:59Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "62"
+       }
+      },
+      {
+       "team": {
+        "id": "2449"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-11-21T21:00Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "2449"
+       }
+      },
+      {
+       "team": {
+        "id": "2459"
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "date": "2026-11-27T20:30Z",
+   "competitions": [
+    {
+     "status": {
+      "type": {
+       "completed": false
+      }
+     },
+     "competitors": [
+      {
+       "team": {
+        "id": "23"
+       }
+      },
+      {
+       "team": {
+        "id": "2449"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
