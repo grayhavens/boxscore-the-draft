@@ -708,7 +708,18 @@ function syncViewport(){
   const kbOpen = keyboardUp(vv);
   document.documentElement.classList.toggle('chat-kb', kbOpen);
   el.classList.toggle('kb-open', kbOpen);
-  if(kbOpen){
+  if(kbOpen && window.innerHeight - vv.height < 40){
+    // The installed PWA: the layout viewport shrinks with the keyboard, so
+    // the fixed screen already ends at the keys and only needs the tab
+    // bar's room back (html.chat-kb .chat-screen in css/style.css). Pinning
+    // it to vv.offsetTop here dropped the whole screen while the keyboard
+    // rose, because iOS reports a large offset mid-animation and scrolls it
+    // back over the next frames.
+    el.style.top = el.style.bottom = el.style.height = '';
+    if(window.scrollY) window.scrollTo(0, 0);
+  } else if(kbOpen){
+    // Safari with its toolbars: only the visual viewport shrinks, so the
+    // screen follows it.
     el.style.top = `${vv.offsetTop}px`;
     el.style.bottom = 'auto';
     el.style.height = `${vv.height}px`;
