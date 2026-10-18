@@ -63,6 +63,7 @@ import {
   computeNhlConferenceStandings, computeNhlDivisionStandings, nhlConferences
 } from './standings-nhl.js';
 import { findFlatTeamKey } from './standings-flat.js';
+import { snapshotUnchanged } from './activity-snapshot.js';
 import { eplStandingsCache, fetchEplStandingsTable } from './standings-epl.js';
 import { espnCfbRecordsCache, fetchEspnCfbRecordsCached } from './standings-cfb.js';
 import { espnCbbStandingsCache, fetchEspnCbbStandingsCached } from './standings-cbb.js';
@@ -529,6 +530,9 @@ export async function runActivityDetection(force){
     if(comparable && !snapshot.locked) snapshot.locked = prev.locked || null;
 
     const events = comparable ? diffSnapshots(prev, snapshot, Date.now()) : [];
+    // Nothing moved since the server's snapshot: no write (two KV writes
+    // per PUT against a 1,000-a-day free limit; js/activity-snapshot.js).
+    if(comparable && !events.length && snapshotUnchanged(prev, snapshot)) return;
     // `older`: an older season's id, so its points alerts name the season.
     const res = await fetch(withScopeQuery(`${chatWorkerBase()}/activity`), {
       method: 'PUT',

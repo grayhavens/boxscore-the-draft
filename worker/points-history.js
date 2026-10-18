@@ -62,10 +62,24 @@ export function mergeSample(history, day, sample){
   return { days: days.slice(-HISTORY_MAX_DAYS) };
 }
 
+// True when the day already holds exactly these numbers.
+export function sampleUnchanged(history, day, sample){
+  const days = history && Array.isArray(history.days) ? history.days : [];
+  const have = days.find(x => x.d === day);
+  return !!have && JSON.stringify(have.p) === JSON.stringify(sample.p) && JSON.stringify(have.l) === JSON.stringify(sample.l);
+}
+
+// Returns whether it wrote. An unchanged day is skipped: every PUT
+// /activity used to rewrite it, and the free plan allows 1,000 KV writes
+// a day across both groups (docs/optimization-report.md, Phase 3 #1).
+// The app now skips unchanged PUTs too; this covers older copies of it.
 export async function recordSample(env, prefix, sample, dataAt){
   const key = historyKey(prefix, sample.season);
   const stored = await env.LEAGUE_FACTS.get(key, 'json');
-  await env.LEAGUE_FACTS.put(key, JSON.stringify(mergeSample(stored, historyDay(dataAt), sample)));
+  const day = historyDay(dataAt);
+  if(sampleUnchanged(stored, day, sample)) return false;
+  await env.LEAGUE_FACTS.put(key, JSON.stringify(mergeSample(stored, day, sample)));
+  return true;
 }
 
 export async function handlePointsHistory(request, url, env, prefix, headers, { json }){

@@ -33,6 +33,7 @@ import { fetchJSON } from './utils.js';
 import { parseScoreboardEvent, parseNflSeeds, seriesEvents } from './postseason-math.js';
 import { loadDays, ymd } from './espn-days.js';
 import { pickCfbPoll, teamIdFromRef } from './cfb-poll.js';
+import { splitTeamSchedule } from './team-schedule.js';
 
 export const ESPN_SITE_BASE = 'https://site.web.api.espn.com';
 // The hypermedia "core" API — a completely different, much more
@@ -920,7 +921,7 @@ export async function fetchEspnEplStandings(){
 // [{ id, date, completed, statusDetail, isHome, opponentName,
 // opponentLogoUrl, opponentAbbr, opponentShortName, ownScore, oppScore,
 // venueName, broadcast }],
-// recent newest-first, upcoming soonest-first.
+// recent newest-first, upcoming soonest-first; or null when a call failed.
 // A Top 25 rank (1–25), or null: ESPN sends 99 for unranked.
 const curatedRank = c => (c && c.curatedRank && c.curatedRank.current >= 1 && c.curatedRank.current <= 25) ? c.curatedRank.current : null;
 
@@ -968,28 +969,11 @@ export async function fetchEspnTeamSchedule(sportLeaguePath, espnTeamId){
   // all final, and no next game at all), so the regular season has to be
   // asked for explicitly or "next match" stays empty until opening night.
   const isPreseason = [a, b].some(d => d && d.requestedSeason && Number(d.requestedSeason.type) === 1);
-  const regular = isPreseason
-    ? await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule?seasontype=2`)
-    : null;
-  const byId = new Map();
-  [...((a && a.events) || []), ...((b && b.events) || []), ...((regular && regular.events) || [])].forEach(event => {
-    const normalized = normalize(event);
-    if(normalized) byId.set(normalized.id, normalized);
-  });
-  const all = [...byId.values()];
-  const now = Date.now();
-  const recent = all.filter(e => e.completed).sort((x, y) => new Date(y.date) - new Date(x.date));
-  // A postponed game (real, confirmed live on the Cubs' schedule —
-  // several April/June 2026 games marked STATUS_POSTPONED) is
-  // "incomplete" forever but dated months in the past — without this
-  // date guard it would sort to the front of "upcoming" ahead of every
-  // real future game. Live-in-progress games never reach this: those
-  // are handled earlier by TheRundown's overlay (isRundownEventLive),
-  // so excluding a past date here never hides a game actually in
-  // progress right now.
-  const upcoming = all.filter(e => !e.completed && new Date(e.date).getTime() >= now)
-    .sort((x, y) => new Date(x.date) - new Date(y.date));
-  return { recent, upcoming };
+  const answers = [a, b];
+  if(isPreseason) answers.push(await fetchEspnJSON(`/apis/site/v2/sports/${sportLeaguePath}/teams/${espnTeamId}/schedule?seasontype=2`));
+  // null when any call failed (js/team-schedule.js says why), so callers
+  // keep what they had rather than showing "no games".
+  return splitTeamSchedule(answers, normalize);
 }
 
 // Team Page (js/team-page.js): a club's headlines, curled and verified

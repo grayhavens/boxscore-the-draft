@@ -40,7 +40,7 @@
    ============================================================ */
 import { TEAM_META, LEAGUES, PRE_DRAFT } from './data.js';
 import { fetchEspnScoreboard } from './espn.js';
-import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached, syncScoresDetail } from './live-data.js';
+import { FLAT_SCHEDULE_LEAGUES, GAME_DETAIL_LEAGUES, fetchEspnScoreboardCached, scoreboardState, syncScoresDetail } from './live-data.js';
 import { teamBadgeHtml, abbrFromName, normalizeTeamName, draftOwnerName, findDraftedTeamByName, findCfbTeamKeyByLocation, localYyyymmdd, segmentedControlHtml, lockBodyScroll, unlockBodyScroll, openSheetOverlay, closeSheetOverlay, enableSheetSwipeToDismiss } from './utils.js';
 import { currentProfileId } from './identity.js';
 import { isFavorite, favoriteMarkHtml } from './favorites.js';
@@ -51,6 +51,7 @@ import { fxOn, playClass, pop, floatUp } from './motion-fx.js';
 
 import { isFreshAt } from './cache-fresh.js';
 import { isWide } from './wide-query.js';
+import { scoresStatus, scoresSubNote } from './scores-status.js';
 // ---- View state (module-local, same "not persisted" convention as
 // the old liveNowFilterKey — which day and which filter are cheap to
 // re-pick and stale the moment the slate changes). `dayOffset` is in
@@ -115,9 +116,20 @@ async function fetchDayScoreboard(sportPath, offset){
   const key = `${sportPath}|${localYyyymmdd(dateForOffset(offset))}`;
   const cached = dayScoreboardCache[key];
   if(cached && isFreshAt(cached.fetchedAt, OTHER_DAY_TTL_MS)) return cached.data;
+  // A failure keeps the last good copy, like today's (js/live-data.js
+  // fetchEspnScoreboardCached), retrying after a minute.
+  if(cached && cached.data && isFreshAt(cached.failedAt, 60 * 1000)) return cached.data;
   const data = await fetchEspnScoreboard(sportPath, localYyyymmdd(dateForOffset(offset)));
-  dayScoreboardCache[key] = { data, fetchedAt: Date.now() };
+  if(!data && cached && cached.data){ cached.failedAt = Date.now(); return cached.data; }
+  dayScoreboardCache[key] = { data, fetchedAt: Date.now(), failedAt: data ? null : Date.now() };
   return data;
+}
+
+// Where a day's scoreboard for a sportPath stands (js/scores-status.js).
+function dayScoreboardState(sportPath, offset){
+  if(offset === 0) return scoreboardState(sportPath);
+  const c = dayScoreboardCache[`${sportPath}|${localYyyymmdd(dateForOffset(offset))}`];
+  return { loaded: !!(c && c.data), fetchedAt: c ? c.fetchedAt : null, failed: !!(c && c.failedAt) };
 }
 
 // Exact nickname match first — ESPN's competitor.teamNickname is the
@@ -293,8 +305,12 @@ async function collectDay(offset){
   });
   const golf = await golfPromise;
   if(golf.length) byLeague.pga = golf;
+  dayStatuses.set(offset, scoresStatus(leagues.map(l => dayScoreboardState(FLAT_SCHEDULE_LEAGUES[l.key].sportPath, offset))));
   return byLeague;
 }
+// Each day's last collectDay status, by offset (js/scores-status.js).
+const dayStatuses = new Map();
+const NO_STATUS = { unreachable: false, missing: 0, staleAt: null };
 
 // ---- Rendering ----
 
@@ -609,8 +625,12 @@ const EMPTY_COPY = {
   completed: ['Nothing completed', 'No game has finished on this date yet.']
 };
 
-function emptyHtml(hasGames){
-  const [title, sub] = hasGames
+// `unreachable`: a league's scoreboard failed with nothing kept, so an
+// empty day can't be called empty (js/scores-status.js).
+function emptyHtml(hasGames, unreachable = false){
+  const [title, sub] = !hasGames && unreachable
+    ? ['Can\'t reach scores right now', `Check your connection, then ${isWide() ? 'try again in a moment' : 'pull down to try again'}.`]
+    : hasGames
     ? EMPTY_COPY[filterKey]
     : ['Nothing scheduled', `No ${PRE_DRAFT ? '' : 'drafted '}team plays on this date. ${isWide() ? 'Pick another day above.' : 'Use the arrows to find the next slate.'}`];
   return `
@@ -654,6 +674,7 @@ export async function renderLiveNow(){
   if(token !== renderToken) return;
 
   const all = slateGames(byLeague, offsetAtStart);
+  const status = dayStatuses.get(offsetAtStart) || NO_STATUS;
   daySlates.set(offsetAtStart, { at: Date.now(), games: all });
   const wide = isWide();
   // Everything downstream (the count line, the Live badge, the list
@@ -681,9 +702,10 @@ export async function renderLiveNow(){
     // Leagues counted off the same scope-filtered set the list renders
     // from, so the number matches the league sections actually shown.
     const leagueCount = new Set(inScope.map(g => g.league.key)).size;
-    subEl.textContent = inScope.length
+    subEl.textContent = (inScope.length
       ? `${leagueCount} league${leagueCount === 1 ? '' : 's'} · ${inScope.length} game${inScope.length === 1 ? '' : 's'}`
-      : 'No games in this scope';
+      : status.unreachable ? 'Not loaded' : 'No games in this scope')
+      + (inScope.length ? scoresSubNote(status, t => timeLabel(new Date(t))) : '');
   }
   writeHtml(controlsEl, wide ? weekStripHtml() : controlsHtml(liveCount));
   refreshTodayScopeChrome();
@@ -692,7 +714,7 @@ export async function renderLiveNow(){
   if(wide){
     const changed = inScope.length
       ? writeHtml(listEl, groupsHtml(inScope, onLiveTab))
-      : writeHtml(listEl, emptyHtml(false));
+      : writeHtml(listEl, emptyHtml(false, status.unreachable));
     scoresPrimed = true;
     if(changed) playScoreEffects(listEl, inScope.filter(g => endedNow.has(`${g.day}:${g.id}`)));
     syncScoresDetail();
@@ -705,7 +727,7 @@ export async function renderLiveNow(){
   if(filterKey === 'upcoming') shown = shown.filter(g => g.state === 'pre');
   if(filterKey === 'completed') shown = shown.filter(g => g.state === 'final');
 
-  if(!shown.length){ writeHtml(listEl, emptyHtml(inScope.length > 0)); scoresPrimed = true; return; }
+  if(!shown.length){ writeHtml(listEl, emptyHtml(inScope.length > 0, status.unreachable)); scoresPrimed = true; return; }
 
   // Every filter groups by league; a live game keeps its "LIVE" rail
   // label and node on the row itself rather than a section of its own.
