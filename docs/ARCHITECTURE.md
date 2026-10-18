@@ -50,7 +50,9 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
   `standings-cols.js`.
-- **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
+- **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`. Home's team rows and
+  Scores' game cards (`teamRowHtml`, `gameCardHtml`) are `role="button"` with `tabindex="0"`, named by their own text;
+  a keydown listener in `board.js` clicks them on Enter and Space, and a card's crest buttons leave the focus order.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
 ## Worker routes (`worker/rundown-proxy.js` → `route()`)

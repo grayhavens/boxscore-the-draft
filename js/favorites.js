@@ -121,7 +121,7 @@ export function favoriteStarHtml(teamKey){
 // lets a tap fall through to the row underneath. No data-fav-key, so
 // repaintAllStars leaves it alone; those lists re-render on change.
 export function favoriteMarkHtml(){
-  return `<span class="favorite-star favorite-mark active" aria-label="Favorite">${STAR_FILLED_SVG}</span>`;
+  return `<span class="favorite-star favorite-mark active" role="img" aria-label="Favorite">${STAR_FILLED_SVG}</span>`;
 }
 
 function repaintStar(btn, active){

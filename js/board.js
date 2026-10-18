@@ -1407,6 +1407,17 @@ if(!IS_SEASON_BACKGROUND){
   });
 }
 
+// Rows and cards built as role="button" divs (teamRowHtml, gameCardHtml in
+// js/ui.js: a button can't hold their own buttons) click on Enter and
+// Space, as a real button would.
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target;
+  if(!el || el.tagName === 'BUTTON' || !el.matches || !el.matches('[role="button"][tabindex="0"]')) return;
+  e.preventDefault();
+  el.click();
+});
+
 // Pull to refresh (js/pull-refresh.js) on the views that show live data,
 // never under an open sheet (lockBodyScroll pins the body). A pull makes
 // every cache stale and refetches, then repaints the open view; pulls
