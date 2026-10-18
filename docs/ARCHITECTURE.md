@@ -52,7 +52,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
-  `standings-cols.js`.
+  `standings-cols.js`, `team-schedule.js` (a failed schedule fetch is null, never "no games").
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 

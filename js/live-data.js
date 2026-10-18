@@ -394,9 +394,21 @@ export async function fetchTeamBundle(teamKey){
         fetchEspnScoreboardCached(flatSchedule.sportPath)
       ]);
       const espnLive = findEspnScoreboardLine(scoreboard ? scoreboard.events : null, row.id);
-      const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
-      setTeamBundle(teamKey, bundle);
-      return bundle;
+      // A failed schedule fetch is null (js/team-schedule.js), never an
+      // empty schedule: keep the one this team already had (its age stays
+      // honest, fetchedAt unchanged), or, with none, fall through to the
+      // TheSportsDB/TheRundown branch below like a team ESPN can't place.
+      const prev = liveDataCache[teamKey];
+      if(!espnSchedule && prev && prev.espnSchedule){
+        const kept = { ...prev, espnLive: scoreboard ? espnLive : (prev.espnLive || null) };
+        setTeamBundle(teamKey, kept);
+        return kept;
+      }
+      if(espnSchedule){
+        const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
+        setTeamBundle(teamKey, bundle);
+        return bundle;
+      }
     }
   }
 
