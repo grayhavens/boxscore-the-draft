@@ -320,6 +320,46 @@
 </button>
 <div class="chat-scrim" onclick="closeChatOver()" aria-hidden="true"></div>
 
+<!-- Launch hints: on every launch after this device's first, ask for every module board.js will import, deepest
+     first, at once rather than one import level at a time (docs/optimization-report.md, Phase 1 #1). Not on a first
+     visit, where 466 KB of scripts would crowd out the CSS and splash. "Launched before" is a localStorage flag rather
+     than a service worker in charge: the same thing in practice, and one Lighthouse can measure. Generated; keep in step with
+     `node tools/launch-graph.mjs --write-hints` (tests/launch-graph.test.mjs fails when it drifts). -->
+<!-- launch-hints:start (node tools/launch-graph.mjs --write-hints) -->
+<script>(function(){
+var seen = false; try { seen = localStorage.getItem('bx-launched') === '1'; localStorage.setItem('bx-launched', '1'); } catch(e){}
+if(seen) [
+  'js/cfb-bowls-math.js', 'js/epl-cups-math.js', 'js/seasons/2026.js', 'js/seasons/team-entry.js',
+  'js/cfb-bowls.js', 'js/draft-class.js', 'js/epl-cups.js', 'js/espn-days.js',
+  'js/golfers.js', 'js/lines-math.js', 'js/live-class-store.js', 'js/playoff-series-math.js',
+  'js/playoff-series.js', 'js/race-math.js', 'js/seasons/the-draft.js', 'js/team-schedule.js',
+  'js/worker-base.js', 'js/access.js', 'js/activity-snapshot.js', 'js/api.js',
+  'js/cfb-poll.js', 'js/champions.js', 'js/chat-mentions.js', 'js/compare.js',
+  'js/draft-client.js', 'js/draft-engine.js', 'js/draft-rules.js', 'js/espn.js',
+  'js/game-card.js', 'js/gestures.js', 'js/gif-picker.js', 'js/gifs.js',
+  'js/golf-api.js', 'js/golf.js', 'js/group-sports.js', 'js/groups.js',
+  'js/icons.js', 'js/league-facts.js', 'js/lines.js', 'js/live-class.js',
+  'js/mlb-stats.js', 'js/news-more.js', 'js/nhl-clips.js', 'js/postseason-math.js',
+  'js/race.js', 'js/rank.js', 'js/refresh-cadence.js', 'js/roster.js',
+  'js/scores-status.js', 'js/season-overlap.js', 'js/seasons/index.js', 'js/seasons/pga.js',
+  'js/seasons/pre-draft.js', 'js/sheet.js', 'js/since-math.js', 'js/sports.js',
+  'js/team-wide-math.js', 'js/tips.js', 'js/version.js', 'js/activity.js',
+  'js/back-button.js', 'js/cache-fresh.js', 'js/chat.js', 'js/data.js',
+  'js/draft-live.js', 'js/draft-poll.js', 'js/draft-schedule.js', 'js/escape.js',
+  'js/favorites.js', 'js/frozen-cache.js', 'js/golf-view.js', 'js/group.js',
+  'js/guide.js', 'js/history.js', 'js/home-stack-math.js', 'js/identity.js',
+  'js/league-labels.js', 'js/live-data.js', 'js/live-now.js', 'js/motion-fx.js',
+  'js/motion.js', 'js/nflverse.js', 'js/overall.js', 'js/postseason-reveal.js',
+  'js/postseason.js', 'js/pull-refresh.js', 'js/push.js', 'js/scoring-sheet.js',
+  'js/season-background.js', 'js/season-entry.js', 'js/season-lock.js', 'js/season-phase.js',
+  'js/season-switcher.js', 'js/season.js', 'js/settings.js', 'js/since.js',
+  'js/standings-cbb.js', 'js/standings-cfb.js', 'js/standings-cols.js', 'js/standings-epl.js',
+  'js/standings-flat.js', 'js/standings-mlb.js', 'js/standings-nba.js', 'js/standings-nfl.js',
+  'js/standings-nhl.js', 'js/standings-wnba.js', 'js/team-page.js', 'js/ui.js',
+  'js/utils.js', 'js/wide-query.js', 'js/wide.js'
+].forEach(function(f){ var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = f; document.head.appendChild(l); });
+})();</script>
+<!-- launch-hints:end -->
 <script type="module" src="js/board.js"></script>
 </body>
 </html>

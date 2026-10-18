@@ -39,7 +39,7 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
   `node tools/vapid-keys.mjs`, `node tools/espn-teams.mjs` (saves ESPN's team lists to `js/seasons/espn-teams.js`;
   run before each season's drafts), `node tools/robot-visit.mjs --group <id>` (the daily scoring visit by hand; needs
   Playwright, which only the `daily-scoring.yml` GitHub Actions job installs), `node tools/launch-graph.mjs` (what a
-  launch loads: modules, KB, round trips).
+  launch loads: modules, KB, round trips; `--write-hints` regenerates `index.html`'s launch hints).
 - **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check; `tests/launch-graph.test.mjs` holds the
   launch to a budget and checks `SHELL_FILES` against the imports.
 - **Deploy:** site = push to `main` (Pages project `boxscorethedraft`, no build command; every branch/PR gets a
