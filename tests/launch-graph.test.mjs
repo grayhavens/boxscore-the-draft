@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ROOT, ENTRY, launchGraph, lazyModules, shellFiles, staticImports, kb, exists } from '../tools/launch-graph.mjs';
+import { ROOT, ENTRY, launchGraph, lazyModules, shellFiles, staticImports, kb, exists, hintList, htmlHints } from '../tools/launch-graph.mjs';
 
 // The Draft's launch, measured 2026-10-18: 108 modules, 1,620 KB, 5 round
 // trips. Room for ordinary growth; a jump past it means something rare
@@ -64,4 +64,11 @@ test('SHELL_FILES lists no script the app no longer loads', () => {
   const classic = new Set([...html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)].map(m => m[1]));
   const stale = [...shell].filter(f => f.endsWith('.js') && !launch.has(f) && !lazy.has(f) && !classic.has(f) && f !== 'sw.js');
   assert.deepEqual(stale, []);
+});
+
+test('index.html\'s launch hints match the launch, deepest first (node tools/launch-graph.mjs --write-hints)', () => {
+  const hints = htmlHints(readFileSync(resolve(ROOT, 'index.html'), 'utf8'));
+  assert.ok(hints, 'index.html has no launch-hints block');
+  assert.deepEqual(hints, hintList(launch));
+  assert.ok(!hints.includes(ENTRY) && !hints.some(f => lazy.has(f)), 'hints must not include board.js or first-use modules');
 });

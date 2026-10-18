@@ -39,6 +39,11 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   `tests/launch-graph.test.mjs` (walking imports with `tools/launch-graph.mjs`) keeps these off the launch, holds the
   launch to a budget (115 modules, 1,700 KB, 5 round trips; 108 / 1,620 KB / 5 on 2026-10-18), and fails when a
   launch or first-use module is missing from `SHELL_FILES` (`js/seasons/espn-teams.js` is left out on purpose).
+- **Launch hints:** on every launch after a device's first (a `bx-launched` flag in `localStorage`), an inline script just before `board.js` in
+  `index.html` adds a `modulepreload` for every launch module, deepest first, so the five-level import chain arrives
+  in about one round trip (warm LCP 6.5 s → 1.6 s under real throttling, `docs/optimization-report.md`). Not on a
+  first visit, where they'd crowd out the CSS. The list is generated (`node tools/launch-graph.mjs --write-hints`)
+  and the launch-graph test fails when it drifts.
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
   `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
