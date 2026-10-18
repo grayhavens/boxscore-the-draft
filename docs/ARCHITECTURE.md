@@ -56,6 +56,9 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`. Every sheet opens and closes
   through `openSheetOverlay` / `closeSheetOverlay` (`sheet.js`), which make it a labelled modal dialog, move focus into
   it and back to its opener, and keep the rest of the page `inert` while it's the topmost open sheet.
+  Home's team rows and Scores' game cards (`teamRowHtml`, `gameCardHtml`) are `role="button"` with `tabindex="0"`,
+  named by their own text; a keydown listener in `board.js` clicks them on Enter and Space, and a card's crest buttons
+  leave the focus order.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
 ## Worker routes (`worker/rundown-proxy.js` → `route()`)
