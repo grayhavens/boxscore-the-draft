@@ -1,7 +1,93 @@
 # Optimization report
 
 Findings for `docs/optimization-plan.md`, one section per phase, measured 2026-10-17 and 18 on `main` at `2630f2b`.
-The Top 10 and the build-step decision come first. Each item links back to its phase's table as P*n*-#.
+The status after the Top 10 shipped comes first, then the Top 10 and the build-step decision. Each item links back
+to its phase's table as P*n*-#.
+
+## Status after the Top 10 (2026-10-18)
+
+All of the Top 10 is merged and deployed: the site from `main` at `1b1205b` (`APP_VERSION` 2026.10.18-10,
+`CACHE_NAME` boxscore-v119), the worker as version `cec7d1c4`. Two fixes found along the way shipped too. Reviewed the
+same day by re-running Phase 0 and Phase 1's measurements, and by checking the changes together in the browser.
+
+### What shipped
+
+| Top 10 | PR | What it does now |
+|---|---|---|
+| 1 | #301 | A failed schedule fetch keeps the team's last saved schedule; offline team pages no longer say "Season complete". |
+| 2 | #302 | No KV write when nothing changed: the app skips the Activity PUT, the worker skips an unchanged Race sample. Worker deployed. |
+| 3 | #303 | `tests/launch-graph.test.mjs` holds the launch to 115 modules / 1,700 KB / 5 round trips and checks `SHELL_FILES`. |
+| 4 | #310 | `modulepreload` for every launch module on repeat launches (111 hints), generated and test-checked. |
+| 5 | #305 | Scores says "Can't reach scores right now" instead of "Nothing scheduled", keeps the last good games, and labels an old copy "Updated 9:36 AM". |
+| 6, 7 | #306 | Scoreboards refresh every minute only near live or imminent games (else up to 15 min); team schedules every 5 min near a game, else 30. |
+| 8 | #307 | Every sheet is a labelled dialog: focus moves in and back, the page behind is inert. |
+| 9 | #308 | Home rows and Scores cards are buttons for VoiceOver and keyboards; the favorite mark has `role="img"`. |
+| 10 | #309 | Bigger tap areas for filter tabs, the gear, the scope chip, crests and "Full schedule". |
+| Found on the way | #300 | NDSU's record comes from the CORS-open team schedule (ESPN dropped CORS on the team endpoint). |
+| Found on the way | #304 | The UEFA table, playoff and bowl answers keep their last good copy, so an offline team page no longer reads 0-0-0, 1st. |
+
+### Before and after
+
+| | Before (`2630f2b`) | After (`1b1205b`) | How measured |
+|---|---|---|---|
+| Launch modules (The Draft) | 108, 1,618 KB, 5 deep | 112, 1,638 KB, 5 deep (+111 preload hints on repeat launches) | `node tools/launch-graph.mjs` |
+| `SHELL_FILES` | 152, 3,105 KB, checked by nothing | 156, 3,133 KB, checked by a test | test / tool |
+| Tests | 51 files, 447 | 57 files, 492 | `node --test tests/*.test.mjs` |
+| Repeat-launch LCP, Lighthouse (real throttling) | 6.6 s | 5.7–6.0 s | baseline and `main` run back to back, same conditions |
+| Repeat-launch blocking time | 748 ms | 324–466 ms | same runs |
+| Home's first render (one task) | 403 ms | 240–336 ms | same runs |
+| First-visit LCP / FCP | 6.7–8.4 s / ~2.0 s | 6.6–8.3 s / ~2.0 s | same runs: unchanged, as intended |
+| Accessibility (Lighthouse) | 96 with a favorite showing | 100, no failing audits | simulated runs |
+| ESPN scoreboard requests, open app, two leagues live | 8 a minute | 2 a minute | browser, 74 s window |
+| KV writes for a visit where nothing changed | 2 | 0 | `wrangler dev`, local KV |
+| Scores offline | "Nothing scheduled" | "Can't reach scores right now", or the last games with "Updated …" | browser, fetch blocked |
+| Team page offline | "Season complete", no games, 0-0-0 · 1st | last saved schedule and record | browser, fetch blocked |
+
+The Lighthouse samples are small (several runs failed under machine load), and the lab still can't measure a truly
+cached launch (Phase 1's correction). So read the LCP and blocking-time rows as "no worse, probably better". An
+earlier same-day run showed blocking time doubling. That came from the machine being busy (load average ~8), and it
+went away when the two versions ran back to back.
+
+### Review findings
+
+- **Working together:** on `main`, Enter on a focused Scores card opens Game details as a labelled dialog with focus
+  inside and the page inert, and closing it puts focus back on the card with nothing left inert (#307 + #308).
+- **New, small:** the Game details sheet's label reads "Bears21 Falcons7". `markDialog` (`js/sheet.js`) takes the
+  first `*-title` element, which here is score markup whose parts have no spaces between them. Join the label's text
+  pieces with spaces (or give the sheet a plain title).
+- **Close to budget:** the launch is 112 of 115 modules. The next new launch module should come with a reason, or
+  with something moved to first use.
+- **Pages builds:** Cloudflare Pages made 25 deployments in three hours today (every PR push and merge). The 500-a-month
+  cap is a real risk on a heavy PR day; see "Next".
+- **GitHub Pages** is still publishing the repo (125 builds since 2026-10-01).
+
+### Still unmeasured (needs the iPhone)
+
+- **Repeat-launch time** with the hints (#310): close the app fully, reopen it from the Home Screen on cellular. A
+  device needs one launch of the new version first, since hints start on the second.
+- **VoiceOver** on a sheet (swipe should stay inside it) and on Home rows and Scores cards.
+- **The light-theme status bar** (P2-8): are the clock and battery readable?
+- **The build-step decision** waits on the repeat-launch timing.
+
+### Next
+
+My order for the next round. Each is small unless marked, fits the free tiers, and changes no written decision.
+
+| # | What | From | Why now |
+|---|------|------|---------|
+| 1 | **iPhone check** (no code): repeat-launch timing, VoiceOver, light-theme status bar | above | Decides the build step, confirms #307/#308 with real VoiceOver, settles P2-8. |
+| 2 | **Pages build controls** (settings, no code): build watch paths that skip `docs/**`, `tests/**`, `tools/**`, `.github/**`; turn off GitHub Pages | P1 noticed | 25 deployments in three hours today; past 500 a month, deploys stop until the month resets. |
+| 3 | **Updates while open**: `registration.update()` on return after 30+ min, reload at a safe moment; on a failed lazy import, offer a reload | P4-2, P4-3 | Ten deploys landed today. An app left open runs old code for hours, and a lazy load across a deploy can fail for good. |
+| 4 | **Light-theme contrast**: darken `--live`, `--win`, `--loss`, `--provisional` (light values only) to 4.5:1, with a contrast check in the token test | P2-5 | The "LIVE" label and results are 3.3–4.3:1 in light theme. |
+| 5 | **Small polish**: the dialog label fix above; move tips off the back link | review, P2-7 | Both are one-liners on screens people use daily. |
+| 6 | **Home offline line**: "Offline · updated 4:12 PM" under the title after a failed refresh | P2-10 | Scores and the team page now say when they're stale; Home is the last view that doesn't. |
+| 7 | **Self-host the two fonts** (~46 KB), precached | P1-3 | One less third-party, render-blocking request on first launch, and the fonts work offline. Note it in `CLAUDE.md`'s stack line. |
+| 8 | **First-visit layout shift** (M): reserve the Home stack's height | P1-4 | CLS 0.12–0.22 on a first visit, the first impression. |
+| 9 | **Lower priority:** Season Ticket's class preload (P1-7), MLB's double schedule fetch (P3-4), mention badge (P4-4), manifest text and per-group title (P4-5), caching upstream errors briefly (P3-6), one `/league-state` route (P3-5) | various | Real but small. Batch a few into one session. |
+| 10 | **Before the August 2027 drafts:** move the draft room's league colors to tokens with light-theme values (P2-9) | P2-9 | Only matters on draft day; rehearse per `docs/draft-day-runbook.md`. |
+
+**Build step:** still "not yet". Decide after #1's repeat-launch timing. If launches still feel slow with the hints,
+a bundled build is the next lever (Phase 1 has the comparison).
 
 ## Top 10
 
@@ -22,9 +108,8 @@ PR.
 | 9 | Home rows and Scores cards as buttons | P2-4 | Two helpers in `js/ui.js` cover every row: VoiceOver names them, keyboards reach them. Fold in P1-5's `role="img"` (one line, Accessibility 100). |
 | 10 | Touch targets: filter tabs, gear, scope chip, crests | P2-6 | Missed taps on the two busiest screens ("All" is 17 px wide), fixed in CSS alone. |
 
-**Next, in order:** light-theme contrast (P2-5), the tip over the back link (P2-7), the open app picking up updates
-(P4-2), self-hosted fonts (P1-3), the offline "updated at" line (P2-10), first-visit layout shift (P1-4), Season
-Ticket's class preload (P1-7), Home's first render (P1-6), lazy-load failure reload (P4-3), and the rest.
+**Shipped 2026-10-18** (see "Status after the Top 10" above for PRs and results). The original follow-ups and checks are
+kept below as written; "Next" above replaces them.
 
 **Check first (settings and a phone, not code):**
 - **KV writes per day** in the Cloudflare dashboard. If a recent weekend day hit 1,000, #2 goes first.
