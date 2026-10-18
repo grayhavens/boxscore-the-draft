@@ -36,6 +36,9 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   Commissioner console (`admin.js`, `draft-prep.js`), other groups' draft classes (`seasons/index.js` loads only the
   active group's registry, with a top-level `await`; The Draft's stays static as every group's team catalog), the
   guide's stills (`landing-explainer.js`), ESPN's team lists. Never import `admin.js` statically.
+  `tests/launch-graph.test.mjs` (walking imports with `tools/launch-graph.mjs`) keeps these off the launch, holds the
+  launch to a budget (115 modules, 1,700 KB, 5 round trips; 108 / 1,620 KB / 5 on 2026-10-18), and fails when a
+  launch or first-use module is missing from `SHELL_FILES` (`js/seasons/espn-teams.js` is left out on purpose).
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
   `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
@@ -49,7 +52,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
-  `standings-cols.js`, `refresh-cadence.js`.
+  `standings-cols.js`, `team-schedule.js` (a failed schedule fetch is null, never "no games"), `activity-snapshot.js`, `scores-status.js`, `refresh-cadence.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
@@ -273,6 +276,12 @@ The live sweep's per-league scoreboards refresh every minute while a game is liv
 otherwise wait until then (at most 15 minutes): `js/refresh-cadence.js`. Pull to refresh still fetches everything at once. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
+
+**When a scoreboard fetch fails** (`fetchEspnScoreboardCached`, Scores' `fetchDayScoreboard`): the last good copy for
+that day stays (its `fetchedAt` unchanged) and the next try waits a minute, or none with pull to refresh. Scores
+(`js/scores-status.js`) never calls a day empty when a league failed with nothing kept ("Can't reach scores right
+now"), and its count line adds "Updated 9:14 AM" when it shows a copy older than two minutes, or "Some leagues
+didn't load".
 
 **Data sources** (see `docs/espn-migration-plan.md` for the full history/rationale):
 - **ESPN's hidden site API** (`js/espn.js`, `ESPN_SITE_BASE`) is now the primary source for
@@ -592,6 +601,9 @@ locked points, for the Points tab's Race segment (`js/race.js` draws it, `js/rac
 `docs/points-race-plan.md`). Scoring only exists in the browser, so
 the sample rides on the Activity PUT (`js/activity.js`) and the worker only validates and stores it
 (`history[@<group>]:<season>` in KV, served by `GET /points/history`). A day nobody opens the app has no entry.
+Writes are skipped when nothing moved: the app sends no PUT when its snapshot matches the server's in all but
+`dataAt` and found no events (`js/activity-snapshot.js`), and `recordSample` leaves a day alone when it already
+holds the same numbers. Each PUT was two KV writes against the free plan's 1,000 a day.
 **Deploy the worker first.**
 
 **On the line** (`js/lines.js`, pure math in `js/lines-math.js`): how close each drafted team is to every placement
@@ -870,6 +882,7 @@ ESPN's scoreboard with no commissioner mark (marks still union in). ESPN answers
 series is won (a game's series tally is only as of that game). The round is the game's note headline ("East Finals -
 Game 3"), matched by label like the NFL ladder. Settled days are saved per device (`bxPlayoffDay:<league>:<day>`).
 The MLB LCS / World Series headlines are expected, not yet seen. The NBA play-in is its own season type and never counts.
+A refresh where any day failed keeps the last full answer (a gap isn't a day nothing happened); same for the bowls.
 
 **College football bowls and conference titles** (`js/cfb-bowls.js`, pure `js/cfb-bowls-math.js`, tests against
 `tests/fixtures/espn-cfb-bowls-2025.json`): "Make a bowl game", "Win a bowl game" and "Win conference" score from
@@ -886,6 +899,8 @@ competition's calendar gives the day as text, in a window that ends after the ga
 (`apis/v2 .../uefa.*/standings?season=<year>`, hourly, from September). ESPN has no qualifying rounds, so "make" means
 the main stage; a club dropped from the Champions League into the Europa League's knockout playoff isn't in that
 table. A cup winner replaces any commissioner mark (the rules are exclusive); the others union with marks.
+Each table's latest good read is saved per device (`bxEplTable:<slug>:<year>`) and restored at launch; a failed read
+keeps the last answer (`foldCupRead`), so an offline launch still credits a club's European spot.
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season

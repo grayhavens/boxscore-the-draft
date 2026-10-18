@@ -246,14 +246,32 @@ export async function fetchEspnScoreboardCached(sportPath){
   if(cached && cached.day === day && isFreshAt(cached.fetchedAt, cached.ttl || ESPN_SCOREBOARD_TTL_MS)) return cached.data;
   const pending = espnScoreboardInFlight[sportPath];
   if(pending && pending.day === day) return pending.promise;
+  // A failed refresh keeps the last good copy for the same day (data and
+  // fetchedAt unchanged, so its age stays honest) and waits a minute
+  // before trying again; pull to refresh retries at once (isFreshAt's
+  // floor). Storing the null used to blank Scores ("Nothing scheduled")
+  // the moment a fetch failed (js/scores-status.js).
+  if(cached && cached.day === day && cached.data && isFreshAt(cached.failedAt, ESPN_SCOREBOARD_TTL_MS)) return cached.data;
   const promise = fetchEspnScoreboard(sportPath, day || undefined).then(data => {
-    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now(), ttl: scoreboardTtlMs(data && data.events) };
+    const prev = espnScoreboardCache[sportPath];
+    if(!data && prev && prev.day === day && prev.data){
+      prev.failedAt = Date.now();
+      return prev.data;
+    }
+    espnScoreboardCache[sportPath] = { data, day, fetchedAt: Date.now(), failedAt: data ? null : Date.now(), ttl: scoreboardTtlMs(data && data.events) };
     return data;
   }).finally(() => {
     if(espnScoreboardInFlight[sportPath] && espnScoreboardInFlight[sportPath].promise === promise) delete espnScoreboardInFlight[sportPath];
   });
   espnScoreboardInFlight[sportPath] = { day, promise };
   return promise;
+}
+
+// Where today's scoreboard for a sportPath stands, for Scores' status
+// line (js/scores-status.js): { loaded, fetchedAt, failed }.
+export function scoreboardState(sportPath){
+  const c = espnScoreboardCache[sportPath];
+  return { loaded: !!(c && c.data), fetchedAt: c ? c.fetchedAt : null, failed: !!(c && c.failedAt) };
 }
 
 export const liveDataCache = {}; // teamKey -> { info, last, next, table, fetchedAt }
@@ -397,9 +415,21 @@ export async function fetchTeamBundle(teamKey){
         fetchEspnScoreboardCached(flatSchedule.sportPath)
       ]);
       const espnLive = findEspnScoreboardLine(scoreboard ? scoreboard.events : null, row.id);
-      const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
-      setTeamBundle(teamKey, bundle);
-      return bundle;
+      // A failed schedule fetch is null (js/team-schedule.js), never an
+      // empty schedule: keep the one this team already had (its age stays
+      // honest, fetchedAt unchanged), or, with none, fall through to the
+      // TheSportsDB/TheRundown branch below like a team ESPN can't place.
+      const prev = liveDataCache[teamKey];
+      if(!espnSchedule && prev && prev.espnSchedule){
+        const kept = { ...prev, espnLive: scoreboard ? espnLive : (prev.espnLive || null) };
+        setTeamBundle(teamKey, kept);
+        return kept;
+      }
+      if(espnSchedule){
+        const bundle = { info: null, last: null, next: null, espnSchedule, espnLive, rundownTeamId: meta.rundownTeamId || null, fetchedAt: new Date() };
+        setTeamBundle(teamKey, bundle);
+        return bundle;
+      }
     }
   }
 
