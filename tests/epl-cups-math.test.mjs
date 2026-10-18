@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { eplCupRule, finalDays, cupWinner, leaguePhaseClubs } from '../js/epl-cups-math.js';
+import { eplCupRule, finalDays, cupWinner, leaguePhaseClubs, foldCupRead } from '../js/epl-cups-math.js';
 
 const FIX = JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/espn-epl-cups-2025.json'), 'utf8')).competitions;
 // The fixture keeps trimmed events; put one back in ESPN's shape.
@@ -51,4 +51,19 @@ test('league-phase tables list the clubs in each competition', () => {
   assert.ok(!cl.includes('Manchester United'));
   assert.deepEqual(leaguePhaseClubs(payload('uefa.europa')).filter(n => ['Aston Villa', 'Nottingham Forest', 'Arsenal'].includes(n)).sort(), ['Aston Villa', 'Nottingham Forest']);
   assert.deepEqual(leaguePhaseClubs(null), []);
+});
+
+test('a failed read keeps the last answer; a good one replaces it', () => {
+  const prev = { names: ['Liverpool', 'Arsenal'], at: 1000, failedAt: 0, done: false };
+  const failed = foldCupRead(prev, { names: [], failed: true }, 5000);
+  assert.deepEqual(failed.names, ['Liverpool', 'Arsenal']);
+  assert.equal(failed.at, 1000, 'a failure leaves the refresh clock alone');
+  assert.equal(failed.failedAt, 5000);
+  const good = foldCupRead(prev, { names: ['Chelsea'] }, 6000);
+  assert.deepEqual(good.names, ['Chelsea']);
+  assert.equal(good.at, 6000);
+  assert.equal(good.done, false);
+  // A good read with no clubs (before the draw) is a real answer.
+  assert.deepEqual(foldCupRead(prev, { names: [] }, 7000).names, []);
+  assert.equal(foldCupRead(prev, { names: ['Crystal Palace'], done: true }, 8000).done, true);
 });

@@ -874,6 +874,7 @@ ESPN's scoreboard with no commissioner mark (marks still union in). ESPN answers
 series is won (a game's series tally is only as of that game). The round is the game's note headline ("East Finals -
 Game 3"), matched by label like the NFL ladder. Settled days are saved per device (`bxPlayoffDay:<league>:<day>`).
 The MLB LCS / World Series headlines are expected, not yet seen. The NBA play-in is its own season type and never counts.
+A refresh where any day failed keeps the last full answer (a gap isn't a day nothing happened); same for the bowls.
 
 **College football bowls and conference titles** (`js/cfb-bowls.js`, pure `js/cfb-bowls-math.js`, tests against
 `tests/fixtures/espn-cfb-bowls-2025.json`): "Make a bowl game", "Win a bowl game" and "Win conference" score from
@@ -890,6 +891,8 @@ competition's calendar gives the day as text, in a window that ends after the ga
 (`apis/v2 .../uefa.*/standings?season=<year>`, hourly, from September). ESPN has no qualifying rounds, so "make" means
 the main stage; a club dropped from the Champions League into the Europa League's knockout playoff isn't in that
 table. A cup winner replaces any commissioner mark (the rules are exclusive); the others union with marks.
+Each table's latest good read is saved per device (`bxEplTable:<slug>:<year>`) and restored at launch; a failed read
+keeps the last answer (`foldCupRead`), so an offline launch still credits a club's European spot.
 
 **`PRIOR_SEASON_DISPLAY_LEAGUES` (MLB, WNBA):** these leagues' drafted teams don't start scoring
 until each league's next season begins, but ESPN's live endpoints only ever return the season
