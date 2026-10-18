@@ -49,7 +49,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
-  `standings-cols.js`.
+  `standings-cols.js`, `refresh-cadence.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
@@ -268,7 +268,9 @@ scoreboard ranks follow the CFP on their own once it exists, which is why the ta
 
 **Live team data** (`js/live-data.js`) fetches/caches/renders each team's stat strip, recent-form
 strip and next match (Home's rows, the team page's stat strip, next game and Recent form) and the Game Details sheet,
-plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results
+plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes near a game and 30 otherwise) so open tabs stay current without hammering any API.
+The live sweep's per-league scoreboards refresh every minute while a game is live or within 30 minutes of a start, and
+otherwise wait until then (at most 15 minutes): `js/refresh-cadence.js`. Pull to refresh still fetches everything at once. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
 

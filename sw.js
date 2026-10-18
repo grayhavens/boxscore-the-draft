@@ -7,7 +7,7 @@
    slower than NAV_TIMEOUT_MS (see navigate) — a cache-first strategy
    here would keep serving whatever shipped the day this first
    installed, forever, since nothing else invalidates it. */
-const CACHE_NAME = 'boxscore-v110';
+const CACHE_NAME = 'boxscore-v115';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -81,6 +81,7 @@ const SHELL_FILES = [
   './js/compare.js',
   './js/activity.js',
   './js/live-data.js',
+  './js/refresh-cadence.js',
   './js/board.js',
   './js/version.js',
   './js/admin.js',
