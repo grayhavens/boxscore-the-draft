@@ -4475,11 +4475,6 @@ a.news-card.link{ display: block; color: inherit; text-decoration: none; }
    right on the keys. No scroll lock here on purpose — see
    guardTouchScroll in js/chat.js for why and what replaces it. */
 html.chat-kb .tab-bar{ display: none; }
-/* With the tab bar gone the composer sits right on the keys. In the
-   installed PWA this is all it takes (the layout viewport ends at the
-   keyboard); in a Safari tab js/chat.js sizes the screen to the visual
-   viewport instead, and its inline styles win. */
-@media (max-width: 899.98px){ html.chat-kb .chat-screen{ bottom: 0; } }
 
 /* Same padding the page body gives every other view's .page-header, so
    the logo, title and identity circle land in exactly the same spot when
