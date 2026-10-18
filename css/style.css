@@ -331,6 +331,25 @@ html.title-bar-on .safe-area-top{ visibility: hidden; }
   transition: color var(--dur-ui) var(--ease-out);
 }
 .filter-chip:active{ color: var(--text-sub); }
+/* Each tab's tap area reaches halfway into the 20px gap on both sides:
+   a tab is only as wide as its word ("All" is 17px), and a tap in the
+   gap used to hit nothing (docs/optimization-report.md, Phase 2 #6). */
+.filter-chip::before{ content: ""; position: absolute; top: 0; bottom: 0; left: -10px; right: -10px; }
+
+/* Small header and inline controls get a tap area of at least
+   --hit-min (44px), centred on them, without changing how they look:
+   the settings gear (34px), the Scores scope chip (29px tall) and the
+   team page's "Full schedule" link (18px tall). */
+.picker-hit, .scope-chip, .boxscore-link{ position: relative; }
+.picker-hit::before, .scope-chip::before, .boxscore-link::before{
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, var(--hit-min));
+  height: max(100%, var(--hit-min));
+  transform: translate(-50%, -50%);
+}
 .filter-chip.active{ color: var(--text); }
 .filter-chip.active::after{
   content: "";
@@ -947,7 +966,11 @@ html.title-bar-on .safe-area-top{ visibility: hidden; }
   color: inherit;
 }
 
-.tg-badge-btn{ flex: 0 0 auto; display: flex; }
+.tg-badge-btn{ flex: 0 0 auto; display: flex; position: relative; }
+/* A 26px crest gets a little more to tap (40x34), not a full 44: the
+   card's other team sits just below, and the card itself opens Game
+   details, so a bigger area would steal taps meant for those. */
+.tg-badge-btn::before{ content: ""; position: absolute; inset: -4px -7px; }
 
 .tg-label{
   flex: 1;
