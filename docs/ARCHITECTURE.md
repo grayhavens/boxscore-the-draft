@@ -50,7 +50,9 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
   `standings-cols.js`.
-- **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
+- **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`. Every sheet opens and closes
+  through `openSheetOverlay` / `closeSheetOverlay` (`sheet.js`), which make it a labelled modal dialog, move focus into
+  it and back to its opener, and keep the rest of the page `inert` while it's the topmost open sheet.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
 ## Worker routes (`worker/rundown-proxy.js` → `route()`)

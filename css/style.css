@@ -1053,6 +1053,9 @@ html.title-bar-on .safe-area-top{ visibility: hidden; }
      rather than chaining out to the (locked) page behind it. */
   overscroll-behavior: contain;
 }
+/* A sheet takes focus when it opens (js/sheet.js) so VoiceOver and the
+   keyboard start inside it; the panel itself never shows a focus ring. */
+.modal:focus{ outline: none; }
 
 @media (max-width: 700px){
   .modal-overlay{
