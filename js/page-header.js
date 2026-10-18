@@ -10,9 +10,7 @@
    It also builds the title bar (.title-bar in css/style.css): when a tab
    view's large title (.view > .page-header h1) scrolls up under the status
    bar, the same title shows small and centered on a glass bar, with the
-   view's Settings button, the way iOS collapses a large title. An
-   IntersectionObserver on the titles drives it, so nothing runs per scroll
-   frame. Chat and the draft room keep their own fixed headers (their
+   view's Settings button, the way iOS collapses a large title. Chat and the draft room keep their own fixed headers (their
    .page-header isn't a direct child of the view), and team pages have
    their compact bar. */
 (function(){
@@ -31,7 +29,7 @@
 
   // ---- Title bar ----
   var titles = document.querySelectorAll('.view > .page-header h1');
-  if(!titles.length || !window.IntersectionObserver) return;
+  if(!titles.length) return;
   var bar = document.createElement('div');
   bar.className = 'title-bar';
   bar.setAttribute('aria-hidden', 'true');
@@ -68,14 +66,19 @@
     shown = on;
     root.classList.toggle('title-bar-on', on);
   }
-  var io = null;
-  function observe(){
-    if(io) io.disconnect();
-    io = new IntersectionObserver(update, { rootMargin: '-' + Math.round(goneLine() || 0) + 'px 0px 0px 0px' });
-    for(var i = 0; i < titles.length; i++) io.observe(titles[i]);
-  }
-  observe();
-  // A view switch shows another title; a resize can cross into the wide layout.
-  document.addEventListener('bx:viewshown', update);
-  window.addEventListener('resize', function(){ observe(); update(); });
+  // Checked on every scroll frame (one rect read, coalesced to one per
+  // animation frame), not by an IntersectionObserver: an observer's line is
+  // fixed when it's created, and in the installed iOS app the status-bar
+  // inset can still read 0 that early, so it fired at the screen's edge
+  // instead of under the status bar and never again on the way back up,
+  // leaving the bar stuck on at the top of the page.
+  var frame = 0;
+  function schedule(){ if(!frame) frame = requestAnimationFrame(function(){ frame = 0; update(); }); }
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  // A view switch shows another title (js/board.js calls this; team pages
+  // send bx:viewshown).
+  document.addEventListener('bx:viewshown', schedule);
+  window.updateTitleBar = schedule;
+  schedule();
 })();

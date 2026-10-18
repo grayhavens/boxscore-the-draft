@@ -596,8 +596,8 @@ ignore tiebreakers. Only for a league whose season is under way and not locked.
 glass capsule floating above the home indicator (`--tab-bar-h`, glass tokens in css/tokens.css); one spring lens
 (`.tab-pill`, `paintTabPill` in `js/board.js`) sits behind the selected tab's icon and label, the selected glyph fills
 or gets heavier, and the selected button carries `aria-current="page"`. `js/page-header.js`, besides the shared logo
-and Settings button, builds the title bar: an IntersectionObserver on each tab view's large title shows a glass bar
-with the title small and centered (plus the gear) once the title passes under the status bar, sets
+and Settings button, builds the title bar: a scroll check (one rect read per frame; `window.updateTitleBar` on view switches) shows a glass bar
+with the title small and centered (plus the gear) once the tab view's large title has passed under the status bar, sets
 `html.title-bar-on` (which hides `.safe-area-top`), and sticky rows sit under it via `--title-bar-h`. Chat and the
 draft room keep their own fixed headers. Type follows the iPhone's Text Size: every `--fs-*` token is in rem on
 `font: -apple-system-body` (coarse pointers; 17/16 of the browser default elsewhere), with 11px as the floor and
