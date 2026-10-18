@@ -38,8 +38,10 @@ Activity, History), team pages, a live snake draft room, push alerts, a commissi
   draft), `node tools/outlooks.mjs facts --league nfl` / `apply <file.json>`, `node tools/golfer-pool.mjs`,
   `node tools/vapid-keys.mjs`, `node tools/espn-teams.mjs` (saves ESPN's team lists to `js/seasons/espn-teams.js`;
   run before each season's drafts), `node tools/robot-visit.mjs --group <id>` (the daily scoring visit by hand; needs
-  Playwright, which only the `daily-scoring.yml` GitHub Actions job installs).
-- **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check.
+  Playwright, which only the `daily-scoring.yml` GitHub Actions job installs), `node tools/launch-graph.mjs` (what a
+  launch loads: modules, KB, round trips).
+- **Build / lint:** none. `tests/design-tokens.test.mjs` is the only style check; `tests/launch-graph.test.mjs` holds the
+  launch to a budget and checks `SHELL_FILES` against the imports.
 - **Deploy:** site = push to `main` (Pages project `boxscorethedraft`, no build command; every branch/PR gets a
   preview at `<branch>.boxscorethedraft.pages.dev`). Worker = `cd worker && npx wrangler deploy`.
   **Deploy the worker before the site** whenever both change.
@@ -84,7 +86,8 @@ Bindings: KV `LEAGUE_FACTS`, DOs `CHAT_ROOM`, `DRAFT_ROOM`. Client config: `DASH
 ## Gotchas
 
 - **Worker before site**, every time a feature spans both (new routes, fields, DO migrations).
-- Bump `APP_VERSION` for visible changes; bump `CACHE_NAME` in `sw.js` and add new shell files to `SHELL_FILES`.
+- Bump `APP_VERSION` for visible changes; bump `CACHE_NAME` in `sw.js` and add new shell files to `SHELL_FILES`
+  (`tests/launch-graph.test.mjs` fails on a missing one).
 - The preview launch config serves a stale mirror unless you rsync it.
 - `?group=<id>` works only on localhost / Pages previews; The Draft sends no group param and uses legacy keys.
 - `localStorage` is not namespaced by group (each subdomain is its own origin).
