@@ -701,6 +701,8 @@ function keyboardUp(vv){
 }
 
 let kbWasOpen = false;
+// The Home Screen app, as opposed to a Safari tab (see syncViewport).
+const INSTALLED = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 function syncViewport(){
   const el = screenEl();
   const vv = window.visualViewport;
@@ -708,21 +710,19 @@ function syncViewport(){
   const kbOpen = keyboardUp(vv);
   document.documentElement.classList.toggle('chat-kb', kbOpen);
   el.classList.toggle('kb-open', kbOpen);
-  if(kbOpen && window.innerHeight - vv.height < 40){
-    // The installed PWA: the layout viewport shrinks with the keyboard, so
-    // the fixed screen already ends at the keys and only needs the tab
-    // bar's room back (html.chat-kb .chat-screen in css/style.css). Pinning
-    // it to vv.offsetTop here dropped the whole screen while the keyboard
-    // rose, because iOS reports a large offset mid-animation and scrolls it
-    // back over the next frames.
-    el.style.top = el.style.bottom = el.style.height = '';
-    if(window.scrollY) window.scrollTo(0, 0);
-  } else if(kbOpen){
-    // Safari with its toolbars: only the visual viewport shrinks, so the
-    // screen follows it.
-    el.style.top = `${vv.offsetTop}px`;
+  if(kbOpen){
+    // Sized to the visual viewport, which is what's left above the keys.
+    // Where it starts differs: in a Safari tab the page can be panned, so
+    // the screen follows vv.offsetTop. In the installed app it stays at the
+    // top of the screen: iOS reports a large offsetTop partway through the
+    // keyboard's animation and scrolls it back to 0, and following it
+    // dropped the whole screen ~180px and slid it back up. (Leaving the
+    // height to CSS instead doesn't work there either: fixed elements still
+    // measure from the full screen, so bottom: 0 sits behind the keyboard.)
+    el.style.top = `${INSTALLED ? 0 : vv.offsetTop}px`;
     el.style.bottom = 'auto';
     el.style.height = `${vv.height}px`;
+    if(INSTALLED && window.scrollY) window.scrollTo(0, 0);
   } else {
     el.style.top = el.style.bottom = el.style.height = '';
     // iOS scrolls the window to reveal a focused input and can leave it
