@@ -28,8 +28,11 @@ function ensure(year){
   state.loading = true;
   loadDays({ store: 'bxBowlDay', key: 'cfb', sportPath: 'football/college-football', extra: '&groups=80', parse: parseBowlEvent }, bowlDates(year)).then(({ games, failed }) => {
     const seen = new Set();
-    state.reach = bowlReach(games.filter(g => !seen.has(g.id) && seen.add(g.id)));
-    state.done = !failed && new Date() > new Date(Date.UTC(year + 1, 0, 4));
+    // A day that didn't answer leaves the last full answer standing.
+    if(!(failed && state.reach)){
+      state.reach = bowlReach(games.filter(g => !seen.has(g.id) && seen.add(g.id)));
+      state.done = !failed && new Date() > new Date(Date.UTC(year + 1, 0, 4));
+    }
     state.loading = false; state.at = Date.now();
     if(failed) state.failedAt = Date.now();
     standingsDataChanged();

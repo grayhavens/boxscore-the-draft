@@ -41,9 +41,12 @@ async function refresh(key, year, s){
   const follow = await loadPlayoffDays(key, finalFollowUps(key, first.games));
   const seen = new Set();
   const games = [...first.games, ...follow.games].filter(g => !seen.has(g.id) && seen.add(g.id));
+  s.failed = first.failed || follow.failed;
+  // A day that didn't answer isn't a day nothing happened: with a gap, the
+  // last full answer stands (a team's run would otherwise vanish offline).
+  if(s.failed && s.reach) return;
   s.reach = playoffReach(key, games);
   s.done = Object.values(s.reach).some(t => t.champion);
-  s.failed = first.failed || follow.failed;
 }
 
 function ensure(key, year){

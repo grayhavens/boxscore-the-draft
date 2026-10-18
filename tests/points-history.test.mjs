@@ -1,7 +1,7 @@
 // Run with: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { historyDay, parseSample, mergeSample, recordSample, handlePointsHistory, HISTORY_MAX_DAYS } from '../worker/points-history.js';
+import { historyDay, parseSample, mergeSample, sampleUnchanged, recordSample, handlePointsHistory, HISTORY_MAX_DAYS } from '../worker/points-history.js';
 
 function fakeEnv(){
   const store = new Map();
@@ -52,4 +52,27 @@ test('recorded samples are served per group prefix and season', async () => {
   assert.deepEqual(await get('history@seasonticket', ''), { days: [{ d: '2026-09-29', p: { a: 7, b: 3 }, l: { a: 2, b: 3 } }] });
   assert.deepEqual(await get('history@seasonticket', '?season=2027'), { days: [] });
   assert.deepEqual(await get('history', ''), { days: [] });
+});
+
+test('an unchanged day is not rewritten; a change the same day or a new day is', async () => {
+  const env = fakeEnv();
+  let puts = 0;
+  const put = env.LEAGUE_FACTS.put;
+  env.LEAGUE_FACTS.put = async (k, v) => { puts++; return put(k, v); };
+  const s = (a, b) => parseSample({ season: '2026', p: { a, b }, l: { a: 1, b: 1 } }, ids);
+  const noon = Date.UTC(2026, 9, 18, 17), later = Date.UTC(2026, 9, 18, 20), nextDay = Date.UTC(2026, 9, 19, 17);
+  assert.equal(await recordSample(env, 'history', s(5, 3), noon), true);
+  assert.equal(await recordSample(env, 'history', s(5, 3), later), false);
+  assert.equal(puts, 1);
+  assert.equal(await recordSample(env, 'history', s(6, 3), later), true);
+  assert.equal(await recordSample(env, 'history', s(6, 3), nextDay), true);
+  assert.equal(puts, 3);
+});
+
+test('sampleUnchanged compares both projected and locked totals', () => {
+  const h = { days: [{ d: '2026-10-18', p: { a: 5, b: 3 }, l: { a: 1, b: 1 } }] };
+  assert.equal(sampleUnchanged(h, '2026-10-18', { p: { a: 5, b: 3 }, l: { a: 1, b: 1 } }), true);
+  assert.equal(sampleUnchanged(h, '2026-10-18', { p: { a: 5, b: 3 }, l: { a: 2, b: 1 } }), false);
+  assert.equal(sampleUnchanged(h, '2026-10-19', { p: { a: 5, b: 3 }, l: { a: 1, b: 1 } }), false);
+  assert.equal(sampleUnchanged(null, '2026-10-18', { p: {}, l: {} }), false);
 });
