@@ -36,6 +36,9 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   Commissioner console (`admin.js`, `draft-prep.js`), other groups' draft classes (`seasons/index.js` loads only the
   active group's registry, with a top-level `await`; The Draft's stays static as every group's team catalog), the
   guide's stills (`landing-explainer.js`), ESPN's team lists. Never import `admin.js` statically.
+  `tests/launch-graph.test.mjs` (walking imports with `tools/launch-graph.mjs`) keeps these off the launch, holds the
+  launch to a budget (115 modules, 1,700 KB, 5 round trips; 108 / 1,620 KB / 5 on 2026-10-18), and fails when a
+  launch or first-use module is missing from `SHELL_FILES` (`js/seasons/espn-teams.js` is left out on purpose).
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
   `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
@@ -49,7 +52,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
-  `standings-cols.js`, `activity-snapshot.js`.
+  `standings-cols.js`, `team-schedule.js` (a failed schedule fetch is null, never "no games"), `activity-snapshot.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
