@@ -11,6 +11,10 @@
    the Europa League's field grows as Champions League clubs and playoff
    winners drop in. Each answer is dropped unless it is the class's own season
    (the calendar's final ends in the class's second year).
+   Every answer is kept on the device (a cup's for good once its final is
+   over, a table's until the next good read), so a launch with no
+   connection still credits the clubs last seen, and a failed read never
+   replaces one (foldCupRead).
    getLeagueRuleTeams (js/league-facts.js) unions the answer with the
    commissioner's marks (a cup winner replaces them: it is exclusive); null
    here means "marks only".
@@ -19,7 +23,7 @@ import { PRE_DRAFT, leagueOf } from './data.js';
 import { fetchEspnSoccerCalendar, fetchEspnUefaStandings, fetchEspnScoreboardDay } from './espn.js';
 import { findEplTeamKeyByEspnName } from './standings-epl.js';
 import { standingsDataChanged } from './board.js';
-import { eplCupRule, finalDays, cupWinner, leaguePhaseClubs } from './epl-cups-math.js';
+import { eplCupRule, finalDays, cupWinner, leaguePhaseClubs, foldCupRead } from './epl-cups-math.js';
 
 const state = {}; // slug -> { names: [ESPN names], at, loading, failedAt, done }
 const HOUR = 60 * 60 * 1000;
@@ -31,6 +35,9 @@ function classYear(){
 }
 
 const savedKey = (slug, year) => `bxEplCup:${slug}:${year}`;
+// A table's latest good read, { names, at }: it can still change, so it
+// isn't `done`, but it's what to show until the next one lands.
+const tableKey = (slug, year) => `bxEplTable:${slug}:${year}`;
 
 async function loadCup(slug, year){
   const cal = await fetchEspnSoccerCalendar(slug);
@@ -53,16 +60,26 @@ async function loadTable(slug, year){
 }
 
 function ensure(rule, year){
-  const s = state[rule.slug] || (state[rule.slug] = { names: [], at: 0, loading: false, failedAt: 0, done: false });
-  if(s.done === false && s.at === 0){
-    try { const saved = JSON.parse(localStorage.getItem(savedKey(rule.slug, year))); if(saved){ s.names = saved; s.done = true; s.at = Date.now(); } } catch (e){}
+  const s = state[rule.slug] || (state[rule.slug] = { names: [], at: 0, loading: false, failedAt: 0, done: false, restored: false });
+  if(!s.restored){
+    s.restored = true;
+    try {
+      const saved = JSON.parse(localStorage.getItem(savedKey(rule.slug, year)));
+      if(saved){ s.names = saved; s.done = true; s.at = Date.now(); }
+      else {
+        const table = JSON.parse(localStorage.getItem(tableKey(rule.slug, year)));
+        if(table && Array.isArray(table.names)){ s.names = table.names; s.at = table.at || 0; }
+      }
+    } catch (e){}
   }
   if(s.loading || s.done || Date.now() - s.failedAt < 5 * 60 * 1000 || Date.now() - s.at < HOUR) return s;
   s.loading = true;
   (rule.kind === 'cup' ? loadCup(rule.slug, year) : loadTable(rule.slug, year)).then(r => {
-    s.loading = false; s.at = Date.now(); s.names = r.names;
-    if(r.failed) s.failedAt = Date.now();
-    if(r.done){ s.done = true; try { localStorage.setItem(savedKey(rule.slug, year), JSON.stringify(r.names)); } catch (e){} }
+    Object.assign(s, foldCupRead(s, r, Date.now()), { loading: false });
+    try {
+      if(r.done) localStorage.setItem(savedKey(rule.slug, year), JSON.stringify(r.names));
+      else if(!r.failed && rule.kind === 'table') localStorage.setItem(tableKey(rule.slug, year), JSON.stringify({ names: s.names, at: s.at }));
+    } catch (e){}
     standingsDataChanged();
   }, () => { s.loading = false; s.failedAt = Date.now(); });
   return s;
