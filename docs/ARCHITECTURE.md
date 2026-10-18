@@ -52,7 +52,7 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
 - **Scoring:** `league-facts.js`, `season-lock.js`, `season-phase.js`, `lines.js`, `scoring-sheet.js`, `rank.js`.
 - **Pure (tested):** `draft-rules.js`, `draft-engine.js`, `draft-poll.js`, `draft-sheets.js`, `xlsx.js`,
   `chat-mentions.js`, `lines-math.js`, `race-math.js`, `since-math.js`, `gestures.js`, `team-wide-math.js`,
-  `standings-cols.js`, `team-schedule.js` (a failed schedule fetch is null, never "no games"), `activity-snapshot.js`.
+  `standings-cols.js`, `team-schedule.js` (a failed schedule fetch is null, never "no games"), `activity-snapshot.js`, `scores-status.js`.
 - **UI kit:** `ui.js` (leaf), `icons.js`, `escape.js`, `sheet.js`, `motion-fx.js`, `utils.js`.
 - **Other pages:** `landing.js` + `landing-explainer.js` (`landing.html`), `system-admin.js` (`admin.html`).
 
@@ -274,6 +274,12 @@ strip and next match (Home's rows, the team page's stat strip, next game and Rec
 plus a staggered background refresh loop (`backgroundRefreshTick`: only the teams on Home and an open team page, each once per 5 minutes) so open tabs stay current without hammering any API. Results
 are cached in memory and mirrored to `localStorage` so a previously-viewed team opens instantly,
 including across sessions.
+
+**When a scoreboard fetch fails** (`fetchEspnScoreboardCached`, Scores' `fetchDayScoreboard`): the last good copy for
+that day stays (its `fetchedAt` unchanged) and the next try waits a minute, or none with pull to refresh. Scores
+(`js/scores-status.js`) never calls a day empty when a league failed with nothing kept ("Can't reach scores right
+now"), and its count line adds "Updated 9:14 AM" when it shows a copy older than two minutes, or "Some leagues
+didn't load".
 
 **Data sources** (see `docs/espn-migration-plan.md` for the full history/rationale):
 - **ESPN's hidden site API** (`js/espn.js`, `ESPN_SITE_BASE`) is now the primary source for
