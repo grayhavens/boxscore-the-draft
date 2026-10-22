@@ -102,6 +102,7 @@ import { stagger } from './motion-fx.js';
 import { initPullToRefresh, tipPullToRefresh } from './pull-refresh.js';
 import { initBackButton } from './back-button.js';
 import { expireCaches } from './cache-fresh.js';
+import { initAppUpdates, lazyLoadFailed } from './app-update.js';
 // The scoring sheet shows this group's rules. Set before anything can open
 // it: the Points button, the guide, the draft room, ?view=scoring below.
 setScoringRules(LEAGUES, LEAGUE_SCORING);
@@ -1062,7 +1063,7 @@ function setDraftActive(on){
   if(!on && !draftModule) return;
   if(!draftModule) draftModule = import('./draft.js');
   // Both directions chain on the one import, so they land in order.
-  draftModule.then(m => m.setDraftActive(on), e => { console.error('[Draft] failed to load', e); draftModule = null; });
+  draftModule.then(m => m.setDraftActive(on), e => { console.error('[Draft] failed to load', e); draftModule = null; lazyLoadFailed(); });
 }
 function preloadModule(file){
   const link = document.createElement('link');
@@ -1085,7 +1086,7 @@ function openAdminPage(){
     if(content && !content.childElementCount) content.innerHTML = skeletonRowsHtml(4);
     adminModule = import('./admin.js');
   }
-  adminModule.then(m => { if(isViewActive('admin')) m.showAdminPage(); }, e => { console.error('[Commissioner] failed to load', e); adminModule = null; });
+  adminModule.then(m => { if(isViewActive('admin')) m.showAdminPage(); }, e => { console.error('[Commissioner] failed to load', e); adminModule = null; lazyLoadFailed(); });
 }
 function preloadAdmin(){
   if(!adminModule && loadAdminPassword()) preloadModule('./admin.js');
@@ -1453,6 +1454,8 @@ if('serviceWorker' in navigator && !IS_SEASON_BACKGROUND){
     navigator.serviceWorker.register('sw.js').catch(() => {});
     syncPushDevice(currentProfileId);
   });
+  // A new version while the app stays open (js/app-update.js).
+  initAppUpdates();
   // Tapping an alert while the app is already open (sw.js): go straight
   // to the view it's about instead of reloading the page.
   navigator.serviceWorker.addEventListener('message', event => {
