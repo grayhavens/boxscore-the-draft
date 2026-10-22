@@ -124,3 +124,57 @@ test('the delight pass tokens are defined (docs/delight-plan.md)', () => {
     assert.match(tokens, new RegExp(`${name}:\\s*[^;]+;`), `${name} missing from css/tokens.css`);
   }
 });
+
+// Light-theme contrast (docs/optimization-report.md, Phase 2 #5): the
+// meaning colors are small text (the "LIVE" label, "W 2-1", live points),
+// so each needs 4.5:1 on every light surface, and on its own soft tint
+// over the page and a card (a live banner, a result chip). Dark-theme
+// values aren't checked here.
+const TEXT_MIN = 4.5;
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbaParts = v => { const m = v.match(/rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)/); return m && { rgb: m.slice(1, 4).map(Number), a: Number(m[4]) }; };
+const channel = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+const luminance = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+const over = ({ rgb, a }, bg) => rgb.map((c, i) => c * a + bg[i] * (1 - a));
+
+// :root (dark, the base), then the forced-light block on top of it.
+function lightTokens(){
+  const css = stripComments(read('css/tokens.css'), true);
+  const vals = {};
+  const take = block => { for(const m of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) vals[m[1]] = m[2].trim(); };
+  for(const m of css.matchAll(/:root\s*\{([^}]*)\}/g)) take(m[1]);
+  for(const m of css.matchAll(/:root\[data-theme="light"\]\s*\{([^}]*)\}/g)) take(m[1]);
+  return vals;
+}
+
+test('light-theme meaning colors are readable as small text (4.5:1)', () => {
+  const t = lightTokens();
+  const surfaces = ['--bg', '--surface', '--surface-2', '--sheet'];
+  const tintedOn = ['--bg', '--surface'];
+  const pairs = { '--live': '--live-soft', '--win': '--win-soft', '--loss': '--loss-soft', '--provisional': '--provisional-soft', '--accent': '--accent-soft' };
+  const low = [];
+  for(const [fg, soft] of Object.entries(pairs)){
+    assert.match(t[fg] || '', /^#[0-9A-Fa-f]{6}$/, `${fg} isn't a 6-digit hex in light theme`);
+    const color = hexRgb(t[fg]);
+    for(const s of surfaces){
+      const r = contrast(color, hexRgb(t[s]));
+      if(r < TEXT_MIN) low.push(`${fg} on ${s}: ${r.toFixed(2)}`);
+    }
+    const tint = rgbaParts(t[soft] || '');
+    assert.ok(tint, `${soft} isn't an rgba() in light theme`);
+    for(const s of tintedOn){
+      const r = contrast(color, over(tint, hexRgb(t[s])));
+      if(r < TEXT_MIN) low.push(`${fg} on ${soft} over ${s}: ${r.toFixed(2)}`);
+    }
+  }
+  assert.deepEqual(low, [], 'Darken these light-theme values in css/tokens.css (keep the hue)');
+});
+
+test('the forced-light and auto-light token blocks agree on the meaning colors', () => {
+  const css = stripComments(read('css/tokens.css'), true);
+  const pick = re => Object.fromEntries([...css.matchAll(re)].flatMap(m => [...m[1].matchAll(/(--(?:live|win|loss|provisional|accent)):\s*([^;]+);/g)].map(x => [x[1], x[2].trim()])));
+  const forced = pick(/:root\[data-theme="light"\]\s*\{([^}]*)\}/g);
+  const auto = pick(/:root\[data-theme="auto"\]\s*\{([^}]*)\}/g);
+  assert.deepEqual(auto, forced);
+});

@@ -21,13 +21,13 @@ Rules: tokens only in `css/tokens.css`; `tests/design-tokens.test.mjs` fails on 
 | `--sheet` | `#18191D` | `#FFFFFF` | sheets/modals |
 | `--text` / `--text-sub` / `--text-mute` | `#F3F4F6` / `#A3A5AD` / `#8A8C94` | `#16171B` / `#4E5059` / `#6B6D76` | ink tiers; mute is the floor for text (4.5:1 or better on cards) |
 | `--hairline` / `--hairline-strong` | ink 7% / 14% | same formula | borders |
-| `--accent` | `#D9B45B` | `#85660C` | **you, locked points**, selection |
+| `--accent` | `#D9B45B` | `#80620C` | **you, locked points**, selection |
 | `--accent-fill` | `#D9B45B` | `#E2B84A` | CTA fill |
 | `--accent-soft` / `--accent-border` / `--tab-pill` | gold 14% / 35% / 16% | fill gold 20% / 55% / 26% (warm, like Send) | tints |
 | `--ps-hero-bg` / `--ps-hero-flare` | gold glow from the top of the playoffs reveal strip / the brighter light it opens with | same, in fill gold | reveal strip, Home's postseason card |
-| `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4A6FB8` | **live points that can change** |
-| `--live` (+`-soft`, `-border`) | `#E5484D` | same | **game in progress** |
-| `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#2E8A5C` / `#C2453B` / `#8A7430` | results |
+| `--provisional` (+`-soft`, `-border`) | `#7C9CD9` | `#4163A5` | **live points that can change** |
+| `--live` (+`-soft`, `-border`) | `#E5484D` | `#C91D22` (tints stay `#E5484D`) | **game in progress** |
+| `--win` / `--loss` / `--draw` (+`-soft`) | `#5FB88A` / `#D97066` / `#B8A369` | `#26714B` / `#AC3D34` / `#8A7430` | results |
 | `--record` (+`-soft`) | `#9AA5B5` | `#56617A` | records |
 | `--lb-*` | leaderboard ink/rank tiers | — | `js/overall.js` only |
 | `--league-<lg>` | muted set per league | — | charts only, never meaning |
@@ -41,7 +41,9 @@ clipped card), `--live-stripe` / `--risk-stripe` (diagonal hatches), `--race-*` 
 `--console-rail` (desktop console sidebar). Semantic aliases: `--surface-page|card|raised|sheet`,
 `--text-body|secondary|tertiary`, `--border-card|control`, `--status-positive|negative|live|provisional|locked`.
 
-**Meaning rule:** gold = you/locked, blue = live points, red = live game. Team colors are identity only (crests, badges,
+**Meaning rule:** gold = you/locked, blue = live points, red = live game. In light theme `--accent`, `--provisional`,
+`--live`, `--win` and `--loss` are small text at 4.5:1 or better on every surface and on their own tint over the page and
+a card; `tests/design-tokens.test.mjs` checks it. Team colors are identity only (crests, badges,
 `teamOrbHtml`), never text, borders or state.
 
 ## Typography
