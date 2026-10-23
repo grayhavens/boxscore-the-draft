@@ -278,6 +278,24 @@ html.title-bar-on .safe-area-top{ visibility: hidden; }
 
 .peek-banner.peek{ display: none; }
 .peek-banner.peek.show{ display: flex; }
+
+/* Update banner (js/app-update.js): a new version shipped and the app
+   couldn't reload on its own. Floats at the top, over the tab bar and
+   under sheets; the gold banner sits on an opaque surface so the page
+   doesn't show through its soft fill. */
+.update-banner-wrap{
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 16px;
+  right: 16px;
+  z-index: var(--z-tip);
+  max-width: 520px;
+  margin: 0 auto;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-pop);
+}
+.update-banner-wrap .peek-banner{ margin-bottom: 0; }
 /* Where a screen injects the peek banner (js/identity.js): no box of its
    own, so the banner stays sticky against the view, not this slot. */
 .peek-slot{ display: contents; }
