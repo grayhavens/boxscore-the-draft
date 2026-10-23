@@ -113,7 +113,7 @@
   --text: #16171B;
   --text-sub: #4E5059;
   --text-mute: #6B6D76;
-  --accent: #85660C;
+  --accent: #80620C;
   --accent-fill: #E2B84A;
   /* Gold tints and glows are the fill gold (--accent-fill), so they read
      warm yellow like Send; only --accent (text) is the darker gold. */
@@ -122,13 +122,17 @@
   --accent-border: rgba(205,160,45,0.55);
   --ps-hero-bg: radial-gradient(120% 90% at 50% 0%, rgba(226,184,74,0.36), rgba(226,184,74,0.2) 65%, rgba(226,184,74,0.16));
   --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(240,200,95,0.45), rgba(226,184,74,0.15) 70%, rgba(226,184,74,0));
-  --win: #2E8A5C;
+  /* Light-theme meaning colors are darker, for 4.5:1 small text on every
+     light surface (tests/design-tokens.test.mjs checks it). The tints keep
+     the brighter hue. */
+  --live: #C91D22;
+  --win: #26714B;
   --win-soft: rgba(46,138,92,0.12);
-  --loss: #C2453B;
+  --loss: #AC3D34;
   --loss-soft: rgba(194,69,59,0.12);
   --draw: #8A7430;
   --draw-soft: rgba(138,116,48,0.14);
-  --provisional: #4A6FB8;
+  --provisional: #4163A5;
   --provisional-soft: rgba(74,111,184,0.12);
   --provisional-border: rgba(74,111,184,0.38);
   --lb-ink-strong: #0B0C0F;
@@ -168,20 +172,21 @@
   --text: #16171B;
   --text-sub: #4E5059;
   --text-mute: #6B6D76;
-  --accent: #85660C;
+  --accent: #80620C;
   --accent-fill: #E2B84A;
   --accent-soft: rgba(226,184,74,0.2);
   --tab-pill: rgba(226,184,74,0.26);
   --accent-border: rgba(205,160,45,0.55);
   --ps-hero-bg: radial-gradient(120% 90% at 50% 0%, rgba(226,184,74,0.36), rgba(226,184,74,0.2) 65%, rgba(226,184,74,0.16));
   --ps-hero-flare: radial-gradient(120% 90% at 50% 0%, rgba(240,200,95,0.45), rgba(226,184,74,0.15) 70%, rgba(226,184,74,0));
-  --win: #2E8A5C;
+  --live: #C91D22;
+  --win: #26714B;
   --win-soft: rgba(46,138,92,0.12);
-  --loss: #C2453B;
+  --loss: #AC3D34;
   --loss-soft: rgba(194,69,59,0.12);
   --draw: #8A7430;
   --draw-soft: rgba(138,116,48,0.14);
-  --provisional: #4A6FB8;
+  --provisional: #4163A5;
   --provisional-soft: rgba(74,111,184,0.12);
   --provisional-border: rgba(74,111,184,0.38);
   --lb-ink-strong: #0B0C0F;
