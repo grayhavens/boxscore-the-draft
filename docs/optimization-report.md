@@ -57,9 +57,10 @@ went away when the two versions ran back to back.
   pieces with spaces (or give the sheet a plain title).
 - **Close to budget:** the launch is 112 of 115 modules. The next new launch module should come with a reason, or
   with something moved to first use.
-- **Pages builds:** Cloudflare Pages made 25 deployments in three hours today (every PR push and merge). The 500-a-month
-  cap is a real risk on a heavy PR day; see "Next".
-- **GitHub Pages** is still publishing the repo (125 builds since 2026-10-01).
+- **Pages builds:** Cloudflare Pages made 25 deployments in three hours today (every PR push and merge). A month this
+  busy (208 PRs merged in 30 days, so 400+ builds) comes close to the 500-a-month cap, but PR volume is expected to drop
+  well below that, and hitting the cap only pauses deploys, not the live site. Watch paths are optional; see "Next".
+- **GitHub Pages:** turned off 2026-10-22.
 
 ### Still unmeasured (needs the iPhone)
 
@@ -76,7 +77,7 @@ My order for the next round. Each is small unless marked, fits the free tiers, a
 | # | What | From | Why now |
 |---|------|------|---------|
 | 1 | **iPhone check** (no code): repeat-launch timing, VoiceOver, light-theme status bar | above | Decides the build step, confirms #307/#308 with real VoiceOver, settles P2-8. |
-| 2 | **Pages build controls** (settings, no code): build watch paths that skip `docs/**`, `tests/**`, `tools/**`, `.github/**`; turn off GitHub Pages | P1 noticed | 25 deployments in three hours today; past 500 a month, deploys stop until the month resets. |
+| 2 | **Optional, not planned: Pages build watch paths** (settings, no code) that skip `docs/**`, `tests/**`, `tools/**`, `.github/**`. GitHub Pages: turned off 2026-10-22. | P1 noticed | Only matters in a month as busy as this one (400+ builds); at a few PRs a week it's ~50. Cheap insurance before a heavy stretch, such as pre-draft work. |
 | 3 | **Updates while open**: `registration.update()` on return after 30+ min, reload at a safe moment; on a failed lazy import, offer a reload | P4-2, P4-3 | Ten deploys landed today. An app left open runs old code for hours, and a lazy load across a deploy can fail for good. |
 | 4 | **Light-theme contrast**: darken `--live`, `--win`, `--loss`, `--provisional` (light values only) to 4.5:1, with a contrast check in the token test | P2-5 | The "LIVE" label and results are 3.3–4.3:1 in light theme. |
 | 5 | **Small polish**: the dialog label fix above; move tips off the back link | review, P2-7 | Both are one-liners on screens people use daily. |
@@ -403,7 +404,7 @@ Revisit only if #1 ships and the iPhone check still shows a slow warm launch.
   should pick it up; it may need the worker.
 - **GitHub Pages is also publishing the repo** (`grayhavens.github.io/boxscore-the-draft/`, legacy build from `main`,
   228 builds in 30 days). It's a second public copy of the app whose worker calls fail CORS. It probably isn't
-  wanted. Turn it off in the repo's Pages settings.
+  wanted. Turn it off in the repo's Pages settings. **Done 2026-10-22.**
 
 ### Already good, leave alone
 
