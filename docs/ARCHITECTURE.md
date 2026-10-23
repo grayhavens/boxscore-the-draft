@@ -45,7 +45,8 @@ Pure logic in `js/` is shared by the browser, the worker (wrangler bundles it) a
   first visit, where they'd crowd out the CSS. The list is generated (`node tools/launch-graph.mjs --write-hints`)
   and the launch-graph test fails when it drifts.
 - **Boot / shell:** `board.js` (entry, `switchView`, Home), `group.js`, `access.js`, `roster.js`, `group-sports.js`,
-  `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `sw.js` (root).
+  `motion.js`, `launch-splash.js`, `page-header.js`, `wide.js` + `wide-query.js` (wide layout), `app-update.js`
+  (updates while open), `sw.js` (root).
 - **Content:** `data.js` (resolves the active season class), `seasons/*.js` (`the-draft.js`, `2026.js`, `pre-draft.js`,
   `pga.js`, `index.js`), `groups.js` (group registry, shared with worker), `sports.js`.
 - **Data fetch:** `espn.js` (ESPN), `api.js` (worker calls, TTL caches), `live-data.js` (team strips, Game Details,
@@ -961,6 +962,12 @@ still opens offline; a launch whose page takes over 3s runs wholly from the cach
 div exists because the installed PWA's translucent status bar shows real page content through it —
 a `position: fixed` cover is required there because sticky-positioned content (the Standings filter
 row) can flash through a plain top-padding approach during iOS's scroll repaint.
+
+**Updates while open** (`js/app-update.js`): iOS keeps the app alive for hours, so on a return to the foreground after
+30+ minutes away it asks for a new `sw.js`. A new version (`controllerchange`) reloads the page at the next safe moment:
+Home, Scores, Standings or Points showing, no sheet open, nothing being typed; never the draft room, chat or a team page.
+A lazy `import()` that fails (the draft room, the console, the guide's stills) reloads the same way, or shows a "Boxscore
+has an update" banner with Reload. At most one automatic reload a minute.
 
 **Android touches:** the manifest has `any` and `maskable` icons plus app `shortcuts` (Scores, Chat, Standings,
 Points); push notifications carry a monochrome `badge-96.png` and a double buzz for draft turns. `js/back-button.js`

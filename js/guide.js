@@ -30,6 +30,7 @@ import { ACTIVE_SEASON } from './season.js';
 import { PUSH_KINDS, loadPushConfig, pushAvailability, pushPrefs, setPushPref } from './push.js';
 
 import { buttonHtml, backLinkHtml, settingsRowHtml } from './ui.js';
+import { lazyLoadFailed } from './app-update.js';
 const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 // The first five match the tab bar's icons (index.html).
@@ -359,7 +360,7 @@ function paintShots(el){
   if(!explainer) explainer = import('./landing-explainer.js');
   explainer.then(m => shots.forEach(node => {
     if(node.isConnected) m.paintSceneStill(node, node.dataset.scene, setupForShots(), Number(node.dataset.at));
-  }), e => { console.error('[Guide] stills failed to load', e); explainer = null; });
+  }), e => { console.error('[Guide] stills failed to load', e); explainer = null; lazyLoadFailed(); });
 }
 
 // The Alerts entry's button: back to Settings, scrolled to its Alerts

@@ -23,6 +23,7 @@ const SHELL_FILES = [
   './js/home-stack-math.js',
   './js/back-button.js',
   './js/cache-fresh.js',
+  './js/app-update.js',
   './js/news-more.js',
   './js/ui.js',
   './js/icons.js',
